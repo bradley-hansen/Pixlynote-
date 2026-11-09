@@ -20,14 +20,12 @@
   
   
   <style>
-
-    /* --- Critical Layering & Visibility Rules --- */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
+/* --- Critical Layering & Visibility Rules --- */
     .hidden { display: none !important; }
     .opacity-0 { opacity: 0 !important; }
     .pointer-events-none { pointer-events: none !important; }
-    
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
-    .brand-font {
+.brand-font {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif !important;
       font-weight: 800 !important;
       letter-spacing: -0.04em !important;
@@ -73,9 +71,7 @@
     
     .-translate-x-1\/2 { transform: translateX(-50%) !important; }
     .-translate-y-1\/2 { transform: translateY(-50%) !important; }
-    
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
-    .brand-font {
+.brand-font {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif !important;
       font-weight: 800 !important;
       letter-spacing: -0.04em !important;
@@ -804,7 +800,6 @@
             </div>
 
           </div>
-        </div>
 
       </section>
 
@@ -2796,10 +2791,10 @@
       const tabExplore = document.getElementById('tab-explore');
       const tabUserProfile = document.getElementById('tab-user-profile');
 
-      if (tabFeed) tabFeed.classList.add('hidden');
-      if (tabProfile) tabProfile.classList.add('hidden');
-      if (tabExplore) tabExplore.classList.add('hidden');
-      if (tabUserProfile) tabUserProfile.classList.add('hidden');
+      if (tabFeed) { tabFeed.classList.add('hidden'); tabFeed.style.display = 'none'; }
+      if (tabProfile) { tabProfile.classList.add('hidden'); tabProfile.style.display = 'none'; }
+      if (tabExplore) { tabExplore.classList.add('hidden'); tabExplore.style.display = 'none'; }
+      if (tabUserProfile) { tabUserProfile.classList.add('hidden'); tabUserProfile.style.display = 'none'; }
 
       // Pixlynote Floating Dock Navigation state update
       const btnFeed = document.getElementById('nav-btn-feed');
@@ -2816,16 +2811,16 @@
       if (navProfileRing) navProfileRing.className = "w-6 h-6 rounded-full overflow-hidden p-0.5 border border-transparent transition";
 
       if (tabName === 'feed') {
-        if (tabFeed) tabFeed.classList.remove('hidden');
+        if (tabFeed) { tabFeed.classList.remove('hidden'); tabFeed.style.display = 'block'; }
         if (btnFeed) btnFeed.className = activeBtnCls;
         renderFeed();
       } else if (tabName === 'profile') {
-        if (tabProfile) tabProfile.classList.remove('hidden');
+        if (tabProfile) { tabProfile.classList.remove('hidden'); tabProfile.style.display = 'block'; }
         if (btnProfile) btnProfile.className = activeBtnCls;
         if (navProfileRing) navProfileRing.className = "w-6 h-6 rounded-full overflow-hidden p-0.5 border-2 border-violet-600 transition";
         renderProfile();
       } else if (tabName === 'explore') {
-        if (tabExplore) tabExplore.classList.remove('hidden');
+        if (tabExplore) { tabExplore.classList.remove('hidden'); tabExplore.style.display = 'block'; }
         if (btnExplore) btnExplore.className = activeBtnCls;
         
         const expGrid = document.getElementById('explore-grid');
@@ -2846,7 +2841,7 @@
         }
         renderExplore();
       } else if (tabName === 'user-profile') {
-        if (tabUserProfile) tabUserProfile.classList.remove('hidden');
+        if (tabUserProfile) { tabUserProfile.classList.remove('hidden'); tabUserProfile.style.display = 'block'; }
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
