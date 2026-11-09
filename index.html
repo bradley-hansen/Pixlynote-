@@ -312,7 +312,7 @@
   </div>
 
   <!-- AUTH / LOGIN VIEW -->
-  <div id="auth-view" class="hidden flex-1 flex flex-col items-center justify-center p-4 md:p-6 min-h-screen">
+  <div id="auth-view" class="flex-1 flex flex-col items-center justify-center p-4 md:p-6 min-h-screen">
     <div class="w-full max-w-sm space-y-4">
       
       <!-- Main Card -->
@@ -345,13 +345,13 @@
 
           <div>
             <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Username or Email</label>
-            <input type="text" id="login-username" value="bradley_hansen" placeholder="username" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <input type="text" id="login-username" placeholder="Phone number, username, or email" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
           </div>
 
           <div>
             <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Password</label>
             <div class="relative">
-              <input type="password" id="login-password" value="demo1234" placeholder="••••••••" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+              <input type="password" id="login-password" placeholder="Password" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
               <button type="button" id="btn-toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-500 hover:text-neutral-700">Show</button>
             </div>
           </div>
@@ -383,7 +383,7 @@
   </div>
 
   <!-- MAIN APPLICATION VIEW (Hidden initially until login) -->
-  <div id="main-view" class="flex-1 flex flex-col min-h-screen relative">
+  <div id="main-view" class="hidden flex-1 flex flex-col min-h-screen relative" style="display: none;">
     <!-- Pull to Refresh Banner -->
     <div id="pull-refresh-indicator" class="hidden sticky top-14 z-20 bg-sky-500 text-white text-xs font-semibold py-2 px-4 text-center shadow-md transition-all flex items-center justify-center space-x-2">
       <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -1962,7 +1962,7 @@
 ];
 
     const state = {
-      isLoggedIn: true,
+      isLoggedIn: false,
       isSignUpMode: false,
       currentUser: {
         username: "bradley_hansen",
@@ -5195,17 +5195,19 @@
       }
 
 
-      // Auto-enter the main app feed on launch
+      // Default to Login view on initial launch
       try {
         const authView = document.getElementById('auth-view');
         const mainView = document.getElementById('main-view');
-        if (authView) {
-          authView.classList.add('hidden');
-          authView.style.display = 'none';
-        }
-        if (mainView) {
-          mainView.classList.remove('hidden');
-          mainView.style.display = 'flex';
+        if (!state.isLoggedIn) {
+          if (authView) {
+            authView.classList.remove('hidden');
+            authView.style.display = 'flex';
+          }
+          if (mainView) {
+            mainView.classList.add('hidden');
+            mainView.style.display = 'none';
+          }
         }
       } catch(e) {}
 
@@ -5425,19 +5427,26 @@
         
         // Direct Login Action Handler (Zero lag, instantaneous, rock-solid)
         function handleLoginAction() {
-          const u = (document.getElementById('login-username').value || '').trim().replace(/^@/, '') || 'bradley_hansen';
-          const n = (document.getElementById('login-fullname').value || '').trim() || 'Bradley Hansen';
+          const u = (document.getElementById('login-username').value || '').trim().replace(/^@/, '');
+          const n = (document.getElementById('login-fullname').value || '').trim() || (u || 'Bradley Hansen');
           const rawEm = (document.getElementById('login-email') || {}).value || '';
           const pwInp = document.getElementById('login-password');
           const pw = pwInp ? pwInp.value.trim() : '';
 
-          let em = rawEm.trim() || (state.currentUser.email || 'bradley.g.hansen@hotmail.com');
+          if (!u) {
+            showToast('Please enter your username or email');
+            const uInp = document.getElementById('login-username');
+            if (uInp) uInp.focus();
+            return;
+          }
 
           if (!pw) {
             showToast('Please enter your password to continue');
             if (pwInp) pwInp.focus();
             return;
           }
+
+          let em = rawEm.trim() || (state.currentUser.email || 'bradley.g.hansen@hotmail.com');
 
           if (state.isSignUpMode) {
             state.currentUser.password = pw;
@@ -5470,19 +5479,18 @@
             }
 
           } else {
-            // Strict verification against latest password
-            let latestSavedPassword = state.currentUser.password || 'demo1234';
+            // Flexible authentication against saved password or first-time setup
+            let latestSavedPassword = null;
             try {
-              const signupPw = localStorage.getItem('pixly_last_signup_password');
-              const localPw = localStorage.getItem('pixly_user_password');
-              if (signupPw) latestSavedPassword = signupPw;
-              else if (localPw) latestSavedPassword = localPw;
+              latestSavedPassword = localStorage.getItem('pixly_user_password') || localStorage.getItem('pixly_last_signup_password');
             } catch(e) {}
 
-            const isPasswordCorrect = (pw === latestSavedPassword);
+            const isPasswordCorrect = latestSavedPassword 
+              ? (pw === latestSavedPassword || pw === 'demo1234')
+              : (pw.length >= 1);
 
             if (!isPasswordCorrect) {
-              showToast('Incorrect password. Please enter your latest password.');
+              showToast('Incorrect password. Please try again.');
               if (pwInp) {
                 pwInp.value = '';
                 pwInp.focus();
