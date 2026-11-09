@@ -602,44 +602,9 @@
 
           </div>
 
-          <!-- Story Highlights Row -->
-          <div class="mt-6 pt-5 border-t border-neutral-100 flex items-center space-x-4 overflow-x-auto hide-scrollbar">
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-title="Alpine">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">🏔️</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Alpine</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-title="Cafes">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">☕</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Cafes</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-title="City">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">🏙️</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">City</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-title="Pups">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">🐾</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Leo</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-title="Coasts">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">🌊</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Coasts</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer" id="btn-add-highlight">
-              <div class="w-14 h-14 rounded-full border border-dashed border-neutral-300 hover:border-neutral-500 bg-neutral-50 flex items-center justify-center text-neutral-400 hover:text-neutral-600 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-500">New</span>
-            </div>
+          <!-- Story Highlights Row: Dynamic & Interactive -->
+          <div id="profile-highlights-container" class="mt-6 pt-5 border-t border-neutral-100 flex items-center space-x-4 overflow-x-auto hide-scrollbar">
+            <!-- Populated dynamically by renderHighlights() -->
           </div>
         </div>
 
@@ -1164,18 +1129,63 @@
   <div id="modal-create-post" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-4" style="display: none;">
     <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-neutral-200" style="max-height: 85vh !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important;">
       
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between">
-        <h3 class="text-sm font-bold text-neutral-900">Create new post</h3>
-        <button type="button" id="btn-close-create-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full">
+      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <h3 class="text-sm font-bold text-neutral-900" id="create-modal-title">Create new post</h3>
+        <button type="button" id="btn-close-create-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full cursor-pointer transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
+      <!-- Creation Mode Selector: Grid Post | Story | Highlight -->
+      <div class="px-4 pt-3.5 pb-0">
+        <div class="flex bg-neutral-100 p-1 rounded-xl">
+          <button type="button" id="create-mode-tab-post" onclick="setCreateWizardMode('post')" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-neutral-900 shadow-xs transition cursor-pointer">
+            📷 Grid Post
+          </button>
+          <button type="button" id="create-mode-tab-story" onclick="setCreateWizardMode('story')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            ⚡ Story
+          </button>
+          <button type="button" id="create-mode-tab-highlight" onclick="setCreateWizardMode('highlight')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center space-x-1">
+            <span>✨ Highlight</span>
+          </button>
+        </div>
+      </div>
+
       <form id="create-post-form" class="p-4 space-y-4">
         
+        <!-- Highlight Target Dropdown & Circle Setup (Above image chooser, shown in Highlight mode) -->
+        <div id="highlight-target-section" class="hidden space-y-3 bg-violet-50/70 p-3.5 rounded-2xl border border-violet-100/90 transition-all">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold text-violet-950">Select Highlight Destination</label>
+              <span class="text-[10px] text-violet-600 font-medium">Profile Highlights</span>
+            </div>
+            <select id="highlight-target-select" onchange="updateHighlightNewFieldsVisibility()" class="w-full px-3 py-2 text-xs bg-white border border-neutral-200 rounded-xl font-semibold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer shadow-xs">
+              <option value="__new__">✨ + Create a new circle highlight</option>
+              <!-- Existing highlights dynamically populated -->
+            </select>
+          </div>
+
+          <!-- Fields when creating a brand new circle highlight -->
+          <div id="highlight-new-circle-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div class="sm:col-span-2 space-y-1">
+              <label class="block text-[11px] font-semibold text-neutral-700">Highlight Name / Title</label>
+              <input type="text" id="highlight-title-input" placeholder="e.g. Travel, Gym, Flights..." class="w-full px-3 py-2 text-xs bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-400">
+            </div>
+            <div class="space-y-1">
+              <label class="block text-[11px] font-semibold text-neutral-700">Cover Emoji / Icon</label>
+              <input type="text" id="highlight-icon-input" placeholder="e.g. ✈️ or 🏋️" class="w-full px-3 py-2 text-xs bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-400">
+            </div>
+          </div>
+
+          <p class="text-[11px] text-violet-700/80 leading-relaxed">
+            📷 The 1 photo you select below will be your highlight slide and also used as its circle cover photo on your profile.
+          </p>
+        </div>
+
         <!-- Image Preview & Selection -->
         <div class="space-y-2">
-          <label class="block text-xs font-semibold text-neutral-700">Choose photo</label>
+          <label class="block text-xs font-semibold text-neutral-700" id="choose-photo-label">Choose photo</label>
           
           <!-- Image preview container -->
           <div id="create-preview-box" class="w-full h-52 rounded-xl bg-neutral-100 border-2 border-dashed border-neutral-300 flex flex-col items-center justify-center overflow-hidden relative cursor-pointer group">
@@ -1207,19 +1217,19 @@
         </div>
 
         <!-- Caption -->
-        <div>
+        <div id="create-caption-group">
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Caption</label>
           <textarea id="create-caption-input" rows="3" placeholder="Write a caption... add hashtags #photography #sunset" class="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400"></textarea>
         </div>
 
         <!-- Location -->
-        <div>
+        <div id="create-location-group">
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Location (optional)</label>
           <input type="text" id="create-location-input" placeholder="e.g. Venice, Italy" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
         </div>
 
-        <!-- Share Action Buttons: Post to Profile Grid vs Share as Story -->
-        <div class="pt-2 space-y-2.5 border-t border-neutral-100">
+        <!-- Post & Story Destination Buttons (Shown in Post & Story mode) -->
+        <div id="post-story-submit-group" class="pt-2 space-y-2.5 border-t border-neutral-100">
           <div class="flex items-center justify-between text-xs font-semibold text-neutral-700">
             <span>Select publish destination:</span>
             <span class="text-[11px] text-neutral-400 font-normal">Grid Post or Story</span>
@@ -1227,7 +1237,7 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <!-- Option 1: Standard Post to Feed & Profile Grid -->
-            <button type="button" id="btn-submit-post" class="w-full py-2.5 px-3 bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-semibold text-xs rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50">
+            <button type="button" id="btn-submit-post" class="w-full py-2.5 px-3 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-semibold text-xs rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
               <span>Post to Profile Grid</span>
             </button>
@@ -1241,6 +1251,17 @@
 
           <p class="text-[11px] text-neutral-400 text-center leading-normal">
             <strong>Share as Story:</strong> Displays when tapping your profile picture with the colorful ring (not on your profile grid).
+          </p>
+        </div>
+
+        <!-- Dedicated Highlight Submit Button (Shown in Highlight mode) -->
+        <div id="highlight-submit-group" class="hidden pt-2 border-t border-neutral-100">
+          <button type="button" id="btn-submit-highlight" onclick="handleCreateHighlightAction()" class="w-full py-3 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/25 flex items-center justify-center space-x-2 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span id="btn-highlight-text">Add to Profile Highlights ✨</span>
+          </button>
+          <p class="text-[11px] text-neutral-400 text-center mt-2">
+            Inserts this photo into your chosen circle highlight on your profile.
           </p>
         </div>
 
@@ -2463,6 +2484,14 @@
           ]
         }
       ],
+      highlights: [
+        { id: 1, title: "Cafes", icon: "☕", cover: null, image: COMMUNITY_IMAGES[0] },
+        { id: 2, title: "City", icon: "🏙️", cover: null, image: COMMUNITY_IMAGES[3] },
+        { id: 3, title: "Leo", icon: "🐾", cover: null, image: COMMUNITY_IMAGES[1] },
+        { id: 4, title: "Coasts", icon: "🌊", cover: null, image: COMMUNITY_IMAGES[9] },
+        { id: 5, title: "Alpine", icon: "🏔️", cover: null, image: COMMUNITY_IMAGES[5] }
+      ],
+      createWizardMode: 'post',
       exploreNotes: [
         {
           id: 101,
@@ -3145,6 +3174,7 @@
       renderNotes();
       renderReplies();
       renderLikes();
+      renderHighlights();
       document.getElementById('profile-link-text').textContent = state.currentUser.link;
       const linkEl = document.getElementById('profile-link');
       if (linkEl) {
@@ -5380,12 +5410,268 @@
     }
     window.handleCreatePostAction = handleCreatePostAction;
 
-    function openCreatePostModal() {
+
+    // --- Profile Highlights Controller & Story Launches ---
+    function renderHighlights() {
+      const container = document.getElementById('profile-highlights-container');
+      if (!container) return;
+
+      if (!state.highlights || !Array.isArray(state.highlights) || state.highlights.length === 0) {
+        state.highlights = [
+          { id: 1, title: "Cafes", icon: "☕", cover: null, image: COMMUNITY_IMAGES[0] },
+          { id: 2, title: "City", icon: "🏙️", cover: null, image: COMMUNITY_IMAGES[3] },
+          { id: 3, title: "Leo", icon: "🐾", cover: null, image: COMMUNITY_IMAGES[1] },
+          { id: 4, title: "Coasts", icon: "🌊", cover: null, image: COMMUNITY_IMAGES[9] },
+          { id: 5, title: "Alpine", icon: "🏔️", cover: null, image: COMMUNITY_IMAGES[5] }
+        ];
+      }
+
+      const itemsHtml = state.highlights.map(h => {
+        const coverContent = h.cover
+          ? `<div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white"><img src="${h.cover}" alt="${h.title}" class="w-full h-full object-cover"></div>`
+          : `<span class="text-lg">${h.icon || '✨'}</span>`;
+        const ringClass = h.cover
+          ? "w-14 h-14 rounded-full p-0.5 story-gradient flex items-center justify-center overflow-hidden hover:scale-105 transition shadow-xs"
+          : "w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition";
+
+        return `
+          <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer highlight-item" data-id="${h.id}" data-title="${h.title}" title="View ${h.title} highlight">
+            <div class="${ringClass}">
+              ${coverContent}
+            </div>
+            <span class="text-[11px] font-medium text-neutral-700 max-w-[64px] truncate text-center">${h.title}</span>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = itemsHtml + `
+        <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer" id="btn-add-highlight" title="Create new highlight">
+          <div class="w-14 h-14 rounded-full border border-dashed border-neutral-300 hover:border-violet-500 bg-neutral-50 hover:bg-violet-50/50 flex items-center justify-center text-neutral-400 hover:text-violet-600 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <span class="text-[11px] font-medium text-neutral-500">New</span>
+        </div>
+      `;
+
+      // Wire click on each highlight circle to launch story viewer
+      container.querySelectorAll('.highlight-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const hId = parseInt(item.dataset.id, 10);
+          openHighlightViewer(hId);
+        });
+      });
+
+      // Wire + New highlight circle to open wizard directly in Highlight mode
+      const addBtn = document.getElementById('btn-add-highlight');
+      if (addBtn) {
+        addBtn.addEventListener('click', () => {
+          openCreatePostModal('highlight');
+        });
+      }
+    }
+    window.renderHighlights = renderHighlights;
+
+    function openHighlightViewer(highlightId) {
+      const h = (state.highlights || []).find(item => item.id === highlightId || String(item.id) === String(highlightId));
+      if (!h) return;
+
+      const modal = document.getElementById('modal-story-viewer');
+      if (!modal) return;
+
+      const avatarEl = document.getElementById('story-viewer-avatar');
+      if (avatarEl) avatarEl.src = state.currentUser.avatar;
+      
+      const userEl = document.getElementById('story-viewer-username');
+      if (userEl) userEl.textContent = `${state.currentUser.username} • ${h.title}`;
+      
+      const timeEl = document.getElementById('story-viewer-time');
+      if (timeEl) timeEl.textContent = 'Highlight';
+      
+      const imgEl = document.getElementById('story-viewer-image');
+      if (imgEl) imgEl.src = h.cover || h.image || PRESET_IMAGES[0].path;
+
+      const captionEl = document.getElementById('story-viewer-caption');
+      if (captionEl) {
+        captionEl.textContent = `${h.icon ? h.icon + ' ' : ''}${h.title}`;
+        captionEl.classList.remove('hidden');
+      }
+
+      const bar = document.getElementById('story-progress-bar');
+      if (bar) bar.style.width = '0%';
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+
+      let progress = 0;
+      clearInterval(state.activeStoryTimer);
+      state.activeStoryTimer = setInterval(() => {
+        progress += 2;
+        if (bar) bar.style.width = `${progress}%`;
+        if (progress >= 100) {
+          clearInterval(state.activeStoryTimer);
+          closeStoryViewer();
+        }
+      }, 70);
+    }
+    window.openHighlightViewer = openHighlightViewer;
+
+    // --- Creation Wizard Mode Switcher (Grid Post | Story | Highlight) ---
+    function setCreateWizardMode(mode) {
+      state.createWizardMode = mode;
+
+      const tabPost = document.getElementById('create-mode-tab-post');
+      const tabStory = document.getElementById('create-mode-tab-story');
+      const tabHighlight = document.getElementById('create-mode-tab-highlight');
+      const modalTitle = document.getElementById('create-modal-title');
+      const choosePhotoLabel = document.getElementById('choose-photo-label');
+
+      const highlightSection = document.getElementById('highlight-target-section');
+      const captionGroup = document.getElementById('create-caption-group');
+      const locationGroup = document.getElementById('create-location-group');
+      const postStoryButtons = document.getElementById('post-story-submit-group');
+      const highlightButton = document.getElementById('highlight-submit-group');
+
+      const activeTabClass = "flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-neutral-900 shadow-xs transition cursor-pointer";
+      const inactiveTabClass = "flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
+
+      if (tabPost) tabPost.className = (mode === 'post') ? activeTabClass : inactiveTabClass;
+      if (tabStory) tabStory.className = (mode === 'story') ? activeTabClass : inactiveTabClass;
+      if (tabHighlight) tabHighlight.className = (mode === 'highlight') ? activeTabClass : inactiveTabClass;
+
+      if (mode === 'highlight') {
+        if (modalTitle) modalTitle.textContent = "Create new highlight";
+        if (choosePhotoLabel) choosePhotoLabel.textContent = "Insert highlight photo (also used as cover photo)";
+        if (highlightSection) highlightSection.classList.remove('hidden');
+        if (captionGroup) captionGroup.classList.add('hidden');
+        if (locationGroup) locationGroup.classList.add('hidden');
+        if (postStoryButtons) postStoryButtons.classList.add('hidden');
+        if (highlightButton) highlightButton.classList.remove('hidden');
+        populateHighlightDropdown();
+      } else {
+        if (modalTitle) modalTitle.textContent = (mode === 'story') ? "Share as Story" : "Create new post";
+        if (choosePhotoLabel) choosePhotoLabel.textContent = "Choose photo";
+        if (highlightSection) highlightSection.classList.add('hidden');
+        if (captionGroup) captionGroup.classList.remove('hidden');
+        if (locationGroup) locationGroup.classList.remove('hidden');
+        if (postStoryButtons) postStoryButtons.classList.remove('hidden');
+        if (highlightButton) highlightButton.classList.add('hidden');
+      }
+    }
+    window.setCreateWizardMode = setCreateWizardMode;
+
+    function populateHighlightDropdown() {
+      const select = document.getElementById('highlight-target-select');
+      if (!select) return;
+
+      const currentVal = select.value || '__new__';
+      let options = `<option value="__new__">✨ + Create a new circle highlight</option>`;
+      (state.highlights || []).forEach(h => {
+        options += `<option value="${h.id}">${h.icon ? h.icon + ' ' : ''}${h.title}</option>`;
+      });
+      select.innerHTML = options;
+      select.value = currentVal;
+
+      updateHighlightNewFieldsVisibility();
+    }
+    window.populateHighlightDropdown = populateHighlightDropdown;
+
+    function updateHighlightNewFieldsVisibility() {
+      const select = document.getElementById('highlight-target-select');
+      const fields = document.getElementById('highlight-new-circle-fields');
+      const btnText = document.getElementById('btn-highlight-text');
+      if (!select || !fields) return;
+
+      if (select.value === '__new__') {
+        fields.classList.remove('hidden');
+        if (btnText) btnText.textContent = "Publish New Highlight ✨";
+      } else {
+        fields.classList.add('hidden');
+        const h = (state.highlights || []).find(item => String(item.id) === String(select.value));
+        if (btnText) btnText.textContent = h ? `Update "${h.title}" Cover & Photo 🌟` : "Add to Highlight 🌟";
+      }
+    }
+    window.updateHighlightNewFieldsVisibility = updateHighlightNewFieldsVisibility;
+
+    function handleCreateHighlightAction() {
+      let imgPath = state.selectedCreateImage;
+      if (!imgPath) {
+        const prevImg = document.getElementById('create-preview-img');
+        if (prevImg && prevImg.src && !prevImg.src.startsWith('data:image/svg+xml;base64,PHN2Zy')) {
+          imgPath = prevImg.src;
+        }
+      }
+      if (!imgPath) {
+        imgPath = (PRESET_IMAGES && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : state.currentUser.avatar;
+      }
+
+      const select = document.getElementById('highlight-target-select');
+      const targetVal = select ? select.value : '__new__';
+
+      if (!state.highlights) state.highlights = [];
+
+      if (targetVal === '__new__') {
+        const titleInput = document.getElementById('highlight-title-input');
+        const iconInput = document.getElementById('highlight-icon-input');
+        const title = (titleInput && titleInput.value.trim()) ? titleInput.value.trim() : 'Highlight';
+        const icon = (iconInput && iconInput.value.trim()) ? iconInput.value.trim() : '✨';
+
+        const newHighlight = {
+          id: Date.now(),
+          title: title,
+          icon: icon,
+          cover: imgPath,
+          image: imgPath
+        };
+        state.highlights.push(newHighlight);
+        showToast(`Created new circle highlight "${title}"! ✨`);
+        if (titleInput) titleInput.value = '';
+        if (iconInput) iconInput.value = '';
+      } else {
+        const h = state.highlights.find(item => String(item.id) === String(targetVal));
+        if (h) {
+          h.cover = imgPath;
+          h.image = imgPath;
+          showToast(`Updated "${h.title}" highlight cover & photo! 🌟`);
+        }
+      }
+
+      // Persist highlights locally
+      try {
+        localStorage.setItem('pixly_highlights', JSON.stringify(state.highlights));
+      } catch(e) {}
+      if (window.idbStorage) {
+        idbStorage.set('pixly_highlights', JSON.stringify(state.highlights));
+      }
+
+      // Sync to Cloud Firestore if available
+      if (window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', 'bradley_hansen'), {
+            highlights: state.highlights,
+            lastUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+
+      // Re-render highlights
+      renderHighlights();
+
+      // Close modal
+      closeCreatePostModal();
+
+      // Switch to profile tab
+      switchMainTab('profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.handleCreateHighlightAction = handleCreateHighlightAction;
+
+    function openCreatePostModal(mode = "post") {
       const modal = document.getElementById('modal-create-post');
       if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
       }
+      setCreateWizardMode(mode);
     }
 
     function closeCreatePostModal() {
@@ -6291,6 +6577,14 @@
         const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = state.currentUser.avatar;
       } catch(e) {}
       try { renderStories(); } catch(e) {}
+      try {
+        const savedH = localStorage.getItem('pixly_highlights');
+        if (savedH) {
+          const parsed = JSON.parse(savedH);
+          if (Array.isArray(parsed) && parsed.length > 0) state.highlights = parsed;
+        }
+      } catch(e) {}
+      try { renderHighlights(); } catch(e) {}
       try { renderFeed(); } catch(e) {}
       try { renderProfile(); } catch(e) {}
       try { renderExplore(); } catch(e) {}
