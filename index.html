@@ -42,6 +42,7 @@
     #modal-edit-profile.hidden,
     #modal-story-viewer.hidden,
     #modal-messages.hidden,
+    #modal-following.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden {
       display: none !important;
@@ -75,6 +76,7 @@
     #modal-edit-profile.hidden,
     #modal-story-viewer.hidden,
     #modal-messages.hidden,
+    #modal-following.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden,
     #main-view.hidden {
@@ -549,7 +551,7 @@
               <div class="flex justify-center sm:justify-start space-x-6 text-sm">
                 <div><span class="font-bold text-neutral-900" id="profile-post-count">6</span> <span class="text-neutral-500">posts</span></div>
                 <div><span class="font-bold text-neutral-900" id="profile-followers-count">4,820</span> <span class="text-neutral-500">followers</span></div>
-                <div><span class="font-bold text-neutral-900" id="profile-following-count">342</span> <span class="text-neutral-500">following</span></div>
+                <div id="stat-following-btn" class="cursor-pointer hover:opacity-75 transition select-none flex items-center space-x-1" title="Click to view all following accounts"><span class="font-bold text-neutral-900" id="profile-following-count">342</span> <span class="text-neutral-500 hover:text-neutral-900">following</span></div>
               </div>
 
               <!-- Bio -->
@@ -766,6 +768,174 @@
         </div>
 
       </section>
+
+      <!-- 4. VIEW OTHER CREATOR / USER PROFILE -->
+      <section id="tab-user-profile" class="hidden space-y-6">
+        
+        <!-- Top Back Bar -->
+        <div class="flex items-center justify-between bg-white border border-neutral-200 rounded-xl px-4 py-3 shadow-xs">
+          <button type="button" id="btn-back-from-user-profile" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <span>Back to Profile</span>
+          </button>
+          <div class="flex items-center space-x-1">
+            <span class="font-bold text-xs text-neutral-900" id="user-profile-header-username">username</span>
+            <svg class="w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </div>
+          <button type="button" id="btn-share-user-profile" class="p-1 text-neutral-500 hover:text-neutral-900 transition cursor-pointer" title="Share Profile">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+          </button>
+        </div>
+
+        <!-- Profile Header Container -->
+        <div class="bg-white border border-neutral-200 rounded-xl p-5 md:p-8 shadow-xs">
+          <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-8">
+            
+            <!-- Avatar with Story Gradient -->
+            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-1 story-gradient shadow-sm flex-shrink-0">
+              <div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white">
+                <img id="user-profile-avatar" src="" alt="Creator" class="w-full h-full object-cover">
+              </div>
+            </div>
+
+            <!-- Profile Info & Meta -->
+            <div class="flex-1 text-center sm:text-left space-y-3 w-full">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 justify-between">
+                <div>
+                  <div class="flex items-center justify-center sm:justify-start space-x-1.5">
+                    <h2 class="text-xl font-bold text-neutral-900" id="user-profile-username">username</h2>
+                    <svg class="w-4 h-4 text-sky-500 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                  </div>
+                  <div class="text-[11px] text-neutral-500 font-medium" id="user-profile-category">Creator & Storyteller</div>
+                </div>
+
+                <!-- Action Buttons: Follow/Following Toggle & Message -->
+                <div class="flex items-center justify-center space-x-2">
+                  <button type="button" id="btn-user-profile-follow" class="px-4 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1">
+                    <span id="user-profile-follow-text">Following</span>
+                  </button>
+                  <button type="button" id="btn-user-profile-message" class="px-3.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    <span>Message</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Stats Numbers -->
+              <div class="flex justify-center sm:justify-start space-x-6 text-sm">
+                <div><span class="font-bold text-neutral-900" id="user-profile-post-count">0</span> <span class="text-neutral-500">posts</span></div>
+                <div><span class="font-bold text-neutral-900" id="user-profile-followers-count">0</span> <span class="text-neutral-500">followers</span></div>
+                <div><span class="font-bold text-neutral-900" id="user-profile-following-count">0</span> <span class="text-neutral-500">following</span></div>
+              </div>
+
+              <!-- Bio & Links -->
+              <div class="text-xs sm:text-sm space-y-1">
+                <div class="font-semibold text-neutral-900" id="user-profile-fullname">Full Name</div>
+                <div class="text-neutral-600 whitespace-pre-line" id="user-profile-bio">Bio description</div>
+                <div class="flex items-center justify-center sm:justify-start space-x-3 pt-1 text-xs text-neutral-500">
+                  <span id="user-profile-location" class="flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span id="user-profile-location-text">Global</span>
+                  </span>
+                  <a id="user-profile-link" href="#" target="_blank" rel="noopener noreferrer" class="text-sky-700 hover:underline font-medium flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    <span id="user-profile-link-text">link</span>
+                  </a>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Story Highlights Row -->
+          <div class="mt-6 pt-5 border-t border-neutral-100 flex items-center space-x-4 overflow-x-auto hide-scrollbar">
+            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
+              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
+                <span class="text-lg">✨</span>
+              </div>
+              <span class="text-[11px] font-medium text-neutral-700">Highlights</span>
+            </div>
+            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
+              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
+                <span class="text-lg">📷</span>
+              </div>
+              <span class="text-[11px] font-medium text-neutral-700">Shots</span>
+            </div>
+            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
+              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
+                <span class="text-lg">🌿</span>
+              </div>
+              <span class="text-[11px] font-medium text-neutral-700">Studio</span>
+            </div>
+            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
+              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
+                <span class="text-lg">💬</span>
+              </div>
+              <span class="text-[11px] font-medium text-neutral-700">Q&A</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Creator Tabs: Photos vs About/Info -->
+        <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs">
+          <div class="flex border-b border-neutral-200">
+            <button type="button" id="user-tab-btn-posts" class="flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+              <span>POSTS</span>
+            </button>
+            <button type="button" id="user-tab-btn-info" class="flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>INFO & ABOUT</span>
+            </button>
+          </div>
+
+          <!-- Creator Photo Grid -->
+          <div id="user-profile-posts-view" class="p-3">
+            <div id="user-profile-grid" class="grid grid-cols-3 gap-1 sm:gap-2">
+              <!-- Dynamically populated -->
+            </div>
+            <div id="user-profile-empty-posts" class="hidden py-12 text-center text-xs text-neutral-400">
+              No photos posted yet by this creator.
+            </div>
+          </div>
+
+          <!-- Creator Info / About Tab -->
+          <div id="user-profile-info-view" class="hidden p-4 sm:p-6 space-y-4">
+            <div class="bg-neutral-50 rounded-xl p-4 border border-neutral-100 space-y-3">
+              <h4 class="text-xs font-bold text-neutral-900 uppercase tracking-wider">About This Creator</h4>
+              <div class="space-y-2 text-xs text-neutral-700">
+                <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                  <span class="text-neutral-400">Username</span>
+                  <span class="font-semibold text-neutral-900" id="info-username">@username</span>
+                </div>
+                <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                  <span class="text-neutral-400">Account Status</span>
+                  <span class="font-semibold text-sky-600 flex items-center space-x-1">
+                    <span>Verified Creator</span>
+                    <svg class="w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                  </span>
+                </div>
+                <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                  <span class="text-neutral-400">Member Since</span>
+                  <span class="font-medium text-neutral-800" id="info-joined">Joined May 2023</span>
+                </div>
+                <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                  <span class="text-neutral-400">Category</span>
+                  <span class="font-medium text-neutral-800" id="info-category">Creator</span>
+                </div>
+                <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                  <span class="text-neutral-400">Mutual Connections</span>
+                  <span class="font-medium text-neutral-800" id="info-mutual">Followed by you and 48 others</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
 
       <!-- 3. EXPLORE TAB CONTENT -->
       <section id="tab-explore" class="hidden space-y-4">
@@ -1179,6 +1349,39 @@
     </div>
   </div>
 
+  <!-- MODAL 6: FOLLOWING LIST MODAL POPUP -->
+  <div id="modal-following" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;">
+    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <div class="w-7"></div>
+        <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
+          <span>Following</span>
+          <span id="following-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">342</span>
+        </h3>
+        <button type="button" id="btn-close-following-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Search Following Input -->
+      <div class="p-3 border-b border-neutral-100 bg-neutral-50/80">
+        <div class="relative">
+          <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input type="text" id="following-search-input" placeholder="Search people you follow..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+        </div>
+      </div>
+
+      <!-- Scrollable Following Accounts List -->
+      <div id="following-list-container" class="flex-1 overflow-y-auto p-2 sm:p-3 divide-y divide-neutral-100">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </div>
+  </div>
 
 
   <!-- 100% Free Spark Plan Firebase Cloud Integration (Auth + Cloud Firestore - No Billing Required) -->
@@ -1699,6 +1902,17 @@
           if (window.idbStorage) idbStorage.set('pixly_deleted_posts', deletedJson);
         }
 
+        // Save Replies & Deleted Replies
+        if (state.replies) {
+          try { localStorage.setItem('pixly_replies', JSON.stringify(state.replies)); } catch(e) {}
+          if (window.idbStorage) idbStorage.set('pixly_replies', JSON.stringify(state.replies));
+        }
+        if (state.deletedReplyIds) {
+          const delRepJson = JSON.stringify(Array.from(state.deletedReplyIds).map(String));
+          try { localStorage.setItem('pixly_deleted_replies', delRepJson); } catch(e) {}
+          if (window.idbStorage) idbStorage.set('pixly_deleted_replies', delRepJson);
+        }
+
         // Save Deleted Note IDs
         if (state.deletedNoteIds) {
           const delNoteJson = JSON.stringify(Array.from(state.deletedNoteIds).map(String));
@@ -1884,6 +2098,28 @@
               parsedDelN.forEach(id => state.deletedNoteIds.add(String(id)));
               if (state.notes) state.notes = state.notes.filter(n => !state.deletedNoteIds.has(String(n.id)));
               if (state.exploreNotes) state.exploreNotes = state.exploreNotes.filter(n => !state.deletedNoteIds.has(String(n.id)));
+            }
+          }
+        } catch(e) {}
+
+        // 4.55 Restore Replies & Deleted Reply IDs
+        try {
+          let savedReplies = null;
+          try { savedReplies = localStorage.getItem('pixly_replies'); } catch(e) {}
+          if (savedReplies) {
+            const parsedRep = JSON.parse(savedReplies);
+            if (Array.isArray(parsedRep)) {
+              state.replies = parsedRep;
+            }
+          }
+          let savedDelRep = null;
+          try { savedDelRep = localStorage.getItem('pixly_deleted_replies'); } catch(e) {}
+          if (savedDelRep) {
+            const parsedDelR = JSON.parse(savedDelRep);
+            if (Array.isArray(parsedDelR)) {
+              if (!state.deletedReplyIds) state.deletedReplyIds = new Set();
+              parsedDelR.forEach(id => state.deletedReplyIds.add(String(id)));
+              if (state.replies) state.replies = state.replies.filter(r => !state.deletedReplyIds.has(String(r.id)));
             }
           }
         } catch(e) {}
@@ -2223,6 +2459,28 @@
           replies: 34
         }
       ],
+      following: [
+        { id: 1, username: "elena_eats", fullName: "Elena Rostova", bio: "Paris foodie & specialty coffee lover 🥐☕", avatar: COMMUNITY_IMAGES[0], isFollowing: true },
+        { id: 2, username: "marcus_pups", fullName: "Marcus Vance", bio: "Backcountry mountain trails with Leo 🐾🌲", avatar: COMMUNITY_IMAGES[1], isFollowing: true },
+        { id: 3, username: "arch_digest", fullName: "Architecture Daily", bio: "Brutalist & minimalist geometry 🏛️📐", avatar: COMMUNITY_IMAGES[2], isFollowing: true },
+        { id: 4, username: "city_vibe", fullName: "Maya Lin", bio: "Tokyo neon & rainy alley reflections 🏮🌧️", avatar: COMMUNITY_IMAGES[3], isFollowing: true },
+        { id: 5, username: "nordic_trails", fullName: "Freja Hansen", bio: "Lofoten arctic adventures & fjords 🏔️🌅", avatar: COMMUNITY_IMAGES[5], isFollowing: true },
+        { id: 6, username: "coastal_nomad", fullName: "Julian Vance", bio: "Dawn patrol barrels in Byron Bay 🌊🏄‍♂️", avatar: COMMUNITY_IMAGES[9], isFollowing: true },
+        { id: 7, username: "tokyo_wanderer", fullName: "Ren Tanaka", bio: "35mm film street photography in Shinjuku 🎞️🎌", avatar: COMMUNITY_IMAGES[3], isFollowing: true },
+        { id: 8, username: "dolomites_hiker", fullName: "Matteo Bianchi", bio: "Seceda ridges & Italian alpine summits ⛰️☁️", avatar: COMMUNITY_IMAGES[10], isFollowing: true },
+        { id: 9, username: "patisserie_chef", fullName: "Camille Dupont", bio: "Artisan sourdough & layered escargot 🥖✨", avatar: COMMUNITY_IMAGES[0], isFollowing: true },
+        { id: 10, username: "desert_mirage", fullName: "Tariq Mansoor", bio: "Dark skies & star tracks in Wadi Rum 🌌🐪", avatar: COMMUNITY_IMAGES[6], isFollowing: true },
+        { id: 11, username: "kyoto_moments", fullName: "Hanae Mori", bio: "Bamboo forest serenity & zen tea 🎋🍃", avatar: COMMUNITY_IMAGES[2], isFollowing: true },
+        { id: 12, username: "golden_paws", fullName: "Samira Cole", bio: "Summit trails with rescue goldens 🐕🏕️", avatar: COMMUNITY_IMAGES[1], isFollowing: true },
+        { id: 13, username: "bali_sol", fullName: "Wayan Surya", bio: "Uluwatu reef breaks & golden sunsets 🌅🌴", avatar: COMMUNITY_IMAGES[4], isFollowing: true },
+        { id: 14, username: "scandi_living", fullName: "Lars Nilsson", bio: "Stockholm hygge & morning fika ☕🕯️", avatar: COMMUNITY_IMAGES[7], isFollowing: true },
+        { id: 15, username: "swiss_peaks", fullName: "Noah Keller", bio: "Matterhorn alpine mountaineering 🏔️🇨🇭", avatar: COMMUNITY_IMAGES[5], isFollowing: true },
+        { id: 16, username: "sushi_artisan", fullName: "Jiro Takahashi", bio: "Edomae bluefin nigiri craft, Ginza 🍣🥢", avatar: COMMUNITY_IMAGES[0], isFollowing: true },
+        { id: 17, username: "pacific_northwest", fullName: "Sierra Brooks", bio: "Coastal sea caves & temperate rainforests 🌲🌊", avatar: COMMUNITY_IMAGES[9], isFollowing: true },
+        { id: 18, username: "barcelona_light", fullName: "Mateo Gomez", bio: "Gothic Quarter sketchbooks & plazas 🇪🇸✨", avatar: COMMUNITY_IMAGES[2], isFollowing: true },
+        { id: 19, username: "wander_tropics", fullName: "Maya Patel", bio: "Coral reef conservation in Baa Atoll 🐠🤿", avatar: COMMUNITY_IMAGES[4], isFollowing: true },
+        { id: 20, username: "aurora_hunter", fullName: "Astrid Lindgren", bio: "Tromsø northern lights chaser 🌌❄️", avatar: COMMUNITY_IMAGES[6], isFollowing: true }
+      ],
       profileSubTab: "posts", // "posts", "saved"
       selectedCreateImage: PRESET_IMAGES[0].path,
       savedPostIds: new Set([1, 4]),
@@ -2481,10 +2739,12 @@
       const tabFeed = document.getElementById('tab-feed');
       const tabProfile = document.getElementById('tab-profile');
       const tabExplore = document.getElementById('tab-explore');
+      const tabUserProfile = document.getElementById('tab-user-profile');
 
-      tabFeed.classList.add('hidden');
-      tabProfile.classList.add('hidden');
-      tabExplore.classList.add('hidden');
+      if (tabFeed) tabFeed.classList.add('hidden');
+      if (tabProfile) tabProfile.classList.add('hidden');
+      if (tabExplore) tabExplore.classList.add('hidden');
+      if (tabUserProfile) tabUserProfile.classList.add('hidden');
 
       // Nav Icons update
       const navIconFeed = document.getElementById('nav-icon-feed');
@@ -2524,6 +2784,8 @@
           if (expBtnNotes) expBtnNotes.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition";
         }
         renderExplore();
+      } else if (tabName === 'user-profile') {
+        if (tabUserProfile) tabUserProfile.classList.remove('hidden');
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -2761,6 +3023,24 @@
               text: text
             });
             input.value = '';
+
+            // If commenting on someone else's post, add to state.replies!
+            if (post.author !== state.currentUser.username) {
+              if (!state.replies) state.replies = [];
+              state.replies.unshift({
+                id: Date.now(),
+                postId: post.id,
+                postTitle: post.caption ? (post.caption.slice(0, 45) + (post.caption.length > 45 ? '...' : '')) : 'Post',
+                postImg: post.image,
+                targetUser: post.author,
+                targetComment: post.caption ? post.caption.slice(0, 60) : '',
+                replyText: text,
+                time: 'Just now'
+              });
+              persistState();
+              renderReplies();
+            }
+
             renderFeed();
             showToast('Comment posted!');
           }
@@ -2777,8 +3057,14 @@
 
       // Open author profile
       document.querySelectorAll('.open-author-profile').forEach(el => {
-        el.addEventListener('click', () => {
-          switchMainTab('profile');
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const author = el.dataset.author;
+          if (author && author !== state.currentUser.username) {
+            viewUserProfile(author);
+          } else {
+            switchMainTab('profile');
+          }
         });
       });
 
@@ -3132,18 +3418,41 @@
     }
     window.renderSaved = renderSaved;
 
-    // --- Render Replies ---
+    // --- Render Replies with Universal Delete Action ---
     function renderReplies() {
       const list = document.getElementById('replies-list');
       if (!list) return;
 
+      if (!state.replies || state.replies.length === 0) {
+        list.innerHTML = `
+          <div class="py-12 text-center text-xs text-neutral-400 space-y-2">
+            <div class="w-12 h-12 mx-auto rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            </div>
+            <p class="font-medium text-neutral-700">No Replies Yet</p>
+            <p class="text-[11px] text-neutral-400 max-w-xs mx-auto">Comments and replies you share across community posts will appear here.</p>
+          </div>
+        `;
+        return;
+      }
+
       list.innerHTML = state.replies.map(r => `
-        <div class="bg-neutral-50 border border-neutral-200/80 rounded-xl p-3.5 space-y-3">
-          <!-- Reference Context -->
-          <div class="flex items-center space-x-2 text-[11px] text-neutral-400 pb-2 border-b border-neutral-200/60">
-            <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-            <span>Replied to <strong class="text-neutral-700">@${r.targetUser}</strong> on "${r.postTitle}"</span>
-            <span>• ${r.time}</span>
+        <div class="bg-neutral-50 hover:bg-neutral-100/60 border border-neutral-200/80 rounded-xl p-3.5 space-y-3 transition reply-card" data-reply-id="${r.id}">
+          <!-- Reference Context with Delete Action -->
+          <div class="flex items-center justify-between text-[11px] text-neutral-400 pb-2 border-b border-neutral-200/60">
+            <div class="flex items-center space-x-1.5 truncate max-w-[75%] sm:max-w-[82%]">
+              <svg class="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+              <span class="truncate">Replied to <strong class="text-neutral-700 font-semibold">@${r.targetUser}</strong> on "${r.postTitle}"</span>
+              <span class="flex-shrink-0">• ${r.time}</span>
+            </div>
+
+            <!-- Delete Reply Button -->
+            <button type="button" class="btn-delete-reply p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition flex items-center space-x-1 flex-shrink-0 cursor-pointer" data-reply-id="${r.id}" title="Delete reply everywhere">
+              <svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              <span class="text-[10px] font-semibold text-rose-500 hover:underline">Delete</span>
+            </button>
           </div>
 
           <!-- Original Comment Snippet -->
@@ -3162,11 +3471,19 @@
                 <span class="font-bold text-neutral-900">${state.currentUser.fullName}</span>
                 <span class="text-neutral-400">@${state.currentUser.username}</span>
               </div>
-              <p class="text-xs text-neutral-800">${r.replyText}</p>
+              <p class="text-xs text-neutral-800 leading-relaxed">${r.replyText}</p>
             </div>
           </div>
         </div>
       `).join('');
+
+      list.querySelectorAll('.btn-delete-reply').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const replyId = btn.dataset.replyId;
+          handleDeleteReplyAction(replyId);
+        });
+      });
     }
 
     // --- Render Likes (Posts & Notes) ---
@@ -4373,6 +4690,81 @@
 
 
     
+    // --- Universal Delete Reply Controller (Deletes from Profile & Target User's Post) ---
+    function handleDeleteReplyAction(replyId) {
+      if (replyId === undefined || replyId === null) return;
+      const numId = parseInt(replyId, 10);
+      const strId = String(replyId);
+
+      if (!state.replies) state.replies = [];
+      const replyIndex = state.replies.findIndex(r => r.id === numId || String(r.id) === strId);
+      if (replyIndex === -1) return;
+
+      const reply = state.replies[replyIndex];
+      const targetUser = reply.targetUser;
+      const replyText = reply.replyText;
+      const postId = reply.postId;
+
+      // 1. Remove from state.replies (Profile Replies tab)
+      state.replies.splice(replyIndex, 1);
+
+      // 2. Add to deletedReplyIds tracking
+      if (!state.deletedReplyIds) state.deletedReplyIds = new Set();
+      state.deletedReplyIds.add(strId);
+      if (!isNaN(numId)) state.deletedReplyIds.add(numId);
+
+      // 3. Remove comment from the target user's post across all loaded post sources
+      const archiveList = Array.from(state.explorePostsArchive ? state.explorePostsArchive.values() : []);
+      const allPosts = (state.posts || []).concat(state.explorePosts || []).concat(archiveList);
+      allPosts.forEach(p => {
+        const isTargetPost = (postId && (p.id === postId || String(p.id) === String(postId))) ||
+                             (p.author === targetUser) ||
+                             (p.caption && reply.postTitle && (p.caption.includes(reply.postTitle.slice(0, 15)) || reply.postTitle.includes(p.caption.slice(0, 15))));
+
+        if (isTargetPost && Array.isArray(p.comments)) {
+          p.comments = p.comments.filter(c => {
+            const matchesText = c.text && replyText && (c.text.trim() === replyText.trim() || c.text.includes(replyText) || replyText.includes(c.text));
+            const isFromUser = (c.user === state.currentUser.username || c.user === 'bradley_hansen');
+            return !(matchesText && isFromUser);
+          });
+        }
+      });
+
+      // 4. Also decrement replies count on target notes if applicable
+      const noteArchive = Array.from(state.exploreNotesArchive ? state.exploreNotesArchive.values() : []);
+      const allNotes = (state.notes || []).concat(state.exploreNotes || []).concat(noteArchive);
+      allNotes.forEach(n => {
+        if (n.author === targetUser || (reply.postTitle && n.text && n.text.includes(reply.postTitle.slice(0, 15)))) {
+          n.replies = Math.max(0, (n.replies || 1) - 1);
+        }
+      });
+
+      // 5. Persist state
+      persistState();
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', 'bradley_hansen'), { 
+            replies: state.replies, 
+            deletedReplyIds: Array.from(state.deletedReplyIds), 
+            lastUpdated: Date.now() 
+          }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+
+      // 6. Refresh views
+      renderReplies();
+      renderFeed();
+      renderProfile();
+      if (state.explorePosts) renderExplore();
+      if (state.currentModalPostId) {
+        openPostDetailModal(state.currentModalPostId);
+      }
+
+      showToast(`Reply deleted from your profile and @${targetUser || 'user'}'s post 🗑️`);
+    }
+    window.handleDeleteReplyAction = handleDeleteReplyAction;
+
     // --- Universal Delete Note Controller (Deleted Everywhere Across Views & Cloud) ---
     function handleDeleteNoteAction(noteId) {
       if (noteId === undefined || noteId === null) return;
@@ -4948,6 +5340,625 @@
       }
     }
 
+
+    // --- Creator & User Profile System ---
+    const CREATOR_DETAILS = {
+      elena_eats: {
+        username: "elena_eats",
+        fullName: "Elena Rostova",
+        bio: "Paris foodie & specialty coffee lover 🥐☕ | Plant-based recipes & cafe aesthetics | Cookbooks coming Fall 2026",
+        avatar: COMMUNITY_IMAGES[0],
+        category: "Culinary & Lifestyle",
+        location: "Paris, France 🇫🇷",
+        link: "culinaryparis.blog/recipes",
+        joined: "Joined March 2023",
+        followersCount: "24.6K",
+        followingCount: "385",
+        mutual: "Followed by bradley_hansen and 42 others"
+      },
+      marcus_pups: {
+        username: "marcus_pups",
+        fullName: "Marcus Vance",
+        bio: "Backcountry mountain trails with Leo 🐾🌲 | Wilderness hiking & canine adventure photography 🏔️",
+        avatar: COMMUNITY_IMAGES[1],
+        category: "Outdoor & Adventure",
+        location: "Boulder, Colorado 🇺🇸",
+        link: "leotrails.co/routes",
+        joined: "Joined January 2023",
+        followersCount: "38.2K",
+        followingCount: "294",
+        mutual: "Followed by bradley_hansen and 87 others"
+      },
+      arch_digest: {
+        username: "arch_digest",
+        fullName: "Architecture Daily",
+        bio: "Curating brutalist & minimalist geometry worldwide 🏛️📐 | Concrete textures & sacred light studies",
+        avatar: COMMUNITY_IMAGES[2],
+        category: "Architecture & Design",
+        location: "Copenhagen, Denmark 🇩🇰",
+        link: "archdaily.studio/journal",
+        joined: "Joined November 2022",
+        followersCount: "112K",
+        followingCount: "180",
+        mutual: "Followed by bradley_hansen and 115 others"
+      },
+      city_vibe: {
+        username: "city_vibe",
+        fullName: "Maya Lin",
+        bio: "Tokyo neon & rainy alley reflections 🏮🌧️ | Midnight cyber aesthetic & street portraits",
+        avatar: COMMUNITY_IMAGES[3],
+        category: "Urban Photography",
+        location: "Shinjuku, Tokyo 🇯🇵",
+        link: "mayalin.tokyo/portfolio",
+        joined: "Joined April 2023",
+        followersCount: "45.1K",
+        followingCount: "412",
+        mutual: "Followed by bradley_hansen and 39 others"
+      },
+      nordic_trails: {
+        username: "nordic_trails",
+        fullName: "Freja Hansen",
+        bio: "Lofoten arctic adventures & midnight sun fjords 🏔️🌅 | Kayaking, mountaineering & remote cabins",
+        avatar: COMMUNITY_IMAGES[5],
+        category: "Arctic Expeditions",
+        location: "Reine, Lofoten 🇳🇴",
+        link: "nordictrails.no/trips",
+        joined: "Joined February 2023",
+        followersCount: "29.7K",
+        followingCount: "270",
+        mutual: "Followed by bradley_hansen and 54 others"
+      },
+      coastal_nomad: {
+        username: "coastal_nomad",
+        fullName: "Julian Vance",
+        bio: "Dawn patrol barrels in Byron Bay 🌊🏄‍♂️ | Ocean conservation & saltwater film journal",
+        avatar: COMMUNITY_IMAGES[9],
+        category: "Surf & Ocean",
+        location: "Byron Bay, Australia 🇦🇺",
+        link: "coastalnomad.ocean",
+        joined: "Joined August 2023",
+        followersCount: "18.3K",
+        followingCount: "310",
+        mutual: "Followed by bradley_hansen and 22 others"
+      },
+      tokyo_wanderer: {
+        username: "tokyo_wanderer",
+        fullName: "Ren Tanaka",
+        bio: "35mm film street photography in Shinjuku & Shibuya 🎞️🎌 | Analog grain & urban moments",
+        avatar: COMMUNITY_IMAGES[3],
+        category: "Street & Analog",
+        location: "Tokyo, Japan 🇯🇵",
+        link: "rentanaka.film",
+        joined: "Joined June 2023",
+        followersCount: "33.9K",
+        followingCount: "450",
+        mutual: "Followed by bradley_hansen and 61 others"
+      },
+      dolomites_hiker: {
+        username: "dolomites_hiker",
+        fullName: "Matteo Bianchi",
+        bio: "Seceda ridges & Italian alpine summits ⛰️☁️ | Via ferrata routes & mountain refuge life",
+        avatar: COMMUNITY_IMAGES[10],
+        category: "Alpine Trekking",
+        location: "Cortina d'Ampezzo, Italy 🇮🇹",
+        link: "dolomiteshikes.it",
+        joined: "Joined October 2022",
+        followersCount: "41.5K",
+        followingCount: "220",
+        mutual: "Followed by bradley_hansen and 33 others"
+      },
+      patisserie_chef: {
+        username: "patisserie_chef",
+        fullName: "Camille Dupont",
+        bio: "Artisan sourdough & layered escargot viennoiserie 🥖✨ | Pastry masterclasses in Lyon",
+        avatar: COMMUNITY_IMAGES[0],
+        category: "French Bakery & Pastry",
+        location: "Lyon, France 🇫🇷",
+        link: "camilledupont.fr",
+        joined: "Joined May 2023",
+        followersCount: "52.0K",
+        followingCount: "340",
+        mutual: "Followed by bradley_hansen and 78 others"
+      },
+      desert_mirage: {
+        username: "desert_mirage",
+        fullName: "Tariq Mansoor",
+        bio: "Dark skies & star tracks in Wadi Rum 🌌🐪 | Astrophotography & desert expeditions",
+        avatar: COMMUNITY_IMAGES[6],
+        category: "Astrophotography",
+        location: "Wadi Rum, Jordan 🇯🇴",
+        link: "tariqmansoor.space",
+        joined: "Joined September 2023",
+        followersCount: "22.4K",
+        followingCount: "195",
+        mutual: "Followed by bradley_hansen and 19 others"
+      },
+      kyoto_moments: {
+        username: "kyoto_moments",
+        fullName: "Hanae Mori",
+        bio: "Bamboo forest serenity & zen tea ceremonies 🎋🍃 | Traditional Japanese gardens & seasons",
+        avatar: COMMUNITY_IMAGES[2],
+        category: "Culture & Aesthetics",
+        location: "Kyoto, Japan 🇯🇵",
+        link: "kyotomoments.jp",
+        joined: "Joined July 2023",
+        followersCount: "27.8K",
+        followingCount: "310",
+        mutual: "Followed by bradley_hansen and 45 others"
+      },
+      golden_paws: {
+        username: "golden_paws",
+        fullName: "Samira Cole",
+        bio: "Summit trails with rescue goldens 🐕🏕️ | Outdoor canine gear testing & alpine camps",
+        avatar: COMMUNITY_IMAGES[1],
+        category: "Pets & Outdoors",
+        location: "Seattle, Washington 🇺🇸",
+        link: "goldenpawsoutdoors.com",
+        joined: "Joined April 2023",
+        followersCount: "35.1K",
+        followingCount: "280",
+        mutual: "Followed by bradley_hansen and 67 others"
+      },
+      bali_sol: {
+        username: "bali_sol",
+        fullName: "Wayan Surya",
+        bio: "Uluwatu reef breaks & golden sunsets 🌅🌴 | Island lifestyle, yoga & coastal vibes",
+        avatar: COMMUNITY_IMAGES[4],
+        category: "Tropical Lifestyle",
+        location: "Canggu, Bali 🇮🇩",
+        link: "balisol.surf",
+        joined: "Joined December 2022",
+        followersCount: "48.9K",
+        followingCount: "520",
+        mutual: "Followed by bradley_hansen and 82 others"
+      },
+      scandi_living: {
+        username: "scandi_living",
+        fullName: "Lars Nilsson",
+        bio: "Stockholm hygge & morning fika ☕🕯️ | Scandinavian interior spaces & warm woods",
+        avatar: COMMUNITY_IMAGES[7],
+        category: "Interior & Hygge",
+        location: "Stockholm, Sweden 🇸🇪",
+        link: "scandiliving.se",
+        joined: "Joined January 2024",
+        followersCount: "31.2K",
+        followingCount: "240",
+        mutual: "Followed by bradley_hansen and 29 others"
+      },
+      swiss_peaks: {
+        username: "swiss_peaks",
+        fullName: "Noah Keller",
+        bio: "Matterhorn alpine mountaineering & glacier crossings 🏔️🇨🇭 | High alpine summit logs",
+        avatar: COMMUNITY_IMAGES[5],
+        category: "Mountaineering",
+        location: "Zermatt, Switzerland 🇨🇭",
+        link: "swisspeaks.alps",
+        joined: "Joined March 2023",
+        followersCount: "44.0K",
+        followingCount: "190",
+        mutual: "Followed by bradley_hansen and 53 others"
+      },
+      sushi_artisan: {
+        username: "sushi_artisan",
+        fullName: "Jiro Takahashi",
+        bio: "Edomae bluefin nigiri craft, Ginza 🍣🥢 | Seasonal omakase sourcing & master knives",
+        avatar: COMMUNITY_IMAGES[0],
+        category: "Fine Dining & Sushi",
+        location: "Ginza, Tokyo 🇯🇵",
+        link: "jirosushi.tokyo",
+        joined: "Joined May 2023",
+        followersCount: "63.5K",
+        followingCount: "150",
+        mutual: "Followed by bradley_hansen and 91 others"
+      },
+      pacific_northwest: {
+        username: "pacific_northwest",
+        fullName: "Sierra Brooks",
+        bio: "Coastal sea caves & temperate rainforests 🌲🌊 | Olympic Peninsula backpacking logs",
+        avatar: COMMUNITY_IMAGES[9],
+        category: "Wilderness Exploration",
+        location: "Portland, Oregon 🇺🇸",
+        link: "pnwtrails.earth",
+        joined: "Joined November 2023",
+        followersCount: "26.3K",
+        followingCount: "310",
+        mutual: "Followed by bradley_hansen and 41 others"
+      },
+      barcelona_light: {
+        username: "barcelona_light",
+        fullName: "Mateo Gomez",
+        bio: "Gothic Quarter sketchbooks & sun-drenched plazas 🇪🇸✨ | Mediterranean modernism & tapas",
+        avatar: COMMUNITY_IMAGES[2],
+        category: "Visual Arts & Travel",
+        location: "Barcelona, Spain 🇪🇸",
+        link: "mateogomez.art",
+        joined: "Joined June 2023",
+        followersCount: "37.4K",
+        followingCount: "380",
+        mutual: "Followed by bradley_hansen and 58 others"
+      },
+      wander_tropics: {
+        username: "wander_tropics",
+        fullName: "Maya Patel",
+        bio: "Coral reef conservation in Baa Atoll 🐠🤿 | Marine biology & underwater photography",
+        avatar: COMMUNITY_IMAGES[4],
+        category: "Marine Science & Wildlife",
+        location: "Baa Atoll, Maldives 🇲🇻",
+        link: "wandertropics.ocean",
+        joined: "Joined February 2023",
+        followersCount: "58.1K",
+        followingCount: "420",
+        mutual: "Followed by bradley_hansen and 74 others"
+      },
+      aurora_hunter: {
+        username: "aurora_hunter",
+        fullName: "Astrid Lindgren",
+        bio: "Tromsø northern lights chaser 🌌❄️ | Solar flares, geomagnetic storms & polar nights",
+        avatar: COMMUNITY_IMAGES[6],
+        category: "Night Photography",
+        location: "Tromsø, Norway 🇳🇴",
+        link: "aurorahunters.no",
+        joined: "Joined October 2022",
+        followersCount: "49.6K",
+        followingCount: "260",
+        mutual: "Followed by bradley_hansen and 89 others"
+      }
+    };
+
+    function getCreatorInfo(username) {
+      const cleanU = (username || '').toLowerCase().replace(/^@/, '');
+      const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
+      const detailed = CREATOR_DETAILS[cleanU];
+      
+      if (detailed) {
+        const isFollowing = fromFollowing ? fromFollowing.isFollowing : true;
+        return { ...detailed, isFollowing };
+      }
+      
+      if (fromFollowing) {
+        return {
+          username: fromFollowing.username,
+          fullName: fromFollowing.fullName,
+          bio: fromFollowing.bio,
+          avatar: fromFollowing.avatar,
+          category: "Content Creator",
+          location: "Worldwide 🌍",
+          link: `pixlynote.com/@${fromFollowing.username}`,
+          joined: "Joined 2023",
+          followersCount: "14.2K",
+          followingCount: "310",
+          mutual: "Followed by bradley_hansen",
+          isFollowing: fromFollowing.isFollowing
+        };
+      }
+      
+      return {
+        username: cleanU,
+        fullName: cleanU.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        bio: "Visual storyteller sharing moments on Pixlynote 📷✨",
+        avatar: COMMUNITY_IMAGES[Math.abs(cleanU.split('').reduce((a,c) => a + c.charCodeAt(0), 0)) % COMMUNITY_IMAGES.length],
+        category: "Community Creator",
+        location: "Global 🌐",
+        link: `pixlynote.com/@${cleanU}`,
+        joined: "Joined 2023",
+        followersCount: "8.5K",
+        followingCount: "215",
+        mutual: "Followed by bradley_hansen",
+        isFollowing: true
+      };
+    }
+
+    function getCreatorPosts(username) {
+      const cleanU = (username || '').toLowerCase().replace(/^@/, '');
+      let posts = state.posts.filter(p => (p.author || '').toLowerCase().replace(/^@/, '') === cleanU);
+      
+      if (state.explorePosts) {
+        const fromExplore = state.explorePosts.filter(p => (p.author || '').toLowerCase().replace(/^@/, '') === cleanU);
+        fromExplore.forEach(p => {
+          if (!posts.some(existing => existing.id === p.id)) {
+            posts.push(p);
+          }
+        });
+      }
+
+      if (posts.length < 3) {
+        const creator = getCreatorInfo(cleanU);
+        const needed = 4 - posts.length;
+        const baseId = 8000 + Math.abs(cleanU.split('').reduce((a,c) => a + c.charCodeAt(0), 0)) % 1000;
+        
+        for (let i = 0; i < needed; i++) {
+          const imgIdx = (Math.abs(cleanU.charCodeAt(i % cleanU.length)) + i * 3) % COMMUNITY_IMAGES.length;
+          const syntheticPost = {
+            id: baseId + i,
+            author: cleanU,
+            authorName: creator.fullName,
+            authorAvatar: creator.avatar,
+            location: (creator.location || "Global").split(',')[0],
+            image: COMMUNITY_IMAGES[imgIdx],
+            caption: `${(creator.bio || '').split('|')[0]} • Day ${i+1} capture 📸✨`,
+            tags: [`#${cleanU}`, "#photography", "#pixlynote", "#visuals"],
+            likes: 420 + (i * 185) + (cleanU.length * 37),
+            isLiked: false,
+            timestamp: `${i + 1} DAYS AGO`,
+            comments: [
+              { id: 9000 + i, user: "bradley_hansen", text: "Incredible perspective and composition!" }
+            ]
+          };
+          posts.push(syntheticPost);
+          if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+          state.explorePostsArchive.set(String(syntheticPost.id), syntheticPost);
+        }
+      }
+
+      return posts;
+    }
+
+    function updateCreatorFollowButton(creator) {
+      const btn = document.getElementById('btn-user-profile-follow');
+      const txt = document.getElementById('user-profile-follow-text');
+      if (!btn || !txt) return;
+
+      const targetU = creator.username;
+      const userInFollowing = (state.following || []).find(f => f.username === targetU);
+      const isFollowing = userInFollowing ? userInFollowing.isFollowing : (creator.isFollowing ?? true);
+
+      if (isFollowing) {
+        btn.className = "px-4 py-1.5 text-xs font-semibold rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition cursor-pointer flex items-center space-x-1";
+        txt.textContent = "Following";
+      } else {
+        btn.className = "px-4 py-1.5 text-xs font-semibold rounded-lg bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white shadow-xs transition cursor-pointer flex items-center space-x-1";
+        txt.textContent = "Follow";
+      }
+    }
+
+    function switchUserSubTab(tab) {
+      const postsView = document.getElementById('user-profile-posts-view');
+      const infoView = document.getElementById('user-profile-info-view');
+      const btnPosts = document.getElementById('user-tab-btn-posts');
+      const btnInfo = document.getElementById('user-tab-btn-info');
+
+      if (tab === 'info') {
+        if (postsView) postsView.classList.add('hidden');
+        if (infoView) infoView.classList.remove('hidden');
+        if (btnInfo) btnInfo.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer";
+        if (btnPosts) btnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer";
+      } else {
+        if (postsView) postsView.classList.remove('hidden');
+        if (infoView) infoView.classList.add('hidden');
+        if (btnPosts) btnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer";
+        if (btnInfo) btnInfo.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer";
+      }
+    }
+    window.switchUserSubTab = switchUserSubTab;
+
+    function viewUserProfile(username) {
+      if (!username) return;
+      const cleanU = (username || '').toLowerCase().replace(/^@/, '');
+      
+      if (cleanU === 'bradley_hansen' || (state.currentUser && state.currentUser.username.toLowerCase() === cleanU)) {
+        closeFollowingModal();
+        switchMainTab('profile');
+        return;
+      }
+
+      const creator = getCreatorInfo(cleanU);
+      state.viewedCreator = creator;
+
+      // Update header elements
+      const headerUsername = document.getElementById('user-profile-header-username');
+      if (headerUsername) headerUsername.textContent = creator.username;
+      
+      const profileUsername = document.getElementById('user-profile-username');
+      if (profileUsername) profileUsername.textContent = creator.username;
+
+      const profileAvatar = document.getElementById('user-profile-avatar');
+      if (profileAvatar) profileAvatar.src = creator.avatar;
+
+      const profileFullName = document.getElementById('user-profile-fullname');
+      if (profileFullName) profileFullName.textContent = creator.fullName;
+
+      const profileBio = document.getElementById('user-profile-bio');
+      if (profileBio) profileBio.textContent = creator.bio;
+
+      const profileCategory = document.getElementById('user-profile-category');
+      if (profileCategory) profileCategory.textContent = creator.category;
+
+      const profileLocation = document.getElementById('user-profile-location-text');
+      if (profileLocation) profileLocation.textContent = creator.location;
+
+      const profileLink = document.getElementById('user-profile-link');
+      const profileLinkText = document.getElementById('user-profile-link-text');
+      if (profileLink && profileLinkText) {
+        profileLinkText.textContent = creator.link;
+        profileLink.href = creator.link.startsWith('http') ? creator.link : 'https://' + creator.link;
+      }
+
+      // About & Info tab
+      const infoUser = document.getElementById('info-username');
+      if (infoUser) infoUser.textContent = '@' + creator.username;
+      const infoJoined = document.getElementById('info-joined');
+      if (infoJoined) infoJoined.textContent = creator.joined;
+      const infoCategory = document.getElementById('info-category');
+      if (infoCategory) infoCategory.textContent = creator.category;
+      const infoMutual = document.getElementById('info-mutual');
+      if (infoMutual) infoMutual.textContent = creator.mutual;
+
+      // Update Follow button state
+      updateCreatorFollowButton(creator);
+
+      // Render creator's posts
+      const posts = getCreatorPosts(cleanU);
+      const postsCountEl = document.getElementById('user-profile-post-count');
+      if (postsCountEl) postsCountEl.textContent = posts.length;
+      
+      const followersCountEl = document.getElementById('user-profile-followers-count');
+      if (followersCountEl) followersCountEl.textContent = creator.followersCount;
+
+      const followingCountEl = document.getElementById('user-profile-following-count');
+      if (followingCountEl) followingCountEl.textContent = creator.followingCount;
+
+      const gridContainer = document.getElementById('user-profile-grid');
+      const emptyPosts = document.getElementById('user-profile-empty-posts');
+
+      if (posts.length === 0) {
+        if (gridContainer) gridContainer.innerHTML = '';
+        if (emptyPosts) emptyPosts.classList.remove('hidden');
+      } else {
+        if (emptyPosts) emptyPosts.classList.add('hidden');
+        if (gridContainer) {
+          gridContainer.innerHTML = posts.map(post => `
+            <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-sm cursor-pointer user-grid-item" data-post-id="${post.id}">
+              <img src="${post.image}" alt="Photo" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  <span>${post.likes.toLocaleString()}</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                  <span>${post.comments ? post.comments.length : 0}</span>
+                </div>
+              </div>
+            </div>
+          `).join('');
+
+          gridContainer.querySelectorAll('.user-grid-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const pid = parseInt(item.dataset.postId, 10);
+              openPostDetailModal(pid);
+            });
+          });
+        }
+      }
+
+      // Reset to posts tab
+      switchUserSubTab('posts');
+
+      // Close following modal
+      closeFollowingModal();
+
+      // Switch view
+      switchMainTab('user-profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.viewUserProfile = viewUserProfile;
+
+
+    // --- Following Modal Controller (Displays All Followed Users & Toggle Actions) ---
+    function openFollowingModal() {
+      const modal = document.getElementById('modal-following');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      const searchInp = document.getElementById('following-search-input');
+      if (searchInp) searchInp.value = '';
+      renderFollowingList();
+    }
+    window.openFollowingModal = openFollowingModal;
+
+    function closeFollowingModal() {
+      const modal = document.getElementById('modal-following');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    window.closeFollowingModal = closeFollowingModal;
+
+    function renderFollowingList(query = '') {
+      const container = document.getElementById('following-list-container');
+      const countEl = document.getElementById('following-modal-count');
+      if (!container) return;
+
+      const q = (query || '').toLowerCase().trim();
+      let list = state.following || [];
+
+      // Calculate active following count
+      const activeCount = list.filter(u => u.isFollowing).length;
+      const displayTotal = activeCount > 0 ? (activeCount + 322) : 0; // Scales with Bradley's profile 342 base
+      if (countEl) countEl.textContent = displayTotal.toLocaleString();
+      const profCount = document.getElementById('profile-following-count');
+      if (profCount) profCount.textContent = displayTotal.toLocaleString();
+
+      if (q) {
+        list = list.filter(u => 
+          u.username.toLowerCase().includes(q) || 
+          u.fullName.toLowerCase().includes(q) || 
+          (u.bio && u.bio.toLowerCase().includes(q))
+        );
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-700">No users found</p>
+            <p class="text-[11px] text-neutral-400">Try searching another username or creator name</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(u => {
+        const isFollowing = u.isFollowing;
+        const btnClasses = isFollowing
+          ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+          : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs';
+        const btnLabel = isFollowing ? 'Following' : 'Follow';
+
+        return `
+          <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
+            <!-- User Info (Tap to view explore profile) -->
+            <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer following-user-row" data-username="${u.username}">
+              <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
+                <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
+                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1">
+                  <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
+                  <span class="text-[10px] text-sky-500">✓</span>
+                </div>
+                <div class="text-[11px] text-neutral-500 truncate">${u.fullName}</div>
+                <div class="text-[10px] text-neutral-400 truncate">${u.bio}</div>
+              </div>
+            </div>
+
+            <!-- Follow / Unfollow Toggle Action Button -->
+            <button type="button" class="btn-toggle-following-user px-3.5 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer flex-shrink-0" data-username="${u.username}">
+              ${btnLabel}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // Wire follow / unfollow toggle
+      container.querySelectorAll('.btn-toggle-following-user').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const userObj = state.following.find(u => u.username === targetU);
+          if (userObj) {
+            userObj.isFollowing = !userObj.isFollowing;
+            try {
+              localStorage.setItem('pixly_following', JSON.stringify(state.following));
+            } catch(e) {}
+            showToast(userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+            const searchInp = document.getElementById('following-search-input');
+            renderFollowingList(searchInp ? searchInp.value : '');
+          }
+        });
+      });
+
+      // Wire row click to jump to creator's photos in Explore
+      container.querySelectorAll('.following-user-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const targetU = row.dataset.username;
+          viewUserProfile(targetU);
+        });
+      });
+    }
+    window.renderFollowingList = renderFollowingList;
+
     function openMessagesModal() {
       const modal = document.getElementById('modal-messages');
       if (modal) {
@@ -5427,6 +6438,108 @@
         bind('nav-btn-explore', 'click', () => switchMainTab('explore'));
         bind('nav-btn-profile', 'click', () => switchMainTab('profile'));
         bind('btn-header-profile', 'click', () => switchMainTab('profile'));
+
+        // Wire Profile Following Stat Click -> Open Following Popup Modal
+        const statFollowingBtn = document.getElementById('stat-following-btn');
+        if (statFollowingBtn) statFollowingBtn.addEventListener('click', openFollowingModal);
+        const profFollowingCount = document.getElementById('profile-following-count');
+        if (profFollowingCount) profFollowingCount.addEventListener('click', openFollowingModal);
+
+        bind('btn-close-following-modal', 'click', closeFollowingModal);
+        const modalFollowing = document.getElementById('modal-following');
+        if (modalFollowing) {
+          modalFollowing.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-following') closeFollowingModal();
+          });
+        }
+        const followingSearchInp = document.getElementById('following-search-input');
+        if (followingSearchInp) {
+          followingSearchInp.addEventListener('input', (e) => {
+            renderFollowingList(e.target.value);
+          });
+        }
+
+        // Wire Creator Profile Interactive Controls
+        const btnBackFromUser = document.getElementById('btn-back-from-user-profile');
+        if (btnBackFromUser) {
+          btnBackFromUser.addEventListener('click', () => {
+            switchMainTab('profile');
+          });
+        }
+
+        const btnShareUserProfile = document.getElementById('btn-share-user-profile');
+        if (btnShareUserProfile) {
+          btnShareUserProfile.addEventListener('click', () => {
+            const u = state.viewedCreator ? state.viewedCreator.username : 'creator';
+            showToast(`Profile link copied: pixlynote.com/@${u}`);
+          });
+        }
+
+        const btnUserTabPosts = document.getElementById('user-tab-btn-posts');
+        if (btnUserTabPosts) {
+          btnUserTabPosts.addEventListener('click', () => switchUserSubTab('posts'));
+        }
+
+        const btnUserTabInfo = document.getElementById('user-tab-btn-info');
+        if (btnUserTabInfo) {
+          btnUserTabInfo.addEventListener('click', () => switchUserSubTab('info'));
+        }
+
+        const btnUserFollow = document.getElementById('btn-user-profile-follow');
+        if (btnUserFollow) {
+          btnUserFollow.addEventListener('click', () => {
+            if (!state.viewedCreator) return;
+            const targetU = state.viewedCreator.username;
+            let userInFollowing = (state.following || []).find(f => f.username === targetU);
+            if (!userInFollowing) {
+              userInFollowing = {
+                id: Date.now(),
+                username: state.viewedCreator.username,
+                fullName: state.viewedCreator.fullName,
+                bio: state.viewedCreator.bio,
+                avatar: state.viewedCreator.avatar,
+                isFollowing: false
+              };
+              state.following.push(userInFollowing);
+            }
+            userInFollowing.isFollowing = !userInFollowing.isFollowing;
+            state.viewedCreator.isFollowing = userInFollowing.isFollowing;
+
+            try {
+              localStorage.setItem('pixly_following', JSON.stringify(state.following));
+            } catch(e) {}
+
+            const activeCount = state.following.filter(u => u.isFollowing).length;
+            const displayTotal = activeCount > 0 ? (activeCount + 322) : 0;
+            const profCount = document.getElementById('profile-following-count');
+            if (profCount) profCount.textContent = displayTotal.toLocaleString();
+            const modalCount = document.getElementById('following-modal-count');
+            if (modalCount) modalCount.textContent = displayTotal.toLocaleString();
+
+            updateCreatorFollowButton(state.viewedCreator);
+            showToast(userInFollowing.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+          });
+        }
+
+        const btnUserMessage = document.getElementById('btn-user-profile-message');
+        if (btnUserMessage) {
+          btnUserMessage.addEventListener('click', () => {
+            if (!state.viewedCreator) return;
+            openMessagesModal();
+            showToast(`Message with @${state.viewedCreator.username}`);
+          });
+        }
+
+
+        // Restore following state from storage
+        try {
+          const savedFollowing = localStorage.getItem('pixly_following');
+          if (savedFollowing) {
+            const parsed = JSON.parse(savedFollowing);
+            if (Array.isArray(parsed) && parsed.length > 0) state.following = parsed;
+          }
+        } catch(e) {}
+
 
         
         // Direct Login Action Handler (Zero lag, instantaneous, rock-solid)
