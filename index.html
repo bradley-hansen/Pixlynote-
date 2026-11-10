@@ -727,7 +727,7 @@
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Followers</div>
                 </div>
                 <div id="stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view all following accounts">
-                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-following-count">342</div>
+                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-following-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5">Following</div>
                 </div>
               </div>
@@ -3429,8 +3429,7 @@
             localStorage.setItem('pixly_following', JSON.stringify(state.following));
           } catch(err) {}
 
-          const activeCount = state.following.filter(u => u.isFollowing).length;
-          const displayTotal = activeCount > 0 ? (activeCount + 322) : 0;
+          const displayTotal = getFollowingDisplayCount();
           const profCount = document.getElementById('profile-following-count');
           if (profCount) profCount.textContent = displayTotal.toLocaleString();
           const modalCount = document.getElementById('following-modal-count');
@@ -3611,7 +3610,9 @@
       if (followersEl) followersEl.textContent = isPixly ? "0" : (state.currentUser.followersCount || "0");
       
       const followingEl = document.getElementById('profile-following-count');
-      if (followingEl) followingEl.textContent = isPixly ? "0" : (state.currentUser.followingCount || "0");
+      const activeFollowingTotal = getFollowingDisplayCount();
+      if (followingEl) followingEl.textContent = activeFollowingTotal.toLocaleString();
+      state.currentUser.followingCount = String(activeFollowingTotal);
       
       const userEl = document.getElementById('profile-page-username');
       if (userEl) userEl.textContent = state.currentUser.username;
@@ -6464,17 +6465,27 @@
     }
     window.closeFollowingModal = closeFollowingModal;
 
+        function getFollowingDisplayCount() {
+      const isBradley = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'bradley_hansen');
+      const activeCount = (state.following || []).filter(u => u.isFollowing).length;
+      if (isBradley) {
+        return activeCount > 0 ? (activeCount + 322) : 342;
+      }
+      return activeCount;
+    }
+    window.getFollowingDisplayCount = getFollowingDisplayCount;
+
     function renderFollowingList(query = '') {
       const container = document.getElementById('following-list-container');
       const countEl = document.getElementById('following-modal-count');
       if (!container) return;
 
+      const isPixly = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'pixlynote');
       const q = (query || '').toLowerCase().trim();
       let list = state.following || [];
 
-      // Calculate active following count
-      const activeCount = list.filter(u => u.isFollowing).length;
-      const displayTotal = activeCount > 0 ? (activeCount + 322) : 0; // Scales with Bradley's profile 342 base
+      // Calculate active following count using isolated formula
+      const displayTotal = getFollowingDisplayCount();
       if (countEl) countEl.textContent = displayTotal.toLocaleString();
       const profCount = document.getElementById('profile-following-count');
       if (profCount) profCount.textContent = displayTotal.toLocaleString();
@@ -6487,6 +6498,19 @@
         );
       }
 
+      const activeList = list.filter(u => u.isFollowing);
+      let emptyHeaderHtml = '';
+
+      if (isPixly && activeList.length === 0 && !q) {
+        emptyHeaderHtml = `
+          <div class="py-6 px-4 mb-3 text-center bg-violet-50/50 rounded-2xl border border-violet-100/80 space-y-1.5">
+            <div class="w-10 h-10 mx-auto rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-lg">👥</div>
+            <p class="font-bold text-xs text-neutral-800">Not following anyone yet</p>
+            <p class="text-[11px] text-neutral-500 leading-tight">Follow creators below to populate your business feed!</p>
+          </div>
+        `;
+      }
+
       if (list.length === 0) {
         container.innerHTML = `
           <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
@@ -6497,7 +6521,7 @@
         return;
       }
 
-      container.innerHTML = list.map(u => {
+      container.innerHTML = emptyHeaderHtml + list.map(u => {
         const isFollowing = u.isFollowing;
         const btnClasses = isFollowing
           ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
@@ -6540,8 +6564,15 @@
           if (userObj) {
             userObj.isFollowing = !userObj.isFollowing;
             try {
-              localStorage.setItem('pixly_following', JSON.stringify(state.following));
+              const curU = (state.currentUser.username || 'user').toLowerCase();
+              localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
             } catch(e) {}
+            
+            const updatedTotal = getFollowingDisplayCount();
+            if (countEl) countEl.textContent = updatedTotal.toLocaleString();
+            if (profCount) profCount.textContent = updatedTotal.toLocaleString();
+            state.currentUser.followingCount = String(updatedTotal);
+
             showToast(userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
             const searchInp = document.getElementById('following-search-input');
             renderFollowingList(searchInp ? searchInp.value : '');
@@ -6791,6 +6822,35 @@
           localStorage.setItem('pixly_user_password_' + cleanUsername.toLowerCase(), password);
           localStorage.setItem('pixly_user_password', password);
         } catch(e) {}
+      }
+
+      // Isolate following lists per account
+      if (cleanUsername.toLowerCase() === 'pixlynote') {
+        let pixlyFollow = null;
+        try {
+          const raw = localStorage.getItem('pixly_following_pixlynote');
+          if (raw) pixlyFollow = JSON.parse(raw);
+        } catch(e) {}
+        if (Array.isArray(pixlyFollow)) {
+          state.following = pixlyFollow;
+        } else {
+          // Initialize fresh following list for Pixlynote where all are un-followed initially
+          state.following = (state.following || []).map(u => ({ ...u, isFollowing: false }));
+        }
+        state.currentUser.followingCount = String(state.following.filter(u => u.isFollowing).length);
+      } else if (cleanUsername.toLowerCase() === 'bradley_hansen') {
+        let bradleyFollow = null;
+        try {
+          const raw = localStorage.getItem('pixly_following_bradley_hansen');
+          if (raw) bradleyFollow = JSON.parse(raw);
+        } catch(e) {}
+        if (Array.isArray(bradleyFollow)) {
+          state.following = bradleyFollow;
+        } else {
+          state.following = (state.following || []).map(u => ({ ...u, isFollowing: true }));
+        }
+        const activeCount = state.following.filter(u => u.isFollowing).length;
+        state.currentUser.followingCount = String(activeCount > 0 ? (activeCount + 322) : 342);
       }
 
       // Maintain post authorship integrity: Bradley's posts belong to Bradley; new accounts start fresh
@@ -7215,8 +7275,7 @@
               localStorage.setItem('pixly_following', JSON.stringify(state.following));
             } catch(e) {}
 
-            const activeCount = state.following.filter(u => u.isFollowing).length;
-            const displayTotal = activeCount > 0 ? (activeCount + 322) : 0;
+            const displayTotal = getFollowingDisplayCount();
             const profCount = document.getElementById('profile-following-count');
             if (profCount) profCount.textContent = displayTotal.toLocaleString();
             const modalCount = document.getElementById('following-modal-count');
