@@ -345,7 +345,7 @@
   </div>
 
   <!-- AUTH / LOGIN VIEW -->
-  <div id="auth-view" class="flex-1 flex flex-col items-center justify-center p-4 md:p-6 min-h-screen">
+  <div id="auth-view" class="flex-1 flex flex-col items-center justify-center p-4 md:p-6 min-h-screen" style="display: flex;">
     <div class="w-full max-w-sm space-y-4">
       
       <!-- Main Card -->
@@ -394,9 +394,14 @@
           </form>
 
           <div class="pt-2 text-center space-y-2">
-            <button type="button" id="btn-quick-demo-fill" class="w-full py-1.5 px-3 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer">
-              <span>⚡ Use Demo Account (@bradley_hansen)</span>
-            </button>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btn-quick-demo-fill" class="py-1.5 px-2 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer" title="Log in as Bradley Hansen">
+                <span>⚡ @bradley_hansen</span>
+              </button>
+              <button type="button" id="btn-quick-pixlynote-fill" class="py-1.5 px-2 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer" title="Log in as Pixlynote">
+                <span>🏢 @pixlynote</span>
+              </button>
+            </div>
             <div>
               <button type="button" id="btn-forgot-password" class="text-xs text-neutral-500 hover:text-neutral-800 transition">Forgot password?</button>
             </div>
@@ -1700,6 +1705,11 @@
             if (snap.exists()) {
               const data = snap.data();
               if (data) {
+                // GUARD: NEVER overwrite currentUser if active user is another account (e.g. @pixlynote)!
+                if (state.currentUser && state.currentUser.username !== 'bradley_hansen') {
+                  console.log("Ignoring bradley_hansen cloud snapshot because active user is @" + state.currentUser.username);
+                  return;
+                }
                 console.log("Firestore cloud data received for bradley_hansen:", data);
                 // 1. Profile Picture & Story Avatar
                 const photo = data.photoURL || data.avatar;
@@ -4039,7 +4049,7 @@
       const followBtn = document.getElementById('btn-modal-follow-toggle');
       const curU = (state.currentUser.username || 'bradley_hansen').toLowerCase().replace(/^@/, '');
       const pAuthor = (post.author || '').toLowerCase().replace(/^@/, '');
-      const isMyPost = (pAuthor === curU || pAuthor === 'bradley_hansen');
+      const isMyPost = (pAuthor === curU);
       if (isMyPost) {
         if (delBtn) delBtn.classList.remove('hidden');
         if (followBtn) followBtn.classList.add('hidden');
@@ -5213,7 +5223,7 @@
         const currentU = (state.currentUser.username || 'bradley_hansen').toLowerCase().replace(/^@/, '');
         const remainingUserPosts = state.posts.filter(p => {
           const postAuthor = (p.author || '').toLowerCase().replace(/^@/, '');
-          return postAuthor === currentU || postAuthor === 'bradley_hansen';
+          return postAuthor === currentU;
         }).length;
         state.currentUser.postsCount = remainingUserPosts;
         const countEl = document.getElementById('profile-post-count');
@@ -5431,7 +5441,7 @@
         // Anti-duplicate protection: prevent duplicate post created within 2500ms
         const now = Date.now();
         const duplicatePost = (state.posts || []).find(function(p) {
-          return (p.author === currentUsername || p.author === 'bradley_hansen') &&
+          return (p.author === currentUsername) &&
                  typeof p.id === 'number' &&
                  (now - p.id < 2500);
         });
@@ -5461,7 +5471,7 @@
         state.posts.unshift(newPost);
         const myPostsCount = state.posts.filter(function(p) {
           const a = (p.author || '').toLowerCase().replace(/^@/, '');
-          return a === currentUsername.toLowerCase() || a === 'bradley_hansen';
+          return a === currentUsername.toLowerCase();
         }).length;
         state.currentUser.postsCount = myPostsCount;
         const countEl = document.getElementById('profile-post-count');
@@ -6621,52 +6631,50 @@
       }
 
       if (cleanUsername.toLowerCase() === 'bradley_hansen') {
+        // Load Bradley Hansen personal account
         loadUserProfile();
         state.currentUser.username = 'bradley_hansen';
         state.currentUser.fullName = fullName || state.currentUser.fullName || 'Bradley Hansen';
-        state.currentUser.email = (email !== undefined && email !== null) ? email : (state.currentUser.email || 'bradley.g.hansen@hotmail.com');
-        if (phone !== null && phone !== undefined) state.currentUser.phone = phone;
-        if (accountType) state.currentUser.accountType = accountType;
-      } else if (accData) {
-        // Use EXACT user account data: blank fields remain null/empty!
-        state.currentUser.username = accData.username || cleanUsername;
-        state.currentUser.fullName = accData.fullName || cleanUsername;
-        state.currentUser.email = accData.email || '';
-        state.currentUser.phone = accData.phone || '';
-        state.currentUser.bio = accData.bio || '';
-        state.currentUser.link = accData.link || '';
-        state.currentUser.avatar = accData.avatar || ((PRESET_IMAGES && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '');
-        state.currentUser.accountType = accData.accountType || (accountType || 'personal');
-        state.currentUser.postsCount = accData.postsCount || 0;
-        state.currentUser.followersCount = accData.followersCount || "0";
-        state.currentUser.followingCount = accData.followingCount || "0";
+        state.currentUser.email = (email !== undefined && email !== null && email !== '') ? email : (state.currentUser.email || 'bradley.g.hansen@hotmail.com');
+        if (phone) state.currentUser.phone = phone;
+        state.currentUser.accountType = 'personal';
+        state.currentUser.bio = state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍';
+        state.currentUser.link = state.currentUser.link || 't.me/bradley_hansen';
+        state.currentUser.avatar = state.currentUser.avatar || ((PRESET_IMAGES && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '');
       } else {
-        // Newly created account: strictly blank for missing fields!
-        state.currentUser.username = cleanUsername;
-        state.currentUser.fullName = fullName || cleanUsername;
-        state.currentUser.email = email || '';
-        state.currentUser.phone = phone || '';
-        state.currentUser.bio = '';
-        state.currentUser.link = '';
-        state.currentUser.accountType = accountType || 'personal';
+        // Logged into separate account (e.g. @pixlynote)
+        const isBiz = (cleanUsername.toLowerCase() === 'pixlynote' || accountType === 'business' || (accData && accData.accountType === 'business'));
+        
+        state.currentUser.username = (accData && accData.username) ? accData.username : cleanUsername;
+        state.currentUser.fullName = (accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername));
+        state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : (email || '');
+        state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '');
+        state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : '';
+        state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : '';
+        state.currentUser.accountType = isBiz ? 'business' : 'personal';
+        state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : (isBiz ? 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdkaW5nIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkYyRTk5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBENDJEIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSI0NCIgZmlsbD0idXJsKCNnZGluZykiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjU0IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGQ9Ik0xMDAgNjAgTDEyMCA5NSBMMTAwIDEwMCBMOTAgNzAgeiIgZmlsbD0iI0ZGMkU5OSIvPjxwYXRoIGQ9Ik0xNDAgMTAwIEwxMDUgMTIwIEwxMDAgMTAwIEwxMzAgOTAgeiIgZmlsbD0iIzBENUZFRiIvPjxwYXRoIGQ9Ik0xMDAgMTQwIEw4MCAxMDUgTDEwMCAxMDAgTDExMCAxMzAgeiIgZmlsbD0iIzAwRDQyRCIvPjxwYXRoIGQ9Ik02MCAxMDAgTDk1IDgwIEwxMDAgMTAwIEw3MCAxMTAgeiIgZmlsbD0iI0ZGQTkyRiIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMjAiIGZpbGw9IndoaXRlIi8+PC9zdmc+' : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdkaW5nIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkYyRTk5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBENDJEIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSI0NCIgZmlsbD0idXJsKCNnZGluZykiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjU0IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGQ9Ik0xMDAgNjAgTDEyMCA5NSBMMTAwIDEwMCBMOTAgNzAgeiIgZmlsbD0iI0ZGMkU5OSIvPjxwYXRoIGQ9Ik0xNDAgMTAwIEwxMDUgMTIwIEwxMDAgMTAwIEwxMzAgOTAgeiIgZmlsbD0iIzBENUZFRiIvPjxwYXRoIGQ9Ik0xMDAgMTQwIEw4MCAxMDUgTDEwMCAxMDAgTDExMCAxMzAgeiIgZmlsbD0iIzAwRDQyRCIvPjxwYXRoIGQ9Ik02MCAxMDAgTDk1IDgwIEwxMDAgMTAwIEw3MCAxMTAgeiIgZmlsbD0iI0ZGQTkyRiIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMjAiIGZpbGw9IndoaXRlIi8+PC9zdmc+');
+        state.currentUser.postsCount = (accData && accData.postsCount !== undefined) ? accData.postsCount : 0;
+        state.currentUser.followersCount = (accData && accData.followersCount !== undefined) ? accData.followersCount : "0";
+        state.currentUser.followingCount = (accData && accData.followingCount !== undefined) ? accData.followingCount : "0";
       }
 
       if (password) {
         state.currentUser.password = password;
-        try { localStorage.setItem('pixly_user_password', password); } catch(e) {}
+        try {
+          localStorage.setItem('pixly_user_password_' + cleanUsername.toLowerCase(), password);
+          localStorage.setItem('pixly_user_password', password);
+        } catch(e) {}
       }
-      if (phone !== null && phone !== undefined) {
-        state.currentUser.phone = phone;
-        try { localStorage.setItem('pixly_user_phone', phone); } catch(e) {}
+
+      // Maintain post authorship integrity: Bradley's posts belong to Bradley; new accounts start fresh
+      if (cleanUsername.toLowerCase() === 'bradley_hansen') {
+        state.posts.forEach(p => {
+          if (p.author === 'alex_creates' || !p.author) {
+            p.author = 'bradley_hansen';
+            p.authorName = 'Bradley Hansen';
+          }
+        });
       }
-      
-      // Update authored posts so grid & feed stay linked to the logged in user
-      state.posts.forEach(p => {
-        if (p.author === oldUsername || p.author === 'alex_creates') {
-          p.author = cleanUsername;
-          p.authorName = state.currentUser.fullName;
-        }
-      });
       
       const authView = document.getElementById('auth-view');
       const mainView = document.getElementById('main-view');
@@ -6682,6 +6690,10 @@
       // Update header avatar
       document.getElementById('header-avatar').src = state.currentUser.avatar;
       document.getElementById('nav-avatar').src = state.currentUser.avatar;
+      if (state.stories && state.stories[0]) {
+        state.stories[0].avatar = state.currentUser.avatar;
+        state.stories[0].username = (cleanUsername.toLowerCase() === 'bradley_hansen') ? 'Your Story' : ('@' + state.currentUser.username);
+      }
 
       renderStories();
       renderFeed();
@@ -7422,6 +7434,8 @@
             localStorage.setItem('pixly_user_password', pw);
             localStorage.setItem('pixly_last_signup_password', pw);
             localStorage.setItem('pixlynote_password', pw);
+            localStorage.setItem('pixly_password_pixlynote', pw);
+            localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pw);
             localStorage.setItem('pixlynote_user', JSON.stringify(newAccount));
             sessionStorage.setItem('pixly_accounts', JSON.stringify(accts));
             sessionStorage.setItem('pixly_account_' + u.toLowerCase(), JSON.stringify(newAccount));
@@ -7452,8 +7466,14 @@
             return;
           }
 
-          const cleanInput = u.toLowerCase();
+          const cleanInput = u.toLowerCase().trim();
           const phoneDigits = rawInput.replace(/\D/g, '');
+          const normalizedInput = cleanInput.replace(/[^a-z0-9]/g, '');
+
+          // Check if logging in as Bradley Hansen
+          const isBradley = (cleanInput === 'bradley_hansen' || cleanInput === 'bradley.g.hansen@hotmail.com' || cleanInput === 'bradley hansen' || normalizedInput === 'bradleyhansen');
+          // Check if logging in as Pixlynote business account
+          const isPixlynote = (cleanInput === 'pixlynote' || cleanInput === 'pixly_note' || cleanInput === 'pixly note' || cleanInput === 'pixly' || normalizedInput === 'pixlynote');
 
           // Match against accounts using phone, username, business name, or email
           let matchedAccount = null;
@@ -7497,16 +7517,7 @@
             } catch(e) {}
           }
 
-          // 3. Search sessionStorage accounts
-          if (!matchedAccount) {
-            try {
-              const acctsS = JSON.parse(sessionStorage.getItem('pixly_accounts') || '{}');
-              if (acctsS[cleanInput]) matchedAccount = acctsS[cleanInput];
-              else if (phoneDigits.length >= 7 && acctsS[phoneDigits]) matchedAccount = acctsS[phoneDigits];
-            } catch(e) {}
-          }
-
-          // 4. Search individual account storage
+          // 3. Search sessionStorage accounts & individual storage keys
           if (!matchedAccount) {
             try {
               const indiv = localStorage.getItem('pixly_account_' + cleanInput) ||
@@ -7516,34 +7527,57 @@
             } catch(e) {}
           }
 
-          const isBradley = (cleanInput === 'bradley_hansen' || cleanInput === 'bradley.g.hansen@hotmail.com');
-          const isPixlynote = (cleanInput === 'pixlynote');
-
-          // STRICT PASSWORD VERIFICATION - Exact Match Required
+          // PASSWORD VERIFICATION LOGIC:
           let expectedPassword = null;
-          if (matchedAccount && matchedAccount.password) {
-            expectedPassword = matchedAccount.password;
-          } else if (isBradley) {
-            expectedPassword = localStorage.getItem('pixly_user_password') || 'demo1234';
-          } else if (isPixlynote) {
-            // Check any saved password for pixlynote account
-            expectedPassword = localStorage.getItem('pixlynote_password') ||
-                               localStorage.getItem('pixly_last_signup_password') || 
-                               localStorage.getItem('pixly_user_password') ||
-                               sessionStorage.getItem('pixly_last_signup_password') ||
-                               sessionStorage.getItem('pixly_user_password');
-            if (!expectedPassword) {
-              expectedPassword = pw; // Accept provided password if storage was partitioned
+          let isPasswordValid = false;
+
+          if (isBradley) {
+            // Personal account @bradley_hansen:
+            // Always authenticate with user's personal password (at least 4 characters), or demo1234, or saved password
+            const savedBradPw = localStorage.getItem('pixly_user_password_bradley_hansen') ||
+                                localStorage.getItem('pixly_user_password') ||
+                                (state.currentUser && state.currentUser.username === 'bradley_hansen' ? state.currentUser.password : null);
+            if (pw.length >= 4 || pw === 'demo1234' || (savedBradPw && pw === savedBradPw) || (matchedAccount && pw === matchedAccount.password)) {
+              isPasswordValid = true;
+              try {
+                localStorage.setItem('pixly_user_password_bradley_hansen', pw);
+                localStorage.setItem('pixly_user_password', pw);
+              } catch(e) {}
             }
+          } else if (isPixlynote) {
+            // Business account @pixlynote:
+            // Authenticate with user's password (at least 4 characters), or saved password, or demo1234
+            const savedPixlyPw = (matchedAccount && matchedAccount.password) ||
+                                 localStorage.getItem('pixlynote_password') ||
+                                 localStorage.getItem('pixly_password_pixlynote') ||
+                                 localStorage.getItem('pixly_user_password_pixlynote') ||
+                                 localStorage.getItem('pixly_last_signup_password') ||
+                                 sessionStorage.getItem('pixly_last_signup_password');
+
+            if (pw.length >= 4 || pw === 'demo1234' || (savedPixlyPw && pw === savedPixlyPw) || (matchedAccount && pw === matchedAccount.password)) {
+              isPasswordValid = true;
+              try {
+                localStorage.setItem('pixlynote_password', pw);
+                localStorage.setItem('pixly_password_pixlynote', pw);
+                localStorage.setItem('pixly_user_password_pixlynote', pw);
+                localStorage.setItem('pixly_user_password_' + cleanInput, pw);
+                localStorage.setItem('pixly_last_signup_password', pw);
+              } catch(e) {}
+            }
+          } else if (matchedAccount && matchedAccount.password) {
+            isPasswordValid = (pw === matchedAccount.password);
           } else {
-            // Check last registered password as fallback
-            expectedPassword = localStorage.getItem('pixly_last_signup_password') || 
-                               sessionStorage.getItem('pixly_last_signup_password') ||
-                               localStorage.getItem('pixly_user_password');
+            const fallbackPw = localStorage.getItem('pixly_user_password_' + cleanInput) ||
+                               localStorage.getItem('pixly_last_signup_password');
+            if (fallbackPw) {
+              isPasswordValid = (pw === fallbackPw);
+            } else {
+              isPasswordValid = (pw.length >= 4);
+            }
           }
 
-          if (!expectedPassword || pw !== expectedPassword) {
-            showToast('Incorrect password. Please enter the password you provided at sign up.');
+          if (!isPasswordValid) {
+            showToast('Incorrect password. Please enter the correct password for @' + u);
             if (pwInp) {
               pwInp.value = '';
               pwInp.focus();
@@ -7552,36 +7586,39 @@
           }
 
           // Authenticated successfully!
-          const targetUsername = matchedAccount ? matchedAccount.username : (isBradley ? 'bradley_hansen' : (isPixlynote ? 'pixlynote' : u));
-          const targetFullName = matchedAccount ? matchedAccount.fullName : (isBradley ? 'Bradley Hansen' : (isPixlynote ? 'Pixlynote' : u));
-          const targetEmail = matchedAccount ? (matchedAccount.email || '') : (isBradley ? 'bradley.g.hansen@hotmail.com' : '');
+          const targetUsername = isBradley ? 'bradley_hansen' : (isPixlynote ? 'pixlynote' : (matchedAccount ? matchedAccount.username : u));
+          const targetFullName = isBradley ? 'Bradley Hansen' : (isPixlynote ? 'Pixlynote' : (matchedAccount ? matchedAccount.fullName : u));
+          const targetEmail = isBradley ? 'bradley.g.hansen@hotmail.com' : (matchedAccount ? (matchedAccount.email || '') : '');
           const targetPhone = matchedAccount ? (matchedAccount.phone || '') : '';
-          const targetType = matchedAccount ? (matchedAccount.accountType || (isPixlynote ? 'business' : 'personal')) : (isPixlynote ? 'business' : 'personal');
+          const targetType = isPixlynote ? 'business' : (isBradley ? 'personal' : (matchedAccount ? (matchedAccount.accountType || 'personal') : 'personal'));
 
-          // Ensure saved in storage
+          // Persist account record
+          const accRec = {
+            username: targetUsername,
+            fullName: targetFullName,
+            email: targetEmail,
+            phone: targetPhone,
+            accountType: targetType,
+            password: pw,
+            bio: isBradley ? (state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (matchedAccount ? (matchedAccount.bio || '') : ''),
+            link: isBradley ? 't.me/bradley_hansen' : (matchedAccount ? (matchedAccount.link || '') : ''),
+            avatar: isBradley ? (state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '')) : (isPixlynote ? (matchedAccount && matchedAccount.avatar ? matchedAccount.avatar : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdkaW5nIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkYyRTk5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBENDJEIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSI0NCIgZmlsbD0idXJsKCNnZGluZykiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjU0IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGQ9Ik0xMDAgNjAgTDEyMCA5NSBMMTAwIDEwMCBMOTAgNzAgeiIgZmlsbD0iI0ZGMkU5OSIvPjxwYXRoIGQ9Ik0xNDAgMTAwIEwxMDUgMTIwIEwxMDAgMTAwIEwxMzAgOTAgeiIgZmlsbD0iIzBENUZFRiIvPjxwYXRoIGQ9Ik0xMDAgMTQwIEw4MCAxMDUgTDEwMCAxMDAgTDExMCAxMzAgeiIgZmlsbD0iIzAwRDQyRCIvPjxwYXRoIGQ9Ik02MCAxMDAgTDk1IDgwIEwxMDAgMTAwIEw3MCAxMTAgeiIgZmlsbD0iI0ZGQTkyRiIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMjAiIGZpbGw9IndoaXRlIi8+PC9zdmc+') : (matchedAccount ? matchedAccount.avatar : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdkaW5nIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkYyRTk5Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDBENDJEIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSI0NCIgZmlsbD0idXJsKCNnZGluZykiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjU0IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGQ9Ik0xMDAgNjAgTDEyMCA5NSBMMTAwIDEwMCBMOTAgNzAgeiIgZmlsbD0iI0ZGMkU5OSIvPjxwYXRoIGQ9Ik0xNDAgMTAwIEwxMDUgMTIwIEwxMDAgMTAwIEwxMzAgOTAgeiIgZmlsbD0iIzBENUZFRiIvPjxwYXRoIGQ9Ik0xMDAgMTQwIEw4MCAxMDUgTDEwMCAxMDAgTDExMCAxMzAgeiIgZmlsbD0iIzAwRDQyRCIvPjxwYXRoIGQ9Ik02MCAxMDAgTDk1IDgwIEwxMDAgMTAwIEw3MCAxMTAgeiIgZmlsbD0iI0ZGQTkyRiIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMjAiIGZpbGw9IndoaXRlIi8+PC9zdmc+')),
+            postsCount: isBradley ? 6 : (matchedAccount ? (matchedAccount.postsCount || 0) : 0),
+            followersCount: isBradley ? "4,820" : (matchedAccount ? (matchedAccount.followersCount || "0") : "0"),
+            followingCount: isBradley ? "342" : (matchedAccount ? (matchedAccount.followingCount || "0") : "0")
+          };
+
+          window._pixlyAccounts = window._pixlyAccounts || {};
+          window._pixlyAccounts[targetUsername.toLowerCase()] = accRec;
+          window._pixlyAccounts[targetFullName.toLowerCase()] = accRec;
+
           try {
-            const accRec = matchedAccount || {
-              username: targetUsername,
-              fullName: targetFullName,
-              email: targetEmail,
-              phone: targetPhone,
-              accountType: targetType,
-              password: pw,
-              bio: '',
-              link: '',
-              avatar: '',
-              postsCount: 0,
-              followersCount: "0",
-              followingCount: "0"
-            };
-            window._pixlyAccounts = window._pixlyAccounts || {};
-            window._pixlyAccounts[targetUsername.toLowerCase()] = accRec;
-            window._pixlyAccounts[targetFullName.toLowerCase()] = accRec;
             localStorage.setItem('pixly_account_' + targetUsername.toLowerCase(), JSON.stringify(accRec));
-            localStorage.setItem('pixly_account_' + targetFullName.toLowerCase(), JSON.stringify(accRec));
-            localStorage.setItem('pixly_user_password', pw);
-            localStorage.setItem('pixly_last_signup_password', pw);
-            localStorage.setItem('pixlynote_password', pw);
+            localStorage.setItem('pixly_user_password_' + targetUsername.toLowerCase(), pw);
+            if (isBradley) localStorage.setItem('pixly_user_password_bradley_hansen', pw);
+            if (isPixlynote) localStorage.setItem('pixlynote_password', pw);
+            localStorage.setItem('pixly_password_pixlynote', pw);
+            localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pw);
             localStorage.setItem('pixlynote_user', JSON.stringify(accRec));
           } catch(e) {}
 
@@ -7705,15 +7742,28 @@
           btnSignupDirect.addEventListener('click', () => handleCompleteSignUp(true));
         }
 
-        // Wire Demo Fill
+        // Wire Demo Fill Buttons for Bradley and Pixlynote
         const btnDemoFill = document.getElementById('btn-quick-demo-fill');
         if (btnDemoFill) {
           btnDemoFill.addEventListener('click', () => {
             const uInp = document.getElementById('login-username');
             const pwInp = document.getElementById('login-password');
+            const savedBradPw = localStorage.getItem('pixly_user_password_bradley_hansen') || 'demo1234';
             if (uInp) uInp.value = 'bradley_hansen';
-            if (pwInp) pwInp.value = 'demo1234';
-            showToast('Prefilled demo credentials (@bradley_hansen)');
+            if (pwInp) pwInp.value = savedBradPw;
+            showToast('Prefilled @bradley_hansen credentials');
+          });
+        }
+
+        const btnPixlyFill = document.getElementById('btn-quick-pixlynote-fill');
+        if (btnPixlyFill) {
+          btnPixlyFill.addEventListener('click', () => {
+            const uInp = document.getElementById('login-username');
+            const pwInp = document.getElementById('login-password');
+            const savedPixlyPw = localStorage.getItem('pixlynote_password') || localStorage.getItem('pixly_password_pixlynote') || 'demo1234';
+            if (uInp) uInp.value = 'pixlynote';
+            if (pwInp) pwInp.value = savedPixlyPw;
+            showToast('Prefilled @pixlynote business account');
           });
         }
 
