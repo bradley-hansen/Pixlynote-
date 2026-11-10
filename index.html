@@ -1237,7 +1237,7 @@
           </button>
 
           <!-- Pixai AI Assistant Tab (Pixlynote Pixai) -->
-          <button type="button" id="nav-btn-pixai" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-neutral-500 hover:text-violet-600 hover:bg-violet-50 transition cursor-pointer group" title="Pixai (Pixlynote AI)">
+          <button type="button" id="nav-btn-pixai" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-violet-700 bg-violet-50/80 hover:bg-violet-100/80 hover:text-violet-900 transition cursor-pointer group shadow-2xs" title="Pixai (Pixlynote AI - Bottom Popup)">
             <div class="relative w-5 h-5 flex items-center justify-center">
               <svg class="w-5 h-5 text-violet-600 group-hover:scale-110 transition duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
@@ -1641,15 +1641,24 @@
     </div>
   </div>
 
-    <!-- PIXAI CREATIVE ASSISTANT MODAL (PIXLYNOTE PIXAI) -->
-  <div id="modal-pixai" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-md items-center justify-center p-3 sm:p-4" style="display: none;">
-    <div class="bg-white rounded-3xl max-w-xl w-full h-[620px] max-h-[92vh] shadow-2xl border border-neutral-200/90 flex flex-col overflow-hidden animate-in fade-in duration-200">
+    <!-- PIXAI BOTTOM POPUP CHAT SHEET (PIXLYNOTE PIXAI) -->
+  <div id="modal-pixai" class="hidden fixed inset-0 z-50 flex flex-col justify-end pointer-events-none" style="display: none;">
+    <!-- Backdrop overlay with smooth fade in/out -->
+    <div id="pixai-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300 opacity-0 pointer-events-auto" onclick="closePixaiModal()"></div>
+    
+    <!-- Bottom Sheet Card (Slides smoothly up from the bottom) -->
+    <div id="pixai-sheet-card" class="relative z-10 pointer-events-auto bg-white rounded-t-[32px] sm:rounded-t-[36px] border-t border-neutral-200/90 shadow-2xl max-w-2xl mx-auto w-full h-[85vh] sm:h-[640px] max-h-[92vh] flex flex-col overflow-hidden transform transition-transform duration-300 ease-out translate-y-full">
       
-      <!-- Top Pixai Header -->
-      <div class="p-4 border-b border-neutral-100 flex items-center justify-between bg-gradient-to-r from-violet-50/80 via-white to-fuchsia-50/80">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-2xl p-0.5 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400 shadow-md shadow-violet-500/20 flex items-center justify-center">
-            <div class="w-full h-full rounded-[14px] bg-neutral-900 flex items-center justify-center text-white text-base font-black">
+      <!-- Top Grab / Pull-down Handle -->
+      <div class="pt-3 pb-1 flex justify-center cursor-pointer select-none" id="pixai-drag-handle" onclick="closePixaiModal()" title="Swipe down to close">
+        <div class="w-12 h-1.5 rounded-full bg-neutral-300 hover:bg-neutral-400 transition"></div>
+      </div>
+
+      <!-- Top Header -->
+      <div class="px-4 py-2.5 border-b border-neutral-100 flex items-center justify-between bg-gradient-to-r from-violet-50/70 via-white to-fuchsia-50/70">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-2xl p-0.5 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400 shadow-sm shadow-violet-500/20 flex items-center justify-center flex-shrink-0">
+            <div class="w-full h-full rounded-[14px] bg-neutral-900 flex items-center justify-center text-white text-sm font-black">
               ✨
             </div>
           </div>
@@ -1658,30 +1667,32 @@
               <span class="font-black text-sm text-neutral-900 tracking-tight">Pixai</span>
               <span class="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-md">Pixlynote AI</span>
             </div>
-            <div class="text-[11px] text-neutral-500 font-medium">Your creative companion for captions, vibe notes & aesthetics</div>
+            <div class="text-[11px] text-neutral-500 font-medium">Your creative companion for captions, vibe notes & visuals</div>
           </div>
         </div>
 
-        <div class="flex items-center space-x-1">
-          <button type="button" id="btn-pixai-toggle-settings" class="p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Configure Google Gemini API Key">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <div class="flex items-center space-x-1.5">
+          <!-- Google API Key status / config toggle -->
+          <button type="button" id="btn-pixai-toggle-settings" class="px-2.5 py-1 text-[11px] font-bold rounded-xl border border-neutral-200 hover:border-violet-300 hover:bg-violet-50 text-neutral-700 hover:text-violet-700 transition flex items-center space-x-1 cursor-pointer" title="Configure Google Gemini API Key">
+            <span>🔑</span>
+            <span id="pixai-key-status-text">Google Key</span>
           </button>
-          <button type="button" id="btn-close-pixai" class="p-2 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close Pixai">
+          <button type="button" id="btn-close-pixai" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close Pixai">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       </div>
 
       <!-- Google Gemini API Key Settings Drawer (Collapsible) -->
-      <div id="pixai-settings-panel" class="hidden bg-neutral-50 border-b border-neutral-200 p-3.5 space-y-2 text-xs">
+      <div id="pixai-settings-panel" class="hidden bg-neutral-50/95 border-b border-neutral-200 p-3.5 space-y-2 text-xs">
         <div class="flex items-center justify-between">
           <span class="font-bold text-neutral-800 flex items-center space-x-1.5">
             <span>🔑 Google Gemini API Key</span>
           </span>
-          <span class="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold" id="pixai-key-status">Stored locally in browser</span>
+          <span class="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold" id="pixai-key-status">Ready in browser</span>
         </div>
         <p class="text-[11px] text-neutral-500 leading-relaxed">
-          Never share private API keys in chat! You can safely paste your Google API key below — it stays strictly inside your personal browser storage (<code class="bg-neutral-200 px-1 py-0.5 rounded">localStorage</code>) to connect directly with Gemini. Even without a key, Pixai works immediately with built-in creative intelligence!
+          Google requires your own Gemini API key (from <a href="https://aistudio.google.com" target="_blank" class="text-violet-600 font-semibold underline">aistudio.google.com</a>) to connect directly with live Gemini AI. It stays private inside your personal browser storage (<code class="bg-neutral-200 px-1 py-0.5 rounded">localStorage</code>). Even without an API key, Pixai works immediately with our built-in creative engine!
         </p>
         <div class="flex items-center space-x-2 pt-1">
           <input type="password" id="pixai-api-key-input" placeholder="AIzaSy... (Paste Google API Key here)" class="flex-1 bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-violet-500 font-mono">
@@ -1692,19 +1703,19 @@
 
       <!-- Preset Quick Starter Pills -->
       <div class="p-2.5 bg-neutral-50/70 border-b border-neutral-100 flex items-center space-x-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-200 flex-shrink-0">
-        <button type="button" class="pixai-starter-pill px-2.5 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 3 aesthetic sunset photo captions with emojis and trending hashtags">
+        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 3 aesthetic sunset photo captions with emojis and trending hashtags">
           <span>🌅 Sunset Captions</span>
         </button>
-        <button type="button" class="pixai-starter-pill px-2.5 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Draft a poetic vibe note for my Pixlynote feed about travel and coffee aesthetics">
+        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Draft a poetic vibe note for my Pixlynote feed about travel and coffee aesthetics">
           <span>☕ Vibe Note</span>
         </button>
-        <button type="button" class="pixai-starter-pill px-2.5 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Critique my photo aesthetic: What lighting and composition makes a portrait stand out?">
+        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Critique my photo aesthetic: What lighting and composition makes a portrait stand out?">
           <span>📸 Photo Critique</span>
         </button>
-        <button type="button" class="pixai-starter-pill px-2.5 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Help polish my creator bio to sound professional, modern and authentic">
+        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Help polish my creator bio to sound professional, modern and authentic">
           <span>✨ Polish Bio</span>
         </button>
-        <button type="button" class="pixai-starter-pill px-2.5 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 10 trending photography and creator hashtags for 2026">
+        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 10 trending photography and creator hashtags for 2026">
           <span>🏷️ Hashtags</span>
         </button>
       </div>
