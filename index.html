@@ -688,9 +688,9 @@
               </div>
             </button>
             <!-- Pixai AI Assistant Navigation Trigger -->
-            <button type="button" id="btn-header-pixai" onclick="openPixaiModal()" class="relative py-1 px-2.5 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-violet-500/25 hover:shadow-md hover:shadow-violet-500/35 hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer" title="Open Pixai Creative AI Assistant">
+            <button type="button" id="btn-header-pixai" onclick="openPixaiModal()" class="relative py-1 px-2.5 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-violet-500/25 hover:shadow-md hover:shadow-violet-500/35 hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer" title="Open Pixlynote AI Assistant">
               <span class="text-xs animate-pulse">✨</span>
-              <span class="tracking-tight text-[11px] font-black hidden sm:inline">Pixai</span>
+              <span class="tracking-tight text-[11px] font-black hidden sm:inline">AI</span>
             </button>
 
             <button type="button" id="btn-logout" class="ml-1 p-2 text-neutral-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition" title="Log Out">
@@ -1237,14 +1237,14 @@
           </button>
 
           <!-- Pixai AI Assistant Tab (Pixlynote Pixai) -->
-          <button type="button" id="nav-btn-pixai" onclick="openPixaiModal()" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-violet-700 bg-violet-50/90 hover:bg-violet-100 hover:text-violet-900 transition-all duration-200 cursor-pointer group shadow-2xs active:scale-95" title="Pixai (Pixlynote AI - Bottom Popup)">
+          <button type="button" id="nav-btn-pixai" onclick="openPixaiModal()" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-violet-700 bg-violet-50/90 hover:bg-violet-100 hover:text-violet-900 transition-all duration-200 cursor-pointer group shadow-2xs active:scale-95" title="Pixlynote AI (Bottom Popup)">
             <div class="relative w-5 h-5 flex items-center justify-center">
               <svg class="w-5 h-5 text-violet-600 group-hover:scale-110 transition duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
               </svg>
               <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-fuchsia-500 animate-ping"></span>
             </div>
-            <span class="text-[9px] font-bold mt-0.5 tracking-tight group-hover:text-violet-600">Pixai</span>
+            <span class="text-[9px] font-bold mt-0.5 tracking-tight group-hover:text-violet-600">AI</span>
           </button>
 
           <!-- Center Shutter / Create Post Action Button -->
@@ -1664,7 +1664,7 @@
           </div>
           <div>
             <div class="flex items-center space-x-1.5">
-              <span class="font-black text-sm text-neutral-900 tracking-tight">Pixai</span>
+              <span class="font-black text-sm text-neutral-900 tracking-tight">Pixlynote AI</span>
               <span id="pixai-header-badge" class="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-md">Pixlynote AI</span>
             </div>
             <div class="text-[11px] text-neutral-500 font-medium">Your creative companion for captions, vibe notes & visuals</div>
@@ -1766,7 +1766,7 @@
               ✨
             </div>
             <div class="max-w-[85%] bg-neutral-50 border border-neutral-200/70 rounded-2xl rounded-tl-sm p-3.5 text-neutral-800 leading-relaxed shadow-2xs space-y-1.5">
-              <p class="font-bold text-neutral-900">Hey there! I'm <span class="text-violet-600 font-extrabold">Pixai</span>, your Pixlynote creative AI companion. 📸✨</p>
+              <p class="font-bold text-neutral-900">Hey there! I'm <span class="text-violet-600 font-extrabold">Pixlynote AI</span>, your creative companion. 📸✨</p>
               <p>Your Google API connection is ready! I can craft aesthetic captions, suggest trending hashtags, polish your bio, draft vibe notes, or brainstorm visual ideas. Tap any prompt above or message me below!</p>
             </div>
           </div>
@@ -1775,8 +1775,8 @@
         <!-- Input Bar -->
         <div class="p-3 border-t border-neutral-100 bg-white">
           <form id="pixai-chat-form" class="flex items-center space-x-2" onsubmit="event.preventDefault(); submitPixaiMessage();">
-            <input type="text" id="pixai-chat-input" placeholder="Ask Pixai for captions, notes, ideas..." class="flex-1 bg-neutral-100 hover:bg-neutral-100/80 focus:bg-white border border-transparent focus:border-violet-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none transition">
-            <button type="submit" id="btn-pixai-send" onclick="event.preventDefault(); submitPixaiMessage();" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixai">
+            <input type="text" id="pixai-chat-input" placeholder="Ask Pixlynote AI for captions, notes, ideas..." class="flex-1 bg-neutral-100 hover:bg-neutral-100/80 focus:bg-white border border-transparent focus:border-violet-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none transition">
+            <button type="submit" id="btn-pixai-send" onclick="event.preventDefault(); submitPixaiMessage();" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixlynote AI">
               <svg class="w-4 h-4 fill-none stroke-currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/></svg>
             </button>
           </form>
@@ -9350,7 +9350,7 @@
       }
 
       if (p.includes('critique') || p.includes('lighting') || p.includes('composition') || p.includes('aesthetic')) {
-        return `📸 **Pixai Aesthetic & Composition Critique:**
+        return `📸 **Pixlynote AI Aesthetic & Composition Critique:**
 
 - **Leading Lines & Depth:** Use natural urban curbs, boardwalks, or shadows to draw the viewer’s eye toward the focal point.
 - **Rule of Thirds + Negative Space:** Leave ample breathing room (open sky or clean wall) to let the subject resonate.
@@ -9377,7 +9377,7 @@
 #Pixlynote #VisualStoryteller #AestheticFeed #AestheticPhotography #GoldenHourChasers #VibeCheck #CreatorEconomy #SlowLiving #MoodyTones #ModernAesthetics #ShotOnMobile #CaptureShareRemember`;
       }
 
-      return `✨ **Pixai Idea for "${prompt}":**
+      return `✨ **Pixlynote AI Idea for "${prompt}":**
 
 I love where your head is at! For this vibe on Pixlynote, I recommend focusing on authenticity and rich visual mood:
 
@@ -9415,7 +9415,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         </div>
         <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl rounded-tl-sm p-3 text-neutral-500 text-xs flex items-center space-x-2 shadow-2xs">
           <span class="inline-block w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
-          <span>Pixai is generating...</span>
+          <span>Pixlynote AI is generating...</span>
         </div>
       `;
       container.appendChild(loadingBubble);
@@ -9460,7 +9460,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               const data = await res.json();
               if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
                 responseText = data.candidates[0].content.parts.map(p => p.text).join('\n');
-                console.log(`Pixai successfully answered via ${baseEndpoint}`);
+                console.log(`Pixlynote AI successfully answered via ${baseEndpoint}`);
                 break;
               }
             } else {
