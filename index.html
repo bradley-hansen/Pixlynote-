@@ -782,7 +782,7 @@
               <!-- Stats Numbers: Modern Pill Card Modules -->
               <div class="grid grid-cols-3 gap-2 sm:gap-3 py-1">
                 <div class="px-3 py-2.5 bg-neutral-50/80 rounded-2xl border border-neutral-100 text-center">
-                  <div class="text-base font-black text-neutral-900" id="profile-post-count">6</div>
+                  <div class="text-base font-black text-neutral-900" id="profile-post-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Posts</div>
                 </div>
                 <div class="px-3 py-2.5 bg-neutral-50/80 rounded-2xl border border-neutral-100 text-center">
@@ -1166,7 +1166,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
           <input type="text" id="explore-search-input" placeholder="Search creators, photos, notes, hashtags..." class="w-full text-xs bg-transparent focus:outline-none">
-          <button type="button" id="btn-explore-refresh" onclick="triggerRefreshRoutine()" class="px-2.5 py-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 rounded-lg flex items-center space-x-1 transition cursor-pointer flex-shrink-0" title="Swipe down or tap to repopulate explore">
+          <button type="button" id="btn-explore-refresh" onclick="handleInstantExploreRefresh(this)" class="px-2.5 py-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 rounded-lg flex items-center space-x-1 transition cursor-pointer flex-shrink-0" title="Swipe down or tap to repopulate explore">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             <span class="hidden sm:inline">Refresh</span>
           </button>
@@ -1229,7 +1229,7 @@
           </button>
 
           <!-- Search / Explore Tab -->
-          <button type="button" id="nav-btn-explore" class="flex-1 py-1 px-2 flex flex-col items-center justify-center rounded-xl text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition cursor-pointer" title="Explore">
+          <button type="button" id="nav-btn-explore" onclick="handleNavExploreClick()" class="flex-1 py-1 px-2 flex flex-col items-center justify-center rounded-xl text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition cursor-pointer" title="Explore">
             <svg id="nav-icon-explore" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
@@ -1270,6 +1270,94 @@
       </nav>
     </div>
 
+  </div>
+
+    <!-- MODAL: NOTE DETAIL & CONVERSATION VIEW -->
+  <div id="modal-note-detail" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4" style="display: none;">
+    <div class="relative bg-white rounded-3xl overflow-hidden max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-neutral-200 animate-in fade-in duration-200">
+      
+      <!-- Top Bar with Author Info & Close -->
+      <div class="p-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+        <div class="flex items-center space-x-3 cursor-pointer" id="note-modal-author-clickable">
+          <div class="w-10 h-10 rounded-2xl p-0.5 story-gradient flex-shrink-0 shadow-xs">
+            <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
+              <img id="note-modal-author-avatar" src="" alt="" class="w-full h-full object-cover">
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span id="note-modal-author-name" class="font-bold text-xs sm:text-sm text-neutral-900">Author</span>
+              <svg class="w-3.5 h-3.5 text-violet-600 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <div class="text-[11px] text-neutral-400 font-medium">
+              <span id="note-modal-author-handle">@handle</span> · <span id="note-modal-time">time</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="btn-close-note-modal" onclick="closeNoteDetailModal()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close note">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Scrollable Note Body & Comments Thread -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        <!-- Main Note Text (Large Editorial Typography) -->
+        <div class="text-sm sm:text-base text-neutral-900 leading-relaxed whitespace-pre-line" id="note-modal-text">
+          <!-- Note body text -->
+        </div>
+
+        <!-- Action Bar: Like, Save, Comments Count, Share -->
+        <div class="flex items-center justify-between py-2.5 px-3 bg-neutral-50 rounded-2xl border border-neutral-100">
+          <div class="flex items-center space-x-4">
+            <!-- Like Note Button -->
+            <button type="button" id="btn-note-modal-like" onclick="handleNoteModalLikeToggle()" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-700 hover:text-rose-600 transition cursor-pointer">
+              <svg id="note-modal-like-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+              <span id="note-modal-likes-count">0</span>
+            </button>
+            <!-- Save Note Button -->
+            <button type="button" id="btn-note-modal-save" onclick="handleNoteModalSaveToggle()" class="flex items-center space-x-1 text-xs font-semibold text-neutral-700 hover:text-amber-500 transition cursor-pointer">
+              <svg id="note-modal-save-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              <span id="note-modal-save-label">Save</span>
+            </button>
+            <!-- Comments Count Indicator -->
+            <div class="flex items-center space-x-1 text-xs text-neutral-400 font-medium">
+              <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              <span id="note-modal-comments-count">0 comments</span>
+            </div>
+          </div>
+          <!-- Share Note Link -->
+          <button type="button" onclick="handleNoteModalShare()" class="text-xs font-semibold text-violet-600 hover:text-violet-800 transition flex items-center space-x-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+            <span>Share</span>
+          </button>
+        </div>
+
+        <!-- Comments & Conversation Thread -->
+        <div class="space-y-3 pt-2">
+          <div class="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center space-x-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-600"></span>
+            <span>Conversation</span>
+          </div>
+          <div id="note-modal-comments-list" class="space-y-2.5 divide-y divide-neutral-100">
+            <!-- Injected comments -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Comment Input Form -->
+      <div class="p-3 border-t border-neutral-100 bg-white">
+        <form id="note-modal-comment-form" onsubmit="event.preventDefault(); submitNoteModalComment();" class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-full overflow-hidden border border-neutral-200 flex-shrink-0">
+            <img id="note-modal-my-avatar" src="" alt="Me" class="w-full h-full object-cover">
+          </div>
+          <input type="text" id="note-modal-comment-input" placeholder="Reply to this note or share your thought..." class="flex-1 bg-neutral-50 hover:bg-neutral-100/70 focus:bg-white border border-neutral-200 focus:border-violet-600 rounded-xl px-3.5 py-2 text-xs focus:outline-none transition">
+          <button type="submit" class="px-3.5 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold text-xs rounded-xl hover:opacity-95 active:scale-95 transition shadow-xs cursor-pointer flex-shrink-0">
+            Reply
+          </button>
+        </form>
+      </div>
+
+    </div>
   </div>
 
   <!-- MODAL 1: POST DETAIL / FULL PICTURE VIEW -->
@@ -1874,6 +1962,8 @@
     // =========================================================================
     window.PIXAI_GOOGLE_API_KEY = "";
     const PIXAI_GOOGLE_API_KEY = window.PIXAI_GOOGLE_API_KEY;
+    let exploreRefreshCycle = 0;
+    let noteModalActiveId = null;
 
     window.firebaseReady = false;
     window.firebase = null;
@@ -2733,7 +2823,7 @@
         bio: "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
         link: "t.me/bradley_hansen",
         avatar: BRADLEY_AVATAR_IMAGE,
-        postsCount: 6,
+        postsCount: 0,
         followersCount: "4,820",
         followingCount: "342"
       },
@@ -3098,9 +3188,9 @@
       posts: [
         {
           id: 1,
-          author: "bradley_hansen",
-          authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          author: "nordic_trails",
+          authorName: "Freja Hansen",
+          authorAvatar: COMMUNITY_IMAGES[5],
           location: "Banff National Park, Canada",
           image: PRESET_IMAGES[0].path,
           caption: "Unreal clarity at Lake Moraine today. Glacial water hits different when the sun crests the peaks 🏔️🌲✨",
@@ -3115,9 +3205,9 @@
         },
         {
           id: 2,
-          author: "bradley_hansen",
-          authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          author: "elena_eats",
+          authorName: "Elena Rostova",
+          authorAvatar: COMMUNITY_IMAGES[0],
           location: "Cafe Belleville, Paris",
           image: PRESET_IMAGES[1].path,
           caption: "Morning ritual: freshly baked almond croissant & a double-shot flat white. Slow mornings are the best mornings ☕🥐",
@@ -3131,9 +3221,9 @@
         },
         {
           id: 3,
-          author: "bradley_hansen",
-          authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          author: "arch_digest",
+          authorName: "Architecture Daily",
+          authorAvatar: COMMUNITY_IMAGES[2],
           location: "Chicago Riverwalk Skyline",
           image: PRESET_IMAGES[2].path,
           caption: "Golden hour washing over the city skyscrapers. Never get tired of this horizon line 🌇🏙️",
@@ -3148,9 +3238,9 @@
         },
         {
           id: 4,
-          author: "bradley_hansen",
-          authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          author: "marcus_pups",
+          authorName: "Marcus Vance",
+          authorAvatar: COMMUNITY_IMAGES[1],
           location: "Green Meadow Park",
           image: PRESET_IMAGES[3].path,
           caption: "Meet Leo! First day exploring the spring wildflower meadows and rolling in fresh clover 🐾🌼💛",
@@ -3848,7 +3938,7 @@
       // Update bio & numbers
       const userPosts = state.posts.filter(p => (p.author || '').toLowerCase() === state.currentUser.username.toLowerCase());
       const postCountEl = document.getElementById('profile-post-count');
-      if (postCountEl) postCountEl.textContent = isPixly ? 0 : userPosts.length;
+      if (postCountEl) postCountEl.textContent = userPosts.length;
       
       const followersEl = document.getElementById('profile-followers-count');
       if (followersEl) followersEl.textContent = isPixly ? "0" : (state.currentUser.followersCount || "0");
@@ -4029,6 +4119,382 @@
       renderSaved();
     }
 
+        // Helper to guarantee valid author avatar on any note
+    function getNoteAuthorAvatar(note) {
+      if (!note) return (state.currentUser ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE);
+      if (note.authorAvatar && typeof note.authorAvatar === 'string' && note.authorAvatar.length > 15 && !note.authorAvatar.includes('undefined')) {
+        return note.authorAvatar;
+      }
+      if (note.author) {
+        const creator = getCreatorInfo(note.author);
+        if (creator && creator.avatar) return creator.avatar;
+      }
+      return (state.currentUser && state.currentUser.avatar) ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE;
+    }
+    window.getNoteAuthorAvatar = getNoteAuthorAvatar;
+
+    // --- Render User Profile Notes ---
+    
+    // =========================================================================
+    // NOTE DETAIL MODAL & CONVERSATION CONTROLLERS
+    // =========================================================================
+        // Persistent Note Archiving System to prevent liked notes from breaking or mismatching
+    function archiveAllNotes() {
+      if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+      (state.notes || []).forEach(n => {
+        if (n && n.id !== undefined) state.exploreNotesArchive.set(String(n.id), n);
+      });
+      (state.exploreNotes || []).forEach(n => {
+        if (n && n.id !== undefined) state.exploreNotesArchive.set(String(n.id), n);
+      });
+      try {
+        const cache = Array.from(state.exploreNotesArchive.values());
+        localStorage.setItem('pixly_all_notes_cache', JSON.stringify(cache));
+      } catch(e) {}
+    }
+    window.archiveAllNotes = archiveAllNotes;
+
+    function getNoteById(noteId) {
+      if (noteId === undefined || noteId === null) return null;
+      const strId = String(noteId);
+      const numId = parseInt(noteId, 10);
+
+      // 1. Search in user notes
+      let found = (state.notes || []).find(n => String(n.id) === strId || n.id === numId);
+      if (found) return found;
+
+      // 2. Search in explore notes
+      found = (state.exploreNotes || []).find(n => String(n.id) === strId || n.id === numId);
+      if (found) return found;
+
+      // 3. Search in persistent explore notes archive
+      if (state.exploreNotesArchive && state.exploreNotesArchive.has(strId)) {
+        return state.exploreNotesArchive.get(strId);
+      }
+
+      // 4. Search in localStorage notes cache
+      try {
+        const cached = JSON.parse(localStorage.getItem('pixly_all_notes_cache') || '[]');
+        const inCache = cached.find(n => String(n.id) === strId || n.id === numId);
+        if (inCache) {
+          if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+          state.exploreNotesArchive.set(strId, inCache);
+          return inCache;
+        }
+      } catch(e) {}
+
+      return null;
+    }
+    window.getNoteById = getNoteById;
+
+
+    function openNoteDetailModal(noteId) {
+      const note = getNoteById(noteId);
+      if (!note) return;
+
+      state.currentModalNoteId = note.id;
+      const modal = document.getElementById('modal-note-detail');
+      if (!modal) return;
+
+      const authorNameEl = document.getElementById('note-modal-author-name');
+      const authorHandleEl = document.getElementById('note-modal-author-handle');
+      const authorAvatarEl = document.getElementById('note-modal-author-avatar');
+      const timeEl = document.getElementById('note-modal-time');
+      const textEl = document.getElementById('note-modal-text');
+      const likesCountEl = document.getElementById('note-modal-likes-count');
+      const likeIconEl = document.getElementById('note-modal-like-icon');
+      const saveLabelEl = document.getElementById('note-modal-save-label');
+      const saveIconEl = document.getElementById('note-modal-save-icon');
+      const commentsCountEl = document.getElementById('note-modal-comments-count');
+      const myAvatarEl = document.getElementById('note-modal-my-avatar');
+
+      const creator = getCreatorInfo(note.author);
+      const avatarSrc = getNoteAuthorAvatar(note);
+
+      if (authorNameEl) authorNameEl.textContent = note.authorName || creator.fullName || note.author;
+      if (authorHandleEl) authorHandleEl.textContent = `@${note.author}`;
+      if (authorAvatarEl) authorAvatarEl.src = avatarSrc;
+      if (timeEl) timeEl.textContent = note.time || 'Just now';
+      if (textEl) textEl.textContent = note.text;
+      if (myAvatarEl) myAvatarEl.src = state.currentUser ? (state.currentUser.avatar || BRADLEY_AVATAR_IMAGE) : BRADLEY_AVATAR_IMAGE;
+
+      // Author clickable to view profile
+      const clickableHeader = document.getElementById('note-modal-author-clickable');
+      if (clickableHeader) {
+        clickableHeader.onclick = () => {
+          closeNoteDetailModal();
+          viewUserProfile(note.author);
+        };
+      }
+
+      // Format likes state
+      const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false;
+      if (likesCountEl) likesCountEl.textContent = note.likes || 0;
+      if (likeIconEl) {
+        likeIconEl.className = isLiked ? "w-4 h-4 fill-rose-500 text-rose-500 transition duration-200" : "w-4 h-4 text-neutral-700 transition duration-200";
+      }
+
+      // Format save state
+      const isSaved = state.savedNoteIds ? (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id))) : false;
+      if (saveLabelEl) saveLabelEl.textContent = isSaved ? "Saved" : "Save";
+      if (saveIconEl) {
+        saveIconEl.className = isSaved ? "w-4 h-4 fill-amber-500 text-amber-500" : "w-4 h-4 text-neutral-700";
+      }
+
+      // Render comments
+      renderNoteModalComments(note);
+
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
+    window.openNoteDetailModal = openNoteDetailModal;
+
+    function closeNoteDetailModal() {
+      const modal = document.getElementById('modal-note-detail');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+      state.currentModalNoteId = null;
+    }
+    window.closeNoteDetailModal = closeNoteDetailModal;
+
+    function renderNoteModalComments(note) {
+      const listEl = document.getElementById('note-modal-comments-list');
+      const countEl = document.getElementById('note-modal-comments-count');
+      if (!listEl) return;
+
+      const comments = note.comments || [];
+      if (countEl) countEl.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
+
+      if (comments.length === 0) {
+        listEl.innerHTML = `
+          <div class="py-6 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-600">No comments yet</p>
+            <p class="text-[11px]">Be the first to reply or share your vibe on this note!</p>
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = comments.map(c => {
+          const userAvatar = c.userAvatar || (getCreatorInfo(c.user).avatar) || COMMUNITY_IMAGES[0];
+          return `
+            <div class="py-2.5 flex items-start space-x-2.5">
+              <div class="w-7 h-7 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0 cursor-pointer" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">
+                <img src="${userAvatar}" alt="${c.user}" class="w-full h-full object-cover">
+              </div>
+              <div class="flex-1 text-xs">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-neutral-900 cursor-pointer hover:underline" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
+                  <span class="text-[10px] text-neutral-400">@${c.user} · ${c.timestamp || 'Just now'}</span>
+                </div>
+                <p class="text-neutral-700 mt-0.5 leading-relaxed">${escapeHtml(c.text)}</p>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function submitNoteModalComment() {
+      if (!state.currentModalNoteId) return;
+      const note = getNoteById(state.currentModalNoteId);
+      const input = document.getElementById('note-modal-comment-input');
+      if (!note || !input) return;
+
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!note.comments) note.comments = [];
+      const newComment = {
+        id: Date.now(),
+        user: state.currentUser ? state.currentUser.username : 'bradley_hansen',
+        userName: state.currentUser ? state.currentUser.fullName : 'Bradley Hansen',
+        userAvatar: state.currentUser ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE,
+        text: text,
+        timestamp: 'Just now'
+      };
+      note.comments.push(newComment);
+      input.value = '';
+
+      renderNoteModalComments(note);
+      persistState();
+      showToast('Comment posted on note! 💬');
+    }
+    window.submitNoteModalComment = submitNoteModalComment;
+
+    function handleNoteModalLikeToggle() {
+      if (!state.currentModalNoteId) return;
+      const note = getNoteById(state.currentModalNoteId);
+      if (!note) return;
+
+      const numId = parseInt(note.id, 10);
+      const strId = String(note.id);
+      if (!state.likedNoteIds) state.likedNoteIds = new Set();
+      if (!state.likedNoteOrder) state.likedNoteOrder = [];
+
+      const currentlyLiked = state.likedNoteIds.has(numId) || state.likedNoteIds.has(strId);
+      if (currentlyLiked) {
+        state.likedNoteIds.delete(numId);
+        state.likedNoteIds.delete(strId);
+        note.likes = Math.max(0, (note.likes || 1) - 1);
+        note.isLiked = false;
+        state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
+        showToast('Unliked note');
+      } else {
+        state.likedNoteIds.add(numId);
+        state.likedNoteIds.add(strId);
+        note.likes = (note.likes || 0) + 1;
+        note.isLiked = true;
+        if (!state.likedNoteOrder.includes(strId)) {
+          state.likedNoteOrder.unshift(strId);
+        }
+        showToast('Liked note! Saved to profile ❤️');
+      }
+
+      openNoteDetailModal(note.id);
+      renderNotes();
+      renderLikes();
+      renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
+      persistState();
+    }
+    window.handleNoteModalLikeToggle = handleNoteModalLikeToggle;
+
+    function handleNoteModalSaveToggle() {
+      if (!state.currentModalNoteId) return;
+      window.toggleSaveNote(state.currentModalNoteId);
+      openNoteDetailModal(state.currentModalNoteId);
+    }
+    window.handleNoteModalSaveToggle = handleNoteModalSaveToggle;
+
+    function handleNoteModalShare() {
+      if (!state.currentModalNoteId) return;
+      const note = getNoteById(state.currentModalNoteId);
+      if (!note) return;
+      navigator.clipboard.writeText(`https://pixlynote.com/@${note.author}/note/${note.id}`);
+      showToast('Note link copied to clipboard! 📋');
+    }
+    window.handleNoteModalShare = handleNoteModalShare;
+
+
+    function renderNotes() {
+      const notesList = document.getElementById('notes-list');
+      const composerAvatar = document.getElementById('note-composer-avatar');
+      
+      if (composerAvatar) {
+        composerAvatar.src = state.currentUser.avatar || BRADLEY_AVATAR_IMAGE;
+      }
+
+      if (!notesList) return;
+
+      const currentU = (state.currentUser.username || '').toLowerCase();
+      const myNotes = (state.notes || []).filter(n => (n.author || '').toLowerCase() === currentU);
+
+      if (myNotes.length === 0) {
+        notesList.innerHTML = `
+          <div class="py-10 text-center text-neutral-400 space-y-1.5 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
+            <div class="text-2xl">📝</div>
+            <p class="font-bold text-xs text-neutral-700">No notes yet</p>
+            <p class="text-[11px] text-neutral-400">Share a thought, quote, or quick update above.</p>
+          </div>
+        `;
+      } else {
+        notesList.innerHTML = myNotes.map(n => {
+          const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false;
+          const isSaved = state.savedNoteIds ? (state.savedNoteIds.has(n.id) || state.savedNoteIds.has(String(n.id))) : false;
+          const avatar = getNoteAuthorAvatar(n);
+          return `
+            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2.5 shadow-2xs cursor-pointer hover:border-neutral-300 hover:shadow-xs profile-note-card group" onclick="openNoteDetailModal('${n.id}')">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
+                    <img src="${avatar}" alt="${n.authorName || n.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
+                  </div>
+                  <div>
+                    <div class="font-bold text-xs text-neutral-900">${n.authorName || state.currentUser.fullName}</div>
+                    <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${n.time || 'Just now'}</div>
+                  </div>
+                </div>
+                <button type="button" onclick="handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+              <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text)}</p>
+              <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
+                <span class="flex items-center space-x-1">
+                  <span>❤️</span>
+                  <span>${n.likes || 0}</span>
+                </span>
+                <button type="button" onclick="window.toggleSaveNote('${n.id}')" class="flex items-center space-x-1 ${isSaved ? 'text-amber-500 font-bold' : 'text-neutral-400 hover:text-neutral-700'} cursor-pointer">
+                  <span>${isSaved ? '🔖 Saved' : '🔖 Save'}</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+    window.renderNotes = renderNotes;
+
+    // --- Render Replies ---
+    function renderReplies() {
+      const repliesList = document.getElementById('replies-list');
+      if (!repliesList) return;
+      repliesList.innerHTML = `
+        <div class="py-10 text-center text-neutral-400 space-y-1.5 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
+          <div class="text-2xl">💬</div>
+          <p class="font-bold text-xs text-neutral-700">No replies yet</p>
+          <p class="text-[11px] text-neutral-400">Conversations and comments you leave will be organized here.</p>
+        </div>
+      `;
+    }
+    window.renderReplies = renderReplies;
+
+
+        // Global toggle like for notes (Feed, Explore, Liked, Note Modal)
+    function toggleLikeNote(noteId, btnEl) {
+      if (noteId === undefined || noteId === null) return;
+      const note = getNoteById(noteId);
+      if (!note) return;
+
+      const numId = parseInt(note.id, 10);
+      const strId = String(note.id);
+      if (!state.likedNoteIds) state.likedNoteIds = new Set();
+      if (!state.likedNoteOrder) state.likedNoteOrder = [];
+
+      const currentlyLiked = state.likedNoteIds.has(numId) || state.likedNoteIds.has(strId);
+      if (currentlyLiked) {
+        state.likedNoteIds.delete(numId);
+        state.likedNoteIds.delete(strId);
+        note.likes = Math.max(0, (note.likes || 1) - 1);
+        note.isLiked = false;
+        state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
+        showToast('Unliked note');
+      } else {
+        state.likedNoteIds.add(numId);
+        state.likedNoteIds.add(strId);
+        note.likes = (note.likes || 0) + 1;
+        note.isLiked = true;
+        if (!state.likedNoteOrder.includes(strId)) {
+          state.likedNoteOrder.unshift(strId);
+        }
+        showToast('Liked note! Saved to profile ❤️');
+      }
+
+      // Ensure note is archived
+      if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+      state.exploreNotesArchive.set(strId, note);
+
+      renderNotes();
+      renderLikes();
+      renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
+      if (state.currentModalNoteId && String(state.currentModalNoteId) === strId) {
+        openNoteDetailModal(note.id);
+      }
+      persistState();
+    }
+    window.toggleLikeNote = toggleLikeNote;
+
+
     function renderLikes() {
       const likesGrid = document.getElementById('likes-grid');
       const likedNotesList = document.getElementById('liked-notes-list');
@@ -4114,43 +4580,68 @@
         });
       }
 
-      // 2. Liked Notes
-      const allNotes = (state.notes || []).concat(state.exploreNotes || []);
+      // 2. Liked Notes - Exact ID-mapped lookup & interactive cards
+      if (!state.likedNoteIds) state.likedNoteIds = new Set();
+      if (!state.likedNoteOrder) state.likedNoteOrder = [];
+
+      const candidateNoteIds = Array.from(state.likedNoteOrder);
+      state.likedNoteIds.forEach(id => {
+        const strId = String(id);
+        if (!candidateNoteIds.includes(strId)) candidateNoteIds.push(strId);
+      });
+
       const likedNotes = [];
       const seenNoteIds = new Set();
-      allNotes.forEach(n => {
-        if (!n) return;
-        const strNoteId = String(n.id);
-        const numNoteId = parseInt(n.id, 10);
-        // Exclude deleted notes
-        if (state.deletedNoteIds && (state.deletedNoteIds.has(strNoteId) || state.deletedNoteIds.has(numNoteId))) return;
 
-        const isNoteLiked = n.isLiked || (state.likedNoteIds && (state.likedNoteIds.has(strNoteId) || state.likedNoteIds.has(numNoteId)));
-        if (isNoteLiked && !seenNoteIds.has(strNoteId)) {
-          seenNoteIds.add(strNoteId);
-          likedNotes.push(n);
+      candidateNoteIds.forEach(id => {
+        const strId = String(id);
+        const numId = parseInt(id, 10);
+        const isDeleted = state.deletedNoteIds && (state.deletedNoteIds.has(strId) || state.deletedNoteIds.has(numId));
+        if (isDeleted) return;
+
+        if (state.likedNoteIds.has(strId) || state.likedNoteIds.has(numId)) {
+          const note = getNoteById(id);
+          if (note && !seenNoteIds.has(String(note.id))) {
+            seenNoteIds.add(String(note.id));
+            likedNotes.push(note);
+          }
         }
       });
 
       if (likedNotes.length === 0) {
         likedNotesList.innerHTML = `
-          <div class="py-6 text-center text-xs text-neutral-400">
-            No liked notes yet. Like notes in explore or profile with the ❤️ button!
+          <div class="py-8 text-center text-xs text-neutral-400 space-y-2">
+            <div class="w-10 h-10 mx-auto rounded-full bg-rose-50 text-rose-500 flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+            </div>
+            <p class="font-medium text-neutral-700">No Liked Notes Yet</p>
+            <p class="text-[11px] text-neutral-400">Tap the ❤️ heart button on any note in Explore or Feed to save it here!</p>
           </div>
         `;
       } else {
-        likedNotesList.innerHTML = likedNotes.map(n => `
-          <div class="bg-neutral-50 border border-neutral-200 rounded-xl p-3 flex items-start justify-between text-xs shadow-xs">
-            <div class="space-y-1">
-              <span class="font-bold text-neutral-900">@${n.author}:</span>
-              <span class="text-neutral-700">${n.text}</span>
+        likedNotesList.innerHTML = likedNotes.map(n => {
+          const avatar = getNoteAuthorAvatar(n);
+          return `
+            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl p-3.5 flex items-start justify-between text-xs shadow-xs cursor-pointer transition liked-note-card group" onclick="openNoteDetailModal('${n.id}')">
+              <div class="flex items-start space-x-2.5 min-w-0 pr-2">
+                <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
+                  <img src="${avatar}" alt="${n.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
+                </div>
+                <div class="space-y-0.5 min-w-0">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-neutral-900 group-hover:text-violet-700 transition">${n.authorName || n.author}</span>
+                    <span class="text-[10px] text-neutral-400">@${n.author}</span>
+                  </div>
+                  <p class="text-neutral-700 leading-relaxed text-xs">${escapeHtml(n.text)}</p>
+                </div>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="text-rose-500 hover:text-neutral-400 flex items-center space-x-1 ml-2 font-semibold flex-shrink-0 cursor-pointer p-1" title="Unlike note">
+                <span>❤️</span>
+                <span>${n.likes || 1}</span>
+              </button>
             </div>
-            <span class="text-rose-500 flex items-center space-x-1 ml-3 font-semibold flex-shrink-0">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-              <span>${n.likes}</span>
-            </span>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
       // 3. Update Badge on LIKES tab: Total Count = Liked Photos + Liked Notes (e.g. 1 photo + 1 note = 2)
@@ -4426,11 +4917,11 @@
             const isNoteLiked = note.isLiked || (state.likedNoteIds && (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))));
             const heartFill = isNoteLiked ? 'fill-rose-500 text-rose-500' : 'text-neutral-400 hover:text-rose-500';
             return `
-            <div class="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200/80 rounded-xl p-3.5 transition space-y-2.5 explore-note-card" data-note-id="${note.id}">
+            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/90 rounded-xl p-3.5 transition space-y-2.5 explore-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${note.id}" onclick="openNoteDetailModal('${note.id}')">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                   <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200">
-                    <img src="${note.authorAvatar || state.currentUser.avatar}" alt="" class="w-full h-full object-cover">
+                    <img src="${getNoteAuthorAvatar(note)}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
                   </div>
                   <div>
                     <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
@@ -4440,12 +4931,12 @@
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${note.text}</p>
               <div class="flex items-center space-x-6 text-xs text-neutral-500 pt-1 border-t border-neutral-200/60">
-                <button type="button" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer" data-note-id="${note.id}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${note.id}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
                   <svg class="w-4 h-4 ${isNoteLiked ? 'fill-current' : 'none'}" fill="${isNoteLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                   <span class="font-semibold">${note.likes}</span>
                 </button>
                 <!-- Bookmark / Save Note button on Explore Notes -->
-                <button type="button" class="flex items-center space-x-1 btn-save-explore-note ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)) || state.savedNoteIds.has(parseInt(note.id, 10)))) ? 'text-amber-500 font-semibold' : 'text-neutral-500 hover:text-neutral-900'} transition cursor-pointer" data-note-id="${note.id}" title="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Remove from Saved' : 'Save note'}">
+                <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${note.id}');" class="flex items-center space-x-1 btn-save-explore-note ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)) || state.savedNoteIds.has(parseInt(note.id, 10)))) ? 'text-amber-500 font-semibold' : 'text-neutral-500 hover:text-neutral-900'} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Remove from Saved' : 'Save note'}">
                   <svg class="w-4 h-4 ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'fill-current text-amber-500' : ''}" fill="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
                   <span>${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Saved' : 'Save'}</span>
                 </button>
@@ -4461,28 +4952,7 @@
             `;
           }).join('');
 
-          notesList.querySelectorAll('.btn-like-explore-note').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const noteId = parseInt(btn.dataset.noteId, 10);
-              const foundNote = (state.notes || []).concat(state.exploreNotes || []).find(n => n.id === noteId);
-              if (foundNote) {
-                foundNote.isLiked = !foundNote.isLiked;
-                foundNote.likes += foundNote.isLiked ? 1 : -1;
-                if (!state.likedNoteIds) state.likedNoteIds = new Set();
-                if (foundNote.isLiked) {
-                  state.likedNoteIds.add(foundNote.id);
-                } else {
-                  state.likedNoteIds.delete(foundNote.id);
-                }
-                persistState();
-                syncAllLikesToFirestore();
-                renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
-                renderLikes();
-                showToast(foundNote.isLiked ? 'Liked note! Saved to profile ❤️' : 'Unliked note');
-              }
-            });
-          });
+          // Direct inline event handling on explore notes
 
           // Wire bookmark/save button on explore notes
           notesList.querySelectorAll('.btn-save-explore-note').forEach(btn => {
@@ -4686,6 +5156,32 @@
         modal.style.display = 'none';
       }
     }
+
+        // Instant Explore Refresh Controller
+        // Bottom Nav Explore click handler - Switches tab & refreshes content
+    function handleNavExploreClick() {
+      if (state.activeTab === 'explore') {
+        handleInstantExploreRefresh();
+      } else {
+        switchMainTab('explore');
+        repopulateExploreContent();
+        renderExplore();
+      }
+    }
+    window.handleNavExploreClick = handleNavExploreClick;
+
+    function handleInstantExploreRefresh(btn) {
+      if (btn) {
+        const svg = btn.querySelector('svg');
+        if (svg) svg.classList.add('animate-spin');
+        setTimeout(() => { if (svg) svg.classList.remove('animate-spin'); }, 600);
+      }
+      repopulateExploreContent();
+      const currentQuery = document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '';
+      renderExplore(currentQuery);
+      showToast('✨ Explore refreshed with fresh posts, notes & creators!');
+    }
+    window.handleInstantExploreRefresh = handleInstantExploreRefresh;
 
     function repopulateExploreContent() {
       exploreRefreshCycle++;
@@ -5438,6 +5934,7 @@
       state.exploreNotes = freshNoteBatches[cycle % freshNoteBatches.length];
       
       syncLikedStateToPosts();
+      archiveAllNotes();
     }
     window.repopulateExploreContent = repopulateExploreContent;
 
@@ -5612,6 +6109,118 @@
     window.handleDeleteNoteAction = handleDeleteNoteAction;
 
     // --- Universal Post Save / Bookmark Controllers ---
+        // =========================================================================
+    // SAVED BOOKMARKS CONTROLLER (SAVED PHOTOS + SAVED NOTES)
+    // =========================================================================
+    function renderSaved() {
+      const savedGrid = document.getElementById('saved-grid');
+      const savedEmptyState = document.getElementById('saved-empty-state');
+      const savedNotesList = document.getElementById('saved-notes-list');
+      const savedNotesEmptyState = document.getElementById('saved-notes-empty-state');
+
+      if (!state.savedPostIds) state.savedPostIds = new Set();
+      if (!state.savedNoteIds) state.savedNoteIds = new Set();
+
+      // 1. Render Saved Photos
+      if (savedGrid && savedEmptyState) {
+        const allKnownPosts = [
+          ...state.posts,
+          ...(state.explorePosts || []),
+          ...(state.explorePostsArchive ? Array.from(state.explorePostsArchive.values()) : [])
+        ];
+
+        const postMap = new Map();
+        allKnownPosts.forEach(p => {
+          if (p && p.id !== undefined && !postMap.has(String(p.id))) {
+            postMap.set(String(p.id), p);
+          }
+        });
+
+        const savedPosts = [];
+        state.savedPostIds.forEach(id => {
+          const p = postMap.get(String(id));
+          if (p && !savedPosts.some(sp => String(sp.id) === String(p.id))) {
+            savedPosts.push(p);
+          }
+        });
+
+        if (savedPosts.length === 0) {
+          savedGrid.innerHTML = '';
+          savedEmptyState.classList.remove('hidden');
+        } else {
+          savedEmptyState.classList.add('hidden');
+          savedGrid.innerHTML = savedPosts.map(p => `
+            <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer profile-saved-tile transition shadow-xs hover:shadow-md" data-post-id="${p.id}" onclick="openPostDetailModal('${p.id}')">
+              <img src="${p.image}" alt="Saved photo" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-3 text-white text-xs font-bold pointer-events-none">
+                <span class="flex items-center space-x-1">
+                  <span>❤️</span>
+                  <span>${p.likes || 0}</span>
+                </span>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); window.toggleSavePost('${p.id}');" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-amber-400 text-neutral-900 shadow-md flex items-center justify-center z-10 cursor-pointer transition hover:scale-110 active:scale-95" title="Remove from Saved">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 2. Render Saved Notes
+      if (savedNotesList && savedNotesEmptyState) {
+        const allKnownNotes = [
+          ...(state.notes || []),
+          ...(state.exploreNotes || [])
+        ];
+
+        const noteMap = new Map();
+        allKnownNotes.forEach(n => {
+          if (n && n.id !== undefined && !noteMap.has(String(n.id))) {
+            noteMap.set(String(n.id), n);
+          }
+        });
+
+        const savedNotes = [];
+        state.savedNoteIds.forEach(id => {
+          const n = noteMap.get(String(id));
+          if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
+            savedNotes.push(n);
+          }
+        });
+
+        if (savedNotes.length === 0) {
+          savedNotesList.innerHTML = '';
+          savedNotesEmptyState.classList.remove('hidden');
+        } else {
+          savedNotesEmptyState.classList.add('hidden');
+          savedNotesList.innerHTML = savedNotes.map(note => {
+            const avatarSrc = getNoteAuthorAvatar(note);
+            return `
+              <div class="bg-neutral-50 hover:bg-neutral-100/80 border border-neutral-200/80 rounded-xl p-3.5 transition space-y-2.5 saved-note-card" data-note-id="${note.id}">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2.5 cursor-pointer" onclick="viewUserProfile('${note.author}')">
+                    <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
+                      <img src="${avatarSrc}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
+                    </div>
+                    <div>
+                      <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
+                      <div class="text-[10px] text-neutral-400">@${note.author} · ${note.time || 'Saved'}</div>
+                    </div>
+                  </div>
+                  <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${note.id}');" class="p-1 text-amber-500 hover:text-rose-500 transition cursor-pointer" title="Remove note from Saved">
+                    <svg class="w-4 h-4 fill-current text-amber-500" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                  </button>
+                </div>
+                <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(note.text)}</p>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    }
+    window.renderSaved = renderSaved;
+
+
     function isPostSaved(postId) {
       if (postId === undefined || postId === null || postId === '') return false;
       if (!state.savedPostIds) state.savedPostIds = new Set();
@@ -7562,6 +8171,7 @@
           if (Array.isArray(parsed) && parsed.length > 0) state.highlights = parsed;
         }
       } catch(e) {}
+      try { archiveAllNotes(); } catch(e) {}
       try { renderHighlights(); } catch(e) {}
       try { renderFeed(); } catch(e) {}
       try { renderProfile(); } catch(e) {}
