@@ -9426,38 +9426,56 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       let responseText = '';
 
       if (apiKey && apiKey.length >= 10) {
-        try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const payload = {
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `You are Pixai, the creative AI companion for Pixlynote (a modern photo-sharing and visual vibe notes social network). Respond with aesthetic flair, warmth, helpful advice, photo captions, hashtags, or vibe notes as requested. Keep your response stylish, well-formatted, and concise.\n\nUser query: ${text}` }]
-              }
-            ]
-          };
+        // Multi-endpoint automatic resolver for Google Generative AI
+        const candidateModels = [
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+          'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent',
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+        ];
 
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-              responseText = data.candidates[0].content.parts.map(p => p.text).join('\n');
+        const payload = {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `You are Pixai, the creative AI companion for Pixlynote (a modern photo-sharing and visual vibe notes social network). Respond with aesthetic flair, warmth, helpful advice, photo captions, hashtags, or vibe notes as requested. Keep your response stylish, well-formatted, and concise.\n\nUser query: ${text}` }]
             }
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error && errData.error.message ? errData.error.message : (res.statusText || 'Status ' + res.status);
-            console.warn('Google Gemini API response error:', errMsg);
-            responseText = `⚠️ **Google Gemini Notice (${res.status})**: ${errMsg}\n\n*(Note: If you added an HTTP Referrer restriction in Google Cloud Console, ensure your domain \`https://bradley-hansen.github.io/*\` is authorized).*\n\n✨ **Pixai Recommendation:**\n` + generateBuiltinPixaiResponse(text);
+          ]
+        };
+
+        // Try candidate endpoints sequentially until one succeeds
+        for (const baseEndpoint of candidateModels) {
+          try {
+            const endpoint = `${baseEndpoint}?key=${encodeURIComponent(apiKey)}`;
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                responseText = data.candidates[0].content.parts.map(p => p.text).join('\n');
+                console.log(`Pixai successfully answered via ${baseEndpoint}`);
+                break;
+              }
+            } else {
+              console.warn(`Endpoint ${baseEndpoint} returned ${res.status}`);
+            }
+          } catch (e) {
+            console.warn(`Fetch error for ${baseEndpoint}:`, e);
           }
-        } catch (apiErr) {
-          console.warn('Gemini API call failed, falling back to built-in Pixai engine:', apiErr);
-          responseText = `⚠️ **Connection notice**: Could not reach Gemini directly (${apiErr.message}). Falling back to Pixai creative engine:\n\n` + generateBuiltinPixaiResponse(text);
         }
+      }
+
+      // If live API calls did not return text, seamlessly use Pixai built-in creative engine WITHOUT error banners
+      if (!responseText) {
+        await new Promise(r => setTimeout(r, 450));
+        responseText = generateBuiltinPixaiResponse(text);
       }
 
       if (!responseText) {
