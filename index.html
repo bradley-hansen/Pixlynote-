@@ -688,7 +688,7 @@
               </div>
             </button>
             <!-- Pixai AI Assistant Navigation Trigger -->
-            <button type="button" id="btn-header-pixai" class="relative py-1 px-2.5 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-violet-500/25 hover:shadow-md hover:shadow-violet-500/35 hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer" title="Open Pixai Creative AI Assistant">
+            <button type="button" id="btn-header-pixai" onclick="openPixaiModal()" class="relative py-1 px-2.5 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-violet-500/25 hover:shadow-md hover:shadow-violet-500/35 hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer" title="Open Pixai Creative AI Assistant">
               <span class="text-xs animate-pulse">✨</span>
               <span class="tracking-tight text-[11px] font-black hidden sm:inline">Pixai</span>
             </button>
@@ -1237,7 +1237,7 @@
           </button>
 
           <!-- Pixai AI Assistant Tab (Pixlynote Pixai) -->
-          <button type="button" id="nav-btn-pixai" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-violet-700 bg-violet-50/80 hover:bg-violet-100/80 hover:text-violet-900 transition cursor-pointer group shadow-2xs" title="Pixai (Pixlynote AI - Bottom Popup)">
+          <button type="button" id="nav-btn-pixai" onclick="openPixaiModal()" class="flex-1 py-1 px-1.5 flex flex-col items-center justify-center rounded-xl text-violet-700 bg-violet-50/90 hover:bg-violet-100 hover:text-violet-900 transition-all duration-200 cursor-pointer group shadow-2xs active:scale-95" title="Pixai (Pixlynote AI - Bottom Popup)">
             <div class="relative w-5 h-5 flex items-center justify-center">
               <svg class="w-5 h-5 text-violet-600 group-hover:scale-110 transition duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
@@ -1665,83 +1665,123 @@
           <div>
             <div class="flex items-center space-x-1.5">
               <span class="font-black text-sm text-neutral-900 tracking-tight">Pixai</span>
-              <span class="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-md">Pixlynote AI</span>
+              <span id="pixai-header-badge" class="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-md">Pixlynote AI</span>
             </div>
             <div class="text-[11px] text-neutral-500 font-medium">Your creative companion for captions, vibe notes & visuals</div>
           </div>
         </div>
 
         <div class="flex items-center space-x-1.5">
-          <!-- Google API Key status / config toggle -->
-          <button type="button" id="btn-pixai-toggle-settings" class="px-2.5 py-1 text-[11px] font-bold rounded-xl border border-neutral-200 hover:border-violet-300 hover:bg-violet-50 text-neutral-700 hover:text-violet-700 transition flex items-center space-x-1 cursor-pointer" title="Configure Google Gemini API Key">
+          <!-- API Key Settings / Status Button -->
+          <button type="button" id="btn-pixai-edit-key" onclick="togglePixaiKeySettings()" class="px-2.5 py-1 text-[11px] font-bold rounded-xl border border-neutral-200 hover:border-violet-300 hover:bg-violet-50 text-neutral-700 hover:text-violet-700 transition flex items-center space-x-1 cursor-pointer" title="Manage Google Gemini API Key">
             <span>🔑</span>
-            <span id="pixai-key-status-text">Google Key</span>
+            <span id="pixai-key-status-label">Google Key</span>
           </button>
-          <button type="button" id="btn-close-pixai" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close Pixai">
+          <button type="button" onclick="closePixaiModal()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close Pixai">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       </div>
 
-      <!-- Google Gemini API Key Settings Drawer (Collapsible) -->
-      <div id="pixai-settings-panel" class="hidden bg-neutral-50/95 border-b border-neutral-200 p-3.5 space-y-2 text-xs">
-        <div class="flex items-center justify-between">
-          <span class="font-bold text-neutral-800 flex items-center space-x-1.5">
-            <span>🔑 Google Gemini API Key</span>
-          </span>
-          <span class="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold" id="pixai-key-status">Ready in browser</span>
-        </div>
-        <p class="text-[11px] text-neutral-500 leading-relaxed">
-          Google requires your own Gemini API key (from <a href="https://aistudio.google.com" target="_blank" class="text-violet-600 font-semibold underline">aistudio.google.com</a>) to connect directly with live Gemini AI. It stays private inside your personal browser storage (<code class="bg-neutral-200 px-1 py-0.5 rounded">localStorage</code>). Even without an API key, Pixai works immediately with our built-in creative engine!
-        </p>
-        <div class="flex items-center space-x-2 pt-1">
-          <input type="password" id="pixai-api-key-input" placeholder="AIzaSy... (Paste Google API Key here)" class="flex-1 bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-violet-500 font-mono">
-          <button type="button" id="btn-pixai-save-key" class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs transition cursor-pointer">Save Key</button>
-          <button type="button" id="btn-pixai-clear-key" class="px-2.5 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 font-semibold rounded-xl text-xs transition cursor-pointer" title="Clear saved key">Clear</button>
-        </div>
-      </div>
-
-      <!-- Preset Quick Starter Pills -->
-      <div class="p-2.5 bg-neutral-50/70 border-b border-neutral-100 flex items-center space-x-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-200 flex-shrink-0">
-        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 3 aesthetic sunset photo captions with emojis and trending hashtags">
-          <span>🌅 Sunset Captions</span>
-        </button>
-        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Draft a poetic vibe note for my Pixlynote feed about travel and coffee aesthetics">
-          <span>☕ Vibe Note</span>
-        </button>
-        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Critique my photo aesthetic: What lighting and composition makes a portrait stand out?">
-          <span>📸 Photo Critique</span>
-        </button>
-        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Help polish my creator bio to sound professional, modern and authentic">
-          <span>✨ Polish Bio</span>
-        </button>
-        <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 10 trending photography and creator hashtags for 2026">
-          <span>🏷️ Hashtags</span>
-        </button>
-      </div>
-
-      <!-- Chat Messages Container -->
-      <div id="pixai-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-white text-xs sm:text-sm">
-        <!-- Initial Pixai message -->
-        <div class="flex items-start space-x-2.5">
-          <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-xs">
+      <!-- STATE A: NO API KEY SETUP SCREEN (Displays when no API key is set) -->
+      <div id="pixai-setup-view" class="flex-1 p-5 sm:p-8 flex flex-col justify-center items-center text-center space-y-4 overflow-y-auto">
+        <div class="w-16 h-16 rounded-3xl p-1 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-indigo-600 shadow-lg shadow-violet-500/25 flex items-center justify-center">
+          <div class="w-full h-full rounded-[22px] bg-white flex items-center justify-center text-3xl">
             ✨
           </div>
-          <div class="max-w-[85%] bg-neutral-50 border border-neutral-200/70 rounded-2xl rounded-tl-sm p-3 text-neutral-800 leading-relaxed shadow-2xs space-y-1.5">
-            <p class="font-semibold text-neutral-900">Hey there! I'm <span class="text-violet-600 font-extrabold">Pixai</span>, your Pixlynote creative AI companion. 📸✨</p>
-            <p>I can craft aesthetic captions, suggest trending hashtags, polish your bio, draft vibe notes, or brainstorm visual ideas. Tap any prompt above or message me below!</p>
+        </div>
+
+        <div class="space-y-1.5 max-w-md">
+          <h3 class="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">Connect Google Gemini to Chat</h3>
+          <p class="text-xs text-neutral-600 leading-relaxed">
+            Pixai uses Google's official Gemini AI to generate live captions, vibe notes, and creative advice. Enter your Google API key below to activate live chat.
+          </p>
+        </div>
+
+        <!-- API Key Input Form -->
+        <div class="w-full max-w-md space-y-3 text-left">
+          <div class="space-y-1">
+            <label class="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider">Google Gemini API Key</label>
+            <div class="relative flex items-center">
+              <input type="password" id="pixai-setup-key-input" placeholder="AIzaSy... (Paste your Google API Key here)" class="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-violet-600 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono focus:outline-none transition shadow-2xs pr-10">
+              <button type="button" onclick="togglePasswordVisibility('pixai-setup-key-input', this)" class="absolute right-3 text-neutral-400 hover:text-neutral-700 p-1 cursor-pointer">
+                👁️
+              </button>
+            </div>
+          </div>
+
+          <button type="button" onclick="savePixaiApiKey()" class="w-full py-3 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 hover:opacity-95 text-white font-black text-xs sm:text-sm rounded-2xl transition shadow-md shadow-violet-500/25 cursor-pointer flex items-center justify-center space-x-2">
+            <span>✨ Connect & Start Chatting</span>
+          </button>
+
+          <!-- Domain Restriction Guide for Google Cloud -->
+          <div class="bg-neutral-50 border border-neutral-200/90 rounded-2xl p-3.5 space-y-1.5 text-[11px] text-neutral-600 leading-relaxed">
+            <div class="font-bold text-neutral-900 flex items-center space-x-1.5">
+              <span>🔒 Google Cloud Domain Restriction Guide</span>
+            </div>
+            <p>
+              In Google Cloud Console under <strong>Credentials &gt; Key Restrictions</strong>, select <strong>Websites (HTTP referrers)</strong> and add your site domain(s) (e.g. <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-violet-700 font-semibold">https://*.github.io/*</code> or your custom domain). This guarantees only your website can execute requests using this key!
+            </p>
+            <p class="text-neutral-500 text-[10px]">
+              You can also paste your key directly into the file at <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-neutral-700">const PIXAI_GOOGLE_API_KEY = "..."</code>.
+            </p>
+          </div>
+
+          <!-- Secondary Offline / Demo Mode Button -->
+          <div class="text-center pt-1">
+            <button type="button" onclick="activateOfflinePixaiMode()" class="text-xs font-semibold text-neutral-500 hover:text-violet-700 transition cursor-pointer underline">
+              Or test in Offline Creative Engine Mode
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Input Bar -->
-      <div class="p-3 border-t border-neutral-100 bg-white">
-        <form id="pixai-chat-form" class="flex items-center space-x-2">
-          <input type="text" id="pixai-chat-input" placeholder="Ask Pixai for captions, notes, ideas..." class="flex-1 bg-neutral-100 hover:bg-neutral-100/80 focus:bg-white border border-transparent focus:border-violet-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none transition">
-          <button type="submit" id="btn-pixai-send" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixai">
-            <svg class="w-4 h-4 fill-none stroke-currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/></svg>
+      <!-- STATE B: ACTIVE CHAT SCREEN (Displays when API key is ready) -->
+      <div id="pixai-chat-view" class="hidden flex-1 flex flex-col overflow-hidden">
+        
+        <!-- Preset Quick Starter Pills -->
+        <div class="p-2.5 bg-neutral-50/70 border-b border-neutral-100 flex items-center space-x-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-200 flex-shrink-0">
+          <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 3 aesthetic sunset photo captions with emojis and trending hashtags">
+            <span>🌅 Sunset Captions</span>
           </button>
-        </form>
+          <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Draft a poetic vibe note for my Pixlynote feed about travel and coffee aesthetics">
+            <span>☕ Vibe Note</span>
+          </button>
+          <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Critique my photo aesthetic: What lighting and composition makes a portrait stand out?">
+            <span>📸 Photo Critique</span>
+          </button>
+          <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Help polish my creator bio to sound professional, modern and authentic">
+            <span>✨ Polish Bio</span>
+          </button>
+          <button type="button" class="pixai-starter-pill px-3 py-1 bg-white hover:bg-violet-50 border border-neutral-200/80 hover:border-violet-200 rounded-full text-[11px] font-semibold text-neutral-700 hover:text-violet-700 whitespace-nowrap transition cursor-pointer flex items-center space-x-1" data-prompt="Generate 10 trending photography and creator hashtags for 2026">
+            <span>🏷️ Hashtags</span>
+          </button>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="pixai-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3.5 bg-white text-xs sm:text-sm">
+          <!-- Initial Welcome message -->
+          <div class="flex items-start space-x-2.5">
+            <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-xs">
+              ✨
+            </div>
+            <div class="max-w-[85%] bg-neutral-50 border border-neutral-200/70 rounded-2xl rounded-tl-sm p-3.5 text-neutral-800 leading-relaxed shadow-2xs space-y-1.5">
+              <p class="font-bold text-neutral-900">Hey there! I'm <span class="text-violet-600 font-extrabold">Pixai</span>, your Pixlynote creative AI companion. 📸✨</p>
+              <p>Your Google API connection is ready! I can craft aesthetic captions, suggest trending hashtags, polish your bio, draft vibe notes, or brainstorm visual ideas. Tap any prompt above or message me below!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Bar -->
+        <div class="p-3 border-t border-neutral-100 bg-white">
+          <form id="pixai-chat-form" class="flex items-center space-x-2" onsubmit="event.preventDefault(); submitPixaiMessage();">
+            <input type="text" id="pixai-chat-input" placeholder="Ask Pixai for captions, notes, ideas..." class="flex-1 bg-neutral-100 hover:bg-neutral-100/80 focus:bg-white border border-transparent focus:border-violet-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none transition">
+            <button type="submit" id="btn-pixai-send" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixai">
+              <svg class="w-4 h-4 fill-none stroke-currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/></svg>
+            </button>
+          </form>
+        </div>
+
       </div>
 
     </div>
@@ -1825,6 +1865,15 @@
 
   <!-- 100% Free Spark Plan Firebase Cloud Integration (Auth + Cloud Firestore - No Billing Required) -->
   <script>
+    // =========================================================================
+    // GOOGLE GEMINI API KEY FOR PIXAI
+    // You can paste your Google Gemini API key here directly, or enter it in
+    // the Pixai bottom popup in your browser.
+    // In Google Cloud Console, add an HTTP Referrer restriction so only your
+    // domain (e.g., https://*.github.io/*) can use this key!
+    // =========================================================================
+    const PIXAI_GOOGLE_API_KEY = "";
+
     window.firebaseReady = false;
     window.firebase = null;
 
@@ -9098,7 +9147,379 @@
 
     // Execute immediately and unconditionally
     try {
-      initializePixlyApp();
+      
+    // =========================================================================
+    // PIXAI: PIXLYNOTE CREATIVE AI ASSISTANT CONTROLLER
+    // =========================================================================
+    function getPixaiApiKey() {
+      if (typeof PIXAI_GOOGLE_API_KEY === 'string' && PIXAI_GOOGLE_API_KEY.trim().length > 10) {
+        return PIXAI_GOOGLE_API_KEY.trim();
+      }
+      const fromStorage = localStorage.getItem('pixai_gemini_key') || '';
+      return fromStorage.trim();
+    }
+    window.getPixaiApiKey = getPixaiApiKey;
+
+    function openPixaiModal() {
+      const modal = document.getElementById('modal-pixai');
+      const backdrop = document.getElementById('pixai-backdrop');
+      const sheet = document.getElementById('pixai-sheet-card');
+      if (!modal || !backdrop || !sheet) return;
+
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+
+      // Animate slide-up from bottom
+      requestAnimationFrame(() => {
+        backdrop.classList.remove('opacity-0');
+        backdrop.classList.add('opacity-100');
+        sheet.classList.remove('translate-y-full');
+        sheet.classList.add('translate-y-0');
+      });
+
+      // Check whether an API key exists or offline mode is chosen
+      refreshPixaiViewState();
+    }
+    window.openPixaiModal = openPixaiModal;
+
+    function closePixaiModal() {
+      const modal = document.getElementById('modal-pixai');
+      const backdrop = document.getElementById('pixai-backdrop');
+      const sheet = document.getElementById('pixai-sheet-card');
+      if (!modal || !backdrop || !sheet) return;
+
+      backdrop.classList.remove('opacity-100');
+      backdrop.classList.add('opacity-0');
+      sheet.classList.remove('translate-y-0');
+      sheet.classList.add('translate-y-full');
+
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }, 300);
+    }
+    window.closePixaiModal = closePixaiModal;
+
+    function refreshPixaiViewState() {
+      const key = getPixaiApiKey();
+      const isOffline = localStorage.getItem('pixai_offline_mode') === 'true';
+      const setupView = document.getElementById('pixai-setup-view');
+      const chatView = document.getElementById('pixai-chat-view');
+      const badge = document.getElementById('pixai-header-badge');
+      const keyLabel = document.getElementById('pixai-key-status-label');
+
+      if (key || isOffline) {
+        // Key is available or offline mode chosen: show chat
+        if (setupView) setupView.classList.add('hidden');
+        if (chatView) chatView.classList.remove('hidden');
+
+        if (key) {
+          if (badge) {
+            badge.textContent = 'Live Gemini AI';
+            badge.className = 'text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md';
+          }
+          if (keyLabel) keyLabel.textContent = 'Key Active ✓';
+        } else {
+          if (badge) {
+            badge.textContent = 'Offline Engine';
+            badge.className = 'text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-md';
+          }
+          if (keyLabel) keyLabel.textContent = 'Set Key 🔑';
+        }
+
+        const chatInput = document.getElementById('pixai-chat-input');
+        if (chatInput) setTimeout(() => chatInput.focus(), 320);
+      } else {
+        // No key yet: show the Setup View
+        if (setupView) setupView.classList.remove('hidden');
+        if (chatView) chatView.classList.add('hidden');
+        if (badge) {
+          badge.textContent = 'Connect Key';
+          badge.className = 'text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md';
+        }
+        if (keyLabel) keyLabel.textContent = 'Connect Key';
+
+        const setupInput = document.getElementById('pixai-setup-key-input');
+        if (setupInput) setTimeout(() => setupInput.focus(), 320);
+      }
+    }
+
+    function togglePixaiKeySettings() {
+      const setupView = document.getElementById('pixai-setup-view');
+      const chatView = document.getElementById('pixai-chat-view');
+      if (!setupView || !chatView) return;
+
+      if (setupView.classList.contains('hidden')) {
+        setupView.classList.remove('hidden');
+        chatView.classList.add('hidden');
+        const setupInput = document.getElementById('pixai-setup-key-input');
+        if (setupInput) {
+          setupInput.value = getPixaiApiKey();
+          setupInput.focus();
+        }
+      } else {
+        refreshPixaiViewState();
+      }
+    }
+    window.togglePixaiKeySettings = togglePixaiKeySettings;
+
+    function savePixaiApiKey() {
+      const input = document.getElementById('pixai-setup-key-input');
+      if (!input) return;
+      const key = input.value.trim();
+
+      if (key.length >= 10) {
+        localStorage.setItem('pixai_gemini_key', key);
+        localStorage.removeItem('pixai_offline_mode');
+        showToast('✨ Google Gemini API Key connected successfully!');
+        refreshPixaiViewState();
+      } else {
+        showToast('Please enter a valid Google API key (starts with AIza...)');
+      }
+    }
+    window.savePixaiApiKey = savePixaiApiKey;
+
+    function activateOfflinePixaiMode() {
+      localStorage.setItem('pixai_offline_mode', 'true');
+      showToast('Switched to built-in creative intelligence engine');
+      refreshPixaiViewState();
+    }
+    window.activateOfflinePixaiMode = activateOfflinePixaiMode;
+
+    function togglePasswordVisibility(inputId, btnEl) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btnEl) btnEl.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        if (btnEl) btnEl.textContent = '👁️';
+      }
+    }
+    window.togglePasswordVisibility = togglePasswordVisibility;
+
+    function submitPixaiMessage() {
+      const input = document.getElementById('pixai-chat-input');
+      if (!input) return;
+      const text = input.value.trim();
+      if (text) {
+        handlePixaiSendMessage(text);
+      }
+    }
+    window.submitPixaiMessage = submitPixaiMessage;
+
+    function generateBuiltinPixaiResponse(prompt) {
+      const p = prompt.toLowerCase();
+      
+      if (p.includes('sunset') || p.includes('golden hour')) {
+        return `Here are 3 aesthetic sunset captions for your Pixlynote feed:
+
+1. **"Golden hour never looked so poetic. Chasing horizons and catching light. 🌅✨"**
+   *Tags: #GoldenHourVibes #SunsetMagic #PixlynoteMoments #ChasingSunsets*
+
+2. **"Sun-drenched memories where the sky melts into lavender and gold. 🌇💫"**
+   *Tags: #SunsetAesthetic #WarmTones #VisualStories #SkyLovers*
+
+3. **"Pausing time between daylight and dusk. The vibe is immaculate. 🏖️☕"**
+   *Tags: #SunsetCaptures #DailyAesthetic #CaptureShareRemember*`;
+      }
+
+      if (p.includes('vibe note') || p.includes('note') || p.includes('coffee') || p.includes('travel')) {
+        return `Here is a crafted Vibe Note for your feed:
+
+> *"Slow mornings, warm porcelain in both hands, and the quiet rhythm of rain against the window. It’s in these unscripted pauses where inspiration lives. Note to self: breathe deeper, wander slower. ☕🌧️✨"*
+
+**Pro-tip:** Pair this with a minimalist cafe shot or a cozy city reflection on your feed!`;
+      }
+
+      if (p.includes('critique') || p.includes('lighting') || p.includes('composition') || p.includes('aesthetic')) {
+        return `📸 **Pixai Aesthetic & Composition Critique:**
+
+- **Leading Lines & Depth:** Use natural urban curbs, boardwalks, or shadows to draw the viewer’s eye toward the focal point.
+- **Rule of Thirds + Negative Space:** Leave ample breathing room (open sky or clean wall) to let the subject resonate.
+- **Light Quality:** Shoot 30 minutes before sunset or in diffused morning light to eliminate harsh shadows and give textures a soft film-like warmth.
+- **Color Palette Consistency:** Stick to 2–3 dominant tones (e.g. warm terracotta + navy, or sage green + cream) for an editorial Pixlynote aesthetic!`;
+      }
+
+      if (p.includes('bio') || p.includes('profile')) {
+        return `✨ **Polished Bio Concepts for your Profile:**
+
+**Option 1 (Creator & Visual Storyteller):**
+*"Framing life one authentic chapter at a time 📷✨ | Chasing golden light, high peaks & specialty coffee | Connect with the vibe 👇"*
+
+**Option 2 (Business & Brand - Digital AssetPro style):**
+*"Institutional digital asset infrastructure & wealth management 📊🔐 | Next-gen Web3 wealth management | Building the future of finance"*
+
+**Option 3 (Minimalist & Modern):**
+*"Captures • Thoughts • Daily Aesthetics ☕🌍 | Galloway, NJ 📍 | New visual journal weekly"*`;
+      }
+
+      if (p.includes('hashtag') || p.includes('tag')) {
+        return `🏷️ **Trending Pixlynote & Creator Hashtags for 2026:**
+
+#Pixlynote #VisualStoryteller #AestheticFeed #AestheticPhotography #GoldenHourChasers #VibeCheck #CreatorEconomy #SlowLiving #MoodyTones #ModernAesthetics #ShotOnMobile #CaptureShareRemember`;
+      }
+
+      return `✨ **Pixai Idea for "${prompt}":**
+
+I love where your head is at! For this vibe on Pixlynote, I recommend focusing on authenticity and rich visual mood:
+
+- **Caption Concept:** *"Turning fleeting moments into permanent art. Every frame tells a story if you listen closely. 📸💫"*
+- **Recommended Hashtags:** *#PixlynoteCreators #VisualDiaries #CreativeVibes #AestheticMoments*
+- **Aesthetic Tip:** Add a gentle film grain or warm color grade before posting to give it that timeless Pixlynote signature look!`;
+    }
+
+    async function handlePixaiSendMessage(userText) {
+      const text = (userText || '').trim();
+      if (!text) return;
+
+      const container = document.getElementById('pixai-messages-container');
+      const input = document.getElementById('pixai-chat-input');
+      if (input) input.value = '';
+
+      // 1. Render User Message Bubble
+      const userBubble = document.createElement('div');
+      userBubble.className = "flex items-start justify-end space-x-2.5";
+      userBubble.innerHTML = `
+        <div class="max-w-[85%] bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-2xl rounded-tr-sm p-3 shadow-xs text-xs sm:text-sm leading-relaxed">
+          <p>${escapeHtml(text)}</p>
+        </div>
+      `;
+      container.appendChild(userBubble);
+      container.scrollTop = container.scrollHeight;
+
+      // 2. Render Loading / Thinking Indicator
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = "flex items-start space-x-2.5";
+      loadingBubble.id = "pixai-thinking-indicator";
+      loadingBubble.innerHTML = `
+        <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white flex items-center justify-center text-xs flex-shrink-0 animate-pulse">
+          ✨
+        </div>
+        <div class="bg-neutral-50 border border-neutral-200/70 rounded-2xl rounded-tl-sm p-3 text-neutral-500 text-xs flex items-center space-x-2 shadow-2xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
+          <span>Pixai is generating...</span>
+        </div>
+      `;
+      container.appendChild(loadingBubble);
+      container.scrollTop = container.scrollHeight;
+
+      // 3. Generate response (Live Google Gemini API if key is set, otherwise built-in engine)
+      const apiKey = getPixaiApiKey();
+      let responseText = '';
+
+      if (apiKey && apiKey.length >= 10) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const payload = {
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: `You are Pixai, the creative AI assistant built into Pixlynote (a modern photo-sharing and vibe notes social platform). Respond with aesthetic flair, warmth, helpful advice, photo captions, hashtags, or vibe notes as requested. Keep your response stylish, well-formatted, and concise.
+
+User query: ${text}` }]
+              }
+            ]
+          };
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+              responseText = data.candidates[0].content.parts.map(p => p.text).join('\n');
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg = errData.error && errData.error.message ? errData.error.message : res.statusText;
+            console.warn('Google Gemini API response error:', errMsg);
+            responseText = `⚠️ **Google Gemini Notice**: ${errMsg}\n\n*(If you configured HTTP Referrer restrictions in Google Cloud Console, make sure your domain — e.g. \`https://*.github.io/*\` or your custom domain — is authorized. Meanwhile, here is Pixai's built-in recommendation:)*\n\n` + generateBuiltinPixaiResponse(text);
+          }
+        } catch (apiErr) {
+          console.warn('Gemini API call failed, falling back to built-in Pixai engine:', apiErr);
+          responseText = `⚠️ **Connection notice**: Could not reach Gemini directly (${apiErr.message}). Falling back to Pixai creative engine:\n\n` + generateBuiltinPixaiResponse(text);
+        }
+      }
+
+      if (!responseText) {
+        await new Promise(r => setTimeout(r, 600));
+        responseText = generateBuiltinPixaiResponse(text);
+      }
+
+      // Remove loading indicator
+      const loader = document.getElementById('pixai-thinking-indicator');
+      if (loader) loader.remove();
+
+      // 4. Render Pixai Response Bubble
+      const pixaiBubble = document.createElement('div');
+      pixaiBubble.className = "flex items-start space-x-2.5 animate-in fade-in duration-200";
+      
+      const formattedHtml = responseText
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^> (.*$)/gim, '<blockquote class="border-l-2 border-violet-500 pl-2.5 my-1 text-neutral-600 italic">$1</blockquote>')
+        .replace(/\n/g, '<br>');
+
+      pixaiBubble.innerHTML = `
+        <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-xs">
+          ✨
+        </div>
+        <div class="max-w-[85%] bg-neutral-50 border border-neutral-200/80 rounded-2xl rounded-tl-sm p-3.5 text-neutral-800 leading-relaxed shadow-2xs space-y-2">
+          <div class="text-xs sm:text-sm text-neutral-900">${formattedHtml}</div>
+          <div class="pt-2 border-t border-neutral-200/60 flex items-center space-x-2">
+            <button type="button" class="btn-pixai-copy-text text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 px-2 py-1 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-lg transition cursor-pointer flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              <span>Copy</span>
+            </button>
+            <button type="button" class="btn-pixai-use-caption text-[11px] font-bold text-violet-700 hover:text-violet-900 px-2.5 py-1 bg-violet-100/70 hover:bg-violet-100 border border-violet-200/80 rounded-lg transition cursor-pointer flex items-center space-x-1">
+              <span>Use in Post ✨</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Wire copy button
+      const copyBtn = pixaiBubble.querySelector('.btn-pixai-copy-text');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(responseText);
+          showToast('Copied to clipboard! 📋');
+        });
+      }
+
+      // Wire "Use in Post" button
+      const usePostBtn = pixaiBubble.querySelector('.btn-pixai-use-caption');
+      if (usePostBtn) {
+        usePostBtn.addEventListener('click', () => {
+          closePixaiModal();
+          openCreatePostModal();
+          const captionInput = document.getElementById('create-post-caption');
+          if (captionInput) {
+            captionInput.value = responseText.replace(/\*\*/g, '').replace(/^> /gm, '');
+          }
+          showToast('Caption inserted into new post! 📸');
+        });
+      }
+
+      container.appendChild(pixaiBubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Initialize starter pills
+    document.addEventListener('click', (e) => {
+      const pill = e.target.closest('.pixai-starter-pill');
+      if (pill) {
+        const prompt = pill.getAttribute('data-prompt');
+        if (prompt) handlePixaiSendMessage(prompt);
+      }
+    });
+
+
+    initializePixlyApp();
     } catch(e) {
       console.warn("Direct execution notice:", e);
     }
