@@ -1897,48 +1897,148 @@
     </div>
   </div>
 
-  <!-- MODAL 5: DIRECT MESSAGES DRAWER / MODAL -->
-  <div id="modal-messages" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center p-4" style="display: none;">
-    <div class="bg-white rounded-2xl max-w-lg w-full h-[520px] shadow-2xl border border-neutral-200 flex flex-col overflow-hidden">
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
-        <div class="flex items-center space-x-2">
-          <span class="font-bold text-sm text-neutral-900">Direct Messages</span>
-          <span class="text-xs px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full font-semibold">2 new</span>
+    <!-- MODAL 5: DIRECT MESSAGES DRAWER / MODAL -->
+  <div id="modal-messages" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center p-2 sm:p-4" style="display: none;">
+    <div class="bg-white rounded-3xl max-w-xl w-full h-[580px] max-h-[92vh] shadow-2xl border border-neutral-200 flex flex-col overflow-hidden relative">
+      
+      <!-- Modal Top Header -->
+      <div class="px-4 py-3 border-b border-neutral-200/80 flex items-center justify-between bg-neutral-50/90 backdrop-blur-sm flex-shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="font-black text-sm text-neutral-900 tracking-tight">Direct Messages</span>
+              <span id="dm-active-count-badge" class="text-[10px] px-2 py-0.5 bg-violet-100 text-violet-800 rounded-full font-bold">Chats</span>
+            </div>
+            <span id="dm-header-subtitle" class="text-[10px] text-neutral-500 font-medium">Chat &amp; connect with creators</span>
+          </div>
         </div>
-        <button type="button" id="btn-close-messages" class="p-1 text-neutral-400 hover:text-neutral-700">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
+        
+        <div class="flex items-center space-x-1.5">
+          <!-- + New Message / Chat button -->
+          <button type="button" id="btn-dm-new-chat" onclick="toggleDmNewChatPicker(true)" class="py-1 px-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1 shadow-xs transition active:scale-95 cursor-pointer" title="Start New Conversation">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>New Chat</span>
+          </button>
+          
+          <!-- Close Modal Button -->
+          <button type="button" id="btn-close-messages" onclick="closeMessagesModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close Messages">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
       </div>
 
-      <div class="flex-1 flex overflow-hidden">
-        <!-- Thread list -->
-        <div class="w-1/3 border-r border-neutral-100 overflow-y-auto divide-y divide-neutral-50 text-xs" id="dm-thread-list">
-          <!-- Injected via JS -->
+      <!-- New Chat Creator Picker Drawer (Toggles on/off) -->
+      <div id="dm-new-chat-picker" class="hidden absolute top-[57px] inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur-md flex flex-col p-4 animate-fadeIn">
+        <div class="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-xs">💬</span>
+            <h4 class="font-bold text-xs text-neutral-900">Start a New Conversation</h4>
+          </div>
+          <button type="button" onclick="toggleDmNewChatPicker(false)" class="text-xs text-neutral-500 hover:text-neutral-800 font-semibold px-2 py-0.5 rounded-md hover:bg-neutral-100 transition">Cancel</button>
+        </div>
+        <div class="py-2.5">
+          <input type="text" id="dm-new-chat-search" oninput="filterDmCreators(this.value)" placeholder="Search creators by name or @username..." class="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:bg-white transition">
+        </div>
+        <div id="dm-creators-list" class="flex-1 overflow-y-auto divide-y divide-neutral-50 space-y-1">
+          <!-- Populated dynamically with all creators -->
+        </div>
+      </div>
+
+      <div class="flex-1 flex overflow-hidden relative">
+        <!-- Thread list (Sidebar) -->
+        <div class="w-full sm:w-2/5 md:w-5/12 border-r border-neutral-200/80 flex flex-col bg-neutral-50/50" id="dm-sidebar">
+          <!-- Search in existing threads -->
+          <div class="p-2 border-b border-neutral-200/60 bg-white">
+            <div class="relative">
+              <svg class="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" id="dm-search-threads" oninput="filterDmThreads(this.value)" placeholder="Search messages..." class="w-full pl-8 pr-3 py-1 text-xs bg-neutral-100/70 border border-neutral-200/60 rounded-lg focus:outline-none focus:bg-white focus:ring-1 focus:ring-violet-400 transition">
+            </div>
+          </div>
+          <!-- Thread list items -->
+          <div class="flex-1 overflow-y-auto divide-y divide-neutral-100 text-xs" id="dm-thread-list">
+            <!-- Injected via JS -->
+          </div>
         </div>
 
         <!-- Active Chat Window -->
-        <div class="w-2/3 flex flex-col bg-white">
-          <div class="p-2.5 border-b border-neutral-100 flex items-center space-x-2" id="dm-active-header">
-            <div class="w-6 h-6 rounded-full overflow-hidden">
-              <img id="dm-active-avatar" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfbW9yYWluZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZWE1ZTkiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMzY5YTEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNncmFkX21vcmFpbmUpIi8+PGNpcmNsZSBjeD0iMjgwIiBjeT0iMTQwIiByPSI0NSIgZmlsbD0iI2ZlZjA4YSIgb3BhY2l0eT0iMC44NSIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjE0MCIgcj0iNjUiIGZpbGw9IiNmZWYwOGEiIG9wYWNpdHk9IjAuMjUiLz48cG9seWdvbiBwb2ludHM9IjAsMjYwIDExMCwxNzAgMjMwLDIyMCAzNDAsMTYwIDQwMCwyMTAgNDAwLDQwMCAwLDQwMCIgZmlsbD0iIzAyODRjNyIgb3BhY2l0eT0iMC42Ii8+PHBvbHlnb24gcG9pbnRzPSIwLDMxMCAxNTAsMjMwIDI4MCwyODAgNDAwLDI0MCA0MDAsNDAwIDAsNDAwIiBmaWxsPSIjMDM2OWExIiBvcGFjaXR5PSIwLjk1Ii8+PC9zdmc+" alt="" class="w-full h-full object-cover">
+        <div class="hidden sm:flex flex-1 flex-col bg-white" id="dm-chat-panel">
+          
+          <!-- Active Conversation Header -->
+          <div class="p-2.5 px-3.5 border-b border-neutral-100 flex items-center justify-between bg-white flex-shrink-0" id="dm-active-header">
+            <div class="flex items-center space-x-2">
+              <button type="button" id="btn-dm-back-threads" onclick="handleDmMobileBack()" class="sm:hidden p-1 mr-0.5 text-neutral-500 hover:text-neutral-800 rounded-lg hover:bg-neutral-100 transition" title="Back to chats">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <div class="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
+                <img id="dm-active-avatar" src="" alt="" class="w-full h-full object-cover">
+                <span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+              </div>
+              <div class="min-w-0">
+                <div class="font-bold text-xs text-neutral-900 truncate leading-tight" id="dm-active-name">Elena Rostova</div>
+                <div class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1" id="dm-active-status">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>Active now</span>
+                </div>
+              </div>
             </div>
-            <span class="font-bold text-xs" id="dm-active-name">Elena Rostova</span>
+
+            <div class="flex items-center space-x-1">
+              <button type="button" id="btn-dm-view-profile" onclick="handleDmViewProfile()" class="text-[11px] text-violet-700 hover:text-violet-900 font-bold px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 transition" title="View Creator Profile">
+                Profile
+              </button>
+            </div>
           </div>
 
-          <div class="flex-1 p-3 overflow-y-auto space-y-2 text-xs flex flex-col" id="dm-messages-container">
-            <!-- Messages injected -->
+          <!-- Messages Scrollable Container -->
+          <div class="flex-1 p-3.5 overflow-y-auto space-y-2 text-xs flex flex-col bg-neutral-50/30" id="dm-messages-container">
+            <!-- Messages injected dynamically -->
           </div>
 
-          <form id="dm-send-form" class="p-2 border-t border-neutral-100 flex items-center space-x-2">
-            <input type="text" id="dm-input-text" placeholder="Message..." class="flex-1 px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-full focus:outline-none">
-            <button type="submit" id="btn-dm-send" class="text-xs font-semibold text-violet-600 hover:text-sky-700 px-2">Send</button>
+          <!-- Typing Indicator -->
+          <div id="dm-typing-indicator" class="hidden px-4 py-1.5 text-[11px] text-neutral-400 italic bg-white border-t border-neutral-50 flex items-center space-x-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:0.2s]"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:0.4s]"></span>
+            <span id="dm-typing-text">Elena is typing...</span>
+          </div>
+
+          <!-- Quick Emoji Reactions Bar -->
+          <div class="px-3 pt-1.5 pb-1 flex items-center space-x-1 border-t border-neutral-100 bg-white flex-wrap">
+            <span class="text-[10px] font-semibold text-neutral-400 mr-1">Quick:</span>
+            <button type="button" onclick="sendDmQuickReaction('❤️')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-rose-50 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Heart">❤️</button>
+            <button type="button" onclick="sendDmQuickReaction('🔥')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-amber-50 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Fire">🔥</button>
+            <button type="button" onclick="sendDmQuickReaction('👏')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-neutral-100 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Clap">👏</button>
+            <button type="button" onclick="sendDmQuickReaction('☕')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-neutral-100 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Coffee">☕</button>
+            <button type="button" onclick="sendDmQuickReaction('📷')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-neutral-100 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Camera">📷</button>
+            <button type="button" onclick="sendDmQuickReaction('✨')" class="px-2 py-0.5 rounded-full bg-neutral-50 hover:bg-neutral-100 text-xs transition cursor-pointer hover:scale-110 active:scale-95" title="Sparkles">✨</button>
+          </div>
+
+          <!-- Input & Send Form -->
+          <form id="dm-send-form" onsubmit="return handleSendDirectMessage(event)" class="p-2 px-3 border-t border-neutral-100 flex items-center space-x-2 bg-white">
+            <!-- Photo Upload/Send Button -->
+            <button type="button" id="btn-dm-photo" onclick="triggerDmPhotoChooser()" class="p-1.5 text-neutral-400 hover:text-violet-600 rounded-full hover:bg-violet-50 transition cursor-pointer" title="Send Photo">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </button>
+            <input type="file" id="dm-file-input" accept="image/*" class="hidden" onchange="handleDmPhotoSelected(event)">
+
+            <input type="text" id="dm-input-text" autocomplete="off" placeholder="Write a message..." class="flex-1 px-3.5 py-1.5 text-xs bg-neutral-100/70 hover:bg-neutral-100 border border-neutral-200/80 rounded-full focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:bg-white focus:border-violet-400 transition">
+            
+            <button type="submit" id="btn-dm-send" class="text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 px-3.5 py-1.5 rounded-full transition active:scale-95 shadow-xs flex items-center space-x-1 cursor-pointer">
+              <span>Send</span>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
           </form>
+
         </div>
       </div>
+
     </div>
   </div>
 
-  <!-- MODAL 6: FOLLOWING LIST MODAL POPUP -->
+<!-- MODAL 6: FOLLOWING LIST MODAL POPUP -->
   <div id="modal-following" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;">
     <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
       
@@ -2120,6 +2220,21 @@
                     idbStorage.set('pixly_highlights', JSON.stringify(data.highlights));
                   }
                   renderHighlights();
+                }
+
+                // 3e. Direct Messages from Cloud Firestore
+                if (data && Array.isArray(data.dms) && data.dms.length > 0) {
+                  console.log("Syncing live Direct Messages from Cloud Firestore:", data.dms.length);
+                  state.messages = data.dms;
+                  try {
+                    const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+                    localStorage.setItem('pixly_dms_' + curU, JSON.stringify(data.dms));
+                    localStorage.setItem('pixly_dms', JSON.stringify(data.dms));
+                  } catch(e) {}
+                  if (window.idbStorage) {
+                    idbStorage.set('pixly_dms', JSON.stringify(data.dms));
+                  }
+                  renderMessages();
                 }
 
                 // 4. Notes & Liked Notes
@@ -3349,10 +3464,11 @@
           avatar: PRESET_IMAGES[1].path,
           lastMsg: "Loved your lake photo! What lens did you use?",
           time: "12m",
+          unread: 0,
           chat: [
-            { sender: "them", text: "Hey Alex! Loved your latest post from Banff!" },
-            { sender: "me", text: "Thanks Elena! Shot it on the 24-70mm GM II." },
-            { sender: "them", text: "Loved your lake photo! What lens did you use?" }
+            { sender: "them", text: "Hey Bradley! Loved your latest post from Banff! 🏔️✨", time: "10:14 AM" },
+            { sender: "me", text: "Thanks Elena! Shot it on the 24-70mm GM II.", time: "10:18 AM" },
+            { sender: "them", text: "Loved your lake photo! What lens did you use?", time: "10:22 AM" }
           ]
         },
         {
@@ -3361,9 +3477,21 @@
           avatar: PRESET_IMAGES[3].path,
           lastMsg: "Leo says hi! We should shoot photos this weekend.",
           time: "1h",
+          unread: 0,
           chat: [
-            { sender: "them", text: "Hey! Leo says hi! We should shoot photos this weekend." },
-            { sender: "me", text: "Definitely! Let's hit the botanical garden at golden hour." }
+            { sender: "them", text: "Hey! Leo says hi! We should shoot photos this weekend. 🐾", time: "9:05 AM" },
+            { sender: "me", text: "Definitely! Let's hit the botanical garden at golden hour.", time: "9:12 AM" }
+          ]
+        },
+        {
+          user: "pixai",
+          name: "Pixai AI Assistant",
+          avatar: PIXLYNOTE_SHUTTER_ICON,
+          lastMsg: "Send me a message anytime for caption or photo ideas!",
+          time: "3h",
+          unread: 0,
+          chat: [
+            { sender: "them", text: "Hi Bradley! I'm Pixai, your Pixlynote assistant. Feel free to message me anytime for caption suggestions, photo critique, or creative ideas! ✨📷", time: "8:00 AM" }
           ]
         }
       ]
@@ -7890,13 +8018,31 @@
               </div>
             </div>
 
-            <!-- Follow / Unfollow Toggle Action Button -->
-            <button type="button" class="btn-toggle-following-user px-3.5 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer flex-shrink-0" data-username="${u.username}">
-              ${btnLabel}
-            </button>
+            <!-- Follow / Unfollow & Message Buttons -->
+            <div class="flex items-center space-x-1.5 flex-shrink-0">
+              <button type="button" class="btn-dm-following-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName}" data-username="${u.username}" data-name="${u.fullName}" data-avatar="${u.avatar}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              </button>
+              <button type="button" class="btn-toggle-following-user px-3 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer" data-username="${u.username}">
+                ${btnLabel}
+              </button>
+            </div>
           </div>
         `;
       }).join('');
+
+      // Wire direct message button in following list
+      container.querySelectorAll('.btn-dm-following-user').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const targetName = btn.dataset.name;
+          const targetAvatar = btn.dataset.avatar;
+          const fModal = document.getElementById('modal-following');
+          if (fModal) { fModal.classList.add('hidden'); fModal.style.display = 'none'; }
+          openDirectMessageWithUser(targetU, targetName, targetAvatar);
+        });
+      });
 
       // Wire follow / unfollow toggle
       container.querySelectorAll('.btn-toggle-following-user').forEach(btn => {
@@ -7938,7 +8084,14 @@
       if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
+        // Clear unread badge on header message button
+        const badge = document.querySelector('#btn-open-messages span');
+        if (badge) badge.classList.add('hidden');
         renderMessages();
+        setTimeout(() => {
+          const input = document.getElementById('dm-input-text');
+          if (input && window.innerWidth >= 640) input.focus();
+        }, 150);
       }
     }
 
@@ -7947,6 +8100,7 @@
       if (modal) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
+        toggleDmNewChatPicker(false);
       }
     }
 
@@ -8049,49 +8203,596 @@
       `).join('');
     }
 
-    // --- Render Direct Messages ---
+    // --- Direct Messages Controller & Chat Manager ---
     function renderMessages() {
       const threadList = document.getElementById('dm-thread-list');
-      threadList.innerHTML = state.messages.map((m, idx) => `
-        <div class="p-3 flex items-center space-x-2 hover:bg-neutral-50 cursor-pointer dm-thread-item ${idx === 0 ? 'bg-neutral-50/80' : ''}" data-idx="${idx}">
-          <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-            <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="font-bold text-xs truncate">${m.name}</div>
-            <div class="text-[11px] text-neutral-500 truncate">${m.lastMsg}</div>
-          </div>
-        </div>
-      `).join('');
+      if (!threadList) return;
 
-      renderActiveChat(0);
+      if (!state.messages || !Array.isArray(state.messages)) {
+        state.messages = [];
+      }
+
+      // Restore messages from storage if empty
+      if (state.messages.length === 0) {
+        try {
+          const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+          const saved = localStorage.getItem('pixly_dms_' + curU) || localStorage.getItem('pixly_dms');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) state.messages = parsed;
+          }
+        } catch(e) {}
+      }
+
+      const activeIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
+        ? state.activeDmThreadIndex 
+        : 0;
+      state.activeDmThreadIndex = activeIdx;
+
+      const unreadCount = state.messages.reduce((acc, m) => acc + (m.unread || 0), 0);
+      const badgeEl = document.getElementById('dm-active-count-badge');
+      if (badgeEl) {
+        badgeEl.textContent = unreadCount > 0 ? `${unreadCount} new` : 'Chats';
+        badgeEl.className = unreadCount > 0 
+          ? 'text-[10px] px-2 py-0.5 bg-violet-600 text-white rounded-full font-bold' 
+          : 'text-[10px] px-2 py-0.5 bg-violet-100 text-violet-800 rounded-full font-bold';
+      }
+
+      if (state.messages.length === 0) {
+        threadList.innerHTML = `
+          <div class="p-6 text-center text-neutral-400">
+            <div class="text-2xl mb-1">💬</div>
+            <div class="font-bold text-xs text-neutral-600 mb-0.5">No Messages Yet</div>
+            <div class="text-[11px]">Start a conversation with any creator!</div>
+            <button type="button" onclick="toggleDmNewChatPicker(true)" class="mt-3 px-3 py-1 bg-violet-600 text-white rounded-lg text-xs font-semibold cursor-pointer">Start Chat</button>
+          </div>
+        `;
+        const container = document.getElementById('dm-messages-container');
+        if (container) {
+          container.innerHTML = `
+            <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
+              <div class="w-12 h-12 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center text-xl mb-2">✉️</div>
+              <div class="font-bold text-sm text-neutral-800">Your Messages</div>
+              <div class="text-xs text-neutral-500 max-w-xs mt-1">Send private photos and messages to creators and friends.</div>
+              <button type="button" onclick="toggleDmNewChatPicker(true)" class="mt-3 px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer">New Message</button>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      threadList.innerHTML = state.messages.map((m, idx) => {
+        const isActive = idx === activeIdx;
+        const activeClass = isActive 
+          ? 'bg-violet-50/90 border-l-4 border-violet-600 font-semibold' 
+          : 'hover:bg-neutral-50/80 border-l-4 border-transparent';
+        const lastSenderPrefix = (m.chat && m.chat.length > 0 && m.chat[m.chat.length - 1].sender === 'me') ? 'You: ' : '';
+        const lastText = m.lastMsg || (m.chat && m.chat.length > 0 ? m.chat[m.chat.length - 1].text : 'No messages yet');
+        const timeDisp = m.time || m.lastTime || '';
+
+        return `
+          <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
+            <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
+              <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
+              <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-xs truncate ${isActive ? 'text-violet-950' : 'text-neutral-900'}">${m.name}</span>
+                <span class="text-[10px] text-neutral-400 ml-1 flex-shrink-0">${timeDisp}</span>
+              </div>
+              <div class="text-[11px] ${isActive ? 'text-violet-800/80' : 'text-neutral-500'} truncate mt-0.5">
+                ${lastSenderPrefix}${lastText}
+              </div>
+            </div>
+            ${m.unread ? `<span class="w-2 h-2 rounded-full bg-violet-600 flex-shrink-0"></span>` : ''}
+          </div>
+        `;
+      }).join('');
 
       threadList.querySelectorAll('.dm-thread-item').forEach(item => {
         item.addEventListener('click', () => {
           const idx = parseInt(item.dataset.idx, 10);
+          state.activeDmThreadIndex = idx;
           renderActiveChat(idx);
+          renderMessages();
+
+          // On mobile, show chat panel and hide sidebar
+          const sidebar = document.getElementById('dm-sidebar');
+          const chatPanel = document.getElementById('dm-chat-panel');
+          if (sidebar && chatPanel && window.innerWidth < 640) {
+            sidebar.classList.add('hidden');
+            sidebar.classList.remove('flex');
+            chatPanel.classList.remove('hidden');
+            chatPanel.classList.add('flex');
+          }
         });
       });
+
+      renderActiveChat(activeIdx);
     }
+    window.renderMessages = renderMessages;
 
     function renderActiveChat(idx) {
       const thread = state.messages[idx];
       if (!thread) return;
-      document.getElementById('dm-active-name').textContent = thread.name;
-      document.getElementById('dm-active-avatar').src = thread.avatar;
+
+      state.activeDmThreadIndex = idx;
+      thread.unread = 0;
+
+      const nameEl = document.getElementById('dm-active-name');
+      if (nameEl) nameEl.textContent = thread.name;
+      
+      const statusEl = document.getElementById('dm-active-status');
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>@${thread.user} • Active now</span>`;
+      }
+
+      const avatarEl = document.getElementById('dm-active-avatar');
+      if (avatarEl) avatarEl.src = thread.avatar;
 
       const container = document.getElementById('dm-messages-container');
-      container.innerHTML = thread.chat.map(msg => `
-        <div class="flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}">
-          <div class="max-w-[75%] px-3.5 py-2 rounded-2xl text-xs ${msg.sender === 'me' ? 'bg-sky-500 text-white rounded-br-none' : 'bg-neutral-100 text-neutral-900 rounded-bl-none'}">
-            ${msg.text}
+      if (!container) return;
+
+      if (!thread.chat || thread.chat.length === 0) {
+        container.innerHTML = `
+          <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
+            <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
+              <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+            </div>
+            <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
+            <div class="text-[11px] text-neutral-400">@${thread.user}</div>
+            <p class="text-[11px] text-neutral-500 mt-2">Say hello and start the conversation! 👋</p>
           </div>
-        </div>
-      `).join('');
+        `;
+        return;
+      }
+
+      container.innerHTML = thread.chat.map((msg, mIdx) => {
+        const isMe = msg.sender === 'me';
+        const bubbleClass = isMe
+          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl rounded-br-none shadow-2xs'
+          : 'bg-white border border-neutral-200/80 text-neutral-900 rounded-2xl rounded-bl-none shadow-2xs';
+        const alignClass = isMe ? 'justify-end' : 'justify-start';
+        const timeText = msg.time || '';
+
+        let contentHtml = '';
+        if (msg.image) {
+          contentHtml += `
+            <div class="rounded-xl overflow-hidden mb-1.5 max-h-48 border border-white/20">
+              <img src="${msg.image}" alt="Photo" class="w-full h-full object-cover">
+            </div>
+          `;
+        }
+        if (msg.text) {
+          contentHtml += `<div class="whitespace-pre-line leading-relaxed">${escapeHtml(msg.text)}</div>`;
+        }
+
+        return `
+          <div class="flex ${alignClass} items-end space-x-1.5 mb-1 group">
+            ${!isMe ? `
+              <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1 border border-neutral-200 shadow-2xs">
+                <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+              </div>
+            ` : ''}
+            <div class="max-w-[78%] sm:max-w-[70%]">
+              <div class="px-3.5 py-2 text-xs ${bubbleClass}">
+                ${contentHtml}
+              </div>
+              <div class="text-[9px] text-neutral-400 mt-0.5 px-1 ${isMe ? 'text-right' : 'text-left'}">
+                ${timeText} ${isMe ? '• Sent ✓' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
       container.scrollTop = container.scrollHeight;
     }
+    window.renderActiveChat = renderActiveChat;
 
-    // --- Login & Auth Handler ---
+    function handleSendDirectMessage(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const input = document.getElementById('dm-input-text');
+      if (!input) return false;
+      const text = input.value.trim();
+      if (!text) return false;
+
+      const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
+        ? state.activeDmThreadIndex 
+        : 0;
+      const thread = state.messages[currentIdx];
+      if (!thread) return false;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+      const newMsg = {
+        sender: 'me',
+        text: text,
+        time: timeStr,
+        timestamp: Date.now()
+      };
+
+      if (!thread.chat) thread.chat = [];
+      thread.chat.push(newMsg);
+      thread.lastMsg = text;
+      thread.time = "Just now";
+
+      // Re-order thread to top of list
+      if (currentIdx !== 0) {
+        state.messages.splice(currentIdx, 1);
+        state.messages.unshift(thread);
+        state.activeDmThreadIndex = 0;
+      }
+
+      input.value = '';
+
+      renderMessages();
+      renderActiveChat(state.activeDmThreadIndex || 0);
+
+      persistDirectMessages();
+
+      // Trigger realistic creator auto-reply
+      triggerDmAutoReply(thread, text);
+
+      return false;
+    }
+    window.handleSendDirectMessage = handleSendDirectMessage;
+
+    function sendDmQuickReaction(emoji) {
+      const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
+        ? state.activeDmThreadIndex 
+        : 0;
+      const thread = state.messages[currentIdx];
+      if (!thread) return;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+      const newMsg = {
+        sender: 'me',
+        text: emoji,
+        time: timeStr,
+        timestamp: Date.now()
+      };
+
+      if (!thread.chat) thread.chat = [];
+      thread.chat.push(newMsg);
+      thread.lastMsg = emoji;
+      thread.time = "Just now";
+
+      renderMessages();
+      renderActiveChat(state.activeDmThreadIndex || 0);
+      persistDirectMessages();
+
+      triggerDmAutoReply(thread, emoji);
+    }
+    window.sendDmQuickReaction = sendDmQuickReaction;
+
+    function triggerDmPhotoChooser() {
+      const fileInp = document.getElementById('dm-file-input');
+      if (fileInp) fileInp.click();
+    }
+    window.triggerDmPhotoChooser = triggerDmPhotoChooser;
+
+    function handleDmPhotoSelected(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const dataUrl = evt.target.result;
+        const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
+          ? state.activeDmThreadIndex 
+          : 0;
+        const thread = state.messages[currentIdx];
+        if (!thread) return;
+
+        const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const newMsg = {
+          sender: 'me',
+          image: dataUrl,
+          text: 'Shared a photo 📷',
+          time: timeStr,
+          timestamp: Date.now()
+        };
+
+        if (!thread.chat) thread.chat = [];
+        thread.chat.push(newMsg);
+        thread.lastMsg = 'Shared a photo 📷';
+        thread.time = "Just now";
+
+        renderMessages();
+        renderActiveChat(state.activeDmThreadIndex || 0);
+        persistDirectMessages();
+
+        triggerDmAutoReply(thread, "Shared a photo");
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+    window.handleDmPhotoSelected = handleDmPhotoSelected;
+
+    function triggerDmAutoReply(thread, userMessage) {
+      const container = document.getElementById('dm-messages-container');
+      const typingEl = document.getElementById('dm-typing-indicator');
+      const typingText = document.getElementById('dm-typing-text');
+      if (typingEl) {
+        if (typingText) typingText.textContent = `${thread.name} is typing...`;
+        typingEl.classList.remove('hidden');
+        if (container) container.scrollTop = container.scrollHeight;
+      }
+
+      const username = (thread.user || '').toLowerCase();
+      let replyText = "";
+
+      if (username === 'pixai') {
+        const lower = (userMessage || '').toLowerCase();
+        if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+          replyText = `Hey @${state.currentUser.username}! 👋 How can I help you create, edit, or elevate your posts on Pixlynote today?`;
+        } else if (lower.includes('photo') || lower.includes('camera') || lower.includes('lens')) {
+          replyText = "For striking photography, try framing with leading lines or shooting during golden hour. A prime 35mm or 50mm lens with an open aperture creates that creamy bokeh look! 📷✨";
+        } else if (lower.includes('caption') || lower.includes('hashtag')) {
+          replyText = "Here are trending tags for your next post: #pixlynote #visualstorytelling #goldenhour #shotonmirrorless #creatorspace 🌟";
+        } else {
+          replyText = `That sounds wonderful! Let me know if you need any photo tips, caption ideas, or post styling for your profile. ✨`;
+        }
+      } else if (username === 'elena_eats') {
+        const replies = [
+          "I love that! That bakery near Belleville actually roasts fresh every morning if you ever want to check it out ☕🥐",
+          "Totally agree! Your photography color palette has such great symmetry and warmth ✨",
+          "That sounds delicious! Let's definitely do a cafe crawl and capture some new content soon! 📷🍰",
+          "Thanks so much for reaching out! Loved your latest post! ❤️"
+        ];
+        replyText = replies[Math.floor(Math.random() * replies.length)];
+      } else if (username === 'marcus_pups') {
+        const replies = [
+          "Leo says woof! 🐾 We're heading out to the mountain ridge this weekend, the sunrise light should be epic!",
+          "Awesome! Always down to hit the trails and shoot some golden hour photos 🌲☀️",
+          "That trail you mentioned is on our bucket list! Leo loves splashing in those creek crossings 🐕💧",
+          "Sounds like a plan! Let me know when you're free to shoot! 📷"
+        ];
+        replyText = replies[Math.floor(Math.random() * replies.length)];
+      } else if (username === 'pixlynote') {
+        replyText = `Welcome to Pixlynote! 📸 We're thrilled to have you in our creator community. If you have any feedback or ideas, feel free to drop them right here.`;
+      } else {
+        const replies = [
+          `Hey @${state.currentUser.username}! Thanks for reaching out! Really appreciate the message and love your work ✨`,
+          "Great to connect with you here! Hope your creative projects are going well 🎨📷",
+          "Totally agree! Looking forward to seeing what you post next on Pixlynote! 🌟"
+        ];
+        replyText = replies[Math.floor(Math.random() * replies.length)];
+      }
+
+      setTimeout(() => {
+        if (typingEl) typingEl.classList.add('hidden');
+        const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        thread.chat.push({
+          sender: 'them',
+          text: replyText,
+          time: timeStr,
+          timestamp: Date.now()
+        });
+        thread.lastMsg = replyText;
+        thread.time = "Just now";
+
+        persistDirectMessages();
+        renderMessages();
+        renderActiveChat(state.activeDmThreadIndex || 0);
+
+        const modal = document.getElementById('modal-messages');
+        if (!modal || modal.classList.contains('hidden') || modal.style.display === 'none') {
+          showToast(`New DM from ${thread.name}: "${replyText.slice(0, 35)}..."`);
+          const badge = document.querySelector('#btn-open-messages span');
+          if (badge) badge.classList.remove('hidden');
+        }
+      }, 1300);
+    }
+
+    function openDirectMessageWithUser(targetUser, targetName, targetAvatar) {
+      if (!targetUser) return;
+      const cleanTarget = targetUser.trim().replace(/^@/, '');
+
+      if (!state.messages || !Array.isArray(state.messages)) state.messages = [];
+
+      let idx = state.messages.findIndex(m => m.user.toLowerCase() === cleanTarget.toLowerCase());
+      if (idx === -1) {
+        let foundName = targetName;
+        let foundAvatar = targetAvatar;
+        if (!foundName || !foundAvatar) {
+          const match = (state.following || []).find(f => f.username.toLowerCase() === cleanTarget.toLowerCase());
+          if (match) {
+            foundName = foundName || match.fullName;
+            foundAvatar = foundAvatar || match.avatar;
+          }
+        }
+        if (!foundAvatar) {
+          if (cleanTarget.toLowerCase() === 'pixlynote') foundAvatar = PIXLYNOTE_SHUTTER_ICON;
+          else if (cleanTarget.toLowerCase() === 'pixai') foundAvatar = PIXLYNOTE_SHUTTER_ICON;
+          else foundAvatar = PRESET_IMAGES[0].path;
+        }
+        if (!foundName) foundName = cleanTarget;
+
+        const newThread = {
+          user: cleanTarget,
+          name: foundName,
+          avatar: foundAvatar,
+          lastMsg: "Started a new conversation",
+          time: "Just now",
+          unread: 0,
+          chat: [
+            { sender: "them", text: `Hey @${state.currentUser.username}! Thanks for reaching out 👋`, time: "Just now" }
+          ]
+        };
+        state.messages.unshift(newThread);
+        idx = 0;
+      }
+
+      state.activeDmThreadIndex = idx;
+      openMessagesModal();
+      renderMessages();
+      renderActiveChat(idx);
+
+      const sidebar = document.getElementById('dm-sidebar');
+      const chatPanel = document.getElementById('dm-chat-panel');
+      if (sidebar && chatPanel && window.innerWidth < 640) {
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex');
+        chatPanel.classList.remove('hidden');
+        chatPanel.classList.add('flex');
+      }
+
+      setTimeout(() => {
+        const input = document.getElementById('dm-input-text');
+        if (input) input.focus();
+      }, 150);
+    }
+    window.openDirectMessageWithUser = openDirectMessageWithUser;
+
+    function toggleDmNewChatPicker(show) {
+      const picker = document.getElementById('dm-new-chat-picker');
+      if (!picker) return;
+      const isHidden = picker.classList.contains('hidden');
+      const shouldShow = (typeof show === 'boolean') ? show : isHidden;
+
+      if (shouldShow) {
+        picker.classList.remove('hidden');
+        renderDmCreatorsList('');
+        const sInp = document.getElementById('dm-new-chat-search');
+        if (sInp) {
+          sInp.value = '';
+          sInp.focus();
+        }
+      } else {
+        picker.classList.add('hidden');
+      }
+    }
+    window.toggleDmNewChatPicker = toggleDmNewChatPicker;
+
+    function filterDmCreators(q) {
+      renderDmCreatorsList(q || '');
+    }
+    window.filterDmCreators = filterDmCreators;
+
+    function renderDmCreatorsList(query) {
+      const list = document.getElementById('dm-creators-list');
+      if (!list) return;
+
+      const q = (query || '').toLowerCase().trim();
+
+      const pool = [
+        { username: 'pixai', fullName: 'Pixai AI Assistant', bio: 'Intelligent photography & caption assistant ✨', avatar: PIXLYNOTE_SHUTTER_ICON },
+        { username: 'pixlynote', fullName: 'Pixlynote Support', bio: 'Official Pixlynote updates & support 📸', avatar: PIXLYNOTE_SHUTTER_ICON },
+        ...(state.following || [])
+      ];
+
+      const seen = new Set();
+      const filtered = pool.filter(c => {
+        if (c.username === state.currentUser.username) return false;
+        if (seen.has(c.username.toLowerCase())) return false;
+        seen.add(c.username.toLowerCase());
+        if (!q) return true;
+        return c.username.toLowerCase().includes(q) || (c.fullName && c.fullName.toLowerCase().includes(q));
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="p-6 text-center text-xs text-neutral-400">No creators found matching "${escapeHtml(q)}"</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(c => `
+        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '${c.avatar}')">
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">
+              <img src="${c.avatar}" alt="${c.fullName}" class="w-full h-full object-cover">
+            </div>
+            <div class="min-w-0">
+              <div class="font-bold text-xs text-neutral-900 truncate leading-tight">${c.fullName}</div>
+              <div class="text-[11px] text-neutral-500 truncate">@${c.username}</div>
+            </div>
+          </div>
+          <button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>
+        </div>
+      `).join('');
+    }
+
+    function selectCreatorForDm(username, fullName, avatar) {
+      toggleDmNewChatPicker(false);
+      openDirectMessageWithUser(username, fullName, avatar);
+    }
+    window.selectCreatorForDm = selectCreatorForDm;
+
+    function filterDmThreads(query) {
+      const q = (query || '').toLowerCase().trim();
+      const threadItems = document.querySelectorAll('.dm-thread-item');
+      threadItems.forEach(item => {
+        const idx = parseInt(item.dataset.idx, 10);
+        const m = state.messages[idx];
+        if (!m) return;
+        if (!q || m.name.toLowerCase().includes(q) || m.user.toLowerCase().includes(q) || (m.lastMsg && m.lastMsg.toLowerCase().includes(q))) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    }
+    window.filterDmThreads = filterDmThreads;
+
+    function handleDmViewProfile() {
+      const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
+        ? state.activeDmThreadIndex 
+        : 0;
+      const thread = state.messages[currentIdx];
+      if (!thread) return;
+      closeMessagesModal();
+      if (typeof viewUserProfile === 'function') {
+        viewUserProfile(thread.user);
+      }
+    }
+    window.handleDmViewProfile = handleDmViewProfile;
+
+    function handleDmMobileBack() {
+      const sidebar = document.getElementById('dm-sidebar');
+      const chatPanel = document.getElementById('dm-chat-panel');
+      if (sidebar && chatPanel) {
+        chatPanel.classList.add('hidden');
+        chatPanel.classList.remove('flex');
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+      }
+    }
+    window.handleDmMobileBack = handleDmMobileBack;
+
+    function persistDirectMessages() {
+      try {
+        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+        localStorage.setItem('pixly_dms_' + curU, JSON.stringify(state.messages));
+        localStorage.setItem('pixly_dms', JSON.stringify(state.messages));
+      } catch(e) {}
+      if (window.idbStorage) {
+        idbStorage.set('pixly_dms', JSON.stringify(state.messages));
+      }
+      if (window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+          setDoc(doc(db, 'users', 'bradley_hansen'), {
+            dms: state.messages,
+            lastDmUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+          if (uid !== 'bradley_hansen') {
+            setDoc(doc(db, 'users', uid), {
+              dms: state.messages,
+              lastDmUpdated: Date.now()
+            }, { merge: true }).catch(() => {});
+          }
+        } catch(e) {}
+      }
+    }
+    window.persistDirectMessages = persistDirectMessages;
+
+// --- Login & Auth Handler ---
     function performLogin(username, fullName, email, password = null, phone = null, accountType = null) {
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
       const oldUsername = state.currentUser.username;
@@ -8359,12 +9060,33 @@
       try { renderExplore(); } catch(e) {}
       try { renderLikes(); } catch(e) {}
       try { renderNotifications(); } catch(e) {}
+      try {
+        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+        const savedDms = localStorage.getItem('pixly_dms_' + curU) || localStorage.getItem('pixly_dms');
+        if (savedDms) {
+          const parsed = JSON.parse(savedDms);
+          if (Array.isArray(parsed) && parsed.length > 0) state.messages = parsed;
+        }
+      } catch(e) {}
       try { renderMessages(); } catch(e) {}
       try { initCreatePresets(); } catch(e) {}
 
       // Asynchronously restore from IndexedDB if available
       try {
         if (window.idbStorage) {
+          // 00. Restore Direct Messages from IndexedDB
+          idbStorage.get('pixly_dms').then(idbDms => {
+            if (idbDms) {
+              try {
+                const parsed = JSON.parse(idbDms);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  state.messages = parsed;
+                  renderMessages();
+                }
+              } catch(e) {}
+            }
+          }).catch(() => {});
+
           // 0. Restore Highlights from IndexedDB
           idbStorage.get('pixly_highlights').then(idbH => {
             if (idbH !== null && idbH !== undefined) {
