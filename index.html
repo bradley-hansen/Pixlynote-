@@ -693,9 +693,12 @@
               <span class="tracking-tight text-[11px] font-black hidden sm:inline">AI</span>
             </button>
 
-            <button type="button" id="btn-logout" class="ml-1 p-2 text-neutral-400 hover:text-rose-600 rounded-full hover:bg-rose-50 transition" title="Log Out">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            <!-- 3-Dot Menu Button in top right of screen (Expands right-side drawer) -->
+            <button type="button" id="btn-profile-menu" onclick="openProfileMenu()" class="ml-1 p-2 text-neutral-600 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Menu & Policies">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="1.75"/>
+                <circle cx="12" cy="12" r="1.75"/>
+                <circle cx="12" cy="19" r="1.75"/>
               </svg>
             </button>
           </div>
@@ -776,6 +779,13 @@
                   </button>
                   <button type="button" id="btn-edit-profile-modal" onclick="openEditProfileModal()" class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-800 text-xs font-semibold rounded-xl transition cursor-pointer">Edit profile</button>
                   <button type="button" id="btn-share-profile" class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-800 text-xs font-semibold rounded-xl transition cursor-pointer">Share profile</button>
+                  <button type="button" id="btn-profile-row-menu" onclick="openProfileMenu()" class="p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-neutral-900 rounded-xl transition cursor-pointer" title="Account Menu">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="5" r="1.75"/>
+                      <circle cx="12" cy="12" r="1.75"/>
+                      <circle cx="12" cy="19" r="1.75"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -1481,6 +1491,18 @@
               <option value="__new__">✨ + Create a new circle highlight</option>
               <!-- Existing highlights dynamically populated -->
             </select>
+
+            <!-- Action Row Under the Destination Picker (Delete Button to the Right) -->
+            <div id="highlight-existing-actions" class="hidden flex items-center justify-between mt-2 pt-2 border-t border-violet-200/60 transition-all">
+              <div class="flex items-center space-x-1.5 text-[11px] text-violet-900 font-semibold truncate max-w-[55%]">
+                <span class="text-violet-500 font-normal">Active:</span>
+                <span id="highlight-selected-badge" class="px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-900 font-bold truncate">☕ Cafes</span>
+              </div>
+              <button type="button" id="btn-delete-highlight" onclick="handleDeleteSelectedHighlight()" class="inline-flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-rose-600 bg-white hover:bg-rose-50 hover:text-rose-700 border border-rose-200 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer hover:scale-105 active:scale-95 flex-shrink-0" title="Delete this highlight">
+                <svg class="w-3.5 h-3.5 fill-none stroke-currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Delete highlight</span>
+              </button>
+            </div>
           </div>
 
           <!-- Fields when creating a brand new circle highlight -->
@@ -6720,7 +6742,7 @@
       const container = document.getElementById('profile-highlights-container');
       if (!container) return;
 
-      if (!state.highlights || !Array.isArray(state.highlights) || state.highlights.length === 0) {
+      if (!state.highlights || !Array.isArray(state.highlights)) {
         state.highlights = [
           { id: 1, title: "Cafes", icon: "☕", cover: null, image: COMMUNITY_IMAGES[0] },
           { id: 2, title: "City", icon: "🏙️", cover: null, image: COMMUNITY_IMAGES[3] },
@@ -6872,7 +6894,10 @@
         options += `<option value="${h.id}">${h.icon ? h.icon + ' ' : ''}${h.title}</option>`;
       });
       select.innerHTML = options;
-      select.value = currentVal;
+      
+      // Preserve selection if it still exists, otherwise default to __new__
+      const stillExists = (state.highlights || []).some(h => String(h.id) === String(currentVal));
+      select.value = stillExists ? currentVal : '__new__';
 
       updateHighlightNewFieldsVisibility();
     }
@@ -6881,21 +6906,86 @@
     function updateHighlightNewFieldsVisibility() {
       const select = document.getElementById('highlight-target-select');
       const fields = document.getElementById('highlight-new-circle-fields');
+      const existingActions = document.getElementById('highlight-existing-actions');
+      const selectedBadge = document.getElementById('highlight-selected-badge');
       const btnText = document.getElementById('btn-highlight-text');
-      if (!select || !fields) return;
+      const modalTitle = document.getElementById('create-modal-title');
+      if (!select) return;
 
-      if (select.value === '__new__') {
-        fields.classList.remove('hidden');
-        if (btnText) btnText.textContent = "Publish New Highlight ✨";
+      const val = select.value;
+      if (val === '__new__') {
+        if (fields) fields.classList.remove('hidden');
+        if (existingActions) existingActions.classList.add('hidden');
+        if (btnText) {
+          btnText.textContent = state.highlightsModified ? "Update Highlights ✨" : "Publish New Highlight ✨";
+        }
+        if (modalTitle) modalTitle.textContent = "Create new highlight";
       } else {
-        fields.classList.add('hidden');
-        const h = (state.highlights || []).find(item => String(item.id) === String(select.value));
-        if (btnText) btnText.textContent = h ? `Update "${h.title}" Cover & Photo 🌟` : "Add to Highlight 🌟";
+        if (fields) fields.classList.add('hidden');
+        if (existingActions) existingActions.classList.remove('hidden');
+        const h = (state.highlights || []).find(item => String(item.id) === String(val));
+        if (selectedBadge && h) {
+          selectedBadge.textContent = `${h.icon ? h.icon + ' ' : ''}${h.title}`;
+        }
+        if (btnText) btnText.textContent = "Update Highlight 🌟";
+        if (modalTitle) modalTitle.textContent = h ? `Edit "${h.title}" Highlight` : "Edit Highlight";
       }
     }
     window.updateHighlightNewFieldsVisibility = updateHighlightNewFieldsVisibility;
 
+    function handleDeleteSelectedHighlight() {
+      const select = document.getElementById('highlight-target-select');
+      if (!select || select.value === '__new__') return;
+
+      const targetVal = select.value;
+      const hIndex = (state.highlights || []).findIndex(item => String(item.id) === String(targetVal));
+      if (hIndex === -1) return;
+
+      const deletedItem = state.highlights[hIndex];
+      const deletedTitle = `${deletedItem.icon ? deletedItem.icon + ' ' : ''}${deletedItem.title}`;
+
+      // Remove from state.highlights
+      state.highlights.splice(hIndex, 1);
+      state.highlightsModified = true;
+
+      // Persist changes immediately to local storage and Cloud Firestore
+      try {
+        localStorage.setItem('pixly_highlights', JSON.stringify(state.highlights));
+      } catch(e) {}
+      if (window.idbStorage) {
+        idbStorage.set('pixly_highlights', JSON.stringify(state.highlights));
+      }
+      if (window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', 'bradley_hansen'), {
+            highlights: state.highlights,
+            lastUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+
+      // Re-render highlights in the profile page in real time
+      renderHighlights();
+
+      // Show fancy animated notification
+      showToast(`Deleted ${deletedTitle} from highlights 🗑️✨`);
+
+      // Refresh dropdown options
+      populateHighlightDropdown();
+
+      // Smoothly transition back to default create a new circle highlight
+      select.value = '__new__';
+      updateHighlightNewFieldsVisibility();
+    }
+    window.handleDeleteSelectedHighlight = handleDeleteSelectedHighlight;
+
     function handleCreateHighlightAction() {
+      const select = document.getElementById('highlight-target-select');
+      const targetVal = select ? select.value : '__new__';
+
+      if (!state.highlights) state.highlights = [];
+
       let imgPath = state.selectedCreateImage;
       if (!imgPath) {
         const prevImg = document.getElementById('create-preview-img');
@@ -6907,36 +6997,52 @@
         imgPath = (PRESET_IMAGES && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : state.currentUser.avatar;
       }
 
-      const select = document.getElementById('highlight-target-select');
-      const targetVal = select ? select.value : '__new__';
-
-      if (!state.highlights) state.highlights = [];
-
       if (targetVal === '__new__') {
         const titleInput = document.getElementById('highlight-title-input');
         const iconInput = document.getElementById('highlight-icon-input');
-        const title = (titleInput && titleInput.value.trim()) ? titleInput.value.trim() : 'Highlight';
-        const icon = (iconInput && iconInput.value.trim()) ? iconInput.value.trim() : '✨';
+        const rawTitle = titleInput ? titleInput.value.trim() : '';
+        const rawIcon = iconInput ? iconInput.value.trim() : '';
 
-        const newHighlight = {
-          id: Date.now(),
-          title: title,
-          icon: icon,
-          cover: imgPath,
-          image: imgPath
-        };
-        state.highlights.push(newHighlight);
-        showToast(`Created new circle highlight "${title}"! ✨`);
-        if (titleInput) titleInput.value = '';
-        if (iconInput) iconInput.value = '';
+        // If user entered a title, publish the new highlight
+        if (rawTitle) {
+          const newHighlight = {
+            id: Date.now(),
+            title: rawTitle,
+            icon: rawIcon || '✨',
+            cover: imgPath,
+            image: imgPath
+          };
+          state.highlights.push(newHighlight);
+          showToast(`Published new circle highlight "${rawTitle}"! ✨`);
+          if (titleInput) titleInput.value = '';
+          if (iconInput) iconInput.value = '';
+        } else if (state.highlightsModified) {
+          // If no title was entered but the user deleted/modified highlights, update and confirm
+          showToast("Highlights updated successfully! ✨");
+        } else {
+          // Default fallback title if publishing without a name
+          const newHighlight = {
+            id: Date.now(),
+            title: 'Highlight',
+            icon: rawIcon || '✨',
+            cover: imgPath,
+            image: imgPath
+          };
+          state.highlights.push(newHighlight);
+          showToast(`Published new circle highlight "Highlight"! ✨`);
+        }
       } else {
+        // Updating an existing highlight
         const h = state.highlights.find(item => String(item.id) === String(targetVal));
         if (h) {
           h.cover = imgPath;
           h.image = imgPath;
-          showToast(`Updated "${h.title}" highlight cover & photo! 🌟`);
+          showToast(`Updated "${h.title}" highlight! 🌟`);
         }
       }
+
+      // Reset modified flag
+      state.highlightsModified = false;
 
       // Persist highlights locally
       try {
@@ -9410,7 +9516,7 @@
         bind('btn-toggle-notifications', 'click', toggleNotificationsDropdown);
         bind('btn-open-messages', 'click', openMessagesModal);
         bind('btn-close-messages', 'click', closeMessagesModal);
-        bind('btn-logout', 'click', performLogout);
+        if (document.getElementById('btn-logout')) bind('btn-logout', 'click', performLogout);
         bind('btn-mark-all-read', 'click', () => {
           const badge = document.getElementById('notif-badge');
           if (badge) badge.classList.add('hidden');
@@ -10223,9 +10329,413 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     } catch(e) {
       console.warn("Direct execution notice:", e);
     }
-  </script>
+  
+    // =========================================================================
+    // PROFILE MENU DRAWER & TERMS/POLICIES CONTROLLERS
+    // =========================================================================
+    function openProfileMenu() {
+      const modal = document.getElementById('modal-profile-drawer');
+      const backdrop = document.getElementById('profile-drawer-backdrop');
+      const card = document.getElementById('profile-drawer-card');
+      const drawerAvatar = document.getElementById('drawer-avatar');
+      const drawerUsername = document.getElementById('drawer-username');
+
+      if (drawerAvatar) {
+        drawerAvatar.src = (state.currentUser && state.currentUser.avatar) ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE;
+      }
+      if (drawerUsername) {
+        drawerUsername.textContent = state.currentUser ? `@${state.currentUser.username}` : '@bradley_hansen';
+      }
+
+      if (modal && backdrop && card) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        void card.offsetWidth;
+        backdrop.classList.remove('opacity-0');
+        backdrop.classList.add('opacity-100');
+        card.classList.remove('translate-x-full');
+        card.classList.add('translate-x-0');
+      }
+    }
+    window.openProfileMenu = openProfileMenu;
+
+    function closeProfileMenu() {
+      const modal = document.getElementById('modal-profile-drawer');
+      const backdrop = document.getElementById('profile-drawer-backdrop');
+      const card = document.getElementById('profile-drawer-card');
+
+      if (modal && backdrop && card) {
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0');
+        card.classList.remove('translate-x-0');
+        card.classList.add('translate-x-full');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          modal.style.display = 'none';
+        }, 300);
+      }
+    }
+    window.closeProfileMenu = closeProfileMenu;
+
+    function handleDrawerTermsClick() {
+      closeProfileMenu();
+      setTimeout(() => {
+        openTermsPoliciesModal();
+      }, 200);
+    }
+    window.handleDrawerTermsClick = handleDrawerTermsClick;
+
+    function handleDrawerLogoutClick() {
+      closeProfileMenu();
+      setTimeout(() => {
+        performLogout();
+      }, 150);
+    }
+    window.handleDrawerLogoutClick = handleDrawerLogoutClick;
+
+    function openTermsPoliciesModal(activeSection = 'privacy') {
+      const modal = document.getElementById('modal-terms-policies');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        switchPolicyTab(activeSection);
+      }
+    }
+    window.openTermsPoliciesModal = openTermsPoliciesModal;
+
+    function closeTermsPoliciesModal() {
+      const modal = document.getElementById('modal-terms-policies');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+    }
+    window.closeTermsPoliciesModal = closeTermsPoliciesModal;
+
+    function switchPolicyTab(tabId) {
+      const tabs = ['privacy', 'tos', 'guidelines', 'cookies', 'dmca'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`btn-policy-tab-${t}`);
+        const sec = document.getElementById(`policy-section-${t}`);
+        if (btn) {
+          if (t === tabId) {
+            btn.className = "py-1.5 px-3 rounded-full text-xs font-bold bg-violet-600 text-white shadow-xs transition-all whitespace-nowrap cursor-pointer";
+          } else {
+            btn.className = "py-1.5 px-3 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-all whitespace-nowrap cursor-pointer";
+          }
+        }
+        if (sec && t === tabId) {
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+    window.switchPolicyTab = switchPolicyTab;
+
+</script>
 
   
+
+
+  <!-- ========================================================================= -->
+  <!-- PROFILE RIGHT SIDE-SLIDE MENU DRAWER -->
+  <!-- ========================================================================= -->
+  <div id="modal-profile-drawer" class="hidden fixed inset-0 z-50 flex justify-end overflow-hidden" style="display: none;">
+    <!-- Backdrop overlay with smooth fade in/out -->
+    <div id="profile-drawer-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300 opacity-0 pointer-events-auto" onclick="closeProfileMenu()"></div>
+
+    <!-- Right Drawer Sheet (Slides smoothly from right) -->
+    <div id="profile-drawer-card" class="relative z-10 pointer-events-auto bg-white border-l border-neutral-200/90 shadow-2xl w-80 max-w-[85vw] h-full flex flex-col overflow-hidden transform transition-transform duration-300 ease-out translate-x-full">
+      <!-- Drawer Header -->
+      <div class="p-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/80">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-full overflow-hidden border border-neutral-200 bg-white flex-shrink-0 shadow-2xs">
+            <img id="drawer-avatar" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfbW9yYWluZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZWE1ZTkiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMzY5YTEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNncmFkX21vcmFpbmUpIi8+PC9zdmc+" alt="Profile" class="w-full h-full object-cover">
+          </div>
+          <div>
+            <div class="font-bold text-xs text-neutral-900" id="drawer-username">@bradley_hansen</div>
+            <div class="text-[10px] text-neutral-400">Settings & Info</div>
+          </div>
+        </div>
+        <button type="button" onclick="closeProfileMenu()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-200/60 transition cursor-pointer" title="Close Menu">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Sub Menu Options List -->
+      <div class="p-3 flex-1 overflow-y-auto space-y-1.5 text-sm">
+        
+        <!-- Terms & Policies Option -->
+        <button type="button" onclick="handleDrawerTermsClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer shadow-2xs">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-lg group-hover:scale-105 transition shadow-2xs">
+              📜
+            </div>
+            <div>
+              <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-800 transition">Terms & Policies</div>
+              <div class="text-[10px] text-neutral-500">Privacy, TOS, Guidelines & DMCA</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+        <div class="my-2 border-t border-neutral-100"></div>
+
+        <!-- Log Out Option -->
+        <button type="button" onclick="handleDrawerLogoutClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-rose-50/80 border border-transparent hover:border-rose-100 transition text-left group cursor-pointer shadow-2xs">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg group-hover:scale-105 transition shadow-2xs">
+              <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-rose-600 group-hover:text-rose-700 transition">Log out</div>
+              <div class="text-[10px] text-rose-400">Sign out of active account</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-rose-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- Drawer Footer -->
+      <div class="p-3.5 border-t border-neutral-100 bg-neutral-50/60 text-center">
+        <div class="text-[11px] font-semibold text-neutral-600">Pixlynote · Visual Stories & Notes</div>
+        <div class="text-[10px] text-neutral-400">Version 2.4 (Build 8285) · 2026</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TERMS & POLICIES MODAL (COMPREHENSIVE BASE GUIDELINES) -->
+  <!-- ========================================================================= -->
+  <div id="modal-terms-policies" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto" style="display: none;" onclick="if(event.target === this) closeTermsPoliciesModal();">
+    <div class="relative bg-white rounded-3xl border border-neutral-200/90 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden my-auto">
+      
+      <!-- Modal Top Bar -->
+      <div class="p-4 sm:p-5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/90">
+        <div class="flex items-center space-x-3">
+          <button type="button" onclick="closeTermsPoliciesModal()" class="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl bg-white border border-neutral-200 text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+            <span>Back</span>
+          </button>
+          <div>
+            <h2 class="text-base sm:text-lg font-black text-neutral-900 flex items-center space-x-1.5">
+              <span>Terms & Policies</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold">Official</span>
+            </h2>
+            <p class="text-[11px] text-neutral-500">Legal protections, acceptable use, and privacy rights for Pixlynote creators</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeTermsPoliciesModal()" class="p-2 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-200/60 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Quick Navigation Tabs (Horizontal Scrollable Pills) -->
+      <div class="flex items-center space-x-2 p-3 bg-white border-b border-neutral-100 overflow-x-auto hide-scrollbar flex-shrink-0">
+        <button type="button" onclick="switchPolicyTab('privacy')" id="btn-policy-tab-privacy" class="py-1.5 px-3 rounded-full text-xs font-bold bg-violet-600 text-white shadow-xs transition-all whitespace-nowrap cursor-pointer">
+          🛡️ Privacy Policy
+        </button>
+        <button type="button" onclick="switchPolicyTab('tos')" id="btn-policy-tab-tos" class="py-1.5 px-3 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-all whitespace-nowrap cursor-pointer">
+          📜 Terms of Service
+        </button>
+        <button type="button" onclick="switchPolicyTab('guidelines')" id="btn-policy-tab-guidelines" class="py-1.5 px-3 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-all whitespace-nowrap cursor-pointer">
+          🤝 Community Guidelines
+        </button>
+        <button type="button" onclick="switchPolicyTab('cookies')" id="btn-policy-tab-cookies" class="py-1.5 px-3 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-all whitespace-nowrap cursor-pointer">
+          🍪 Cookie Policy
+        </button>
+        <button type="button" onclick="switchPolicyTab('dmca')" id="btn-policy-tab-dmca" class="py-1.5 px-3 rounded-full text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-all whitespace-nowrap cursor-pointer">
+          ⚖️ Copyright & DMCA
+        </button>
+      </div>
+
+      <!-- Main Policy Scrollable Content Body -->
+      <div id="policy-content-scroll" class="p-4 sm:p-6 overflow-y-auto space-y-8 text-neutral-700 text-xs sm:text-[13px] leading-relaxed flex-1">
+        
+        <!-- SECTION 1: PRIVACY POLICY -->
+        <section id="policy-section-privacy" class="space-y-4 pt-2">
+          <div class="flex items-center space-x-2 border-b border-neutral-200 pb-2.5">
+            <span class="text-xl">🛡️</span>
+            <div>
+              <h3 class="text-base font-bold text-neutral-900">1. Pixlynote Privacy Policy</h3>
+              <p class="text-[11px] text-neutral-400">Compliant with GDPR, CCPA/CPRA, CalOPPA, and International Data Protection Regulations</p>
+            </div>
+          </div>
+          
+          <div class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 text-[11px] space-y-1">
+            <strong>Key Summary:</strong> We protect your identity and personal data. Pixlynote does not sell your personal information. You retain complete ownership and have the full legal right to export, modify, or permanently delete your account data at any time.
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Information We Collect</h4>
+            <ul class="list-disc pl-5 space-y-1 text-neutral-600">
+              <li><strong>Account Identifiers:</strong> Username, full name, email address, phone number (optional/for 2FA and account recovery), hashed passwords, profile photo (avatar), and public bio.</li>
+              <li><strong>User Content:</strong> Photos, images, vibe notes, written comments, replies, like reactions, and saved/bookmarked collections.</li>
+              <li><strong>Technical & Device Telemetry:</strong> IP addresses, browser user-agent, device characteristics, timestamps, referral domains, and crash reports necessary to deliver secure real-time services.</li>
+              <li><strong>AI Assistant Data:</strong> Text prompts and queries submitted to Pixlynote AI (powered by Google Gemini) for caption crafting, photo critiques, and vibe notes. API calls do not use your personal images to train foundational models without consent.</li>
+            </ul>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">How We Use Your Data</h4>
+            <p>Your data is strictly utilized to operate, maintain, and personalize the Pixlynote service: authenticating sessions, synchronizing profile updates across devices via Google Cloud Firestore, delivering the Explore feeds, and protecting against spam, bots, or unauthorized access.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Your Legal Rights (GDPR & CCPA)</h4>
+            <ul class="list-disc pl-5 space-y-1 text-neutral-600">
+              <li><strong>Right to Access & Portability:</strong> View and export all your posts, notes, and activity records.</li>
+              <li><strong>Right to Rectification:</strong> Edit your profile details, avatar, and contact info at any moment via Edit Profile.</li>
+              <li><strong>Right to Erasure (Deletion):</strong> Permanently delete your posts, notes, comments, or entire profile with comprehensive deletion from our cloud databases.</li>
+              <li><strong>CCPA "Do Not Sell":</strong> Pixlynote does NOT sell or rent your personal information to third-party data brokers.</li>
+            </ul>
+          </div>
+
+          <div class="text-[11px] text-neutral-500 pt-2 border-t border-neutral-100">
+            For privacy inquiries or data requests, contact our Data Protection Officer at: <a href="mailto:privacy@pixlynote.com" class="text-violet-600 font-semibold underline">privacy@pixlynote.com</a>.
+          </div>
+        </section>
+
+        <!-- SECTION 2: TERMS OF SERVICE -->
+        <section id="policy-section-tos" class="space-y-4 pt-4 border-t border-neutral-200">
+          <div class="flex items-center space-x-2 border-b border-neutral-200 pb-2.5">
+            <span class="text-xl">📜</span>
+            <div>
+              <h3 class="text-base font-bold text-neutral-900">2. Terms of Service & User Agreement</h3>
+              <p class="text-[11px] text-neutral-400">Rules governing account usage, intellectual property, and platform liability</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">1. Acceptance of Terms</h4>
+            <p>By creating an account, browsing content, or accessing Pixlynote, you enter into a legally binding agreement and agree to comply with these Terms of Service. If you do not agree, do not access or use the platform.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">2. Eligibility & Account Security</h4>
+            <p>You must be at least 13 years of age (or 16 years of age in jurisdictions where required by law) to create an account. You are responsible for safeguarding your credentials and for all activities that occur under your username.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">3. Intellectual Property Ownership</h4>
+            <p><strong>You retain full ownership of your content.</strong> Pixlynote does NOT claim copyright over your photos, graphics, or written notes. By posting on Pixlynote, you grant us a worldwide, non-exclusive, royalty-free license solely to host, display, transcode, and distribute your content across the platform as directed by your sharing settings.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">4. Limitation of Liability</h4>
+            <p>Pixlynote is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind. To the maximum extent permitted by applicable law, Pixlynote, its founders, and operators shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of the platform.</p>
+          </div>
+        </section>
+
+        <!-- SECTION 3: COMMUNITY GUIDELINES -->
+        <section id="policy-section-guidelines" class="space-y-4 pt-4 border-t border-neutral-200">
+          <div class="flex items-center space-x-2 border-b border-neutral-200 pb-2.5">
+            <span class="text-xl">🤝</span>
+            <div>
+              <h3 class="text-base font-bold text-neutral-900">3. Community Guidelines & Acceptable Use</h3>
+              <p class="text-[11px] text-neutral-400">Rules ensuring a safe, creative, and respectful environment for all members</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Prohibited Activities & Content</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div class="p-2.5 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
+                <span class="font-bold text-rose-800">🚫 Hate Speech & Bullying</span>
+                <p class="text-rose-700">Zero tolerance for harassment, hate speech, threats of violence, or attacks against protected groups.</p>
+              </div>
+              <div class="p-2.5 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
+                <span class="font-bold text-rose-800">🚫 Explicit or NSFW Media</span>
+                <p class="text-rose-700">Pornography, sexually explicit media, non-consensual imagery, or graphic gore are strictly forbidden.</p>
+              </div>
+              <div class="p-2.5 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
+                <span class="font-bold text-rose-800">🚫 Spam & Fraudulent Scams</span>
+                <p class="text-rose-700">No impersonation, phishing, bot engagement farming, or deceptive crypto/investment promotions.</p>
+              </div>
+              <div class="p-2.5 bg-rose-50/70 border border-rose-100 rounded-xl space-y-1">
+                <span class="font-bold text-rose-800">🚫 Illegal & Harmful Behavior</span>
+                <p class="text-rose-700">Promotion of self-harm, regulated goods, malware distribution, or unauthorized scraping is prohibited.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Enforcement & Moderation</h4>
+            <p>Pixlynote moderates user-generated content in good faith under 47 U.S.C. § 230 safe harbor protections. Violating content will be removed immediately, and repeat offenders face permanent account bans.</p>
+          </div>
+        </section>
+
+        <!-- SECTION 4: COOKIE POLICY -->
+        <section id="policy-section-cookies" class="space-y-4 pt-4 border-t border-neutral-200">
+          <div class="flex items-center space-x-2 border-b border-neutral-200 pb-2.5">
+            <span class="text-xl">🍪</span>
+            <div>
+              <h3 class="text-base font-bold text-neutral-900">4. Cookie & Client Storage Policy</h3>
+              <p class="text-[11px] text-neutral-400">How cookies, LocalStorage, and IndexedDB power your visual experience</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Technologies Used</h4>
+            <ul class="list-disc pl-5 space-y-1 text-neutral-600">
+              <li><strong>Essential Session Cookies:</strong> Maintain your active login status securely across page refreshes.</li>
+              <li><strong>HTML5 LocalStorage:</strong> Caches your interface theme, drafts, active tab, and saved bookmark IDs for near-instant rendering.</li>
+              <li><strong>Client IndexedDB:</strong> Provides high-performance local offline caching for high-resolution photo uploads and story media.</li>
+            </ul>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Managing Your Preferences</h4>
+            <p>You can clear cookies and local storage through your browser settings at any time without losing published cloud posts.</p>
+          </div>
+        </section>
+
+        <!-- SECTION 5: COPYRIGHT & DMCA -->
+        <section id="policy-section-dmca" class="space-y-4 pt-4 border-t border-neutral-200">
+          <div class="flex items-center space-x-2 border-b border-neutral-200 pb-2.5">
+            <span class="text-xl">⚖️</span>
+            <div>
+              <h3 class="text-base font-bold text-neutral-900">5. Copyright & DMCA Takedown Policy</h3>
+              <p class="text-[11px] text-neutral-400">Notice-and-takedown procedure under Title II of the Digital Millennium Copyright Act (17 U.S.C. § 512)</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Notice-and-Takedown Procedure</h4>
+            <p>If you believe that your copyrighted work has been copied or posted on Pixlynote without authorization, please submit a formal written DMCA notice to our Designated Copyright Agent:</p>
+            <div class="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-neutral-700 space-y-1">
+              <div><strong>Designated DMCA Agent:</strong> Pixlynote Legal Compliance</div>
+              <div><strong>Email:</strong> <a href="mailto:dmca@pixlynote.com" class="text-violet-600 font-semibold underline">dmca@pixlynote.com</a></div>
+              <div><strong>Direct Contact:</strong> <a href="mailto:bradley.g.hansen@hotmail.com" class="text-violet-600 font-semibold underline">bradley.g.hansen@hotmail.com</a></div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Required Notice Information</h4>
+            <ol class="list-decimal pl-5 space-y-1 text-neutral-600 text-[11px]">
+              <li>Identification of the copyrighted work claimed to be infringed.</li>
+              <li>Specific URL, Post ID, or description of where the infringing material is located on Pixlynote.</li>
+              <li>Your contact information (name, mailing address, telephone number, and email address).</li>
+              <li>A statement of good faith belief that the disputed use is not authorized by the copyright owner, its agent, or the law.</li>
+              <li>A statement under penalty of perjury that the information provided is accurate and that you are authorized to act on behalf of the owner.</li>
+              <li>Your physical or electronic signature.</li>
+            </ol>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-neutral-200 bg-neutral-50/90 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
+        <div class="text-[11px] text-neutral-500">
+          Last revised: November 11, 2026 · Pixlynote Inc.
+        </div>
+        <button type="button" onclick="closeTermsPoliciesModal()" class="w-full sm:w-auto py-2 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+          Close Terms & Policies
+        </button>
+      </div>
+
+    </div>
+  </div>
 
 </body>
 </html>
