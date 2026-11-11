@@ -3118,6 +3118,7 @@
           id: 1,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
+          authorAvatar: BRADLEY_AVATAR_IMAGE,
           text: "Golden hour over the skyline tonight was completely unmatched. Editing the RAW files now 🌆✨",
           time: "2h ago",
           likes: 42,
@@ -3128,6 +3129,7 @@
           id: 2,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
+          authorAvatar: BRADLEY_AVATAR_IMAGE,
           text: "Coffee first, camera second. Always. ☕📸 #morningroutine",
           time: "6h ago",
           likes: 89,
@@ -3138,6 +3140,7 @@
           id: 3,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
+          authorAvatar: BRADLEY_AVATAR_IMAGE,
           text: "Quick photography tip: Don't wait for perfect lighting, learn to shape the shadows and shoot into the light. 💡",
           time: "1d ago",
           likes: 134,
@@ -4122,13 +4125,32 @@
         // Helper to guarantee valid author avatar on any note
     function getNoteAuthorAvatar(note) {
       if (!note) return (state.currentUser ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE);
+      const authorClean = (note.author || '').toLowerCase().replace(/^@/, '');
+      const currentClean = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+
+      // Explicit check for Bradley Hansen
+      if (authorClean === 'bradley_hansen' || authorClean === 'bradley hansen') {
+        return (state.currentUser && state.currentUser.username.toLowerCase() === 'bradley_hansen' && state.currentUser.avatar) 
+          ? state.currentUser.avatar 
+          : BRADLEY_AVATAR_IMAGE;
+      }
+
+      // If author is current logged in user
+      if (currentClean && authorClean === currentClean) {
+        return state.currentUser.avatar || BRADLEY_AVATAR_IMAGE;
+      }
+
+      // If note explicitly has authorAvatar
       if (note.authorAvatar && typeof note.authorAvatar === 'string' && note.authorAvatar.length > 15 && !note.authorAvatar.includes('undefined')) {
         return note.authorAvatar;
       }
+
+      // Check creator details
       if (note.author) {
         const creator = getCreatorInfo(note.author);
         if (creator && creator.avatar) return creator.avatar;
       }
+
       return (state.currentUser && state.currentUser.avatar) ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE;
     }
     window.getNoteAuthorAvatar = getNoteAuthorAvatar;
@@ -4952,16 +4974,7 @@
             `;
           }).join('');
 
-          // Direct inline event handling on explore notes
-
-          // Wire bookmark/save button on explore notes
-          notesList.querySelectorAll('.btn-save-explore-note').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const noteId = btn.dataset.noteId;
-              toggleSaveNote(noteId);
-            });
-          });
+          // Direct inline event handling on explore notes (handled cleanly by inline onclick on .btn-save-explore-note to eliminate double toggle)
 
           notesList.querySelectorAll('.btn-reply-explore-note').forEach(btn => {
             btn.addEventListener('click', () => showToast('Reply to note opened'));
@@ -6170,7 +6183,8 @@
       if (savedNotesList && savedNotesEmptyState) {
         const allKnownNotes = [
           ...(state.notes || []),
-          ...(state.exploreNotes || [])
+          ...(state.exploreNotes || []),
+          ...(state.exploreNotesArchive ? Array.from(state.exploreNotesArchive.values()) : [])
         ];
 
         const noteMap = new Map();
@@ -6182,7 +6196,7 @@
 
         const savedNotes = [];
         state.savedNoteIds.forEach(id => {
-          const n = noteMap.get(String(id));
+          let n = noteMap.get(String(id)) || getNoteById(id);
           if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
             savedNotes.push(n);
           }
@@ -6196,11 +6210,11 @@
           savedNotesList.innerHTML = savedNotes.map(note => {
             const avatarSrc = getNoteAuthorAvatar(note);
             return `
-              <div class="bg-neutral-50 hover:bg-neutral-100/80 border border-neutral-200/80 rounded-xl p-3.5 transition space-y-2.5 saved-note-card" data-note-id="${note.id}">
+              <div class="bg-neutral-50 hover:bg-neutral-100/80 border border-neutral-200/80 rounded-xl p-3.5 transition space-y-2.5 saved-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${note.id}" onclick="openNoteDetailModal('${note.id}')">
                 <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-2.5 cursor-pointer" onclick="viewUserProfile('${note.author}')">
+                  <div class="flex items-center space-x-2.5 cursor-pointer" onclick="event.stopPropagation(); viewUserProfile('${note.author}')">
                     <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
-                      <img src="${avatarSrc}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
+                      <img src="${avatarSrc}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
                     </div>
                     <div>
                       <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
@@ -6280,10 +6294,24 @@
         state.savedNoteIds.add(strId);
         // Archive note so it persists even if explore batches refresh
         if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
-        const noteObj = (state.notes || []).concat(state.exploreNotes || []).find(n => String(n.id) === strId || n.id === numId);
-        if (noteObj) state.exploreNotesArchive.set(strId, noteObj);
+        const noteObj = getNoteById(noteId);
+        if (noteObj) {
+          state.exploreNotesArchive.set(strId, noteObj);
+          if (!isNaN(numId)) state.exploreNotesArchive.set(String(numId), noteObj);
+        }
         showToast('Note saved to your collection! 🔖');
       }
+
+      if (state.currentModalNoteId && String(state.currentModalNoteId) === strId) {
+        const isNowSaved = state.savedNoteIds.has(numId) || state.savedNoteIds.has(strId);
+        const saveLabelEl = document.getElementById('note-modal-save-label');
+        const saveIconEl = document.getElementById('note-modal-save-icon');
+        if (saveLabelEl) saveLabelEl.textContent = isNowSaved ? "Saved" : "Save";
+        if (saveIconEl) {
+          saveIconEl.className = isNowSaved ? "w-4 h-4 fill-amber-500 text-amber-500" : "w-4 h-4 text-neutral-700";
+        }
+      }
+
       persistState();
       renderNotes();
       renderSaved();
@@ -6961,6 +6989,20 @@
 
     // --- Creator & User Profile System ---
     const CREATOR_DETAILS = {
+      bradley_hansen: {
+        username: "bradley_hansen",
+        fullName: "Bradley Hansen",
+        bio: "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
+        avatar: BRADLEY_AVATAR_IMAGE,
+        category: "Personal & Fitness",
+        location: "Galloway, New Jersey 📍",
+        link: "t.me/bradley_hansen",
+        joined: "Joined 2022",
+        followersCount: "4,820",
+        followingCount: "342",
+        mutual: "Your Profile",
+        isFollowing: false
+      },
       digitalassetpro: {
         username: "digitalassetpro",
         fullName: "Digital AssetPro",
@@ -7267,6 +7309,22 @@
 
     function getCreatorInfo(username) {
       const cleanU = (username || '').toLowerCase().replace(/^@/, '');
+      if (cleanU === 'bradley_hansen' || cleanU === 'bradley hansen' || (state.currentUser && cleanU === state.currentUser.username.toLowerCase())) {
+        return {
+          username: state.currentUser ? state.currentUser.username : "bradley_hansen",
+          fullName: state.currentUser ? state.currentUser.fullName : "Bradley Hansen",
+          bio: state.currentUser ? state.currentUser.bio : "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
+          avatar: state.currentUser ? (state.currentUser.avatar || BRADLEY_AVATAR_IMAGE) : BRADLEY_AVATAR_IMAGE,
+          category: "Personal & Fitness",
+          location: "Galloway, New Jersey 📍",
+          link: "t.me/bradley_hansen",
+          joined: "Joined 2022",
+          followersCount: state.currentUser ? state.currentUser.followersCount : "4,820",
+          followingCount: state.currentUser ? state.currentUser.followingCount : "342",
+          mutual: "Your Profile",
+          isFollowing: false
+        };
+      }
       if (cleanU === 'digitalassetpro' || cleanU === 'digital_asset_pro' || cleanU === 'digital assetpro') {
         const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === 'digitalassetpro' || f.username.toLowerCase() === 'digital_asset_pro');
         const isFollowing = fromFollowing ? fromFollowing.isFollowing : false;
