@@ -1703,7 +1703,7 @@
           <div class="space-y-1">
             <label class="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider">Google Gemini API Key</label>
             <div class="relative flex items-center">
-              <input type="password" id="pixai-setup-key-input" placeholder="AIzaSy... (Paste your Google API Key here)" class="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-violet-600 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono focus:outline-none transition shadow-2xs pr-10">
+              <input type="password" id="pixai-setup-key-input" onkeydown="if(event.key==='Enter') savePixaiApiKey()" placeholder="AIzaSy... (Paste your Google API Key here)" class="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-violet-600 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono focus:outline-none transition shadow-2xs pr-10">
               <button type="button" onclick="togglePasswordVisibility('pixai-setup-key-input', this)" class="absolute right-3 text-neutral-400 hover:text-neutral-700 p-1 cursor-pointer">
                 👁️
               </button>
@@ -1776,7 +1776,7 @@
         <div class="p-3 border-t border-neutral-100 bg-white">
           <form id="pixai-chat-form" class="flex items-center space-x-2" onsubmit="event.preventDefault(); submitPixaiMessage();">
             <input type="text" id="pixai-chat-input" placeholder="Ask Pixai for captions, notes, ideas..." class="flex-1 bg-neutral-100 hover:bg-neutral-100/80 focus:bg-white border border-transparent focus:border-violet-500 rounded-2xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none transition">
-            <button type="submit" id="btn-pixai-send" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixai">
+            <button type="submit" id="btn-pixai-send" onclick="event.preventDefault(); submitPixaiMessage();" class="w-10 h-10 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 active:scale-95 text-white flex items-center justify-center transition shadow-md shadow-violet-500/20 cursor-pointer flex-shrink-0" title="Send message to Pixai">
               <svg class="w-4 h-4 fill-none stroke-currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/></svg>
             </button>
           </form>
@@ -1872,7 +1872,8 @@
     // In Google Cloud Console, add an HTTP Referrer restriction so only your
     // domain (e.g., https://*.github.io/*) can use this key!
     // =========================================================================
-    const PIXAI_GOOGLE_API_KEY = "";
+    window.PIXAI_GOOGLE_API_KEY = "";
+    const PIXAI_GOOGLE_API_KEY = window.PIXAI_GOOGLE_API_KEY;
 
     window.firebaseReady = false;
     window.firebase = null;
@@ -9151,7 +9152,22 @@
     // =========================================================================
     // PIXAI: PIXLYNOTE CREATIVE AI ASSISTANT CONTROLLER
     // =========================================================================
+        // HTML sanitization helper
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+    window.escapeHtml = escapeHtml;
+
     function getPixaiApiKey() {
+      if (typeof window.PIXAI_GOOGLE_API_KEY === 'string' && window.PIXAI_GOOGLE_API_KEY.trim().length > 10) {
+        return window.PIXAI_GOOGLE_API_KEY.trim();
+      }
       if (typeof PIXAI_GOOGLE_API_KEY === 'string' && PIXAI_GOOGLE_API_KEY.trim().length > 10) {
         return PIXAI_GOOGLE_API_KEY.trim();
       }
@@ -9416,9 +9432,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             contents: [
               {
                 role: "user",
-                parts: [{ text: `You are Pixai, the creative AI assistant built into Pixlynote (a modern photo-sharing and vibe notes social platform). Respond with aesthetic flair, warmth, helpful advice, photo captions, hashtags, or vibe notes as requested. Keep your response stylish, well-formatted, and concise.
-
-User query: ${text}` }]
+                parts: [{ text: `You are Pixai, the creative AI companion for Pixlynote (a modern photo-sharing and visual vibe notes social network). Respond with aesthetic flair, warmth, helpful advice, photo captions, hashtags, or vibe notes as requested. Keep your response stylish, well-formatted, and concise.\n\nUser query: ${text}` }]
               }
             ]
           };
@@ -9436,9 +9450,9 @@ User query: ${text}` }]
             }
           } else {
             const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error && errData.error.message ? errData.error.message : res.statusText;
+            const errMsg = errData.error && errData.error.message ? errData.error.message : (res.statusText || 'Status ' + res.status);
             console.warn('Google Gemini API response error:', errMsg);
-            responseText = `⚠️ **Google Gemini Notice**: ${errMsg}\n\n*(If you configured HTTP Referrer restrictions in Google Cloud Console, make sure your domain — e.g. \`https://*.github.io/*\` or your custom domain — is authorized. Meanwhile, here is Pixai's built-in recommendation:)*\n\n` + generateBuiltinPixaiResponse(text);
+            responseText = `⚠️ **Google Gemini Notice (${res.status})**: ${errMsg}\n\n*(Note: If you added an HTTP Referrer restriction in Google Cloud Console, ensure your domain \`https://bradley-hansen.github.io/*\` is authorized).*\n\n✨ **Pixai Recommendation:**\n` + generateBuiltinPixaiResponse(text);
           }
         } catch (apiErr) {
           console.warn('Gemini API call failed, falling back to built-in Pixai engine:', apiErr);
