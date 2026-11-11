@@ -2109,6 +2109,19 @@
                   renderStories();
                 }
 
+                // 3d. Highlights from Cloud Firestore (100% persistent across phone cache clears)
+                if (data && Array.isArray(data.highlights)) {
+                  console.log("Syncing persistent highlights from Cloud Firestore:", data.highlights);
+                  state.highlights = data.highlights;
+                  try {
+                    localStorage.setItem('pixly_highlights', JSON.stringify(data.highlights));
+                  } catch(e) {}
+                  if (window.idbStorage) {
+                    idbStorage.set('pixly_highlights', JSON.stringify(data.highlights));
+                  }
+                  renderHighlights();
+                }
+
                 // 4. Notes & Liked Notes
                 if (Array.isArray(data.notes) && data.notes.length > 0) {
                   state.notes = data.notes;
@@ -2343,6 +2356,7 @@
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
           notes: state.notes || [],
           likedNoteIds: likedNotesArr,
+          highlights: state.highlights || [],
           photoURL: state.currentUser.avatar,
           avatar: state.currentUser.avatar,
           fullName: state.currentUser.fullName,
@@ -2529,6 +2543,12 @@
           const delNoteJson = JSON.stringify(Array.from(state.deletedNoteIds).map(String));
           try { localStorage.setItem('pixly_deleted_notes', delNoteJson); } catch(e) {}
           if (window.idbStorage) idbStorage.set('pixly_deleted_notes', delNoteJson);
+        }
+
+        // Save Highlights (ensures empty array [] is persisted if deleted)
+        if (state.highlights !== undefined) {
+          try { localStorage.setItem('pixly_highlights', JSON.stringify(state.highlights)); } catch(e) {}
+          if (window.idbStorage) idbStorage.set('pixly_highlights', JSON.stringify(state.highlights));
         }
 
         // 1. Save Liked post IDs and chronological order (localStorage, sessionStorage, IndexedDB)
@@ -3046,13 +3066,16 @@
           ]
         }
       ],
-      highlights: [
-        { id: 1, title: "Cafes", icon: "☕", cover: null, image: COMMUNITY_IMAGES[0] },
-        { id: 2, title: "City", icon: "🏙️", cover: null, image: COMMUNITY_IMAGES[3] },
-        { id: 3, title: "Leo", icon: "🐾", cover: null, image: COMMUNITY_IMAGES[1] },
-        { id: 4, title: "Coasts", icon: "🌊", cover: null, image: COMMUNITY_IMAGES[9] },
-        { id: 5, title: "Alpine", icon: "🏔️", cover: null, image: COMMUNITY_IMAGES[5] }
-      ],
+      highlights: (function() {
+        try {
+          const savedH = localStorage.getItem('pixly_highlights');
+          if (savedH !== null) {
+            const p = JSON.parse(savedH);
+            if (Array.isArray(p)) return p;
+          }
+        } catch(e) {}
+        return [];
+      })(),
       createWizardMode: 'post',
       exploreNotes: [
         {
@@ -6743,13 +6766,7 @@
       if (!container) return;
 
       if (!state.highlights || !Array.isArray(state.highlights)) {
-        state.highlights = [
-          { id: 1, title: "Cafes", icon: "☕", cover: null, image: COMMUNITY_IMAGES[0] },
-          { id: 2, title: "City", icon: "🏙️", cover: null, image: COMMUNITY_IMAGES[3] },
-          { id: 3, title: "Leo", icon: "🐾", cover: null, image: COMMUNITY_IMAGES[1] },
-          { id: 4, title: "Coasts", icon: "🌊", cover: null, image: COMMUNITY_IMAGES[9] },
-          { id: 5, title: "Alpine", icon: "🏔️", cover: null, image: COMMUNITY_IMAGES[5] }
-        ];
+        state.highlights = [];
       }
 
       const itemsHtml = state.highlights.map(h => {
@@ -8330,9 +8347,9 @@
       try { renderStories(); } catch(e) {}
       try {
         const savedH = localStorage.getItem('pixly_highlights');
-        if (savedH) {
+        if (savedH !== null) {
           const parsed = JSON.parse(savedH);
-          if (Array.isArray(parsed) && parsed.length > 0) state.highlights = parsed;
+          if (Array.isArray(parsed)) state.highlights = parsed;
         }
       } catch(e) {}
       try { archiveAllNotes(); } catch(e) {}
@@ -8348,6 +8365,19 @@
       // Asynchronously restore from IndexedDB if available
       try {
         if (window.idbStorage) {
+          // 0. Restore Highlights from IndexedDB
+          idbStorage.get('pixly_highlights').then(idbH => {
+            if (idbH !== null && idbH !== undefined) {
+              try {
+                const parsed = JSON.parse(idbH);
+                if (Array.isArray(parsed)) {
+                  state.highlights = parsed;
+                  renderHighlights();
+                }
+              } catch(e) {}
+            }
+          }).catch(() => {});
+
           // 1. Restore Likes
           idbStorage.get('pixly_likes').then(idbLikes => {
             if (idbLikes) {
