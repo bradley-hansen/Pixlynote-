@@ -2422,9 +2422,37 @@
                   renderProfile();
                   renderFeed();
                 }
+
+                // 6. Heart Notifications from Cloud Firestore
+                if (Array.isArray(data.notifications)) {
+                  state.notifications = data.notifications;
+                  try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(data.notifications)); } catch(e) {}
+                  if (typeof renderNotifications === 'function') renderNotifications();
+                }
               }
             }
           }, (err) => console.log("User doc snapshot notice:", err));
+
+          // Per-account live notifications listener for any active account
+          if (!window._notifUnsubMap) window._notifUnsubMap = {};
+          window.attachAccountNotificationsListener = function(username) {
+            const cleanU = (username || (state.currentUser && state.currentUser.username) || 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            if (!cleanU || cleanU === 'bradley_hansen') return;
+            if (window._notifUnsubMap[cleanU]) return;
+            try {
+              const uRef = doc(db, 'users', cleanU);
+              window._notifUnsubMap[cleanU] = onSnapshot(uRef, (snap) => {
+                if (!snap.exists()) return;
+                const d = snap.data();
+                const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+                if (curU === cleanU && d && Array.isArray(d.notifications)) {
+                  state.notifications = d.notifications;
+                  try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
+                  if (typeof renderNotifications === 'function') renderNotifications();
+                }
+              }, () => {});
+            } catch(e) {}
+          };
 
           // Listen to posts collection
           try {
@@ -2699,12 +2727,19 @@ function saveAccountLikes(username) {
     }
     window.loadAccountLikes = loadAccountLikes;
 
-    // --- Dynamic Notifications Engine ---
+    // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     function saveAccountNotifications(username) {
       const u = normalizeUsername(username || 'bradley_hansen');
+      const list = Array.isArray(state.notifications) ? state.notifications : [];
       try {
-        localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications || []));
+        localStorage.setItem('pixly_notifications_' + u, JSON.stringify(list));
       } catch(e) {}
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { notifications: list }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
     }
     window.saveAccountNotifications = saveAccountNotifications;
 
@@ -2719,21 +2754,32 @@ function saveAccountLikes(username) {
       } catch(e) {}
 
       if (!Array.isArray(notifs)) {
-        if (u === 'bradley_hansen') {
-          notifs = [
-            { id: 101, fromUser: "marcus_pups", fromAvatar: COMMUNITY_IMAGES[1], text: "liked your photo of Lake Moraine.", time: "10m ago", read: false },
-            { id: 102, fromUser: "elena_eats", fromAvatar: COMMUNITY_IMAGES[0], text: "started following you.", time: "1h ago", read: true },
-            { id: 103, fromUser: "arch_digest", fromAvatar: COMMUNITY_IMAGES[2], text: "liked your Fibonacci architecture photo.", time: "3h ago", read: true }
-          ];
-        } else {
-          notifs = [];
-        }
+        notifs = [];
       }
       state.notifications = notifs;
+
+      // Always hydrate & listen from Cloud Firestore so clearing localStorage or switching phones never loses activity
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          getDoc(doc(db, 'users', u)).then((snap) => {
+            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            if (curU !== u) return;
+            if (snap.exists() && Array.isArray(snap.data().notifications)) {
+              state.notifications = snap.data().notifications;
+              try { localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications)); } catch(e) {}
+              if (typeof renderNotifications === 'function') renderNotifications();
+            }
+          }).catch(() => {});
+          if (typeof window.attachAccountNotificationsListener === 'function') {
+            window.attachAccountNotificationsListener(u);
+          }
+        } catch(e) {}
+      }
     }
     window.loadAccountNotifications = loadAccountNotifications;
 
-    function addNotificationForUser(targetUsername, notif) {
+    async function addNotificationForUser(targetUsername, notif) {
       if (!targetUsername || !notif) return;
       const cleanTarget = normalizeUsername(targetUsername);
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
@@ -2742,10 +2788,23 @@ function saveAccountLikes(username) {
       if (cleanTarget === curU) return;
 
       let notifs = [];
-      try {
-        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-        if (raw) notifs = JSON.parse(raw);
-      } catch(e) {}
+      // Read from Firestore first so we never overwrite another device's notifications
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          const snap = await getDoc(doc(db, 'users', cleanTarget));
+          if (snap.exists() && Array.isArray(snap.data().notifications)) {
+            notifs = snap.data().notifications;
+          }
+        } catch(e) {}
+      }
+
+      if (!Array.isArray(notifs) || notifs.length === 0) {
+        try {
+          const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+          if (raw) notifs = JSON.parse(raw);
+        } catch(e) {}
+      }
       if (!Array.isArray(notifs)) notifs = [];
 
       // Avoid identical duplicate notification within 10 seconds
@@ -2760,7 +2819,7 @@ function saveAccountLikes(username) {
       if (isDup) return;
 
       notifs.unshift(notif);
-      if (notifs.length > 50) notifs = notifs.slice(0, 50);
+      if (notifs.length > 100) notifs = notifs.slice(0, 100);
 
       try {
         localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
@@ -2782,20 +2841,38 @@ function saveAccountLikes(username) {
     }
     window.addNotificationForUser = addNotificationForUser;
 
-    function removeNotificationForUser(targetUsername, type, fromUser, postId) {
+    async function removeNotificationForUser(targetUsername, type, fromUser, postId) {
       if (!targetUsername) return;
       const cleanTarget = normalizeUsername(targetUsername);
       let notifs = [];
-      try {
-        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-        if (raw) notifs = JSON.parse(raw);
-      } catch(e) {}
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          const snap = await getDoc(doc(db, 'users', cleanTarget));
+          if (snap.exists() && Array.isArray(snap.data().notifications)) {
+            notifs = snap.data().notifications;
+          }
+        } catch(e) {}
+      }
+      if (!Array.isArray(notifs) || notifs.length === 0) {
+        try {
+          const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+          if (raw) notifs = JSON.parse(raw);
+        } catch(e) {}
+      }
       if (!Array.isArray(notifs)) return;
 
-      notifs = notifs.filter(n => !(n.type === type && n.fromUser === fromUser && String(n.postId) === String(postId)));
+      notifs = notifs.filter(n => !(n.type === type && n.fromUser === fromUser && String(n.postId || n.noteId || '') === String(postId || '')));
       try {
         localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
       } catch(e) {}
+
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
 
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
       if (curU === cleanTarget) {
@@ -5334,6 +5411,8 @@ function syncLikedStateToPosts() {
             items.push({
               kind: 'post',
               targetId: p.id,
+              commentId: c.id,
+              replyId: '',
               targetAuthor: p.author || 'creator',
               targetImage: p.image || '',
               targetSnippet: p.caption || '',
@@ -5348,6 +5427,8 @@ function syncLikedStateToPosts() {
               items.push({
                 kind: 'post',
                 targetId: p.id,
+                commentId: c.id,
+                replyId: r.id,
                 targetAuthor: p.author || 'creator',
                 targetImage: p.image || '',
                 targetSnippet: p.caption || '',
@@ -5375,6 +5456,8 @@ function syncLikedStateToPosts() {
             items.push({
               kind: 'note',
               targetId: n.id,
+              commentId: c.id,
+              replyId: '',
               targetAuthor: n.author || 'creator',
               targetImage: '',
               targetSnippet: n.text || '',
@@ -5389,6 +5472,8 @@ function syncLikedStateToPosts() {
               items.push({
                 kind: 'note',
                 targetId: n.id,
+                commentId: c.id,
+                replyId: r.id,
                 targetAuthor: n.author || 'creator',
                 targetImage: '',
                 targetSnippet: n.text || '',
@@ -5427,11 +5512,16 @@ function syncLikedStateToPosts() {
                 <div class="text-[10px] text-neutral-400">@${curU} · ${item.time}</div>
               </div>
             </div>
-            ${item.targetImage ? `
-              <div class="w-9 h-9 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
-                <img src="${item.targetImage}" alt="Post" class="w-full h-full object-cover">
-              </div>
-            ` : ''}
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              ${item.targetImage ? `
+                <div class="w-9 h-9 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
+                  <img src="${item.targetImage}" alt="Post" class="w-full h-full object-cover">
+                </div>
+              ` : ''}
+              <button type="button" onclick="event.stopPropagation(); deleteProfileReplyItem('${item.kind}', '${item.targetId}', '${item.commentId || ''}', '${item.replyId || ''}')" class="px-2 py-1 rounded-lg text-[10px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 transition" title="Delete reply">
+                Delete
+              </button>
+            </div>
           </div>
           <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(item.text)}</p>
           ${item.targetSnippet ? `<div class="text-[11px] text-neutral-400 bg-neutral-50 px-2.5 py-1.5 rounded-lg truncate border border-neutral-100">${escapeHtml(item.targetSnippet)}</div>` : ''}
@@ -5439,6 +5529,64 @@ function syncLikedStateToPosts() {
       `).join('');
     }
     window.renderReplies = renderReplies;
+
+    function deleteProfileReplyItem(kind, targetId, commentId, replyId) {
+      let deleted = false;
+      const removeFromList = (items) => {
+        (items || []).forEach(obj => {
+          if (String(obj.id) !== String(targetId) || !Array.isArray(obj.comments)) return;
+          if (replyId) {
+            obj.comments.forEach(c => {
+              if (String(c.id) === String(commentId) && Array.isArray(c.replies)) {
+                const before = c.replies.length;
+                c.replies = c.replies.filter(r => String(r.id) !== String(replyId));
+                if (c.replies.length < before) deleted = true;
+              }
+            });
+          } else {
+            const before = obj.comments.length;
+            obj.comments = obj.comments.filter(c => String(c.id) !== String(commentId));
+            if (obj.comments.length < before) deleted = true;
+          }
+          if (kind === 'note' && deleted && typeof obj.replies === 'number' && obj.replies > 0) {
+            obj.replies = Math.max(0, obj.replies - 1);
+          }
+        });
+      };
+
+      if (kind === 'post') {
+        removeFromList(state.posts);
+        removeFromList(state.explorePosts);
+        if (deleted) {
+          const updatedPost = (state.posts || []).find(p => String(p.id) === String(targetId))
+            || (state.explorePosts || []).find(p => String(p.id) === String(targetId));
+          if (updatedPost && typeof persistPostToFirebase === 'function') {
+            persistPostToFirebase(updatedPost);
+          }
+        }
+      } else {
+        removeFromList(state.notes);
+        if (state.exploreNotesArchive instanceof Map) {
+          state.exploreNotesArchive.forEach(n => removeFromList([n]));
+        }
+        if (deleted && window.firebaseReady && window.firebase) {
+          try {
+            const { db, doc, setDoc } = window.firebase;
+            const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+            setDoc(doc(db, 'users', curU), { notes: state.notes || [], lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+          } catch(e) {}
+        }
+      }
+
+      if (deleted) {
+        if (typeof persistState === 'function') persistState();
+        renderReplies();
+        if (typeof renderFeed === 'function') renderFeed();
+        if (typeof renderNotes === 'function') renderNotes();
+        if (typeof showToast === 'function') showToast('Reply deleted');
+      }
+    }
+    window.deleteProfileReplyItem = deleteProfileReplyItem;
 
 
         // Global toggle like for notes (Feed, Explore, Liked, Note Modal)
@@ -7656,6 +7804,9 @@ function syncLikedStateToPosts() {
 
         // 3. Persist to Firestore posts collection
         persistPostToFirebase(newPost);
+        if (typeof notifyMentionsInText === 'function' && newPost.caption) {
+          notifyMentionsInText(newPost.caption, { kind: 'post', postId: newPost.id, postImage: newPost.image });
+        }
 
         // 4. Close modal and reset fields
         closeCreatePostModal();
@@ -12501,6 +12652,9 @@ function syncLikedStateToPosts() {
             };
             if (!state.notes) state.notes = [];
             state.notes.unshift(newNote);
+            if (typeof notifyMentionsInText === 'function' && newNote.text) {
+              notifyMentionsInText(newNote.text, { kind: 'note', noteId: newNote.id });
+            }
             input.value = '';
             persistState();
             if (window.firebase && window.firebase.db) {
