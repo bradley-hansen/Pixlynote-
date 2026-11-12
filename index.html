@@ -655,11 +655,9 @@
           <div class="relative">
             <button type="button" id="btn-toggle-notifications" onclick="toggleNotificationsDropdown()" title="Activity & Notifications" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative cursor-pointer">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <!-- Complete Heart #6 outline with single 8-ray twinkle in top right -->
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.2 7.2a4.3 4.3 0 000 6.1L11.5 20.5l7.3-7.2a4.3 4.3 0 00-6.1-6.1L11.5 8.4l-1.2-1.2a4.3 4.3 0 00-6.1 0z"/>
-                <path stroke="#ffffff" stroke-width="3.4" stroke-linecap="round" d="M18.8 2.6v4.8M16.4 5h4.8M17.2 3.4l3.2 3.2M20.4 3.4l-3.2 3.2"/>
-                <path stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M18.8 2.6v4.8M16.4 5h4.8"/>
-                <path stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M17.2 3.4l3.2 3.2M20.4 3.4l-3.2 3.2"/>
+                <!-- Clean Heart outline with subtle top-right shading when no unread notifications -->
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                <path id="notif-heart-shade" stroke="currentColor" stroke-opacity="0.16" stroke-width="1.8" stroke-linecap="round" d="M15.4 7.3a2.6 2.6 0 012.7 2.8"/>
               </svg>
               <span id="notif-badge" class="hidden absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
@@ -8579,15 +8577,18 @@ function syncLikedStateToPosts() {
         state.notifications = [];
       }
 
-      // Check unread count and update bell badge
+      // Check unread count and update heart badge / subtle shading
       const unreadCount = state.notifications.filter(n => !n.read).length;
+      const heartShade = document.getElementById('notif-heart-shade');
       if (badge) {
         if (unreadCount > 0) {
           badge.classList.remove('hidden');
           badge.style.display = 'block';
+          if (heartShade) heartShade.classList.add('hidden');
         } else {
           badge.classList.add('hidden');
           badge.style.display = 'none';
+          if (heartShade) heartShade.classList.remove('hidden');
         }
       }
 
@@ -10747,7 +10748,12 @@ function syncLikedStateToPosts() {
         if (document.getElementById('btn-logout')) bind('btn-logout', 'click', performLogout);
         bind('btn-mark-all-read', 'click', () => {
           const badge = document.getElementById('notif-badge');
-          if (badge) badge.classList.add('hidden');
+          const heartShade = document.getElementById('notif-heart-shade');
+          if (badge) {
+            badge.classList.add('hidden');
+            badge.style.display = 'none';
+          }
+          if (heartShade) heartShade.classList.remove('hidden');
           showToast('All notifications marked as read');
         });
 
