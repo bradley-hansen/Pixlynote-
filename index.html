@@ -57,6 +57,8 @@
     #modal-story-viewer.hidden,
     #modal-messages.hidden,
     #modal-following.hidden,
+    #modal-followers.hidden,
+    #modal-discover-creators.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden {
       display: none !important;
@@ -104,6 +106,8 @@
     #modal-story-viewer.hidden,
     #modal-messages.hidden,
     #modal-following.hidden,
+    #modal-followers.hidden,
+    #modal-discover-creators.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden,
     #main-view.hidden {
@@ -800,9 +804,9 @@
                   <div class="text-base font-black text-neutral-900" id="profile-post-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Posts</div>
                 </div>
-                <div class="px-3 py-2.5 bg-neutral-50/80 rounded-2xl border border-neutral-100 text-center">
-                  <div class="text-base font-black text-neutral-900" id="profile-followers-count">4,820</div>
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Followers</div>
+                <div id="stat-followers-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view and explore your followers">
+                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-followers-count">4,820</div>
+                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5">Followers</div>
                 </div>
                 <div id="stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view all following accounts">
                   <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-following-count">0</div>
@@ -2071,6 +2075,73 @@
 
       <!-- Scrollable Following Accounts List -->
       <div id="following-list-container" class="flex-1 overflow-y-auto p-2 sm:p-3 divide-y divide-neutral-100">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </div>
+  </div>
+
+<!-- MODAL 7: FOLLOWERS LIST MODAL POPUP -->
+  <div id="modal-followers" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;">
+    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <div class="w-7"></div>
+        <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
+          <span>Followers</span>
+          <span id="followers-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span>
+        </h3>
+        <button type="button" id="btn-close-followers-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Search Followers Input -->
+      <div class="p-3 border-b border-neutral-100 bg-neutral-50/80">
+        <div class="relative">
+          <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input type="text" id="followers-search-input" placeholder="Search your followers..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+        </div>
+      </div>
+
+      <!-- Scrollable Followers Accounts List -->
+      <div id="followers-list-container" class="flex-1 overflow-y-auto p-2 sm:p-3 divide-y divide-neutral-100">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </div>
+  </div>
+
+<!-- MODAL 8: DISCOVER CREATORS MODAL POPUP -->
+  <div id="modal-discover-creators" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;">
+    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <button type="button" id="btn-shuffle-discover-creators" class="px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-full transition cursor-pointer flex items-center space-x-1" title="Shuffle random creators">
+          <span>🎲</span><span>Shuffle</span>
+        </button>
+        <h3 class="text-sm font-bold text-neutral-900">Discover Creators</h3>
+        <button type="button" id="btn-close-discover-creators-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Search Discover Creators Input -->
+      <div class="p-3 border-b border-neutral-100 bg-neutral-50/80">
+        <div class="relative">
+          <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input type="text" id="discover-creators-search-input" placeholder="Search new creators to follow..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+        </div>
+      </div>
+
+      <!-- Scrollable Discover Creators List -->
+      <div id="discover-creators-list-container" class="flex-1 overflow-y-auto p-2 sm:p-3 divide-y divide-neutral-100">
         <!-- Rendered dynamically -->
       </div>
 
@@ -4090,7 +4161,7 @@ function syncLikedStateToPosts() {
             <button type="button" class="btn-feed-create-first px-4 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-95 transition cursor-pointer">
               + New Post
             </button>
-            <button type="button" class="btn-open-following-modal px-4 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">
+            <button type="button" class="btn-open-discover-creators px-4 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">
               Find Creators to Follow
             </button>
           </div>
@@ -4118,6 +4189,12 @@ function syncLikedStateToPosts() {
       document.querySelectorAll('.btn-open-following-modal').forEach(btn => {
         btn.addEventListener('click', () => {
           openFollowingModal();
+        });
+      });
+
+      document.querySelectorAll('.btn-open-discover-creators').forEach(btn => {
+        btn.addEventListener('click', () => {
+          openDiscoverCreatorsModal();
         });
       });
 
@@ -4340,7 +4417,12 @@ function syncLikedStateToPosts() {
       if (postCountEl) postCountEl.textContent = userPosts.length;
       
       const followersEl = document.getElementById('profile-followers-count');
-      if (followersEl) followersEl.textContent = isPixly ? "0" : (state.currentUser.followersCount || "0");
+      if (followersEl) {
+        const displayFollowers = typeof getFollowersDisplayCount === 'function'
+          ? getFollowersDisplayCount()
+          : (isPixly ? 0 : (state.currentUser.followersCount || 0));
+        followersEl.textContent = typeof displayFollowers === 'number' ? displayFollowers.toLocaleString() : String(displayFollowers);
+      }
       
       const followingEl = document.getElementById('profile-following-count');
       const activeFollowingTotal = getFollowingDisplayCount();
@@ -8113,6 +8195,31 @@ function syncLikedStateToPosts() {
       const currentCount = parseInt(String(state.currentUser.followingCount || '0').replace(/\D/g, ''), 10) || 0;
       state.currentUser.followingCount = String(nowFollowing ? currentCount + 1 : Math.max(0, currentCount - 1));
 
+      // Sync target account's followers list in localStorage so switching accounts reflects the new follower
+      try {
+        const targetKey = 'pixly_followers_' + cleanU;
+        const storedTargetFollowers = JSON.parse(localStorage.getItem(targetKey) || 'null');
+        let targetFollowers = Array.isArray(storedTargetFollowers)
+          ? storedTargetFollowers
+          : (typeof getDefaultFollowersForUser === 'function' ? getDefaultFollowersForUser(cleanU) : []);
+        const myUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'user';
+        const myNorm = myUsername.toLowerCase().replace(/^@/, '');
+        if (nowFollowing) {
+          if (!targetFollowers.some(f => (f.username || '').toLowerCase() === myNorm)) {
+            targetFollowers.unshift({
+              id: Date.now(),
+              username: myUsername,
+              fullName: state.currentUser.fullName || myUsername,
+              bio: state.currentUser.bio || 'Pixlynote creator',
+              avatar: state.currentUser.avatar || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : '')
+            });
+          }
+        } else {
+          targetFollowers = targetFollowers.filter(f => (f.username || '').toLowerCase() !== myNorm);
+        }
+        localStorage.setItem(targetKey, JSON.stringify(targetFollowers));
+      } catch(e) {}
+
       // Update button in place if element passed
       if (btnEl) {
         if (nowFollowing) {
@@ -8450,6 +8557,417 @@ function syncLikedStateToPosts() {
       });
     }
     window.renderFollowingList = renderFollowingList;
+
+    // --- Followers Modal Controller (Displays Account Followers & Explore Actions) ---
+    function getDefaultFollowersForUser(username) {
+      const cleanU = (username || '').toLowerCase().replace(/^@/, '');
+      if (cleanU === 'bradley_hansen') {
+        return [
+          { id: 101, username: "elena_eats", fullName: "Elena Rostova", bio: "Paris foodie & specialty coffee lover 🥐☕", avatar: COMMUNITY_IMAGES[0] },
+          { id: 102, username: "marcus_pups", fullName: "Marcus Vance", bio: "Backcountry mountain trails with Leo 🐾🌲", avatar: COMMUNITY_IMAGES[1] },
+          { id: 103, username: "arch_digest", fullName: "Architecture Daily", bio: "Brutalist & minimalist geometry 🏛️📐", avatar: COMMUNITY_IMAGES[2] },
+          { id: 104, username: "city_vibe", fullName: "Maya Lin", bio: "Tokyo neon & rainy alley reflections 🏮🌧️", avatar: COMMUNITY_IMAGES[3] },
+          { id: 105, username: "nordic_trails", fullName: "Freja Hansen", bio: "Lofoten arctic adventures & fjords 🏔️🌅", avatar: COMMUNITY_IMAGES[5] },
+          { id: 106, username: "coastal_nomad", fullName: "Julian Vance", bio: "Dawn patrol barrels in Byron Bay 🌊🏄‍♂️", avatar: COMMUNITY_IMAGES[9] },
+          { id: 107, username: "tokyo_wanderer", fullName: "Ren Tanaka", bio: "35mm film street photography in Shinjuku 🎞️🎌", avatar: COMMUNITY_IMAGES[3] },
+          { id: 108, username: "dolomites_hiker", fullName: "Matteo Bianchi", bio: "Seceda ridges & Italian alpine summits ⛰️☁️", avatar: COMMUNITY_IMAGES[10] },
+          { id: 109, username: "patisserie_chef", fullName: "Camille Dupont", bio: "Artisan sourdough & layered escargot 🥖✨", avatar: COMMUNITY_IMAGES[0] },
+          { id: 110, username: "desert_mirage", fullName: "Tariq Mansoor", bio: "Dark skies & star tracks in Wadi Rum 🌌🐪", avatar: COMMUNITY_IMAGES[6] },
+          { id: 111, username: "kyoto_moments", fullName: "Hanae Mori", bio: "Bamboo forest serenity & zen tea 🎋🍃", avatar: COMMUNITY_IMAGES[2] },
+          { id: 112, username: "golden_paws", fullName: "Samira Cole", bio: "Summit trails with rescue goldens 🐕🏕️", avatar: COMMUNITY_IMAGES[1] },
+          { id: 113, username: "bali_sol", fullName: "Wayan Surya", bio: "Uluwatu reef breaks & golden sunsets 🌅🌴", avatar: COMMUNITY_IMAGES[4] },
+          { id: 114, username: "scandi_living", fullName: "Lars Nilsson", bio: "Stockholm hygge & morning fika ☕🕯️", avatar: COMMUNITY_IMAGES[7] },
+          { id: 115, username: "swiss_peaks", fullName: "Noah Keller", bio: "Matterhorn alpine mountaineering 🏔️🇨🇭", avatar: COMMUNITY_IMAGES[5] },
+          { id: 116, username: "sushi_artisan", fullName: "Jiro Takahashi", bio: "Edomae bluefin nigiri craft, Ginza 🍣🥢", avatar: COMMUNITY_IMAGES[0] },
+          { id: 117, username: "pacific_northwest", fullName: "Sierra Brooks", bio: "Coastal sea caves & temperate rainforests 🌲🌊", avatar: COMMUNITY_IMAGES[9] },
+          { id: 118, username: "barcelona_light", fullName: "Mateo Gomez", bio: "Gothic Quarter sketchbooks & plazas 🇪🇸✨", avatar: COMMUNITY_IMAGES[2] },
+          { id: 119, username: "wander_tropics", fullName: "Maya Patel", bio: "Coral reef conservation in Baa Atoll 🐠🤿", avatar: COMMUNITY_IMAGES[4] },
+          { id: 120, username: "aurora_hunter", fullName: "Astrid Lindgren", bio: "Tromsø northern lights chaser 🌌❄️", avatar: COMMUNITY_IMAGES[6] }
+        ];
+      }
+      return [];
+    }
+    window.getDefaultFollowersForUser = getDefaultFollowersForUser;
+
+    function getAccountFollowersList() {
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
+      try {
+        const stored = JSON.parse(localStorage.getItem('pixly_followers_' + curU) || 'null');
+        if (Array.isArray(stored)) {
+          return stored;
+        }
+      } catch(e) {}
+      return getDefaultFollowersForUser(curU);
+    }
+    window.getAccountFollowersList = getAccountFollowersList;
+
+    function getFollowersDisplayCount() {
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
+      const list = getAccountFollowersList();
+      if (curU === 'bradley_hansen') {
+        const delta = list.length - 20;
+        return Math.max(0, 4820 + delta);
+      }
+      if (curU === 'pixlynote') {
+        return list.length;
+      }
+      const baseStr = String((state.currentUser && state.currentUser.followersCount) || '0');
+      if (/[a-zA-Z]/.test(baseStr)) return baseStr;
+      const baseNum = parseInt(baseStr.replace(/\D/g, ''), 10) || 0;
+      return Math.max(baseNum, list.length);
+    }
+    window.getFollowersDisplayCount = getFollowersDisplayCount;
+
+    function openFollowersModal() {
+      const modal = document.getElementById('modal-followers');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      const searchInp = document.getElementById('followers-search-input');
+      if (searchInp) searchInp.value = '';
+      renderFollowersList();
+    }
+    window.openFollowersModal = openFollowersModal;
+
+    function closeFollowersModal() {
+      const modal = document.getElementById('modal-followers');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    window.closeFollowersModal = closeFollowersModal;
+
+    function renderFollowersList(query = '') {
+      const container = document.getElementById('followers-list-container');
+      const countEl = document.getElementById('followers-modal-count');
+      if (!container) return;
+
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
+      const q = (query || '').toLowerCase().trim();
+      let list = getAccountFollowersList();
+
+      const displayTotal = getFollowersDisplayCount();
+      const formattedTotal = typeof displayTotal === 'number' ? displayTotal.toLocaleString() : String(displayTotal);
+      if (countEl) countEl.textContent = formattedTotal;
+      const profCount = document.getElementById('profile-followers-count');
+      if (profCount) profCount.textContent = formattedTotal;
+
+      if (q) {
+        list = list.filter(u =>
+          (u.username || '').toLowerCase().includes(q) ||
+          (u.fullName || '').toLowerCase().includes(q) ||
+          (u.bio && u.bio.toLowerCase().includes(q))
+        );
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = q
+          ? `
+            <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
+              <p class="font-medium text-neutral-700">No followers found</p>
+              <p class="text-[11px] text-neutral-400">Try searching another username or creator name</p>
+            </div>
+          `
+          : `
+            <div class="py-10 px-4 text-center bg-violet-50/50 rounded-2xl border border-violet-100/80 space-y-1.5 my-2">
+              <div class="w-10 h-10 mx-auto rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-lg">👥</div>
+              <p class="font-bold text-xs text-neutral-800">No followers yet</p>
+              <p class="text-[11px] text-neutral-500 leading-tight">Share posts and connect with creators to grow your followers!</p>
+            </div>
+          `;
+        return;
+      }
+
+      container.innerHTML = list.map(u => {
+        const isFollowing = (state.following || []).some(f => f.username.toLowerCase() === (u.username || '').toLowerCase() && f.isFollowing);
+        const btnClasses = isFollowing
+          ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+          : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs';
+        const btnLabel = isFollowing ? 'Following' : 'Follow Back';
+
+        return `
+          <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
+            <!-- Follower Info (Tap to explore follower profile) -->
+            <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer followers-user-row" data-username="${u.username}">
+              <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
+                <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
+                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1">
+                  <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
+                  <span class="text-[10px] text-violet-600">✓</span>
+                </div>
+                <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
+                <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
+              </div>
+            </div>
+
+            <!-- Message, Follow Back & Remove Buttons -->
+            <div class="flex items-center space-x-1.5 flex-shrink-0">
+              <button type="button" class="btn-dm-follower-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName || u.username}" data-username="${u.username}" data-name="${u.fullName || u.username}" data-avatar="${u.avatar}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              </button>
+              <button type="button" class="btn-toggle-follower-back px-3 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer" data-username="${u.username}">
+                ${btnLabel}
+              </button>
+              <button type="button" class="btn-remove-follower p-1.5 text-neutral-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remove follower" data-username="${u.username}">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Wire direct message button in followers list
+      container.querySelectorAll('.btn-dm-follower-user').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const targetName = btn.dataset.name;
+          const targetAvatar = btn.dataset.avatar;
+          closeFollowersModal();
+          openDirectMessageWithUser(targetU, targetName, targetAvatar);
+        });
+      });
+
+      // Wire Follow Back / Following toggle
+      container.querySelectorAll('.btn-toggle-follower-back').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          state.following = state.following || [];
+          let userObj = state.following.find(u => u.username.toLowerCase() === targetU.toLowerCase());
+          if (userObj) {
+            userObj.isFollowing = !userObj.isFollowing;
+          } else {
+            const followerObj = list.find(u => u.username.toLowerCase() === targetU.toLowerCase());
+            const creator = typeof getCreatorInfo === 'function' ? getCreatorInfo(targetU) : null;
+            userObj = {
+              id: Date.now(),
+              username: targetU,
+              fullName: (followerObj && followerObj.fullName) || (creator && creator.fullName) || targetU,
+              bio: (followerObj && followerObj.bio) || (creator && creator.bio) || '',
+              avatar: (followerObj && followerObj.avatar) || (creator && creator.avatar) || '',
+              isFollowing: true
+            };
+            state.following.push(userObj);
+          }
+
+          try {
+            localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
+          } catch(err) {}
+
+          if (typeof getFollowingDisplayCount === 'function') {
+            const updatedFollowingTotal = getFollowingDisplayCount();
+            const profFollowingEl = document.getElementById('profile-following-count');
+            if (profFollowingEl) profFollowingEl.textContent = updatedFollowingTotal.toLocaleString();
+            state.currentUser.followingCount = String(updatedFollowingTotal);
+          }
+
+          showToast(userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+          const searchInp = document.getElementById('followers-search-input');
+          renderFollowersList(searchInp ? searchInp.value : '');
+        });
+      });
+
+      // Wire Remove follower button
+      container.querySelectorAll('.btn-remove-follower').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const currentList = getAccountFollowersList();
+          const updatedList = currentList.filter(u => (u.username || '').toLowerCase() !== targetU.toLowerCase());
+          try {
+            localStorage.setItem('pixly_followers_' + curU, JSON.stringify(updatedList));
+          } catch(err) {}
+          showToast(`Removed @${targetU} from followers`);
+          const searchInp = document.getElementById('followers-search-input');
+          renderFollowersList(searchInp ? searchInp.value : '');
+        });
+      });
+
+      // Wire row click to close modal and explore follower's profile
+      container.querySelectorAll('.followers-user-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const targetU = row.dataset.username;
+          closeFollowersModal();
+          viewUserProfile(targetU, 'profile');
+        });
+      });
+    }
+    window.renderFollowersList = renderFollowersList;
+
+    // --- Discover Creators Modal Controller (Random / Unfollowed Creators) ---
+    const DISCOVER_CREATORS_POOL = [
+      { id: 501, username: "luna_lens", fullName: "Luna Alvarez", bio: "Golden hour portraits & analog 35mm film 📸✨", avatar: COMMUNITY_IMAGES[0] },
+      { id: 502, username: "solstice_sound", fullName: "Devon Brooks", bio: "Modular synths, vinyl crates & lo-fi beats 🎹🎧", avatar: COMMUNITY_IMAGES[1] },
+      { id: 503, username: "velvet_ink", fullName: "Sora Takahashi", bio: "Botanical linework & minimalist studio prints 🖋️🌿", avatar: COMMUNITY_IMAGES[2] },
+      { id: 504, username: "atlas_rovers", fullName: "Liam O'Connor", bio: "Overland camper builds & mountain passes 🚐🏔️", avatar: COMMUNITY_IMAGES[3] },
+      { id: 505, username: "ceramic_studio", fullName: "Clara Lind", bio: "Wheel-thrown stoneware & matte glazes 🏺🤍", avatar: COMMUNITY_IMAGES[4] },
+      { id: 506, username: "neon_drifter", fullName: "Kai Sato", bio: "Rainy midnight street frames in Osaka 🌃🌧️", avatar: COMMUNITY_IMAGES[5] },
+      { id: 507, username: "ember_kitchen", fullName: "Marco Bellini", bio: "Wood-fired sourdough & rustic Roman pasta 🍕🔥", avatar: COMMUNITY_IMAGES[6] },
+      { id: 508, username: "botanical_lab", fullName: "Nadia Vermeer", bio: "Rare monstera care & sunlit greenhouse notes 🪴☀️", avatar: COMMUNITY_IMAGES[7] },
+      { id: 509, username: "kaito_skates", fullName: "Kaito Nakamura", bio: "Concrete bowls, fisheye clips & street spots 🛹⚡", avatar: COMMUNITY_IMAGES[8] },
+      { id: 510, username: "sienna_prints", fullName: "Sienna Hayes", bio: "Risograph posters & desert color palettes 🎨🏜️", avatar: COMMUNITY_IMAGES[9] },
+      { id: 511, username: "prism_motion", fullName: "Aria Chen", bio: "Kinetic typography & 3D shader experiments 💠✨", avatar: COMMUNITY_IMAGES[10] },
+      { id: 512, username: "cloud_garden", fullName: "Oliver Grant", bio: "Rooftop beehives & urban micro-farming 🐝🌻", avatar: COMMUNITY_IMAGES[0] },
+      { id: 513, username: "milo_roasts", fullName: "Milo Vance", bio: "Single-origin pour overs & espresso dialing ☕🔬", avatar: COMMUNITY_IMAGES[1] },
+      { id: 514, username: "echo_vinyl", fullName: "Zoe Moreau", bio: "Crate digging jazz & ambient tape loops 💿🎶", avatar: COMMUNITY_IMAGES[2] },
+      { id: 515, username: "zephyr_glides", fullName: "Theo Becker", bio: "Paragliding alpine thermals & ridge soaring 🪂🌬️", avatar: COMMUNITY_IMAGES[5] },
+      { id: 516, username: "saffron_table", fullName: "Amira Haddad", bio: "Spiced mezze spreads & heirloom recipes 🍋🫒", avatar: COMMUNITY_IMAGES[6] }
+    ];
+
+    let currentDiscoverCreatorsOrder = [];
+
+    function shuffleDiscoverCreatorsList() {
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+      const followedSet = new Set((state.following || []).filter(f => f.isFollowing).map(f => (f.username || '').toLowerCase()));
+      const candidates = DISCOVER_CREATORS_POOL.filter(c => c.username.toLowerCase() !== curU);
+      const unfollowed = candidates.filter(c => !followedSet.has(c.username.toLowerCase()));
+      const alreadyFollowed = candidates.filter(c => followedSet.has(c.username.toLowerCase()));
+
+      function fisherYates(arr) {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = copy[i];
+          copy[i] = copy[j];
+          copy[j] = tmp;
+        }
+        return copy;
+      }
+
+      currentDiscoverCreatorsOrder = fisherYates(unfollowed).concat(fisherYates(alreadyFollowed));
+    }
+
+    function openDiscoverCreatorsModal() {
+      const modal = document.getElementById('modal-discover-creators');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      const searchInp = document.getElementById('discover-creators-search-input');
+      if (searchInp) searchInp.value = '';
+      shuffleDiscoverCreatorsList();
+      renderDiscoverCreatorsList('');
+    }
+    window.openDiscoverCreatorsModal = openDiscoverCreatorsModal;
+
+    function closeDiscoverCreatorsModal() {
+      const modal = document.getElementById('modal-discover-creators');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    window.closeDiscoverCreatorsModal = closeDiscoverCreatorsModal;
+
+    function renderDiscoverCreatorsList(query = '') {
+      const container = document.getElementById('discover-creators-list-container');
+      if (!container) return;
+      if (!currentDiscoverCreatorsOrder.length) shuffleDiscoverCreatorsList();
+
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
+      const q = (query || '').toLowerCase().trim();
+      let list = currentDiscoverCreatorsOrder;
+
+      if (q) {
+        list = list.filter(u =>
+          u.username.toLowerCase().includes(q) ||
+          u.fullName.toLowerCase().includes(q) ||
+          (u.bio && u.bio.toLowerCase().includes(q))
+        );
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-700">No creators found</p>
+            <p class="text-[11px] text-neutral-400">Try searching another name or tap Shuffle</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(u => {
+        const isFollowing = (state.following || []).some(f => f.username.toLowerCase() === u.username.toLowerCase() && f.isFollowing);
+        const btnClasses = isFollowing
+          ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+          : 'story-gradient text-white shadow-xs hover:opacity-95';
+        const btnLabel = isFollowing ? 'Following' : 'Follow';
+
+        return `
+          <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
+            <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer discover-creator-row" data-username="${u.username}">
+              <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
+                <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
+                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1">
+                  <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
+                  <span class="text-[10px] text-violet-600">✓</span>
+                </div>
+                <div class="text-[11px] text-neutral-500 truncate">${u.fullName}</div>
+                <div class="text-[10px] text-neutral-400 truncate">${u.bio}</div>
+              </div>
+            </div>
+
+            <button type="button" class="btn-toggle-discover-follow px-3.5 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer flex-shrink-0" data-username="${u.username}">
+              ${btnLabel}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.btn-toggle-discover-follow').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const creatorObj = DISCOVER_CREATORS_POOL.find(c => c.username.toLowerCase() === targetU.toLowerCase());
+          state.following = state.following || [];
+          let userObj = state.following.find(u => u.username.toLowerCase() === targetU.toLowerCase());
+          if (userObj) {
+            userObj.isFollowing = !userObj.isFollowing;
+          } else if (creatorObj) {
+            userObj = {
+              id: creatorObj.id,
+              username: creatorObj.username,
+              fullName: creatorObj.fullName,
+              bio: creatorObj.bio,
+              avatar: creatorObj.avatar,
+              isFollowing: true
+            };
+            state.following.push(userObj);
+          }
+
+          try {
+            localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
+          } catch(err) {}
+
+          if (typeof getFollowingDisplayCount === 'function') {
+            const updatedTotal = getFollowingDisplayCount();
+            const profFollowingEl = document.getElementById('profile-following-count');
+            if (profFollowingEl) profFollowingEl.textContent = updatedTotal.toLocaleString();
+            state.currentUser.followingCount = String(updatedTotal);
+          }
+
+          showToast(userObj && userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+          const searchInp = document.getElementById('discover-creators-search-input');
+          renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
+        });
+      });
+
+      container.querySelectorAll('.discover-creator-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const targetU = row.dataset.username;
+          closeDiscoverCreatorsModal();
+          viewUserProfile(targetU, 'feed');
+        });
+      });
+    }
+    window.renderDiscoverCreatorsList = renderDiscoverCreatorsList;
 
     function openMessagesModal() {
       const modal = document.getElementById('modal-messages');
@@ -9790,6 +10308,47 @@ function syncLikedStateToPosts() {
         if (followingSearchInp) {
           followingSearchInp.addEventListener('input', (e) => {
             renderFollowingList(e.target.value);
+          });
+        }
+
+        // Wire Profile Followers Stat Click -> Open Followers Popup Modal
+        const statFollowersBtn = document.getElementById('stat-followers-btn');
+        if (statFollowersBtn) statFollowersBtn.addEventListener('click', openFollowersModal);
+
+        bind('btn-close-followers-modal', 'click', closeFollowersModal);
+        const modalFollowers = document.getElementById('modal-followers');
+        if (modalFollowers) {
+          modalFollowers.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-followers') closeFollowersModal();
+          });
+        }
+        const followersSearchInp = document.getElementById('followers-search-input');
+        if (followersSearchInp) {
+          followersSearchInp.addEventListener('input', (e) => {
+            renderFollowersList(e.target.value);
+          });
+        }
+
+        // Wire Discover Creators Modal Controls
+        bind('btn-close-discover-creators-modal', 'click', closeDiscoverCreatorsModal);
+        const btnShuffleDiscover = document.getElementById('btn-shuffle-discover-creators');
+        if (btnShuffleDiscover) {
+          btnShuffleDiscover.addEventListener('click', () => {
+            shuffleDiscoverCreatorsList();
+            const searchInp = document.getElementById('discover-creators-search-input');
+            renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
+          });
+        }
+        const modalDiscover = document.getElementById('modal-discover-creators');
+        if (modalDiscover) {
+          modalDiscover.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-discover-creators') closeDiscoverCreatorsModal();
+          });
+        }
+        const discoverSearchInp = document.getElementById('discover-creators-search-input');
+        if (discoverSearchInp) {
+          discoverSearchInp.addEventListener('input', (e) => {
+            renderDiscoverCreatorsList(e.target.value);
           });
         }
 
