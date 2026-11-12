@@ -60,6 +60,7 @@
     #modal-followers.hidden,
     #modal-discover-creators.hidden,
     #modal-account-switcher.hidden,
+    #modal-account-center.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden {
       display: none !important;
@@ -110,6 +111,7 @@
     #modal-followers.hidden,
     #modal-discover-creators.hidden,
     #modal-account-switcher.hidden,
+    #modal-account-center.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden,
     #main-view.hidden {
@@ -2187,6 +2189,46 @@
           <span>Log into another account</span>
         </button>
         <button type="button" id="btn-switcher-signup" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
+          <span>Create a new account</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+<!-- MODAL 10: ACCOUNT CENTER MODAL -->
+  <div id="modal-account-center" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;">
+    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+      
+      <!-- Header -->
+      <div class="p-4 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-neutral-900">Account Center</h3>
+            <p class="text-[10px] text-neutral-500">Switch or manage authenticated accounts</p>
+          </div>
+        </div>
+        <button type="button" id="btn-close-account-center" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Authenticated Accounts List -->
+      <div id="account-center-list" class="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Account Center Actions -->
+      <div class="p-3.5 border-t border-neutral-100 bg-neutral-50/80 space-y-2">
+        <button type="button" id="btn-ac-login" class="w-full py-2.5 px-4 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center space-x-2 shadow-2xs cursor-pointer">
+          <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+          <span>Log into another account</span>
+        </button>
+        <button type="button" id="btn-ac-signup" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
           <span>Create a new account</span>
         </button>
@@ -9158,6 +9200,148 @@ function syncLikedStateToPosts() {
       }
     }
 
+    // --- Phone Uniqueness & Account Center Authentication Helpers ---
+    function normalizePhoneDigits(phone) {
+      let digits = String(phone || '').replace(/\D/g, '');
+      if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+      return digits;
+    }
+    window.normalizePhoneDigits = normalizePhoneDigits;
+
+    function findPhoneOwner(phone, excludeUsername = '') {
+      const targetDigits = normalizePhoneDigits(phone);
+      if (!targetDigits || targetDigits.length < 10) return null;
+      const excl = (excludeUsername || '').toLowerCase().replace(/^@/, '');
+
+      // Check built-in Bradley Hansen phone
+      if (targetDigits === '6092896702' && excl !== 'bradley_hansen') {
+        return { username: 'bradley_hansen', fullName: 'Bradley Hansen', phone: '+1 (609) 289-6702' };
+      }
+
+      const candidates = [];
+      if (window._pixlyAccounts) {
+        Object.values(window._pixlyAccounts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+      }
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        Object.values(accts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+      } catch(e) {}
+      if (typeof getSessionAccounts === 'function') {
+        getSessionAccounts().forEach(a => candidates.push(a));
+      }
+
+      for (const acc of candidates) {
+        const u = (acc.username || '').toLowerCase().replace(/^@/, '');
+        if (!u || u === excl) continue;
+        if (acc.phone && normalizePhoneDigits(acc.phone) === targetDigits) {
+          return acc;
+        }
+      }
+      return null;
+    }
+    window.findPhoneOwner = findPhoneOwner;
+
+    function isAccountInAccountCenter(username) {
+      if (!username || typeof getSessionAccounts !== 'function') return false;
+      const clean = username.toLowerCase().replace(/^@/, '');
+      return getSessionAccounts().some(a => (a.username || '').toLowerCase().replace(/^@/, '') === clean);
+    }
+    window.isAccountInAccountCenter = isAccountInAccountCenter;
+
+    function openAccountCenterModal() {
+      const modal = document.getElementById('modal-account-center');
+      if (!modal) return;
+      renderAccountCenterList();
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
+    window.openAccountCenterModal = openAccountCenterModal;
+
+    function closeAccountCenterModal() {
+      const modal = document.getElementById('modal-account-center');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    window.closeAccountCenterModal = closeAccountCenterModal;
+
+    function handleDrawerAccountCenterClick() {
+      if (typeof closeProfileMenu === 'function') closeProfileMenu();
+      setTimeout(() => {
+        openAccountCenterModal();
+      }, 150);
+    }
+    window.handleDrawerAccountCenterClick = handleDrawerAccountCenterClick;
+
+    function renderAccountCenterList() {
+      const container = document.getElementById('account-center-list');
+      if (!container) return;
+      const accounts = getSessionAccounts();
+      const curNorm = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase();
+
+      container.innerHTML = accounts.map(acc => {
+        const isCurrent = (acc.username || '').toLowerCase() === curNorm;
+        const isBiz = acc.accountType === 'business' || (acc.username || '').toLowerCase() === 'pixlynote';
+        const avatarSrc = acc.avatar || (isBiz ? PIXLYNOTE_SHUTTER_ICON : BRADLEY_AVATAR_IMAGE);
+        const phoneLine = acc.phone ? `<div class="text-[10px] text-emerald-700 font-medium flex items-center space-x-1 mt-0.5"><span>📱</span><span>${acc.phone}</span><span>· Authenticated</span></div>` : '';
+
+        return `
+          <div class="flex items-center justify-between p-3 rounded-2xl border ${isCurrent ? 'border-violet-300 bg-violet-50/70' : 'border-neutral-200/90 bg-white hover:bg-neutral-50'} transition space-x-2">
+            <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer ac-switch-row" data-username="${acc.username}">
+              <div class="w-11 h-11 rounded-full ${isCurrent ? 'p-0.5 story-gradient' : 'border border-neutral-200'} flex-shrink-0">
+                <div class="w-full h-full rounded-full overflow-hidden bg-white">
+                  <img src="${avatarSrc}" alt="${acc.username}" class="w-full h-full object-cover">
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-xs text-neutral-900 truncate">@${acc.username}</span>
+                  ${isBiz ? '<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-violet-100 text-violet-700">Business</span>' : ''}
+                </div>
+                <div class="text-[11px] text-neutral-500 truncate">${acc.fullName || acc.username}</div>
+                ${phoneLine}
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5 flex-shrink-0">
+              ${isCurrent
+                ? '<span class="px-2.5 py-1 text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full">✓ Active</span>'
+                : `<button type="button" class="ac-switch-btn px-3 py-1.5 text-[11px] font-semibold text-neutral-700 bg-neutral-100 hover:bg-violet-100 hover:text-violet-800 rounded-lg transition cursor-pointer" data-username="${acc.username}">Switch</button>
+                   <button type="button" class="ac-remove-btn p-1.5 text-neutral-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remove from Account Center" data-username="${acc.username}">
+                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                   </button>`
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.ac-switch-row, .ac-switch-btn').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = el.dataset.username;
+          if (!targetU || targetU.toLowerCase() === curNorm) return;
+          const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
+          closeAccountCenterModal();
+          if (acc) {
+            performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+          }
+        });
+      });
+
+      container.querySelectorAll('.ac-remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetU = btn.dataset.username;
+          const updated = accounts.filter(a => (a.username || '').toLowerCase() !== targetU.toLowerCase());
+          try {
+            localStorage.setItem('pixly_session_accounts', JSON.stringify(updated));
+          } catch(err) {}
+          showToast(`Removed @${targetU} from Account Center`);
+          renderAccountCenterList();
+        });
+      });
+    }
+
     function openMessagesModal() {
       const modal = document.getElementById('modal-messages');
       if (modal) {
@@ -10508,6 +10692,15 @@ function syncLikedStateToPosts() {
         }
         bind('btn-switcher-login', 'click', () => openAuthFromSwitcher('login'));
         bind('btn-switcher-signup', 'click', () => openAuthFromSwitcher('signup'));
+        bind('btn-close-account-center', 'click', closeAccountCenterModal);
+        const modalAccountCenter = document.getElementById('modal-account-center');
+        if (modalAccountCenter) {
+          modalAccountCenter.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-account-center') closeAccountCenterModal();
+          });
+        }
+        bind('btn-ac-login', 'click', () => { closeAccountCenterModal(); openAuthFromSwitcher('login'); });
+        bind('btn-ac-signup', 'click', () => { closeAccountCenterModal(); openAuthFromSwitcher('signup'); });
         bind('btn-auth-return-session', 'click', () => {
           const prev = window._pixlyReturningSessionUser;
           const retWrap = document.getElementById('auth-return-session-wrap');
@@ -10965,6 +11158,16 @@ function syncLikedStateToPosts() {
             goToSignUpStep(1);
             if (phoneInp) phoneInp.focus();
             return;
+          }
+
+          if (phone && typeof findPhoneOwner === 'function') {
+            const existingPhoneOwner = findPhoneOwner(phone, u);
+            if (existingPhoneOwner) {
+              showToast('This phone number is already linked to another account. Use a different number or authenticate it in Account Center.');
+              goToSignUpStep(1);
+              if (phoneInp) phoneInp.focus();
+              return;
+            }
           }
 
           const fullName = n;
@@ -11615,6 +11818,20 @@ function syncLikedStateToPosts() {
               return;
             }
 
+            let authenticatedViaAccountCenter = false;
+            if (phone && typeof findPhoneOwner === 'function') {
+              const phoneOwner = findPhoneOwner(phone, state.currentUser.username);
+              if (phoneOwner) {
+                if (typeof isAccountInAccountCenter === 'function' && isAccountInAccountCenter(phoneOwner.username)) {
+                  authenticatedViaAccountCenter = true;
+                } else {
+                  showToast(`That phone number belongs to @${phoneOwner.username}. Add that account in Account Center first to authenticate it.`);
+                  if (phoneInp) phoneInp.focus();
+                  return;
+                }
+              }
+            }
+
             if (name) state.currentUser.fullName = name;
             if (username) state.currentUser.username = username;
             if (email) state.currentUser.email = email;
@@ -11645,10 +11862,24 @@ function syncLikedStateToPosts() {
               localStorage.setItem('pixly_accounts', JSON.stringify(accts));
             } catch(err) {}
 
+            if (typeof registerSessionAccount === 'function') {
+              registerSessionAccount({
+                username: state.currentUser.username,
+                fullName: state.currentUser.fullName,
+                email: state.currentUser.email || '',
+                phone: state.currentUser.phone || '',
+                avatar: state.currentUser.avatar,
+                accountType: state.currentUser.accountType || 'personal'
+              });
+            }
             saveUserProfile();
             renderProfile();
             closeEditProfileModal();
-            showToast(phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!');
+            showToast(
+              authenticatedViaAccountCenter
+                ? 'Phone number authenticated via Account Center & saved! ✓'
+                : (phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!')
+            );
           });
         }
 
@@ -12484,6 +12715,20 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       <!-- Sub Menu Options List -->
       <div class="p-3 flex-1 overflow-y-auto space-y-1.5 text-sm">
         
+        <!-- Account Center Option -->
+        <button type="button" onclick="handleDrawerAccountCenterClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer shadow-2xs">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-lg group-hover:scale-105 transition shadow-2xs">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-800 transition">Account Center</div>
+              <div class="text-[10px] text-neutral-500">Switch or manage accounts</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
         <!-- Terms & Policies Option -->
         <button type="button" onclick="handleDrawerTermsClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer shadow-2xs">
           <div class="flex items-center space-x-3">
