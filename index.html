@@ -2749,7 +2749,14 @@ function saveAccountLikes(username) {
       if (!Array.isArray(notifs)) notifs = [];
 
       // Avoid identical duplicate notification within 10 seconds
-      const isDup = notifs.some(n => n.fromUser === notif.fromUser && n.postId === notif.postId && (Date.now() - (n.timestamp || 0) < 10000));
+      const isDup = notifs.some(n =>
+        n.fromUser === notif.fromUser &&
+        n.type === notif.type &&
+        String(n.postId || '') === String(notif.postId || '') &&
+        String(n.noteId || '') === String(notif.noteId || '') &&
+        String(n.commentId || '') === String(notif.commentId || '') &&
+        (Date.now() - (n.timestamp || 0) < 10000)
+      );
       if (isDup) return;
 
       notifs.unshift(notif);
@@ -2759,11 +2766,11 @@ function saveAccountLikes(username) {
         localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
       } catch(e) {}
 
-      // Cloud Firestore sync for Bradley Hansen notifications
-      if (cleanTarget === 'bradley_hansen' && window.firebaseReady && window.firebase) {
+      // Cloud Firestore sync for recipient notifications
+      if (window.firebaseReady && window.firebase) {
         try {
-          const { db, doc, updateDoc } = window.firebase;
-          updateDoc(doc(db, 'users', 'bradley_hansen'), { notifications: notifs }).catch(() => {});
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true }).catch(() => {});
         } catch(e) {}
       }
 
@@ -2797,6 +2804,61 @@ function saveAccountLikes(username) {
       }
     }
     window.removeNotificationForUser = removeNotificationForUser;
+
+    function notifyMentionsInText(text, opts = {}) {
+      if (!text) return;
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+      const matches = text.match(/@([a-zA-Z0-9_]+)/g);
+      if (!matches) return;
+      const seen = new Set();
+      matches.forEach(m => {
+        const mentioned = m.slice(1).toLowerCase();
+        if (!mentioned || mentioned === curU || seen.has(mentioned)) return;
+        seen.add(mentioned);
+        const kind = opts.kind || 'comment';
+        addNotificationForUser(mentioned, {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: 'mention',
+          fromUser: curU,
+          fromAvatar: curAvatar,
+          text: `mentioned you in a ${kind}: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
+          postId: opts.postId || undefined,
+          noteId: opts.noteId || undefined,
+          postImage: opts.postImage || undefined,
+          time: 'Just now',
+          timestamp: Date.now(),
+          read: false
+        });
+      });
+    }
+    window.notifyMentionsInText = notifyMentionsInText;
+
+    function sendFollowNotification(targetUsername) {
+      if (!targetUsername) return;
+      const cleanTarget = normalizeUsername(targetUsername);
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+      if (!cleanTarget || cleanTarget === curU) return;
+      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+
+      let isFollowBack = false;
+      if (typeof getAccountFollowersList === 'function') {
+        const myFollowers = getAccountFollowersList();
+        isFollowBack = myFollowers.some(f => normalizeUsername(f.username) === cleanTarget);
+      }
+
+      addNotificationForUser(cleanTarget, {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: isFollowBack ? 'follow_back' : 'follow',
+        fromUser: curU,
+        fromAvatar: curAvatar,
+        text: isFollowBack ? 'followed you back.' : 'started following you.',
+        time: 'Just now',
+        timestamp: Date.now(),
+        read: false
+      });
+    }
+    window.sendFollowNotification = sendFollowNotification;
 
 function syncLikedStateToPosts() {
       if (!state.likedPostIds) state.likedPostIds = new Set();
@@ -4384,6 +4446,24 @@ function syncLikedStateToPosts() {
       // Share post
       document.querySelectorAll('.btn-share-post').forEach(btn => {
         btn.addEventListener('click', () => {
+          const pid = btn.dataset.postId;
+          const sharedPost = pid ? getPostById(pid) : null;
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          if (sharedPost && sharedPost.author && normalizeUsername(sharedPost.author) !== curU) {
+            const curAv = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+            addNotificationForUser(sharedPost.author, {
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              type: 'share_post',
+              fromUser: curU,
+              fromAvatar: curAv,
+              text: 'shared your post.',
+              postId: sharedPost.id,
+              postImage: sharedPost.image,
+              time: 'Just now',
+              timestamp: Date.now(),
+              read: false
+            });
+          }
           copyToClipboard(window.location.href, 'Post link copied to clipboard!');
         });
       });
@@ -4400,28 +4480,35 @@ function syncLikedStateToPosts() {
           const post = (state.posts && state.posts.find(p => p.id === postId)) || (state.explorePosts && state.explorePosts.find(p => p.id === postId));
           if (post) {
             if (!post.comments) post.comments = [];
-            post.comments.push({
+            const newComment = {
               id: Date.now(),
               user: state.currentUser.username,
-              text: text
-            });
-            const pAuthor = (post.author || '').toLowerCase().replace(/^@/, '');
-            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
-            if (pAuthor && pAuthor !== curU) {
-              const commenterAvatar = getPostAuthorAvatar({ author: curU });
-              addNotificationForUser(pAuthor, {
+              text: text,
+              timestamp: 'Just now',
+              likedBy: [],
+              replies: []
+            };
+            post.comments.push(newComment);
+            const curU = normalizeUsername(state.currentUser.username);
+            const curAv = state.currentUser.avatar || getPostAuthorAvatar({ author: curU });
+            if (post.author && normalizeUsername(post.author) !== curU) {
+              addNotificationForUser(post.author, {
                 id: Date.now() + Math.floor(Math.random() * 1000),
-                type: 'comment',
+                type: 'comment_post',
                 fromUser: curU,
-                fromAvatar: commenterAvatar,
-                text: `commented: "${text.slice(0, 30)}..."`,
+                fromAvatar: curAv,
+                text: `commented on your post: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
                 postId: post.id,
                 postImage: post.image,
+                commentId: newComment.id,
                 time: 'Just now',
                 timestamp: Date.now(),
                 read: false
               });
             }
+            notifyMentionsInText(text, { kind: 'comment', postId: post.id, postImage: post.image });
+            persistState();
+            if (typeof renderReplies === 'function') renderReplies();
             input.value = '';
 
             // If commenting on someone else's post, add to state.replies!
@@ -4848,11 +4935,60 @@ function syncLikedStateToPosts() {
     }
     window.closeNoteDetailModal = closeNoteDetailModal;
 
+    function toggleLikeNoteComment(noteId, commentId, replyId = null) {
+      const note = getNoteById(noteId);
+      if (!note || !note.comments) return;
+      const comment = note.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      const target = replyId ? (comment.replies || []).find(r => String(r.id) === String(replyId)) : comment;
+      if (!target) return;
+
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+      if (!Array.isArray(target.likedBy)) target.likedBy = [];
+      const idx = target.likedBy.indexOf(curU);
+      const targetAuthor = normalizeUsername(target.user);
+
+      if (idx === -1) {
+        target.likedBy.push(curU);
+        if (targetAuthor && targetAuthor !== curU) {
+          addNotificationForUser(targetAuthor, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: replyId ? 'like_reply' : 'like_comment',
+            fromUser: curU,
+            fromAvatar: curAvatar,
+            text: replyId ? 'liked your reply.' : 'liked your comment.',
+            noteId: note.id,
+            commentId: target.id,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        }
+      } else {
+        target.likedBy.splice(idx, 1);
+      }
+      renderNoteModalComments(note);
+      persistState();
+    }
+    window.toggleLikeNoteComment = toggleLikeNoteComment;
+
+    function startReplyToNoteComment(noteId, commentId, username) {
+      window._replyingToNoteComment = { noteId, commentId, user: username };
+      const input = document.getElementById('note-modal-comment-input');
+      if (input) {
+        input.placeholder = `Replying to @${username}...`;
+        input.focus();
+      }
+    }
+    window.startReplyToNoteComment = startReplyToNoteComment;
+
     function renderNoteModalComments(note) {
       const listEl = document.getElementById('note-modal-comments-list');
       const countEl = document.getElementById('note-modal-comments-count');
       if (!listEl) return;
 
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
       const comments = note.comments || [];
       if (countEl) countEl.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
 
@@ -4866,17 +5002,52 @@ function syncLikedStateToPosts() {
       } else {
         listEl.innerHTML = comments.map(c => {
           const userAvatar = c.userAvatar || (getCreatorInfo(c.user).avatar) || COMMUNITY_IMAGES[0];
+          const isLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
+          const likesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
+          const repliesHtml = (c.replies || []).map(r => {
+            const rAvatar = r.userAvatar || (getCreatorInfo(r.user).avatar) || COMMUNITY_IMAGES[0];
+            const rLiked = Array.isArray(r.likedBy) && r.likedBy.includes(curU);
+            const rLikesCount = Array.isArray(r.likedBy) ? r.likedBy.length : 0;
+            return `
+              <div class="mt-2 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
+                <div class="flex items-start space-x-2 min-w-0">
+                  <div class="w-5 h-5 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
+                    <img src="${rAvatar}" alt="${r.user}" class="w-full h-full object-cover">
+                  </div>
+                  <div class="text-[11px] min-w-0">
+                    <span class="font-bold text-neutral-900 mr-1">@${r.user}</span>
+                    <span class="text-neutral-700">${escapeHtml(r.text)}</span>
+                  </div>
+                </div>
+                <button type="button" onclick="toggleLikeNoteComment('${note.id}', '${c.id}', '${r.id}')" class="flex items-center space-x-1 ${rLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
+                  <svg class="w-3 h-3 ${rLiked ? 'fill-rose-500' : ''}" fill="${rLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  ${rLikesCount > 0 ? `<span class="text-[10px]">${rLikesCount}</span>` : ''}
+                </button>
+              </div>
+            `;
+          }).join('');
+
           return `
             <div class="py-2.5 flex items-start space-x-2.5">
               <div class="w-7 h-7 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0 cursor-pointer" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">
                 <img src="${userAvatar}" alt="${c.user}" class="w-full h-full object-cover">
               </div>
-              <div class="flex-1 text-xs">
-                <div class="flex items-center space-x-1.5">
-                  <span class="font-bold text-neutral-900 cursor-pointer hover:underline" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
-                  <span class="text-[10px] text-neutral-400">@${c.user} · ${c.timestamp || 'Just now'}</span>
+              <div class="flex-1 text-xs min-w-0">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-1.5 min-w-0">
+                    <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
+                    <span class="text-[10px] text-neutral-400">@${c.user} · ${c.timestamp || 'Just now'}</span>
+                  </div>
+                  <button type="button" onclick="toggleLikeNoteComment('${note.id}', '${c.id}')" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
+                    <svg class="w-3.5 h-3.5 ${isLiked ? 'fill-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    ${likesCount > 0 ? `<span class="text-[10px]">${likesCount}</span>` : ''}
+                  </button>
                 </div>
                 <p class="text-neutral-700 mt-0.5 leading-relaxed">${escapeHtml(c.text)}</p>
+                <div class="mt-1">
+                  <button type="button" onclick="startReplyToNoteComment('${note.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                </div>
+                ${repliesHtml}
               </div>
             </div>
           `;
@@ -4893,23 +5064,121 @@ function syncLikedStateToPosts() {
       const text = input.value.trim();
       if (!text) return;
 
-      if (!note.comments) note.comments = [];
-      const newComment = {
-        id: Date.now(),
-        user: state.currentUser ? state.currentUser.username : 'bradley_hansen',
-        userName: state.currentUser ? state.currentUser.fullName : 'Bradley Hansen',
-        userAvatar: state.currentUser ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE,
-        text: text,
-        timestamp: 'Just now'
-      };
-      note.comments.push(newComment);
-      input.value = '';
+      const curU = state.currentUser ? state.currentUser.username : 'bradley_hansen';
+      const curName = state.currentUser ? state.currentUser.fullName : 'Bradley Hansen';
+      const curAvatar = state.currentUser ? state.currentUser.avatar : BRADLEY_AVATAR_IMAGE;
 
+      if (!note.comments) note.comments = [];
+      const replyTarget = window._replyingToNoteComment;
+
+      if (replyTarget && String(replyTarget.noteId) === String(note.id)) {
+        const parentComment = note.comments.find(c => String(c.id) === String(replyTarget.commentId));
+        if (parentComment) {
+          if (!Array.isArray(parentComment.replies)) parentComment.replies = [];
+          const newReply = { id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', likedBy: [] };
+          parentComment.replies.push(newReply);
+          if (normalizeUsername(parentComment.user) !== normalizeUsername(curU)) {
+            addNotificationForUser(parentComment.user, {
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              type: 'reply_comment',
+              fromUser: normalizeUsername(curU),
+              fromAvatar: curAvatar,
+              text: `replied to your comment: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
+              noteId: note.id,
+              commentId: newReply.id,
+              time: 'Just now',
+              timestamp: Date.now(),
+              read: false
+            });
+          }
+        }
+        window._replyingToNoteComment = null;
+        input.placeholder = 'Reply to this note or share your thought...';
+      } else {
+        const newComment = {
+          id: Date.now(),
+          user: curU,
+          userName: curName,
+          userAvatar: curAvatar,
+          text: text,
+          timestamp: 'Just now',
+          likedBy: [],
+          replies: []
+        };
+        note.comments.push(newComment);
+        if (note.author && normalizeUsername(note.author) !== normalizeUsername(curU)) {
+          addNotificationForUser(note.author, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: 'comment_note',
+            fromUser: normalizeUsername(curU),
+            fromAvatar: curAvatar,
+            text: `commented on your note: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
+            noteId: note.id,
+            commentId: newComment.id,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        }
+      }
+
+      notifyMentionsInText(text, { kind: 'note', noteId: note.id });
+      input.value = '';
       renderNoteModalComments(note);
+      if (typeof renderReplies === 'function') renderReplies();
       persistState();
       showToast('Comment posted on note! 💬');
     }
     window.submitNoteModalComment = submitNoteModalComment;
+
+    function toggleLikePostComment(postId, commentId, replyId = null) {
+      const post = getPostById(postId);
+      if (!post || !post.comments) return;
+      const comment = post.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      const target = replyId ? (comment.replies || []).find(r => String(r.id) === String(replyId)) : comment;
+      if (!target) return;
+
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+      if (!Array.isArray(target.likedBy)) target.likedBy = [];
+      const idx = target.likedBy.indexOf(curU);
+      const targetAuthor = normalizeUsername(target.user);
+
+      if (idx === -1) {
+        target.likedBy.push(curU);
+        if (targetAuthor && targetAuthor !== curU) {
+          addNotificationForUser(targetAuthor, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: replyId ? 'like_reply' : 'like_comment',
+            fromUser: curU,
+            fromAvatar: curAvatar,
+            text: replyId ? 'liked your reply.' : 'liked your comment.',
+            postId: post.id,
+            postImage: post.image,
+            commentId: target.id,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        }
+      } else {
+        target.likedBy.splice(idx, 1);
+      }
+      openPostDetailModal(post.id);
+      persistState();
+    }
+    window.toggleLikePostComment = toggleLikePostComment;
+
+    function startReplyToPostComment(postId, commentId, username) {
+      window._replyingToPostComment = { postId, commentId, user: username };
+      const input = document.getElementById('modal-comment-input');
+      if (input) {
+        input.placeholder = `Replying to @${username}...`;
+        input.focus();
+      }
+    }
+    window.startReplyToPostComment = startReplyToPostComment;
 
     function handleNoteModalLikeToggle() {
       if (!state.currentModalNoteId) return;
@@ -5049,13 +5318,125 @@ function syncLikedStateToPosts() {
     function renderReplies() {
       const repliesList = document.getElementById('replies-list');
       if (!repliesList) return;
-      repliesList.innerHTML = `
-        <div class="py-10 text-center text-neutral-400 space-y-1.5 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
-          <div class="text-2xl">💬</div>
-          <p class="font-bold text-xs text-neutral-700">No replies yet</p>
-          <p class="text-[11px] text-neutral-400">Conversations and comments you leave will be organized here.</p>
+
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+      const items = [];
+
+      // Collect from posts (feed + explore)
+      const seenPostIds = new Set();
+      const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
+      allPosts.forEach(p => {
+        if (!p || seenPostIds.has(String(p.id))) return;
+        seenPostIds.add(String(p.id));
+        (p.comments || []).forEach(c => {
+          if (normalizeUsername(c.user) === curU) {
+            items.push({
+              kind: 'post',
+              targetId: p.id,
+              targetAuthor: p.author || 'creator',
+              targetImage: p.image || '',
+              targetSnippet: p.caption || '',
+              text: c.text || '',
+              time: c.timestamp || 'Just now',
+              sortTs: c.id || 0,
+              contextLabel: `Commented on @${p.author || 'creator'}'s post`
+            });
+          }
+          (c.replies || []).forEach(r => {
+            if (normalizeUsername(r.user) === curU) {
+              items.push({
+                kind: 'post',
+                targetId: p.id,
+                targetAuthor: p.author || 'creator',
+                targetImage: p.image || '',
+                targetSnippet: p.caption || '',
+                text: r.text || '',
+                time: r.timestamp || 'Just now',
+                sortTs: r.id || 0,
+                contextLabel: `Replied to @${c.user || 'creator'} on @${p.author || 'creator'}'s post`
+              });
+            }
+          });
+        });
+      });
+
+      // Collect from notes
+      const seenNoteIds = new Set();
+      const allNotes = [...(state.notes || [])];
+      if (state.exploreNotesArchive instanceof Map) {
+        state.exploreNotesArchive.forEach(n => allNotes.push(n));
+      }
+      allNotes.forEach(n => {
+        if (!n || seenNoteIds.has(String(n.id))) return;
+        seenNoteIds.add(String(n.id));
+        (n.comments || []).forEach(c => {
+          if (normalizeUsername(c.user) === curU) {
+            items.push({
+              kind: 'note',
+              targetId: n.id,
+              targetAuthor: n.author || 'creator',
+              targetImage: '',
+              targetSnippet: n.text || '',
+              text: c.text || '',
+              time: c.timestamp || 'Just now',
+              sortTs: c.id || 0,
+              contextLabel: `Commented on @${n.author || 'creator'}'s note`
+            });
+          }
+          (c.replies || []).forEach(r => {
+            if (normalizeUsername(r.user) === curU) {
+              items.push({
+                kind: 'note',
+                targetId: n.id,
+                targetAuthor: n.author || 'creator',
+                targetImage: '',
+                targetSnippet: n.text || '',
+                text: r.text || '',
+                time: r.timestamp || 'Just now',
+                sortTs: r.id || 0,
+                contextLabel: `Replied to @${c.user || 'creator'} on @${n.author || 'creator'}'s note`
+              });
+            }
+          });
+        });
+      });
+
+      items.sort((a, b) => (b.sortTs || 0) - (a.sortTs || 0));
+
+      if (items.length === 0) {
+        repliesList.innerHTML = `
+          <div class="py-10 text-center text-neutral-400 space-y-1.5 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
+            <div class="text-2xl">💬</div>
+            <p class="font-bold text-xs text-neutral-700">No replies yet</p>
+            <p class="text-[11px] text-neutral-400">Conversations and comments you leave will be organized here.</p>
+          </div>
+        `;
+        return;
+      }
+
+      repliesList.innerHTML = items.map(item => `
+        <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-violet-200 hover:shadow-xs" onclick="${item.kind === 'post' ? `openPostDetailModal('${item.targetId}')` : `openNoteDetailModal('${item.targetId}')`}">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <div class="w-7 h-7 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
+                <img src="${curAvatar}" alt="${curU}" class="w-full h-full object-cover">
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-violet-700 truncate">${escapeHtml(item.contextLabel)}</div>
+                <div class="text-[10px] text-neutral-400">@${curU} · ${item.time}</div>
+              </div>
+            </div>
+            ${item.targetImage ? `
+              <div class="w-9 h-9 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
+                <img src="${item.targetImage}" alt="Post" class="w-full h-full object-cover">
+              </div>
+            ` : ''}
+          </div>
+          <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(item.text)}</p>
+          ${item.targetSnippet ? `<div class="text-[11px] text-neutral-400 bg-neutral-50 px-2.5 py-1.5 rounded-lg truncate border border-neutral-100">${escapeHtml(item.targetSnippet)}</div>` : ''}
         </div>
-      `;
+      `).join('');
     }
     window.renderReplies = renderReplies;
 
@@ -5646,22 +6027,49 @@ function syncLikedStateToPosts() {
         </div>
 
         <!-- Comments -->
-        ${(post.comments || []).map(c => `
-          <div class="flex items-start justify-between group">
-            <div class="flex items-start space-x-2.5">
-              <div class="w-6 h-6 rounded-full overflow-hidden bg-neutral-200 flex-shrink-0 flex items-center justify-center font-bold text-[10px] text-neutral-600">
-                ${c.user.slice(0, 1).toUpperCase()}
+        ${(post.comments || []).map(c => {
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          const cLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
+          const cLikesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
+          const repliesHtml = (c.replies || []).map(r => {
+            const rLiked = Array.isArray(r.likedBy) && r.likedBy.includes(curU);
+            const rLikesCount = Array.isArray(r.likedBy) ? r.likedBy.length : 0;
+            return `
+              <div class="mt-1.5 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
+                <div class="text-[11px] min-w-0">
+                  <span class="font-bold text-neutral-900 mr-1">${r.user}</span>
+                  <span class="text-neutral-700">${escapeHtml(r.text)}</span>
+                </div>
+                <button type="button" onclick="toggleLikePostComment('${post.id}', '${c.id}', '${r.id}')" class="flex items-center space-x-1 ${rLiked ? 'text-rose-500' : 'text-neutral-300 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
+                  <svg class="w-3 h-3 ${rLiked ? 'fill-rose-500' : ''}" fill="${rLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  ${rLikesCount > 0 ? `<span class="text-[10px]">${rLikesCount}</span>` : ''}
+                </button>
               </div>
-              <div>
-                <span class="font-bold text-neutral-900 mr-1">${c.user}</span>
-                <span>${c.text}</span>
+            `;
+          }).join('');
+          return `
+          <div class="flex items-start justify-between group">
+            <div class="flex items-start space-x-2.5 flex-1 min-w-0">
+              <div class="w-6 h-6 rounded-full overflow-hidden bg-neutral-200 flex-shrink-0 flex items-center justify-center font-bold text-[10px] text-neutral-600">
+                ${(c.user || 'U').slice(0, 1).toUpperCase()}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div>
+                  <span class="font-bold text-neutral-900 mr-1">${c.user}</span>
+                  <span>${escapeHtml(c.text)}</span>
+                </div>
+                <div class="mt-0.5">
+                  <button type="button" onclick="startReplyToPostComment('${post.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                </div>
+                ${repliesHtml}
               </div>
             </div>
-            <button type="button" class="text-neutral-300 hover:text-rose-500 p-0.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+            <button type="button" onclick="toggleLikePostComment('${post.id}', '${c.id}')" class="flex items-center space-x-1 ${cLiked ? 'text-rose-500' : 'text-neutral-300 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
+              <svg class="w-3.5 h-3.5 ${cLiked ? 'fill-rose-500' : ''}" fill="${cLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+              ${cLikesCount > 0 ? `<span class="text-[10px]">${cLikesCount}</span>` : ''}
             </button>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       `;
 
       modal.classList.remove('hidden'); modal.style.display = 'flex'; modal.style.display = 'flex';
@@ -6851,6 +7259,23 @@ function syncLikedStateToPosts() {
         // Store both string and numeric representations for 100% type safety
         state.savedPostIds.add(strId);
         if (!isNaN(numId)) state.savedPostIds.add(numId);
+        const savedPost = getPostById(postId);
+        const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+        if (savedPost && savedPost.author && normalizeUsername(savedPost.author) !== curU) {
+          const curAv = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+          addNotificationForUser(savedPost.author, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: 'save_post',
+            fromUser: curU,
+            fromAvatar: curAv,
+            text: 'saved your post.',
+            postId: savedPost.id,
+            postImage: savedPost.image,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        }
         showToast('Post saved to your collection! 🔖');
       }
 
@@ -8335,6 +8760,9 @@ function syncLikedStateToPosts() {
       if (myFollowingEl) myFollowingEl.textContent = state.currentUser.followingCount;
 
       persistState();
+      if (nowFollowing && typeof sendFollowNotification === 'function') {
+        sendFollowNotification(cleanU);
+      }
       if (typeof showToast === 'function') {
         showToast(nowFollowing ? `✨ Connected with @${cleanU}!` : `Disconnected from @${cleanU}`);
       }
@@ -11930,7 +12358,26 @@ function syncLikedStateToPosts() {
           toggleSavePost(state.currentModalPostId);
         });
 
-        bind('btn-modal-share', 'click', () => copyToClipboard(window.location.href, 'Post link copied!'));
+        bind('btn-modal-share', 'click', () => {
+          const sharedPost = state.currentModalPostId ? getPostById(state.currentModalPostId) : null;
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          if (sharedPost && sharedPost.author && normalizeUsername(sharedPost.author) !== curU) {
+            const curAv = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+            addNotificationForUser(sharedPost.author, {
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              type: 'share_post',
+              fromUser: curU,
+              fromAvatar: curAv,
+              text: 'shared your post.',
+              postId: sharedPost.id,
+              postImage: sharedPost.image,
+              time: 'Just now',
+              timestamp: Date.now(),
+              read: false
+            });
+          }
+          copyToClipboard(window.location.href, 'Post link copied!');
+        });
         bind('btn-modal-focus-comment', 'click', () => { const inp = document.getElementById('modal-comment-input'); if (inp) inp.focus(); });
 
         const modalCommentForm = document.getElementById('modal-comment-form');
@@ -11943,10 +12390,60 @@ function syncLikedStateToPosts() {
             const post = getPostById(state.currentModalPostId);
             if (post) {
               if (!post.comments) post.comments = [];
-              post.comments.push({ id: Date.now(), user: state.currentUser.username, text: text });
+              const curU = normalizeUsername(state.currentUser.username);
+              const curAv = state.currentUser.avatar || getPostAuthorAvatar({ author: curU });
+              const replyTarget = window._replyingToPostComment;
+
+              if (replyTarget && String(replyTarget.postId) === String(post.id)) {
+                const parentC = post.comments.find(c => String(c.id) === String(replyTarget.commentId));
+                if (parentC) {
+                  if (!Array.isArray(parentC.replies)) parentC.replies = [];
+                  const newReply = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [] };
+                  parentC.replies.push(newReply);
+                  if (parentC.user && normalizeUsername(parentC.user) !== curU) {
+                    addNotificationForUser(parentC.user, {
+                      id: Date.now() + Math.floor(Math.random() * 1000),
+                      type: 'reply_comment',
+                      fromUser: curU,
+                      fromAvatar: curAv,
+                      text: `replied to your comment: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
+                      postId: post.id,
+                      postImage: post.image,
+                      commentId: newReply.id,
+                      time: 'Just now',
+                      timestamp: Date.now(),
+                      read: false
+                    });
+                  }
+                }
+                window._replyingToPostComment = null;
+                if (input) input.placeholder = 'Add a comment...';
+              } else {
+                const newComment = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [], replies: [] };
+                post.comments.push(newComment);
+                if (post.author && normalizeUsername(post.author) !== curU) {
+                  addNotificationForUser(post.author, {
+                    id: Date.now() + Math.floor(Math.random() * 1000),
+                    type: 'comment_post',
+                    fromUser: curU,
+                    fromAvatar: curAv,
+                    text: `commented on your post: "${text.slice(0, 36)}${text.length > 36 ? '...' : ''}"`,
+                    postId: post.id,
+                    postImage: post.image,
+                    commentId: newComment.id,
+                    time: 'Just now',
+                    timestamp: Date.now(),
+                    read: false
+                  });
+                }
+              }
+
+              notifyMentionsInText(text, { kind: 'comment', postId: post.id, postImage: post.image });
               if (input) input.value = '';
               openPostDetailModal(post.id);
               renderFeed();
+              if (typeof renderReplies === 'function') renderReplies();
+              persistState();
               showToast('Comment posted!');
             }
           });
