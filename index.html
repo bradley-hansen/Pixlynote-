@@ -9593,6 +9593,13 @@ function syncLikedStateToPosts() {
             foundAvatar = foundAvatar || match.avatar;
           }
         }
+        if ((!foundName || !foundAvatar) && typeof getCreatorInfo === 'function') {
+          const creatorInfo = getCreatorInfo(cleanTarget);
+          if (creatorInfo) {
+            foundName = foundName || creatorInfo.fullName;
+            foundAvatar = foundAvatar || creatorInfo.avatar;
+          }
+        }
         if (!foundAvatar) {
           if (cleanTarget.toLowerCase() === 'pixlynote') foundAvatar = PIXLYNOTE_SHUTTER_ICON;
           else if (cleanTarget.toLowerCase() === 'pixai') foundAvatar = PIXLYNOTE_SHUTTER_ICON;
@@ -10390,8 +10397,8 @@ function syncLikedStateToPosts() {
         if (btnUserMessage) {
           btnUserMessage.addEventListener('click', () => {
             if (!state.viewedCreator) return;
-            openMessagesModal();
-            showToast(`Message with @${state.viewedCreator.username}`);
+            const c = state.viewedCreator;
+            openDirectMessageWithUser(c.username, c.fullName || c.username, c.avatar || '');
           });
         }
 
