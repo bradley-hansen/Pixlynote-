@@ -668,7 +668,7 @@
 
           <!-- Notifications Button -->
           <div class="relative">
-            <button type="button" id="btn-toggle-notifications" onclick="toggleNotificationsDropdown()" title="Activity & Notifications" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative cursor-pointer">
+            <button type="button" id="btn-toggle-notifications" title="Activity & Notifications" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative cursor-pointer">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <!-- Clean Heart outline with subtle top-right shading when no unread notifications -->
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
@@ -2424,10 +2424,17 @@
                 }
 
                 // 6. Heart Notifications from Cloud Firestore
+                window._notificationsHydrated = window._notificationsHydrated || {};
+                window._notificationsHydrated['bradley_hansen'] = true;
                 if (Array.isArray(data.notifications)) {
-                  state.notifications = data.notifications;
-                  try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(data.notifications)); } catch(e) {}
-                  if (typeof renderNotifications === 'function') renderNotifications();
+                  if (JSON.stringify(data.notifications) !== JSON.stringify(state.notifications)) {
+                    state.notifications = data.notifications;
+                    try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(data.notifications)); } catch(e) {}
+                    if (typeof renderNotifications === 'function') renderNotifications();
+                  }
+                }
+                if (data.commentsMap && typeof applyCommentsMap === 'function') {
+                  applyCommentsMap(data.commentsMap);
                 }
               }
             }
@@ -2728,13 +2735,14 @@ function saveAccountLikes(username) {
     window.loadAccountLikes = loadAccountLikes;
 
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
-    function saveAccountNotifications(username) {
+    window._notificationsHydrated = window._notificationsHydrated || {};
+    function saveAccountNotifications(username, forceDbWrite = false) {
       const u = normalizeUsername(username || 'bradley_hansen');
       const list = Array.isArray(state.notifications) ? state.notifications : [];
       try {
         localStorage.setItem('pixly_notifications_' + u, JSON.stringify(list));
       } catch(e) {}
-      if (window.firebaseReady && window.firebase) {
+      if (window.firebaseReady && window.firebase && (forceDbWrite || window._notificationsHydrated[u] || list.length > 0)) {
         try {
           const { db, doc, setDoc } = window.firebase;
           setDoc(doc(db, 'users', u), { notifications: list }, { merge: true }).catch(() => {});
@@ -2763,12 +2771,16 @@ function saveAccountLikes(username) {
         try {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', u)).then((snap) => {
+            window._notificationsHydrated[u] = true;
             const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
             if (curU !== u) return;
             if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              state.notifications = snap.data().notifications;
-              try { localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications)); } catch(e) {}
-              if (typeof renderNotifications === 'function') renderNotifications();
+              const incoming = snap.data().notifications;
+              if (JSON.stringify(incoming) !== JSON.stringify(state.notifications)) {
+                state.notifications = incoming;
+                try { localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications)); } catch(e) {}
+                if (typeof renderNotifications === 'function') renderNotifications();
+              }
             }
           }).catch(() => {});
           if (typeof window.attachAccountNotificationsListener === 'function') {
@@ -3033,6 +3045,7 @@ function syncLikedStateToPosts() {
             tags: post.tags,
             likes: post.likes,
             isLiked: false,
+            comments: Array.isArray(post.comments) ? post.comments : [],
             timestamp: post.timestamp,
             createdAt: serverTimestamp()
           };
@@ -3217,6 +3230,18 @@ function syncLikedStateToPosts() {
         const savedPostsJson = JSON.stringify(Array.from(state.savedPostIds).map(String));
         try { localStorage.setItem('pixly_saved', savedPostsJson); } catch(e) {}
         idbStorage.set('pixly_saved', savedPostsJson);
+
+        // 5. Save Comments & Replies Overlay for all posts & notes
+        if (typeof buildCommentsMap === 'function') {
+          const cmap = buildCommentsMap();
+          try { localStorage.setItem('pixly_comments_map', JSON.stringify(cmap)); } catch(e) {}
+          if (window.firebaseReady && window.firebase) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'users', curU), { commentsMap: cmap }, { merge: true }).catch(() => {});
+            } catch(e) {}
+          }
+        }
         
         // 5. Save Profile data safely without bloating storage
         const cleanUser = {
@@ -5201,6 +5226,14 @@ function syncLikedStateToPosts() {
 
       notifyMentionsInText(text, { kind: 'note', noteId: note.id });
       input.value = '';
+      if (typeof persistState === 'function') persistState();
+      if (window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          const u = normalizeUsername(curU);
+          setDoc(doc(db, 'users', u), { notes: state.notes || [], lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
       renderNoteModalComments(note);
       if (typeof renderReplies === 'function') renderReplies();
       persistState();
@@ -5390,6 +5423,65 @@ function syncLikedStateToPosts() {
       }
     }
     window.renderNotes = renderNotes;
+
+    function buildCommentsMap() {
+      const map = {};
+      const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
+      allPosts.forEach(p => {
+        if (p && Array.isArray(p.comments) && p.comments.length > 0) {
+          map['post:' + String(p.id)] = p.comments;
+        }
+      });
+      const allNotes = [...(state.notes || [])];
+      if (state.exploreNotesArchive instanceof Map) {
+        state.exploreNotesArchive.forEach(n => allNotes.push(n));
+      }
+      allNotes.forEach(n => {
+        if (n && Array.isArray(n.comments) && n.comments.length > 0) {
+          map['note:' + String(n.id)] = n.comments;
+        }
+      });
+      return map;
+    }
+    window.buildCommentsMap = buildCommentsMap;
+
+    function applyCommentsMap(cmap) {
+      if (!cmap || typeof cmap !== 'object') return;
+      const mergeLists = (localArr, remoteArr) => {
+        const byId = new Map();
+        (localArr || []).forEach(c => byId.set(String(c.id), c));
+        (remoteArr || []).forEach(rc => {
+          if (!byId.has(String(rc.id))) {
+            byId.set(String(rc.id), rc);
+          } else {
+            const lc = byId.get(String(rc.id));
+            const rMap = new Map();
+            (lc.replies || []).forEach(r => rMap.set(String(r.id), r));
+            (rc.replies || []).forEach(rr => { if (!rMap.has(String(rr.id))) rMap.set(String(rr.id), rr); });
+            lc.replies = Array.from(rMap.values());
+          }
+        });
+        return Array.from(byId.values());
+      };
+      [...(state.posts || []), ...(state.explorePosts || [])].forEach(p => {
+        const key = 'post:' + String(p.id);
+        if (Array.isArray(cmap[key])) p.comments = mergeLists(p.comments, cmap[key]);
+      });
+      const allNotes = [...(state.notes || [])];
+      if (state.exploreNotesArchive instanceof Map) state.exploreNotesArchive.forEach(n => allNotes.push(n));
+      allNotes.forEach(n => {
+        const key = 'note:' + String(n.id);
+        if (Array.isArray(cmap[key])) n.comments = mergeLists(n.comments, cmap[key]);
+      });
+      if (typeof renderReplies === 'function') renderReplies();
+    }
+    window.applyCommentsMap = applyCommentsMap;
+
+    // Restore commentsMap from localStorage on boot
+    try {
+      const savedCmap = localStorage.getItem('pixly_comments_map');
+      if (savedCmap) setTimeout(() => applyCommentsMap(JSON.parse(savedCmap)), 50);
+    } catch(e) {}
 
     // --- Render Replies ---
     function renderReplies() {
@@ -9951,7 +10043,7 @@ function syncLikedStateToPosts() {
       const backdrop = document.getElementById('notifications-backdrop');
       if (dd) {
         const isCurrentlyHidden = dd.classList.contains('hidden');
-        const shouldOpen = (forceState !== null) ? forceState : isCurrentlyHidden;
+        const shouldOpen = (typeof forceState === 'boolean') ? forceState : isCurrentlyHidden;
 
         if (shouldOpen) {
           dd.classList.remove('hidden');
@@ -10038,7 +10130,7 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Notifications ---
-    function renderNotifications() {
+    function renderNotifications(force = false) {
       const list = document.getElementById('notifications-list');
       const badge = document.getElementById('notif-badge');
       if (!list) return;
@@ -10046,6 +10138,11 @@ function syncLikedStateToPosts() {
       if (!state.notifications || !Array.isArray(state.notifications)) {
         state.notifications = [];
       }
+      const nextHash = JSON.stringify(state.notifications);
+      if (!force && window._lastRenderedNotifHash === nextHash && list.children.length > 0) {
+        return;
+      }
+      window._lastRenderedNotifHash = nextHash;
 
       // Check unread count and update heart badge / subtle shading
       const unreadCount = state.notifications.filter(n => !n.read).length;
@@ -10110,7 +10207,7 @@ function syncLikedStateToPosts() {
           if (!notif) return;
 
           notif.read = true;
-          saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen');
+          saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
           renderNotifications();
 
           // Close dropdown
@@ -10135,7 +10232,7 @@ function syncLikedStateToPosts() {
     function markAllNotificationsRead() {
       if (!state.notifications) return;
       state.notifications.forEach(n => { n.read = true; });
-      saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen');
+      saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
       renderNotifications();
       showToast('All notifications marked as read');
     }
