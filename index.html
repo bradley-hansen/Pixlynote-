@@ -59,6 +59,7 @@
     #modal-following.hidden,
     #modal-followers.hidden,
     #modal-discover-creators.hidden,
+    #modal-account-switcher.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden {
       display: none !important;
@@ -108,6 +109,7 @@
     #modal-following.hidden,
     #modal-followers.hidden,
     #modal-discover-creators.hidden,
+    #modal-account-switcher.hidden,
     #notifications-dropdown.hidden,
     #auth-view.hidden,
     #main-view.hidden {
@@ -605,6 +607,13 @@
         <button type="button" id="btn-toggle-auth-mode" class="font-bold text-violet-600 hover:text-violet-700 ml-1 cursor-pointer">Sign up</button>
       </div>
 
+      <!-- Return to Active Session button (shown when adding/switching accounts) -->
+      <div id="auth-return-session-wrap" class="hidden text-center">
+        <button type="button" id="btn-auth-return-session" class="w-full py-2.5 px-4 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl shadow-xs transition cursor-pointer">
+          ← Back to @<span id="auth-return-username">account</span>
+        </button>
+      </div>
+
       <!-- Feature Pill Hints -->
       <div class="text-center text-[11px] text-neutral-400 space-y-1">
         <p>✨ Newsfeed with likes, comments, and stories</p>
@@ -691,7 +700,7 @@
 
           <!-- User Pill / Logout -->
           <div class="flex items-center pl-1 sm:pl-2">
-            <button type="button" id="btn-header-profile" class="flex items-center space-x-1.5 p-1 rounded-full hover:bg-neutral-100 transition" title="Go to Profile">
+            <button type="button" id="btn-header-profile" class="flex items-center space-x-1.5 p-1 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Switch Account">
               <div class="w-7 h-7 rounded-full overflow-hidden border border-neutral-300">
                 <img id="header-avatar" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfbW9yYWluZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZWE1ZTkiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMzY5YTEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNncmFkX21vcmFpbmUpIi8+PGNpcmNsZSBjeD0iMjgwIiBjeT0iMTQwIiByPSI0NSIgZmlsbD0iI2ZlZjA4YSIgb3BhY2l0eT0iMC44NSIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjE0MCIgcj0iNjUiIGZpbGw9IiNmZWYwOGEiIG9wYWNpdHk9IjAuMjUiLz48cG9seWdvbiBwb2ludHM9IjAsMjYwIDExMCwxNzAgMjMwLDIyMCAzNDAsMTYwIDQwMCwyMTAgNDAwLDQwMCAwLDQwMCIgZmlsbD0iIzAyODRjNyIgb3BhY2l0eT0iMC42Ii8+PHBvbHlnb24gcG9pbnRzPSIwLDMxMCAxNTAsMjMwIDI4MCwyODAgNDAwLDI0MCA0MDAsNDAwIDAsNDAwIiBmaWxsPSIjMDM2OWExIiBvcGFjaXR5PSIwLjk1Ii8+PC9zdmc+" alt="Profile" class="w-full h-full object-cover">
               </div>
@@ -2143,6 +2152,44 @@
       <!-- Scrollable Discover Creators List -->
       <div id="discover-creators-list-container" class="flex-1 overflow-y-auto p-2 sm:p-3 divide-y divide-neutral-100">
         <!-- Rendered dynamically -->
+      </div>
+
+    </div>
+  </div>
+
+<!-- MODAL 9: ACCOUNT SWITCHER BOTTOM SHEET -->
+  <div id="modal-account-switcher" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center" style="display: none;">
+    <div class="relative bg-white rounded-t-3xl max-w-md w-full max-h-[82vh] flex flex-col shadow-2xl border-t border-neutral-200 overflow-hidden">
+      
+      <!-- Bottom Sheet Drag Handle -->
+      <div class="pt-2.5 pb-1 flex justify-center bg-white">
+        <div class="w-10 h-1 rounded-full bg-neutral-300"></div>
+      </div>
+
+      <!-- Header -->
+      <div class="px-4 py-2.5 border-b border-neutral-100 flex items-center justify-between bg-white">
+        <div class="w-7"></div>
+        <h3 class="text-sm font-bold text-neutral-900">Accounts</h3>
+        <button type="button" id="btn-close-account-switcher" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Logged-in Accounts List -->
+      <div id="account-switcher-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Bottom Actions: Log into another account / Create new account -->
+      <div class="p-3.5 pb-6 border-t border-neutral-100 bg-neutral-50/70 space-y-2">
+        <button type="button" id="btn-switcher-login" class="w-full py-2.5 px-4 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center space-x-2 shadow-2xs cursor-pointer">
+          <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+          <span>Log into another account</span>
+        </button>
+        <button type="button" id="btn-switcher-signup" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
+          <span>Create a new account</span>
+        </button>
       </div>
 
     </div>
@@ -8969,6 +9016,148 @@ function syncLikedStateToPosts() {
     }
     window.renderDiscoverCreatorsList = renderDiscoverCreatorsList;
 
+    // --- Bottom-Sheet Account Switcher Controller ---
+    function getSessionAccounts() {
+      let list = [];
+      try {
+        const raw = localStorage.getItem('pixly_session_accounts');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) list = parsed;
+        }
+      } catch(e) {}
+      if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+        const curNorm = state.currentUser.username.toLowerCase();
+        const idx = list.findIndex(a => (a.username || '').toLowerCase() === curNorm);
+        const curEntry = {
+          username: state.currentUser.username,
+          fullName: state.currentUser.fullName || state.currentUser.username,
+          email: state.currentUser.email || '',
+          phone: state.currentUser.phone || '',
+          avatar: state.currentUser.avatar || BRADLEY_AVATAR_IMAGE,
+          accountType: state.currentUser.accountType || 'personal'
+        };
+        if (idx === -1) list.unshift(curEntry);
+        else list[idx] = { ...list[idx], ...curEntry };
+      }
+      return list;
+    }
+
+    function registerSessionAccount(acc) {
+      if (!acc || !acc.username) return;
+      const list = getSessionAccounts();
+      const norm = acc.username.toLowerCase();
+      const idx = list.findIndex(a => (a.username || '').toLowerCase() === norm);
+      if (idx === -1) list.push(acc);
+      else list[idx] = { ...list[idx], ...acc };
+      try {
+        localStorage.setItem('pixly_session_accounts', JSON.stringify(list));
+      } catch(e) {}
+    }
+    window.registerSessionAccount = registerSessionAccount;
+
+    function openAccountSwitcher() {
+      const modal = document.getElementById('modal-account-switcher');
+      if (!modal) return;
+      renderAccountSwitcherList();
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
+    window.openAccountSwitcher = openAccountSwitcher;
+
+    function closeAccountSwitcher() {
+      const modal = document.getElementById('modal-account-switcher');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    window.closeAccountSwitcher = closeAccountSwitcher;
+
+    function renderAccountSwitcherList() {
+      const container = document.getElementById('account-switcher-list');
+      if (!container) return;
+      const accounts = getSessionAccounts();
+      const curNorm = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase();
+
+      container.innerHTML = accounts.map(acc => {
+        const isCurrent = (acc.username || '').toLowerCase() === curNorm;
+        const isBiz = acc.accountType === 'business' || (acc.username || '').toLowerCase() === 'pixlynote';
+        const avatarSrc = acc.avatar || (isBiz ? PIXLYNOTE_SHUTTER_ICON : BRADLEY_AVATAR_IMAGE);
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-2xl border ${isCurrent ? 'border-violet-300 bg-violet-50/70' : 'border-neutral-200/80 bg-white hover:bg-neutral-50'} transition cursor-pointer account-switcher-row" data-username="${acc.username}">
+            <div class="flex items-center space-x-3 flex-1 min-w-0">
+              <div class="w-11 h-11 rounded-full ${isCurrent ? 'p-0.5 story-gradient' : 'border border-neutral-200'} flex-shrink-0">
+                <div class="w-full h-full rounded-full overflow-hidden bg-white">
+                  <img src="${avatarSrc}" alt="${acc.username}" class="w-full h-full object-cover">
+                </div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-bold text-xs text-neutral-900 truncate">@${acc.username}</span>
+                  ${isBiz ? '<span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-violet-100 text-violet-700">Business</span>' : ''}
+                </div>
+                <div class="text-[11px] text-neutral-500 truncate">${acc.fullName || acc.username}</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              ${isCurrent
+                ? '<span class="px-2.5 py-1 text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full flex items-center space-x-1"><span>✓</span><span>Active</span></span>'
+                : '<span class="px-2.5 py-1 text-[11px] font-semibold text-neutral-600 bg-neutral-100 rounded-full">Switch</span>'
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.account-switcher-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const targetU = row.dataset.username;
+          if (!targetU) return;
+          if (targetU.toLowerCase() === curNorm) {
+            closeAccountSwitcher();
+            return;
+          }
+          const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
+          closeAccountSwitcher();
+          if (acc) {
+            performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+          }
+        });
+      });
+    }
+
+    function openAuthFromSwitcher(mode) {
+      window._pixlyReturningSessionUser = state.currentUser ? { ...state.currentUser } : null;
+      closeAccountSwitcher();
+
+      const retWrap = document.getElementById('auth-return-session-wrap');
+      const retUser = document.getElementById('auth-return-username');
+      if (retWrap && state.currentUser && state.currentUser.username) {
+        if (retUser) retUser.textContent = state.currentUser.username;
+        retWrap.classList.remove('hidden');
+      }
+
+      const loginUserInp = document.getElementById('login-username');
+      const loginPwInp = document.getElementById('login-password');
+      if (loginUserInp) loginUserInp.value = '';
+      if (loginPwInp) loginPwInp.value = '';
+
+      state.isLoggedIn = false;
+      const authView = document.getElementById('auth-view');
+      const mainView = document.getElementById('main-view');
+      if (authView) {
+        authView.classList.remove('hidden');
+        authView.style.display = 'flex';
+      }
+      if (mainView) {
+        mainView.classList.add('hidden');
+        mainView.style.display = 'none';
+      }
+      if (typeof switchAuthMode === 'function') {
+        switchAuthMode(mode || 'login');
+      }
+    }
+
     function openMessagesModal() {
       const modal = document.getElementById('modal-messages');
       if (modal) {
@@ -9947,6 +10136,19 @@ function syncLikedStateToPosts() {
       initCreatePresets();
 
       saveUserProfile();
+      if (typeof registerSessionAccount === 'function') {
+        registerSessionAccount({
+          username: state.currentUser.username,
+          fullName: state.currentUser.fullName,
+          email: state.currentUser.email || '',
+          phone: state.currentUser.phone || '',
+          avatar: state.currentUser.avatar,
+          accountType: state.currentUser.accountType || 'personal'
+        });
+      }
+      const retWrap = document.getElementById('auth-return-session-wrap');
+      if (retWrap) retWrap.classList.add('hidden');
+      window._pixlyReturningSessionUser = null;
       showToast(`Welcome back, @${state.currentUser.username}!`);
     }
 
@@ -10296,7 +10498,25 @@ function syncLikedStateToPosts() {
         bind('nav-btn-feed', 'click', () => switchMainTab('feed'));
         bind('nav-btn-explore', 'click', () => switchMainTab('explore'));
         bind('nav-btn-profile', 'click', () => switchMainTab('profile'));
-        bind('btn-header-profile', 'click', () => switchMainTab('profile'));
+        bind('btn-header-profile', 'click', openAccountSwitcher);
+        bind('btn-close-account-switcher', 'click', closeAccountSwitcher);
+        const modalAccountSwitcher = document.getElementById('modal-account-switcher');
+        if (modalAccountSwitcher) {
+          modalAccountSwitcher.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-account-switcher') closeAccountSwitcher();
+          });
+        }
+        bind('btn-switcher-login', 'click', () => openAuthFromSwitcher('login'));
+        bind('btn-switcher-signup', 'click', () => openAuthFromSwitcher('signup'));
+        bind('btn-auth-return-session', 'click', () => {
+          const prev = window._pixlyReturningSessionUser;
+          const retWrap = document.getElementById('auth-return-session-wrap');
+          if (retWrap) retWrap.classList.add('hidden');
+          window._pixlyReturningSessionUser = null;
+          if (prev && prev.username) {
+            performLogin(prev.username, prev.fullName || '', prev.email || '', '', prev.phone || '', prev.accountType || 'personal');
+          }
+        });
 
         // Wire Profile Following Stat Click -> Open Following Popup Modal
         const statFollowingBtn = document.getElementById('stat-following-btn');
