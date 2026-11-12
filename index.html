@@ -653,18 +653,21 @@
 
           <!-- Notifications Button -->
           <div class="relative">
-            <button type="button" id="btn-toggle-notifications" title="Activity" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative">
+            <button type="button" id="btn-toggle-notifications" onclick="toggleNotificationsDropdown()" title="Activity & Notifications" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative cursor-pointer">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
               </svg>
-              <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+              <span id="notif-badge" class="hidden absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
 
-            <!-- Notifications Dropdown -->
+            <!-- Backdrop for Notifications Dropdown -->
+            <div id="notifications-backdrop" class="hidden fixed inset-0 z-40 bg-black/10 backdrop-blur-2xs" onclick="toggleNotificationsDropdown(false)"></div>
+
+            <!-- Notifications Dropdown Sheet -->
             <div id="notifications-dropdown" class="hidden fixed left-4 right-4 top-16 max-w-sm mx-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 bg-white border border-neutral-200 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-neutral-100">
               <div class="p-3 bg-neutral-50/80 flex items-center justify-between">
                 <span class="text-xs font-semibold text-neutral-800">Recent Activity</span>
-                <span class="text-[11px] text-sky-600 cursor-pointer font-medium" id="btn-mark-all-read">Mark all read</span>
+                <span class="text-[11px] text-violet-600 hover:text-violet-800 cursor-pointer font-bold" id="btn-mark-all-read" onclick="markAllNotificationsRead()">Mark all read</span>
               </div>
               <div id="notifications-list" class="max-h-72 overflow-y-auto divide-y divide-neutral-50 text-xs">
                 <!-- Injected via JS -->
@@ -2436,21 +2439,218 @@
       reader.readAsDataURL(file);
     }
 
-    function syncLikedStateToPosts() {
+    
+    // =========================================================================
+    // PER-ACCOUNT LIKES & NOTIFICATIONS ISOLATION CONTROLLER
+    // =========================================================================
+    
+    // Canonical username normalizer
+    function normalizeUsername(u) {
+      if (!u) return '';
+      const s = String(u).trim().toLowerCase().replace(/^@/, '');
+      if (s === 'bradley hansen' || s === 'bradleyhansen') return 'bradley_hansen';
+      if (s === 'pixly note' || s === 'pixly_note') return 'pixlynote';
+      if (s === 'digital assetpro' || s === 'digital_asset_pro' || s === 'digitalasset_pro') return 'digitalassetpro';
+      return s.replace(/\s+/g, '_');
+    }
+    window.normalizeUsername = normalizeUsername;
+
+function saveAccountLikes(username) {
+      const u = normalizeUsername(username || 'bradley_hansen');
+      try {
+        const likedIdsJson = JSON.stringify(Array.from(state.likedPostIds || []).map(String));
+        const likedOrderJson = JSON.stringify(state.likedOrder || Array.from(state.likedPostIds || []));
+        localStorage.setItem('pixly_likes_' + u, likedIdsJson);
+        localStorage.setItem('pixly_likes_order_' + u, likedOrderJson);
+
+        if (state.likedNoteIds) {
+          const likedNotesJson = JSON.stringify(Array.from(state.likedNoteIds).map(String));
+          localStorage.setItem('pixly_liked_notes_' + u, likedNotesJson);
+        }
+        if (state.likedNoteOrder) {
+          localStorage.setItem('pixly_liked_note_order_' + u, JSON.stringify(state.likedNoteOrder));
+        }
+
+        // Backward compatibility for primary Bradley Hansen account
+        if (u === 'bradley_hansen') {
+          localStorage.setItem('pixly_likes', likedIdsJson);
+          localStorage.setItem('pixly_likes_order', likedOrderJson);
+          if (window.idbStorage) {
+            idbStorage.set('pixly_likes', likedIdsJson);
+            idbStorage.set('pixly_likes_order', likedOrderJson);
+          }
+        }
+      } catch(e) {
+        console.warn('saveAccountLikes error:', e);
+      }
+    }
+    window.saveAccountLikes = saveAccountLikes;
+
+    function loadAccountLikes(username) {
+      const u = normalizeUsername(username || 'bradley_hansen');
+      let likes = null;
+      try {
+        const raw = localStorage.getItem('pixly_likes_' + u);
+        if (raw !== null) {
+          likes = JSON.parse(raw);
+        } else if (u === 'bradley_hansen') {
+          const legacy = localStorage.getItem('pixly_likes');
+          if (legacy) likes = JSON.parse(legacy);
+        }
+      } catch(e) {}
+      state.likedPostIds = new Set(Array.isArray(likes) ? likes.map(String) : []);
+
+      let order = null;
+      try {
+        const rawOrder = localStorage.getItem('pixly_likes_order_' + u);
+        if (rawOrder !== null) {
+          order = JSON.parse(rawOrder);
+        } else if (u === 'bradley_hansen') {
+          const legacyOrder = localStorage.getItem('pixly_likes_order');
+          if (legacyOrder) order = JSON.parse(legacyOrder);
+        }
+      } catch(e) {}
+      state.likedOrder = Array.isArray(order) ? order.map(String) : Array.from(state.likedPostIds);
+
+      let likedNotes = null;
+      try {
+        const rawNotes = localStorage.getItem('pixly_liked_notes_' + u);
+        if (rawNotes !== null) {
+          likedNotes = JSON.parse(rawNotes);
+        } else if (u === 'bradley_hansen') {
+          const legacyNotes = localStorage.getItem('pixly_liked_notes');
+          if (legacyNotes) likedNotes = JSON.parse(legacyNotes);
+        }
+      } catch(e) {}
+      state.likedNoteIds = new Set(Array.isArray(likedNotes) ? likedNotes.map(String) : []);
+
+      let noteOrder = null;
+      try {
+        const rawNoteOrder = localStorage.getItem('pixly_liked_note_order_' + u);
+        if (rawNoteOrder !== null) {
+          noteOrder = JSON.parse(rawNoteOrder);
+        }
+      } catch(e) {}
+      state.likedNoteOrder = Array.isArray(noteOrder) ? noteOrder.map(String) : Array.from(state.likedNoteIds);
+
+      syncLikedStateToPosts();
+    }
+    window.loadAccountLikes = loadAccountLikes;
+
+    // --- Dynamic Notifications Engine ---
+    function saveAccountNotifications(username) {
+      const u = normalizeUsername(username || 'bradley_hansen');
+      try {
+        localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications || []));
+      } catch(e) {}
+    }
+    window.saveAccountNotifications = saveAccountNotifications;
+
+    function loadAccountNotifications(username) {
+      const u = normalizeUsername(username || 'bradley_hansen');
+      let notifs = null;
+      try {
+        const raw = localStorage.getItem('pixly_notifications_' + u);
+        if (raw !== null) {
+          notifs = JSON.parse(raw);
+        }
+      } catch(e) {}
+
+      if (!Array.isArray(notifs)) {
+        if (u === 'bradley_hansen') {
+          notifs = [
+            { id: 101, fromUser: "marcus_pups", fromAvatar: COMMUNITY_IMAGES[1], text: "liked your photo of Lake Moraine.", time: "10m ago", read: false },
+            { id: 102, fromUser: "elena_eats", fromAvatar: COMMUNITY_IMAGES[0], text: "started following you.", time: "1h ago", read: true },
+            { id: 103, fromUser: "arch_digest", fromAvatar: COMMUNITY_IMAGES[2], text: "liked your Fibonacci architecture photo.", time: "3h ago", read: true }
+          ];
+        } else {
+          notifs = [];
+        }
+      }
+      state.notifications = notifs;
+    }
+    window.loadAccountNotifications = loadAccountNotifications;
+
+    function addNotificationForUser(targetUsername, notif) {
+      if (!targetUsername || !notif) return;
+      const cleanTarget = normalizeUsername(targetUsername);
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+
+      // Avoid self-notifications
+      if (cleanTarget === curU) return;
+
+      let notifs = [];
+      try {
+        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+        if (raw) notifs = JSON.parse(raw);
+      } catch(e) {}
+      if (!Array.isArray(notifs)) notifs = [];
+
+      // Avoid identical duplicate notification within 10 seconds
+      const isDup = notifs.some(n => n.fromUser === notif.fromUser && n.postId === notif.postId && (Date.now() - (n.timestamp || 0) < 10000));
+      if (isDup) return;
+
+      notifs.unshift(notif);
+      if (notifs.length > 50) notifs = notifs.slice(0, 50);
+
+      try {
+        localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
+      } catch(e) {}
+
+      // Cloud Firestore sync for Bradley Hansen notifications
+      if (cleanTarget === 'bradley_hansen' && window.firebaseReady && window.firebase) {
+        try {
+          const { db, doc, updateDoc } = window.firebase;
+          updateDoc(doc(db, 'users', 'bradley_hansen'), { notifications: notifs }).catch(() => {});
+        } catch(e) {}
+      }
+
+      // If viewing user is recipient, update in-memory state & UI immediately
+      if (curU === cleanTarget) {
+        state.notifications = notifs;
+        renderNotifications();
+      }
+    }
+    window.addNotificationForUser = addNotificationForUser;
+
+    function removeNotificationForUser(targetUsername, type, fromUser, postId) {
+      if (!targetUsername) return;
+      const cleanTarget = normalizeUsername(targetUsername);
+      let notifs = [];
+      try {
+        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+        if (raw) notifs = JSON.parse(raw);
+      } catch(e) {}
+      if (!Array.isArray(notifs)) return;
+
+      notifs = notifs.filter(n => !(n.type === type && n.fromUser === fromUser && String(n.postId) === String(postId)));
+      try {
+        localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
+      } catch(e) {}
+
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+      if (curU === cleanTarget) {
+        state.notifications = notifs;
+        renderNotifications();
+      }
+    }
+    window.removeNotificationForUser = removeNotificationForUser;
+
+function syncLikedStateToPosts() {
       if (!state.likedPostIds) state.likedPostIds = new Set();
       const allPosts = state.posts.concat(state.explorePosts || []);
       allPosts.forEach(p => {
         const strId = String(p.id);
         const numId = typeof p.id === 'number' ? p.id : parseInt(p.id, 10);
-        const shouldBeLiked = state.likedPostIds.has(strId) || state.likedPostIds.has(numId);
-        if (shouldBeLiked && !p.isLiked) {
-          p.isLiked = true;
-          p.likes = (p.likes || 0) + 1;
-        } else if (!shouldBeLiked && p.isLiked) {
-          p.isLiked = false;
-          p.likes = Math.max(0, (p.likes || 1) - 1);
-        }
+        p.isLiked = state.likedPostIds.has(strId) || state.likedPostIds.has(numId);
       });
+      if (state.notes) {
+        state.notes.forEach(n => {
+          const strId = String(n.id);
+          const numId = typeof n.id === 'number' ? n.id : parseInt(n.id, 10);
+          n.isLiked = state.likedNoteIds && (state.likedNoteIds.has(strId) || state.likedNoteIds.has(numId));
+        });
+      }
     }
 
     // --- Bulletproof Cloud & Multi-Tier Like Persistence Controller ---
@@ -2581,6 +2781,8 @@
       const target = getPostById(postId);
       if (!target) return;
 
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+
       if (!state.likedPostIds) state.likedPostIds = new Set();
       const currentlyLiked = state.likedPostIds.has(strId);
       const newLiked = forceState !== null ? forceState : !currentlyLiked;
@@ -2595,10 +2797,33 @@
         state.likedOrder = state.likedOrder.filter(id => id !== strId);
       }
 
-      // Explicitly update target post object
+      // Explicitly update target post object likes count
       target.isLiked = newLiked;
       target.likes = Math.max(0, (target.likes || 0) + (newLiked ? 1 : -1));
 
+      // SEND NOTIFICATION TO THE POST AUTHOR (WHEN LIKED BY ANOTHER ACCOUNT)
+      const postAuthor = normalizeUsername(target.author);
+      if (postAuthor && postAuthor !== curU) {
+        if (newLiked) {
+          const likerAvatar = getPostAuthorAvatar({ author: curU });
+          addNotificationForUser(postAuthor, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: 'like_post',
+            fromUser: curU,
+            fromAvatar: likerAvatar,
+            text: `liked your photo${target.caption ? `: "${target.caption.slice(0, 30)}..."` : '.'}`,
+            postId: target.id,
+            postImage: target.image,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        } else {
+          removeNotificationForUser(postAuthor, 'like_post', curU, target.id);
+        }
+      }
+
+      saveAccountLikes(curU);
       syncLikedStateToPosts();
       persistState();
       syncAllLikesToFirestore();
@@ -2668,15 +2893,9 @@
 
         // 1. Save Liked post IDs and chronological order (localStorage, sessionStorage, IndexedDB)
         if (!state.likedPostIds) state.likedPostIds = new Set();
-        const likedIdsJson = JSON.stringify(Array.from(state.likedPostIds).map(String));
-        const likedOrderJson = JSON.stringify(state.likedOrder || Array.from(state.likedPostIds).reverse());
-        try { localStorage.setItem('pixly_likes', likedIdsJson); } catch(e) {}
-        try { localStorage.setItem('pixly_likes_order', likedOrderJson); } catch(e) {}
-        try { sessionStorage.setItem('pixly_likes', likedIdsJson); } catch(e) {}
-        if (window.idbStorage) {
-          idbStorage.set('pixly_likes', likedIdsJson);
-          idbStorage.set('pixly_likes_order', likedOrderJson);
-        }
+        const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+        saveAccountLikes(curU);
+        saveAccountNotifications(curU);
 // 2. Save Custom User Posts
         const customPosts = state.posts.filter(p => typeof p.id === "number" && p.id > 1000);
         try { localStorage.setItem('pixly_custom_posts', JSON.stringify(customPosts)); } catch(e) {}
@@ -2818,26 +3037,11 @@
         } else if (state.currentUser.username === 'pixlynote') {
           state.currentUser.avatar = PIXLYNOTE_SHUTTER_ICON;
         }
-// 3. Restore Liked Posts into state.likedPostIds Set
+// 3. Restore Liked Posts and Notifications per account
         try {
-          let savedLikes = null;
-          try { savedLikes = localStorage.getItem('pixly_likes'); } catch(e) {}
-          if (!savedLikes) { try { savedLikes = sessionStorage.getItem('pixly_likes'); } catch(e) {} }
-          if (savedLikes) {
-            const parsedLikes = JSON.parse(savedLikes);
-            if (Array.isArray(parsedLikes)) {
-              if (!state.likedPostIds) state.likedPostIds = new Set();
-              parsedLikes.forEach(id => state.likedPostIds.add(String(id)));
-            }
-          }
-          let savedOrder = null;
-          try { savedOrder = localStorage.getItem('pixly_likes_order'); } catch(e) {}
-          if (savedOrder) {
-            try { state.likedOrder = JSON.parse(savedOrder); } catch(e) {}
-          } else if (state.likedPostIds) {
-            state.likedOrder = Array.from(state.likedPostIds).reverse();
-          }
-          syncLikedStateToPosts();
+          const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+          loadAccountLikes(curU);
+          loadAccountNotifications(curU);
         } catch(e) {}
 // 4. Restore Notes (from 'pixly_notes')
         try {
@@ -3420,7 +3624,7 @@
           id: 5,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          authorAvatar: BRADLEY_AVATAR_IMAGE,
           location: "Modern Art Wing, Berlin",
           image: PRESET_IMAGES[4].path,
           caption: "Curvature, Fibonacci spirals, and pure daylight. Architectural studies in white concrete and marble 📐🤍",
@@ -3436,7 +3640,7 @@
           id: 6,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
-          authorAvatar: PRESET_IMAGES[0].path,
+          authorAvatar: BRADLEY_AVATAR_IMAGE,
           location: "Baa Atoll, Maldives",
           image: PRESET_IMAGES[5].path,
           caption: "Crystal turquoise waters & whispering coconut palms. Disconnecting for the next 72 hours 🌊🌴☀️",
@@ -3756,7 +3960,7 @@
               <div class="flex items-center space-x-2.5">
                 <div class="w-9 h-9 rounded-full p-0.5 story-gradient cursor-pointer open-author-profile" data-author="${post.author}">
                   <div class="w-full h-full rounded-full overflow-hidden border border-white">
-                    <img src="${post.authorAvatar}" alt="${post.author}" class="w-full h-full object-cover">
+                    <img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
                   </div>
                 </div>
                 <div>
@@ -4033,6 +4237,23 @@
               user: state.currentUser.username,
               text: text
             });
+            const pAuthor = (post.author || '').toLowerCase().replace(/^@/, '');
+            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            if (pAuthor && pAuthor !== curU) {
+              const commenterAvatar = getPostAuthorAvatar({ author: curU });
+              addNotificationForUser(pAuthor, {
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                type: 'comment',
+                fromUser: curU,
+                fromAvatar: commenterAvatar,
+                text: `commented: "${text.slice(0, 30)}..."`,
+                postId: post.id,
+                postImage: post.image,
+                time: 'Just now',
+                timestamp: Date.now(),
+                read: false
+              });
+            }
             input.value = '';
 
             // If commenting on someone else's post, add to state.replies!
@@ -4112,7 +4333,7 @@
       }
 
       // Update bio & numbers
-      const userPosts = state.posts.filter(p => (p.author || '').toLowerCase() === state.currentUser.username.toLowerCase());
+      const userPosts = state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username));
       const postCountEl = document.getElementById('profile-post-count');
       if (postCountEl) postCountEl.textContent = userPosts.length;
       
@@ -4252,7 +4473,7 @@
 
       // Filter posts that belong to the current user
       if (profileGrid) {
-        if (userPosts.length === 0 || isPixly) {
+        if (userPosts.length === 0) {
           profileGrid.innerHTML = `
             <div class="col-span-3 py-12 text-center text-neutral-400 space-y-3">
               <div class="w-16 h-16 mx-auto rounded-full border-2 border-dashed border-neutral-300 flex items-center justify-center text-neutral-400">
@@ -4528,6 +4749,9 @@
       if (!state.likedNoteOrder) state.likedNoteOrder = [];
 
       const currentlyLiked = state.likedNoteIds.has(numId) || state.likedNoteIds.has(strId);
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+      const noteAuthor = normalizeUsername(note.author);
+
       if (currentlyLiked) {
         state.likedNoteIds.delete(numId);
         state.likedNoteIds.delete(strId);
@@ -4535,6 +4759,9 @@
         note.isLiked = false;
         state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
         showToast('Unliked note');
+        if (noteAuthor && noteAuthor !== curU) {
+          removeNotificationForUser(noteAuthor, 'like_note', curU, note.id);
+        }
       } else {
         state.likedNoteIds.add(numId);
         state.likedNoteIds.add(strId);
@@ -4544,7 +4771,22 @@
           state.likedNoteOrder.unshift(strId);
         }
         showToast('Liked note! Saved to profile ❤️');
+        if (noteAuthor && noteAuthor !== curU) {
+          const likerAvatar = getNoteAuthorAvatar({ author: curU });
+          addNotificationForUser(noteAuthor, {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            type: 'like_note',
+            fromUser: curU,
+            fromAvatar: likerAvatar,
+            text: `liked your vibe note: "${(note.text || '').slice(0, 30)}..."`,
+            noteId: note.id,
+            time: 'Just now',
+            timestamp: Date.now(),
+            read: false
+          });
+        }
       }
+      saveAccountLikes(curU);
 
       openNoteDetailModal(note.id);
       renderNotes();
@@ -4762,7 +5004,10 @@
               </div>
             </div>
             <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
-              <span class="truncate max-w-[65%]">@${post.author}</span>
+              <div class="flex items-center space-x-1 min-w-0">
+                <img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-white/40" onerror="this.src=COMMUNITY_IMAGES[0]">
+                <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>
+              </div>
               <span class="text-rose-400 font-bold">❤️</span>
             </div>
           </div>
@@ -5167,10 +5412,11 @@
       state.currentModalPostId = postId;
 
       const modal = document.getElementById('modal-post-detail');
+      const authorAvatarSrc = getPostAuthorAvatar(post);
       document.getElementById('modal-post-img').src = post.image;
       document.getElementById('modal-post-author').textContent = post.author;
       document.getElementById('modal-post-location').textContent = post.location || '';
-      document.getElementById('modal-post-author-avatar').src = post.authorAvatar;
+      document.getElementById('modal-post-author-avatar').src = authorAvatarSrc;
       document.getElementById('modal-likes-count').textContent = `${post.likes.toLocaleString()} likes`;
       document.getElementById('modal-timestamp').textContent = post.timestamp;
 
@@ -5216,8 +5462,8 @@
       list.innerHTML = `
         <!-- Main Post Caption -->
         <div class="flex items-start space-x-2.5 pb-2 border-b border-neutral-100">
-          <div class="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
-            <img src="${post.authorAvatar}" alt="${post.author}" class="w-full h-full object-cover">
+          <div class="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 cursor-pointer" onclick="openCreatorProfile('${post.author}')">
+            <img src="${authorAvatarSrc}" alt="${post.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
           </div>
           <div>
             <span class="font-bold text-neutral-900 mr-1.5">${post.author}</span>
@@ -7601,55 +7847,87 @@
 
     function getCreatorInfo(username) {
       const cleanU = (username || '').toLowerCase().replace(/^@/, '');
-      if (cleanU === 'bradley_hansen' || cleanU === 'bradley hansen' || (state.currentUser && cleanU === state.currentUser.username.toLowerCase())) {
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+
+      // Check if requested user IS the currently active logged-in user
+      if (curU && cleanU === curU) {
         return {
-          username: state.currentUser ? state.currentUser.username : "bradley_hansen",
-          fullName: state.currentUser ? state.currentUser.fullName : "Bradley Hansen",
-          bio: state.currentUser ? state.currentUser.bio : "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
-          avatar: state.currentUser ? (state.currentUser.avatar || BRADLEY_AVATAR_IMAGE) : BRADLEY_AVATAR_IMAGE,
-          category: "Personal & Fitness",
+          username: state.currentUser.username,
+          fullName: state.currentUser.fullName || state.currentUser.username,
+          bio: state.currentUser.bio || '',
+          avatar: state.currentUser.avatar || (cleanU === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : BRADLEY_AVATAR_IMAGE),
+          category: state.currentUser.accountType === 'business' ? "Business Profile" : "Personal & Creator",
           location: "Galloway, New Jersey 📍",
-          link: "t.me/bradley_hansen",
+          link: state.currentUser.link || `pixlynote.com/@${cleanU}`,
           joined: "Joined 2022",
-          followersCount: state.currentUser ? state.currentUser.followersCount : "4,820",
-          followingCount: state.currentUser ? state.currentUser.followingCount : "342",
+          followersCount: state.currentUser.followersCount || "0",
+          followingCount: state.currentUser.followingCount || "0",
           mutual: "Your Profile",
           isFollowing: false
         };
       }
-      if (cleanU === 'digitalassetpro' || cleanU === 'digital_asset_pro' || cleanU === 'digital assetpro') {
-        const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === 'digitalassetpro' || f.username.toLowerCase() === 'digital_asset_pro');
-        const isFollowing = fromFollowing ? fromFollowing.isFollowing : false;
-        return {
-          ...CREATOR_DETAILS.digitalassetpro,
-          isFollowing: isFollowing
-        };
-      }
-      const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
+
+      // Check CREATOR_DETAILS (has bradley_hansen, pixlynote, digitalassetpro, elena_eats, etc.)
       const detailed = CREATOR_DETAILS[cleanU];
-      
       if (detailed) {
-        const isFollowing = fromFollowing ? fromFollowing.isFollowing : true;
+        const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
+        const isFollowing = fromFollowing ? fromFollowing.isFollowing : (detailed.isFollowing !== undefined ? detailed.isFollowing : false);
         return { ...detailed, isFollowing };
       }
-      
+
+      // Check registered accounts in _pixlyAccounts or localStorage
+      let accData = null;
+      if (window._pixlyAccounts && window._pixlyAccounts[cleanU]) {
+        accData = window._pixlyAccounts[cleanU];
+      }
+      if (!accData) {
+        try {
+          const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+          accData = accts[cleanU];
+        } catch(e) {}
+      }
+      if (!accData) {
+        try {
+          const stored = localStorage.getItem('pixly_account_' + cleanU);
+          if (stored) accData = JSON.parse(stored);
+        } catch(e) {}
+      }
+      if (accData) {
+        return {
+          username: accData.username || cleanU,
+          fullName: accData.fullName || cleanU,
+          bio: accData.bio || '',
+          avatar: accData.avatar || (cleanU === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : (cleanU === 'digitalassetpro' ? DIGITAL_ASSET_PRO_AVATAR : BRADLEY_AVATAR_IMAGE)),
+          category: accData.accountType === 'business' ? "Business Profile" : "Community Creator",
+          location: "Global 🌐",
+          link: accData.link || `pixlynote.com/@${cleanU}`,
+          joined: "Joined 2023",
+          followersCount: accData.followersCount || "0",
+          followingCount: accData.followingCount || "0",
+          mutual: "Pixlynote Creator",
+          isFollowing: false
+        };
+      }
+
+      // Default Community Creator fallback
+      const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
       if (fromFollowing) {
         return {
           username: fromFollowing.username,
           fullName: fromFollowing.fullName,
-          bio: fromFollowing.bio,
-          avatar: fromFollowing.avatar,
+          bio: fromFollowing.bio || "Visual storyteller sharing moments on Pixlynote 📷✨",
+          avatar: fromFollowing.avatar || COMMUNITY_IMAGES[0],
           category: "Content Creator",
           location: "Worldwide 🌍",
           link: `pixlynote.com/@${fromFollowing.username}`,
           joined: "Joined 2023",
           followersCount: "14.2K",
           followingCount: "310",
-          mutual: "Followed by bradley_hansen",
+          mutual: "Pixlynote Creator",
           isFollowing: fromFollowing.isFollowing
         };
       }
-      
+
       return {
         username: cleanU,
         fullName: cleanU.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
@@ -7661,10 +7939,61 @@
         joined: "Joined 2023",
         followersCount: "8.5K",
         followingCount: "215",
-        mutual: "Followed by bradley_hansen",
+        mutual: "Pixlynote Creator",
         isFollowing: true
       };
     }
+    window.getCreatorInfo = getCreatorInfo;
+
+    // Guaranteed helper to retrieve accurate post author avatar
+    function getPostAuthorAvatar(post) {
+      if (!post) return BRADLEY_AVATAR_IMAGE;
+      const authorClean = normalizeUsername(post.author || '');
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+
+      // 1. If author is active logged-in user, return active avatar
+      if (curU && authorClean === curU && state.currentUser.avatar) {
+        return state.currentUser.avatar;
+      }
+
+      // 2. Specific brand accounts
+      if (authorClean === 'bradley_hansen') {
+        const bradSaved = localStorage.getItem('pixly_avatar');
+        if (bradSaved) return bradSaved;
+        return BRADLEY_AVATAR_IMAGE;
+      }
+      if (authorClean === 'pixlynote') {
+        return PIXLYNOTE_SHUTTER_ICON;
+      }
+      if (authorClean === 'digitalassetpro' || authorClean === 'digital_asset_pro') {
+        return DIGITAL_ASSET_PRO_AVATAR;
+      }
+
+      // 3. Registered accounts in storage
+      try {
+        const stored = localStorage.getItem('pixly_account_' + authorClean);
+        if (stored) {
+          const parsedAcc = JSON.parse(stored);
+          if (parsedAcc && parsedAcc.avatar) return parsedAcc.avatar;
+        }
+      } catch(e) {}
+
+      // 4. Creator directory lookup
+      const info = getCreatorInfo(authorClean);
+      if (info && info.avatar) {
+        return info.avatar;
+      }
+
+      // 5. Post explicit authorAvatar if valid
+      if (post.authorAvatar && typeof post.authorAvatar === 'string' && post.authorAvatar.length > 20 && !post.authorAvatar.includes('Lake Moraine') && !post.authorAvatar.includes('banff') && !post.authorAvatar.includes('unsplash.com/photo-1506744038136')) {
+        return post.authorAvatar;
+      }
+
+      return COMMUNITY_IMAGES[0];
+    }
+    window.getPostAuthorAvatar = getPostAuthorAvatar;
+
+
 
     function getCreatorPosts(username) {
       const cleanU = (username || '').toLowerCase().replace(/^@/, '');
@@ -8145,20 +8474,32 @@
       }
     }
 
-    function toggleNotificationsDropdown() {
+    function toggleNotificationsDropdown(forceState = null) {
       const dd = document.getElementById('notifications-dropdown');
+      const backdrop = document.getElementById('notifications-backdrop');
       if (dd) {
-        const isHidden = dd.classList.contains('hidden');
-        if (isHidden) {
+        const isCurrentlyHidden = dd.classList.contains('hidden');
+        const shouldOpen = (forceState !== null) ? forceState : isCurrentlyHidden;
+
+        if (shouldOpen) {
           dd.classList.remove('hidden');
           dd.style.display = 'block';
+          if (backdrop) {
+            backdrop.classList.remove('hidden');
+            backdrop.style.display = 'block';
+          }
           renderNotifications();
         } else {
           dd.classList.add('hidden');
           dd.style.display = 'none';
+          if (backdrop) {
+            backdrop.classList.add('hidden');
+            backdrop.style.display = 'none';
+          }
         }
       }
     }
+    window.toggleNotificationsDropdown = toggleNotificationsDropdown;
 
     function openStoryViewer(idx) {
       const story = state.stories[idx];
@@ -8227,22 +8568,103 @@
     // --- Render Notifications ---
     function renderNotifications() {
       const list = document.getElementById('notifications-list');
-      list.innerHTML = state.notifications.map(n => `
-        <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center font-bold text-[11px] text-neutral-700">
-              ${n.user.slice(0, 1).toUpperCase()}
+      const badge = document.getElementById('notif-badge');
+      if (!list) return;
+
+      if (!state.notifications || !Array.isArray(state.notifications)) {
+        state.notifications = [];
+      }
+
+      // Check unread count and update bell badge
+      const unreadCount = state.notifications.filter(n => !n.read).length;
+      if (badge) {
+        if (unreadCount > 0) {
+          badge.classList.remove('hidden');
+          badge.style.display = 'block';
+        } else {
+          badge.classList.add('hidden');
+          badge.style.display = 'none';
+        }
+      }
+
+      if (state.notifications.length === 0) {
+        list.innerHTML = `
+          <div class="p-6 text-center text-neutral-400">
+            <div class="text-2xl mb-1">🔔</div>
+            <div class="font-bold text-xs text-neutral-700 mb-0.5">No Activity Yet</div>
+            <div class="text-[11px] text-neutral-400">When someone likes your photos or vibe notes, you will see it here!</div>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = state.notifications.map((n, idx) => {
+        const u = n.fromUser || n.user || 'creator';
+        const av = n.fromAvatar || getPostAuthorAvatar({ author: u });
+        return `
+          <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${!n.read ? 'bg-violet-50/40' : ''}" data-idx="${idx}">
+            <div class="flex items-center space-x-2.5 min-w-0 pr-2">
+              <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 border border-neutral-100 flex-shrink-0">
+                <img src="${av}" alt="${u}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
+              </div>
+              <div class="text-xs min-w-0 space-y-0.5">
+                <div class="leading-snug">
+                  <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
+                  <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
+                </div>
+                <div class="text-[10px] text-neutral-400 font-medium">${n.time || 'Just now'}</div>
+              </div>
             </div>
-            <div class="text-xs">
-              <span class="font-bold text-neutral-900">${n.user}</span>
-              <span class="text-neutral-600">${n.text}</span>
-              <div class="text-[10px] text-neutral-400">${n.time}</div>
+            <div class="flex items-center space-x-2 flex-shrink-0">
+              ${n.postImage ? `
+                <div class="w-8 h-8 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
+                  <img src="${n.postImage}" alt="Post" class="w-full h-full object-cover">
+                </div>
+              ` : ''}
+              ${!n.read ? '<span class="w-2 h-2 rounded-full bg-violet-600"></span>' : ''}
             </div>
           </div>
-          ${!n.read ? '<span class="w-2 h-2 rounded-full bg-sky-500"></span>' : ''}
-        </div>
-      `).join('');
+        `;
+      }).join('');
+
+      // Wire interactive click handlers for each notification
+      list.querySelectorAll('.notif-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const idx = parseInt(item.dataset.idx, 10);
+          const notif = state.notifications[idx];
+          if (!notif) return;
+
+          notif.read = true;
+          saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen');
+          renderNotifications();
+
+          // Close dropdown
+          const dd = document.getElementById('notifications-dropdown');
+          if (dd) {
+            dd.classList.add('hidden');
+            dd.style.display = 'none';
+          }
+
+          // Open target content
+          if (notif.postId) {
+            openPostDetailModal(notif.postId);
+          } else if (notif.noteId) {
+            openNoteDetailModal(notif.noteId);
+          } else if (notif.fromUser) {
+            openCreatorProfile(notif.fromUser);
+          }
+        });
+      });
     }
+
+    function markAllNotificationsRead() {
+      if (!state.notifications) return;
+      state.notifications.forEach(n => { n.read = true; });
+      saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen');
+      renderNotifications();
+      showToast('All notifications marked as read');
+    }
+    window.markAllNotificationsRead = markAllNotificationsRead;
 
     // --- Direct Messages Controller & Chat Manager ---
     function renderMessages() {
@@ -8836,7 +9258,11 @@
 // --- Login & Auth Handler ---
     function performLogin(username, fullName, email, password = null, phone = null, accountType = null) {
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
-      const oldUsername = state.currentUser.username;
+      const oldUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : null;
+      if (oldUsername) {
+        saveAccountLikes(oldUsername);
+        saveAccountNotifications(oldUsername);
+      }
       state.isLoggedIn = true;
 
       // Look up account data if available
@@ -8867,7 +9293,7 @@
         state.currentUser.bio = 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍';
         state.currentUser.link = 't.me/bradley_hansen';
         state.currentUser.avatar = BRADLEY_AVATAR_IMAGE;
-        state.currentUser.postsCount = 6;
+        state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
         state.currentUser.followersCount = "4,820";
         state.currentUser.followingCount = "342";
       } else {
@@ -8886,7 +9312,7 @@
           state.currentUser.link = (accData && accData.link && !accData.link.includes('bradley_hansen')) ? accData.link : '';
           state.currentUser.avatar = PIXLYNOTE_SHUTTER_ICON;
           state.currentUser.accountType = 'business';
-          state.currentUser.postsCount = 0;
+          state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
           state.currentUser.followersCount = "0";
           state.currentUser.followingCount = "0";
         } else if (isDAP) {
@@ -8896,7 +9322,7 @@
           state.currentUser.link = (accData && accData.link && !accData.link.includes('bradley_hansen')) ? accData.link : 'digitalassetpro.com';
           state.currentUser.avatar = DIGITAL_ASSET_PRO_AVATAR;
           state.currentUser.accountType = 'business';
-          state.currentUser.postsCount = 4;
+          state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
           state.currentUser.followersCount = "18.5K";
           state.currentUser.followingCount = "42";
         } else {
@@ -8978,9 +9404,14 @@
         state.stories[0].username = (cleanUsername.toLowerCase() === 'bradley_hansen') ? 'Your Story' : ('@' + state.currentUser.username);
       }
 
+      // Load likes and notifications strictly isolated for this specific account
+      loadAccountLikes(cleanUsername);
+      loadAccountNotifications(cleanUsername);
+
       renderStories();
       renderFeed();
       renderProfile();
+      renderLikes();
       renderNotifications();
       renderMessages();
       initCreatePresets();
@@ -9141,14 +9572,14 @@
             }
           }).catch(() => {});
 
-          // 1. Restore Likes
-          idbStorage.get('pixly_likes').then(idbLikes => {
-            if (idbLikes) {
+          // 1. Restore Likes per account
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          idbStorage.get('pixly_likes_' + curU).then(idbLikes => {
+            if (idbLikes && normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '') === curU) {
               try {
                 const parsed = JSON.parse(idbLikes);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  if (!state.likedPostIds) state.likedPostIds = new Set();
-                  parsed.forEach(id => state.likedPostIds.add(String(id)));
+                if (Array.isArray(parsed)) {
+                  state.likedPostIds = new Set(parsed.map(String));
                   syncLikedStateToPosts();
                   renderFeed();
                   renderLikes();
