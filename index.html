@@ -11505,8 +11505,13 @@ function syncLikedStateToPosts() {
               window._likesHydratedFromCloud = true;
               window.applyLikesFromRemote(d.likedPostIds);
             }
-            if (typeof d.isVerified === 'boolean') {
+            let pendingSid = null;
+            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
+            if (pendingSid) {
+              applyStripeSessionVerification(normLoginU, pendingSid);
+            } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
+              state.currentUser.isPlus = Boolean(d.isPlus || d.isVerified);
               state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
             } else {
@@ -13987,6 +13992,66 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }, 150);
     }
     window.handleDrawerProfileClick = handleDrawerProfileClick;
+
+    // --- Stripe After-Payment Redirect (?session_id=...) Handler (Spark Free Tier) ---
+    function applyStripeSessionVerification(username, sessionId) {
+      if (!username || !sessionId) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+        state.currentUser.isVerified = true;
+        state.currentUser.isPlus = true;
+        state.currentUser.subscriptionStatus = 'active';
+        state.currentUser.stripeSessionId = sessionId;
+      }
+      try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
+      if (typeof renderProfile === 'function') renderProfile();
+
+      const writeVerificationToFirestore = () => {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanU), {
+            isVerified: true,
+            isPlus: true,
+            subscriptionStatus: 'active',
+            stripeSessionId: sessionId,
+            verifiedUpdatedAt: Date.now()
+          }, { merge: true }).catch(() => {});
+          return true;
+        }
+        return false;
+      };
+
+      if (!writeVerificationToFirestore()) {
+        const retryTimer = setInterval(() => {
+          if (writeVerificationToFirestore()) clearInterval(retryTimer);
+        }, 400);
+        setTimeout(() => clearInterval(retryTimer), 12000);
+      }
+      if (typeof showToast === 'function') {
+        showToast('Pixlynote Plus activated! Blue badge enabled ✓');
+      }
+    }
+    window.applyStripeSessionVerification = applyStripeSessionVerification;
+
+    (function handleStripeRedirectOnLoad() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session_id');
+        const subscribed = params.get('subscribed');
+        const token = (sessionId && sessionId.trim()) || (subscribed === 'true' ? ('subscribed_' + Date.now()) : '');
+        if (token) {
+          localStorage.setItem('pixly_pending_stripe_session', token);
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+          setTimeout(() => {
+            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+              applyStripeSessionVerification(state.currentUser.username, token);
+            }
+          }, 300);
+        }
+      } catch(e) {}
+    })();
 
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
