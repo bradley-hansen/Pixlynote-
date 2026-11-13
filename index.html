@@ -5345,14 +5345,16 @@ function syncLikedStateToPosts() {
       const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false;
       if (likesCountEl) likesCountEl.textContent = note.likes || 0;
       if (likeIconEl) {
-        likeIconEl.className = isLiked ? "w-4 h-4 fill-rose-500 text-rose-500 transition duration-200" : "w-4 h-4 text-neutral-700 transition duration-200";
+        likeIconEl.setAttribute('class', isLiked ? "w-4 h-4 fill-rose-500 text-rose-500 transition duration-200" : "w-4 h-4 text-neutral-700 transition duration-200");
+        likeIconEl.setAttribute('fill', isLiked ? 'currentColor' : 'none');
       }
 
       // Format save state
       const isSaved = state.savedNoteIds ? (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id))) : false;
       if (saveLabelEl) saveLabelEl.textContent = isSaved ? "Saved" : "Save";
       if (saveIconEl) {
-        saveIconEl.className = isSaved ? "w-4 h-4 fill-amber-500 text-amber-500" : "w-4 h-4 text-neutral-700";
+        saveIconEl.setAttribute('class', isSaved ? "w-4 h-4 fill-amber-500 text-amber-500" : "w-4 h-4 text-neutral-700");
+        saveIconEl.setAttribute('fill', isSaved ? 'currentColor' : 'none');
       }
 
       // Render comments
@@ -5628,6 +5630,43 @@ function syncLikedStateToPosts() {
     }
     window.startReplyToPostComment = startReplyToPostComment;
 
+    async function syncNoteLikeToAuthorDoc(note, likerUsername, isNowLiked) {
+      if (!note || !note.author || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
+      const noteAuthor = normalizeUsername(note.author);
+      const likerU = normalizeUsername(likerUsername);
+      if (!noteAuthor) return;
+      try {
+        const { db, doc, getDoc, setDoc } = window.firebase;
+        const ref = doc(db, 'users', noteAuthor);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (!d || !Array.isArray(d.notes)) return;
+        let changed = false;
+        const updatedNotes = d.notes.map(n => {
+          if (n && String(n.id) === String(note.id)) {
+            changed = true;
+            const likedBy = Array.isArray(n.likedBy) ? n.likedBy.map(normalizeUsername) : [];
+            if (isNowLiked) {
+              if (likerU && !likedBy.includes(likerU)) likedBy.push(likerU);
+              n.likes = Math.max((n.likes || 0) + 1, likedBy.length);
+            } else {
+              const idx = likedBy.indexOf(likerU);
+              if (idx !== -1) likedBy.splice(idx, 1);
+              n.likes = Math.max(0, (n.likes || 1) - 1);
+            }
+            n.likedBy = likedBy;
+            note.likes = n.likes;
+          }
+          return n;
+        });
+        if (changed) {
+          await setDoc(ref, { notes: updatedNotes, lastUpdated: Date.now() }, { merge: true });
+        }
+      } catch(e) {}
+    }
+    window.syncNoteLikeToAuthorDoc = syncNoteLikeToAuthorDoc;
+
     function handleNoteModalLikeToggle() {
       if (!state.currentModalNoteId) return;
       const note = getNoteById(state.currentModalNoteId);
@@ -5676,7 +5715,12 @@ function syncLikedStateToPosts() {
           });
         }
       }
+      window._lastLocalLikesWriteTs = Date.now();
+      if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+      state.exploreNotesArchive.set(strId, note);
       saveAccountLikes(curU);
+      if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
+      syncNoteLikeToAuthorDoc(note, curU, !currentlyLiked);
 
       openNoteDetailModal(note.id);
       renderNotes();
@@ -6107,6 +6151,7 @@ function syncLikedStateToPosts() {
       }
       if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
       if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
+      if (typeof syncNoteLikeToAuthorDoc === 'function') syncNoteLikeToAuthorDoc(note, curU, !currentlyLiked);
 
       renderNotes();
       renderLikes();
@@ -9596,7 +9641,9 @@ function syncLikedStateToPosts() {
           if (emptyNotesEl) emptyNotesEl.classList.remove('hidden');
         } else {
           if (emptyNotesEl) emptyNotesEl.classList.add('hidden');
-          notesListEl.innerHTML = creatorNotes.map(n => `
+          notesListEl.innerHTML = creatorNotes.map(n => {
+            const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false;
+            return `
             <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300" onclick="openNoteDetailModal('${n.id}')">
               <div class="flex items-center space-x-2.5">
                 <img src="${creator.avatar}" alt="${creator.username}" class="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0">
@@ -9606,8 +9653,15 @@ function syncLikedStateToPosts() {
                 </div>
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text || '')}</p>
+              <div class="flex items-center space-x-3 pt-1 border-t border-neutral-100 text-xs">
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer">
+                  <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${n.likes || 0}</span>
+                </button>
+              </div>
             </div>
-          `).join('');
+          `;
+          }).join('');
         }
       };
       renderCreatorNotes();
