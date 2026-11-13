@@ -6556,6 +6556,10 @@ function syncLikedStateToPosts() {
     window.handleInstantExploreRefresh = handleInstantExploreRefresh;
 
     function repopulateExploreContent() {
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      (state.explorePosts || []).forEach(p => {
+        if (p && p.id !== undefined) state.explorePostsArchive.set(String(p.id), p);
+      });
       exploreRefreshCycle++;
       const cycle = exploreRefreshCycle;
 
@@ -7025,9 +7029,12 @@ function syncLikedStateToPosts() {
         };
       });
 
-      // Keep archive of all explore posts so liked/saved references never break
+      // Keep archive of all explore posts so liked/saved/replied references never break
       if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
       state.explorePosts.forEach(p => state.explorePostsArchive.set(String(p.id), p));
+      if (window._lastRemoteCommentsMap && typeof applyCommentsMap === 'function') {
+        applyCommentsMap(window._lastRemoteCommentsMap);
+      }
 
       const freshNoteBatches = [
         [
@@ -11256,8 +11263,40 @@ function syncLikedStateToPosts() {
       }
 
       // Load likes and notifications strictly isolated for this specific account
-      loadAccountLikes(cleanUsername);
+      const normLoginU = normalizeUsername(cleanUsername);
+      const hasLocalLikes = (() => {
+        try {
+          return localStorage.getItem('pixly_likes_' + normLoginU) !== null ||
+                 (normLoginU === 'bradley_hansen' && localStorage.getItem('pixly_likes') !== null);
+        } catch(e) { return false; }
+      })();
+      if (hasLocalLikes || !(normLoginU === 'bradley_hansen' && window._likesHydratedFromCloud)) {
+        loadAccountLikes(cleanUsername);
+      } else {
+        syncLikedStateToPosts();
+        saveAccountLikes(cleanUsername);
+      }
       loadAccountNotifications(cleanUsername);
+
+      // Immediately hydrate likes & commentsMap from Firestore on login (critical after cache clear)
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          getDoc(doc(db, 'users', normLoginU)).then(snap => {
+            if (!snap.exists()) return;
+            const d = snap.data();
+            if (!d) return;
+            if (Array.isArray(d.likedPostIds)) {
+              window._likesHydratedFromCloud = true;
+              window.applyLikesFromRemote(d.likedPostIds);
+            }
+            if (d.commentsMap && typeof applyCommentsMap === 'function') {
+              window._commentsHydratedFromCloud = true;
+              applyCommentsMap(d.commentsMap);
+            }
+          }).catch(() => {});
+        } catch(e) {}
+      }
 
       renderStories();
       renderFeed();
