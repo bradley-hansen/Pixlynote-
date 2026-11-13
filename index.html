@@ -2614,7 +2614,7 @@
                   if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
                   renderNotes();
                 }
-                if (Array.isArray(data.likedStoryIds)) {
+                if (Array.isArray(data.likedStoryIds) && normalizeUsername((state.currentUser && state.currentUser.username) || '') === 'bradley_hansen') {
                   const recentlyLikedStory = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
                   if (!snap.metadata.hasPendingWrites && !recentlyLikedStory) {
                     state.likedStoryIds = new Set(data.likedStoryIds.map(String));
@@ -3252,7 +3252,15 @@ function syncLikedStateToPosts() {
         };
 
         const activeU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
-        await setDoc(doc(db, 'users', activeU), payload, { merge: true });
+        const lightLikesPayload = {
+          likedPostIds: payload.likedPostIds,
+          likedNoteIds: payload.likedNoteIds,
+          likedStoryIds: payload.likedStoryIds,
+          savedPostIds: payload.savedPostIds,
+          lastUpdated: Date.now()
+        };
+        await setDoc(doc(db, 'users', activeU), lightLikesPayload, { merge: true });
+        setDoc(doc(db, 'users', activeU), payload, { merge: true }).catch(() => {});
         if (activeU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
           await setDoc(doc(db, 'users', uid), payload, { merge: true });
         }
@@ -9898,6 +9906,13 @@ function syncLikedStateToPosts() {
             }
           }).catch(() => {});
         } catch(e) {}
+        return true;
+      };
+      if (!hydrateLoggedInUserFromDB()) {
+        const fbWait = setInterval(() => {
+          if (hydrateLoggedInUserFromDB()) clearInterval(fbWait);
+        }, 350);
+        setTimeout(() => clearInterval(fbWait), 15000);
       }
 
       // Reset to posts tab
@@ -12163,8 +12178,9 @@ function syncLikedStateToPosts() {
       }
       loadAccountNotifications(cleanUsername);
 
-      // Immediately hydrate likes & commentsMap from Firestore on login (critical after cache clear)
-      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+      // Immediately hydrate likes, stories, notifications & commentsMap from Firestore on login (retries until firebaseReady)
+      const hydrateLoggedInUserFromDB = () => {
+        if (!(window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc)) return false;
         try {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', normLoginU)).then(snap => {
@@ -12222,6 +12238,13 @@ function syncLikedStateToPosts() {
             }
           }).catch(() => {});
         } catch(e) {}
+        return true;
+      };
+      if (!hydrateLoggedInUserFromDB()) {
+        const fbWait = setInterval(() => {
+          if (hydrateLoggedInUserFromDB()) clearInterval(fbWait);
+        }, 350);
+        setTimeout(() => clearInterval(fbWait), 15000);
       }
 
       renderStories();
@@ -14042,7 +14065,7 @@ function syncLikedStateToPosts() {
           if (list) {
             list.innerHTML = comments.map(c => `
               <div class="flex items-start space-x-2.5 py-1.5 border-b border-white/5 last:border-0">
-                <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
+                <img src="${c.userAvatar || (typeof getNoteAuthorAvatar === 'function' ? getNoteAuthorAvatar({ author: c.user }) : BRADLEY_AVATAR_IMAGE)}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center space-x-1.5">
                     <span class="font-bold text-white truncate">@${c.user}</span>
@@ -14072,14 +14095,37 @@ function syncLikedStateToPosts() {
           if (!window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
           try {
             const { db, doc, getDoc } = window.firebase;
-            const snap = await getDoc(doc(db, 'users', targetU));
-            if (!snap.exists()) return;
-            const d = snap.data();
-            if (!d || !d.storyComments) return;
-            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
-            window._remoteUserProfilesCache[targetU] = d;
-            const remoteComments = d.storyComments[String(story.id)];
-            if (Array.isArray(remoteComments)) {
+            let remoteComments = [];
+            try {
+              const scSnap = await getDoc(doc(db, 'storyComments', String(story.id)));
+              if (scSnap.exists()) {
+                const scData = scSnap.data();
+                if (Array.isArray(scData.comments)) remoteComments = scData.comments;
+                const activeCurU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+                if (activeCurU && Array.isArray(scData.likedBy) && scData.likedBy.map(normalizeUsername).includes(activeCurU)) {
+                  if (!state.likedStoryIds) state.likedStoryIds = new Set();
+                  state.likedStoryIds.add(getStoryLikeKey(story));
+                  story.isLiked = true;
+                  if (state.activeStory && String(state.activeStory.id) === String(story.id) && typeof updateStoryHeartUI === 'function') {
+                    updateStoryHeartUI(story);
+                  }
+                }
+              }
+            } catch(e) {}
+            if (remoteComments.length === 0) {
+              const snap = await getDoc(doc(db, 'users', targetU));
+              if (snap.exists()) {
+                const d = snap.data();
+                if (d) {
+                  window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+                  window._remoteUserProfilesCache[targetU] = d;
+                  if (d.storyComments && Array.isArray(d.storyComments[String(story.id)])) {
+                    remoteComments = d.storyComments[String(story.id)];
+                  }
+                }
+              }
+            }
+            if (remoteComments.length > 0) {
               const byId = new Map();
               (story.comments || []).forEach(c => byId.set(String(c.id), c));
               remoteComments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
@@ -14142,22 +14188,32 @@ function syncLikedStateToPosts() {
           state.storyPaused = false;
           showToast(`Reply sent to @${targetU}!`);
 
-          // Merge & persist story comment to Firestore users/<targetU>.storyComments.<storyId>
+          // Merge & persist story comment to dedicated Firestore storyComments/<storyId> doc (lightweight, never hits 1MB limit)
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             try {
               const { db, doc, getDoc, setDoc } = window.firebase;
-              const userRef = doc(db, 'users', targetU);
-              const snap = await getDoc(userRef);
-              const existingMap = (snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
-              const remoteArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
+              const scRef = doc(db, 'storyComments', storyIdStr);
+              const scSnap = await getDoc(scRef);
+              const remoteArr = (scSnap.exists() && Array.isArray(scSnap.data().comments)) ? scSnap.data().comments : [];
+              const slim = (c) => ({
+                id: c.id,
+                user: c.user,
+                userAvatar: (c.userAvatar && c.userAvatar.length < 2000) ? c.userAvatar : '',
+                text: c.text,
+                time: c.time || 'Just now',
+                timestamp: c.timestamp || Date.now()
+              });
               const byId = new Map();
-              remoteArr.forEach(c => byId.set(String(c.id), c));
-              storyRef.comments.forEach(c => byId.set(String(c.id), c));
+              remoteArr.forEach(c => byId.set(String(c.id), slim(c)));
+              storyRef.comments.forEach(c => byId.set(String(c.id), slim(c)));
               const mergedComments = Array.from(byId.values());
               storyRef.comments = mergedComments;
               window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
-              await setDoc(userRef, {
-                storyComments: { [storyIdStr]: mergedComments }
+              await setDoc(scRef, {
+                storyId: storyIdStr,
+                owner: targetU,
+                comments: mergedComments,
+                lastUpdated: Date.now()
               }, { merge: true });
             } catch(e) {}
           }
@@ -14191,6 +14247,20 @@ function syncLikedStateToPosts() {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
           if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            (async () => {
+              try {
+                const { db, doc, getDoc, setDoc } = window.firebase;
+                const scRef = doc(db, 'storyComments', String(state.activeStory.id));
+                const scSnap = await getDoc(scRef);
+                const existing = (scSnap.exists() && Array.isArray(scSnap.data().likedBy)) ? scSnap.data().likedBy.map(normalizeUsername) : [];
+                const nextLikedBy = nowLiked
+                  ? Array.from(new Set([...existing, curU]))
+                  : existing.filter(u => u !== curU);
+                await setDoc(scRef, { storyId: String(state.activeStory.id), likedBy: nextLikedBy, lastUpdated: Date.now() }, { merge: true });
+              } catch(e) {}
+            })();
+          }
           if (nowLiked) {
             const targetU = resolveStoryTargetUser(state.activeStory);
             const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
