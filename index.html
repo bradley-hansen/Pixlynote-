@@ -2352,7 +2352,13 @@
 
                 // 3. Likes on Pictures
                 if (Array.isArray(data.likedPostIds)) {
-                  window.applyLikesFromRemote(data.likedPostIds);
+                  window._likesHydratedFromCloud = true;
+                  const recentlyMutated = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+                  if (!snap.metadata.hasPendingWrites && !recentlyMutated) {
+                    window.applyLikesFromRemote(data.likedPostIds);
+                  } else if (window.pendingLikesSync) {
+                    window.applyLikesFromRemote(data.likedPostIds);
+                  }
                 }
 
                 // 3b. Saved Post IDs from Cloud Firestore
@@ -2435,7 +2441,11 @@
                   }
                 }
                 if (data.commentsMap && typeof applyCommentsMap === 'function') {
-                  applyCommentsMap(data.commentsMap);
+                  window._commentsHydratedFromCloud = true;
+                  const recentlyCommented = (Date.now() - (window._lastLocalCommentsWriteTs || 0)) < 3500;
+                  if (!snap.metadata.hasPendingWrites && !recentlyCommented) {
+                    applyCommentsMap(data.commentsMap);
+                  }
                 }
 
                 // 7. Account Center Accounts backup from user doc
@@ -3014,11 +3024,13 @@ function syncLikedStateToPosts() {
           lastUpdated: Date.now()
         };
 
-        await setDoc(doc(db, 'users', 'bradley_hansen'), payload, { merge: true });
-        if (uid && uid !== 'bradley_hansen') {
+        const activeU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+        await setDoc(doc(db, 'users', activeU), payload, { merge: true });
+        if (activeU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
           await setDoc(doc(db, 'users', uid), payload, { merge: true });
         }
-        console.log("Successfully synced lightweight profile & likes to Firestore users/bradley_hansen");
+        window.pendingLikesSync = false;
+        console.log("Successfully synced lightweight profile & likes to Firestore users/" + activeU);
       } catch (err) {
         console.warn("Firestore sync error:", err);
       }
@@ -3087,19 +3099,30 @@ function syncLikedStateToPosts() {
       let changed = false;
       customPostsArr.forEach(cp => {
         if (state.deletedPostIds && state.deletedPostIds.has(String(cp.id))) return;
-        if (!cp.comments) cp.comments = [];
-        if (!cp.tags) cp.tags = [];
-        if (!cp.comments) cp.comments = [];
-                    if (!cp.tags) cp.tags = [];
-                    if (!state.posts.some(p => String(p.id) === String(cp.id))) {
+        if (!Array.isArray(cp.comments)) cp.comments = [];
+        if (!Array.isArray(cp.tags)) cp.tags = [];
+        const existing = state.posts.find(p => String(p.id) === String(cp.id));
+        if (!existing) {
           state.posts.unshift(cp);
+          changed = true;
+        } else if (cp.comments.length > (existing.comments || []).length) {
+          const byId = new Map((existing.comments || []).map(c => [String(c.id), c]));
+          cp.comments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
+          existing.comments = Array.from(byId.values());
           changed = true;
         }
       });
+      if (window._lastRemoteCommentsMap && typeof applyCommentsMap === 'function') {
+        applyCommentsMap(window._lastRemoteCommentsMap);
+      }
+      syncLikedStateToPosts();
       if (changed) {
         persistState();
         renderFeed();
         renderProfile();
+        renderLikes();
+        if (typeof renderReplies === 'function') renderReplies();
+        if (state.currentModalPostId) openPostDetailModal(state.currentModalPostId);
       }
     };
 
@@ -3159,6 +3182,10 @@ function syncLikedStateToPosts() {
         }
       }
 
+      window._lastLocalLikesWriteTs = Date.now();
+      if (!window.firebaseReady || !window.firebase) {
+        window.pendingLikesSync = true;
+      }
       saveAccountLikes(curU);
       syncLikedStateToPosts();
       persistState();
@@ -3175,16 +3202,23 @@ function syncLikedStateToPosts() {
 
     window.applyLikesFromRemote = function(likedIdsArr) {
       if (!Array.isArray(likedIdsArr)) return;
-      if (!state.likedPostIds) state.likedPostIds = new Set();
-      // MERGE remote likes with local likes so neither is lost
-      likedIdsArr.forEach(id => state.likedPostIds.add(String(id)));
-      const mergedOrder = [
-        ...likedIdsArr.map(String),
-        ...Array.from(state.likedOrder || state.likedPostIds)
-      ];
-      state.likedOrder = Array.from(new Set(mergedOrder));
+      const remoteIds = likedIdsArr.map(String).filter(Boolean);
+      if (window.pendingLikesSync && state.likedPostIds && state.likedPostIds.size > 0) {
+        // Flush offline/pre-init local likes together with remote likes
+        remoteIds.forEach(id => state.likedPostIds.add(id));
+        state.likedOrder = Array.from(new Set([...Array.from(state.likedOrder || state.likedPostIds), ...remoteIds]));
+        window.pendingLikesSync = false;
+        syncAllLikesToFirestore();
+      } else {
+        // Authoritative sync from Firestore so unliked items stay unliked and stale IDs don't reappear
+        state.likedPostIds = new Set(remoteIds);
+        state.likedOrder = Array.from(new Set(remoteIds));
+      }
       syncLikedStateToPosts();
-      persistState();
+      try {
+        const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+        saveAccountLikes(curU);
+      } catch(e) {}
       renderFeed();
       if (state.explorePosts) renderExplore();
       renderLikes();
@@ -3257,11 +3291,16 @@ function syncLikedStateToPosts() {
         if (typeof buildCommentsMap === 'function') {
           const cmap = buildCommentsMap();
           try { localStorage.setItem('pixly_comments_map', JSON.stringify(cmap)); } catch(e) {}
-          if (window.firebaseReady && window.firebase) {
-            try {
-              const { db, doc, setDoc } = window.firebase;
-              setDoc(doc(db, 'users', curU), { commentsMap: cmap }, { merge: true }).catch(() => {});
-            } catch(e) {}
+          if (Object.keys(cmap).length > 0 || window._commentsDirty) {
+            if (window.firebaseReady && window.firebase) {
+              try {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'users', curU), { commentsMap: cmap }, { merge: true }).catch(() => {});
+                window._commentsDirty = false;
+              } catch(e) {}
+            } else {
+              window.pendingCommentsSync = true;
+            }
           }
         }
         
@@ -3489,6 +3528,33 @@ function syncLikedStateToPosts() {
       }
       if (!found && state.explorePostsArchive) {
         found = state.explorePostsArchive.get(strId) || state.explorePostsArchive.get(String(numId));
+      }
+      if (!found && !isNaN(numId) && numId >= 2001 && Array.isArray(window._explorePostBatches) && window._explorePostBatches.length > 0) {
+        const offset = numId - 2000;
+        const cycle = Math.floor((offset - 1) / 20);
+        const idx = (offset - 1) % 20;
+        const batch = window._explorePostBatches[cycle % window._explorePostBatches.length];
+        if (batch && batch[idx]) {
+          const item = batch[idx];
+          const img = COMMUNITY_IMAGES[item.imageIndex % COMMUNITY_IMAGES.length] || COMMUNITY_IMAGES[0];
+          const isLiked = state.likedPostIds ? (state.likedPostIds.has(strId) || state.likedPostIds.has(numId)) : false;
+          found = {
+            id: numId,
+            author: item.author,
+            authorName: item.authorName,
+            authorAvatar: img,
+            location: item.location,
+            image: img,
+            caption: item.caption,
+            tags: item.tags,
+            likes: item.baseLikes + (isLiked ? 1 : 0),
+            isLiked: isLiked,
+            timestamp: "JUST NOW",
+            comments: []
+          };
+          if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+          state.explorePostsArchive.set(strId, found);
+        }
       }
       return found;
     }
@@ -4631,6 +4697,14 @@ function syncLikedStateToPosts() {
               });
             }
             notifyMentionsInText(text, { kind: 'comment', postId: post.id, postImage: post.image });
+            window._lastLocalCommentsWriteTs = Date.now();
+            window._commentsDirty = true;
+            if (typeof post.id === 'number' && post.id > 1000 && !String(post.id).startsWith('20') && window.firebaseReady && window.firebase) {
+              try {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'posts', String(post.id)), { comments: post.comments }, { merge: true }).catch(() => {});
+              } catch(e) {}
+            }
             persistState();
             if (typeof renderReplies === 'function') renderReplies();
             input.value = '';
@@ -5447,8 +5521,14 @@ function syncLikedStateToPosts() {
     window.renderNotes = renderNotes;
 
     function buildCommentsMap() {
-      const map = {};
+      const map = Object.assign({}, window._lastRemoteCommentsMap || {});
       const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach(p => allPosts.push(p));
+      }
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach(p => allPosts.push(p));
+      }
       allPosts.forEach(p => {
         if (p && Array.isArray(p.comments) && p.comments.length > 0) {
           map['post:' + String(p.id)] = p.comments;
@@ -5469,6 +5549,7 @@ function syncLikedStateToPosts() {
 
     function applyCommentsMap(cmap) {
       if (!cmap || typeof cmap !== 'object') return;
+      window._lastRemoteCommentsMap = Object.assign({}, window._lastRemoteCommentsMap || {}, cmap);
       const mergeLists = (localArr, remoteArr) => {
         const byId = new Map();
         (localArr || []).forEach(c => byId.set(String(c.id), c));
@@ -5485,7 +5566,18 @@ function syncLikedStateToPosts() {
         });
         return Array.from(byId.values());
       };
-      [...(state.posts || []), ...(state.explorePosts || [])].forEach(p => {
+      // Reconstruct any explore posts referenced in cmap so replies survive cache clears
+      Object.keys(cmap).forEach(k => {
+        if (k.startsWith('post:')) {
+          const pid = k.slice(5);
+          if (typeof getPostById === 'function') getPostById(pid);
+        }
+      });
+      const postsToMerge = [...(state.posts || []), ...(state.explorePosts || [])];
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach(p => postsToMerge.push(p));
+      }
+      postsToMerge.forEach(p => {
         const key = 'post:' + String(p.id);
         if (Array.isArray(cmap[key])) p.comments = mergeLists(p.comments, cmap[key]);
       });
@@ -5496,6 +5588,11 @@ function syncLikedStateToPosts() {
         if (Array.isArray(cmap[key])) n.comments = mergeLists(n.comments, cmap[key]);
       });
       if (typeof renderReplies === 'function') renderReplies();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (state.explorePosts && typeof renderExplore === 'function') renderExplore();
+      if (state.currentModalPostId && typeof openPostDetailModal === 'function') {
+        openPostDetailModal(state.currentModalPostId);
+      }
     }
     window.applyCommentsMap = applyCommentsMap;
 
@@ -6905,6 +7002,7 @@ function syncLikedStateToPosts() {
         ]
       ];
 
+      window._explorePostBatches = freshPostBatches;
       const chosenBatch = freshPostBatches[cycle % freshPostBatches.length];
       
       state.explorePosts = chosenBatch.map((item, idx) => {
@@ -11443,8 +11541,10 @@ function syncLikedStateToPosts() {
           // Runs in 2.5 seconds (within user-requested 2-5s window) then BAM: new content!
           refreshTimer = setTimeout(() => {
             try {
-              loadPersistedState();
-              if (window.firebaseReady && window.firebase && window.firebase.db) {
+              if (!window._likesHydratedFromCloud) {
+                loadPersistedState();
+              }
+              if (window.firebaseReady && window.firebase && window.firebase.db && (window._likesHydratedFromCloud || window.pendingLikesSync)) {
                 syncAllLikesToFirestore();
               }
               
@@ -12872,6 +12972,14 @@ function syncLikedStateToPosts() {
               }
 
               notifyMentionsInText(text, { kind: 'comment', postId: post.id, postImage: post.image });
+              window._lastLocalCommentsWriteTs = Date.now();
+              window._commentsDirty = true;
+              if (typeof post.id === 'number' && post.id > 1000 && !String(post.id).startsWith('20') && window.firebaseReady && window.firebase) {
+                try {
+                  const { db, doc, setDoc } = window.firebase;
+                  setDoc(doc(db, 'posts', String(post.id)), { comments: post.comments }, { merge: true }).catch(() => {});
+                } catch(e) {}
+              }
               if (input) input.value = '';
               openPostDetailModal(post.id);
               renderFeed();
