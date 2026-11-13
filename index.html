@@ -11035,11 +11035,11 @@ function syncLikedStateToPosts() {
 
     function getStoryLikeKey(story) {
       if (!story) return '';
-      const raw = (story.username || '').trim();
-      if (raw && raw.toLowerCase() !== 'your story') {
-        return 'story_' + normalizeUsername(raw);
+      if (story.id !== undefined && story.id !== null && String(story.id) !== '') {
+        return 'story_' + String(story.id);
       }
-      return 'story_' + String(story.id || 'owner');
+      const raw = (story.username || '').trim();
+      return 'story_' + (raw ? normalizeUsername(raw) : 'owner');
     }
     window.getStoryLikeKey = getStoryLikeKey;
 
@@ -14261,6 +14261,12 @@ function syncLikedStateToPosts() {
           if (isOwnStoryObj(state.activeStory) && Array.isArray(state.userStories)) {
             const delId = String(state.activeStory.id);
             state.userStories = state.userStories.filter(s => String(s.id) !== delId);
+            if (Array.isArray(state.notifications)) {
+              state.notifications = state.notifications.filter(n => !(n && n.storyId !== undefined && String(n.storyId) === delId));
+              if (typeof renderNotifications === 'function') renderNotifications(true);
+              if (typeof saveAccountNotifications === 'function') saveAccountNotifications(curU, true);
+            }
+            if (state.likedStoryIds) state.likedStoryIds.delete('story_' + delId);
             try {
               localStorage.setItem('pixly_user_stories_' + curU, JSON.stringify(state.userStories));
               if (curU === 'bradley_hansen') {
@@ -14274,6 +14280,7 @@ function syncLikedStateToPosts() {
                 setDoc(doc(db, 'users', curU), {
                   userStories: state.userStories,
                   story: state.userStories.length > 0 ? state.userStories[state.userStories.length - 1] : null,
+                  notifications: Array.isArray(state.notifications) ? state.notifications : [],
                   lastUpdated: Date.now()
                 }, { merge: true }).catch(() => {});
               } catch(e) {}
