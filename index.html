@@ -5807,7 +5807,7 @@ function syncLikedStateToPosts() {
         <div class="mt-2 pt-2 border-t border-neutral-100">
           <button type="button" onclick="window._noteSpamFolderOpen = !window._noteSpamFolderOpen; const n = getNoteById('${note.id}'); if (n) renderNoteModalComments(n);" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
             <svg class="w-3.5 h-3.5 transition-transform ${noteSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            <span>Spam folder${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+            <span>Spam${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
           </button>
           ${noteSpamOpen ? `
             <div class="pl-3 mt-1 space-y-1 border-l-2 border-neutral-100">
@@ -7092,7 +7092,7 @@ function syncLikedStateToPosts() {
             <div class="mt-2 pt-2 border-t border-neutral-100">
               <button type="button" onclick="window._postSpamFolderOpen = !window._postSpamFolderOpen; openPostDetailModal('${post.id}');" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
                 <svg class="w-3.5 h-3.5 transition-transform ${postSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                <span>Spam folder${spamPostComments.length > 0 ? ` (${spamPostComments.length})` : ''}</span>
+                <span>Spam${spamPostComments.length > 0 ? ` (${spamPostComments.length})` : ''}</span>
               </button>
               ${postSpamOpen ? `
                 <div class="pl-3 mt-1.5 space-y-2 border-l-2 border-neutral-100">
@@ -14333,7 +14333,7 @@ function syncLikedStateToPosts() {
               <div class="mt-2 pt-2 border-t border-white/10">
                 <button type="button" onclick="window._storySpamFolderOpen = !window._storySpamFolderOpen; if (state.activeStory) window.updateStoryCommentsUI(state.activeStory);" class="flex items-center space-x-1.5 text-xs font-medium text-white/60 hover:text-white/90 py-1 cursor-pointer">
                   <svg class="w-3.5 h-3.5 transition-transform ${storySpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                  <span>Spam folder${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+                  <span>Spam${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
                 </button>
                 ${storySpamOpen ? `
                   <div class="pl-3 mt-1 space-y-1 border-l border-white/10">
