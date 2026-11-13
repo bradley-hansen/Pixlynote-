@@ -1667,11 +1667,64 @@
         <div id="story-viewer-caption" class="hidden absolute bottom-3 inset-x-3 bg-black/60 backdrop-blur-xs text-white text-xs p-2.5 rounded-xl text-center font-medium leading-relaxed"></div>
       </div>
 
-      <!-- Bottom Interactive Reply -->
-      <div class="flex items-center space-x-2">
+      <!-- Owner Bottom Controls (Shown ONLY when viewing your own story) -->
+      <div id="story-owner-controls" class="hidden flex items-center justify-between text-white pt-1">
+        <button type="button" id="btn-story-viewers" class="flex items-center space-x-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer" title="Viewers">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          <span id="story-viewers-count" class="text-xs font-bold">0</span>
+        </button>
+
+        <div class="flex items-center space-x-2">
+          <button type="button" id="btn-story-owner-share" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer" title="Share Story">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          </button>
+          <button type="button" id="btn-story-owner-more" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer" title="More Options">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Viewer Bottom Controls (Shown ONLY when viewing someone else's story) -->
+      <div id="story-viewer-controls" class="flex items-center space-x-2">
         <input type="text" id="story-reply-input" placeholder="Reply to story..." class="flex-1 bg-white/10 text-white placeholder-white/50 text-xs px-3.5 py-2 rounded-full border border-white/20 focus:outline-none focus:border-white">
-        <button type="button" id="btn-story-send-heart" class="p-2 text-rose-500 hover:scale-110 transition" title="Send Love">
-          <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <button type="button" id="btn-story-send-heart" class="p-2 text-white hover:scale-110 transition cursor-pointer" title="Like Story">
+          <svg id="story-heart-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        </button>
+        <button type="button" id="btn-story-viewer-share" class="p-2 text-white/90 hover:text-white transition cursor-pointer" title="Share">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+        </button>
+        <button type="button" id="btn-story-viewer-more" class="p-2 text-white/90 hover:text-white transition cursor-pointer" title="More Options">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
+        </button>
+      </div>
+
+      <!-- Owner Viewers List Sheet -->
+      <div id="story-viewers-sheet" class="hidden absolute inset-x-0 bottom-0 z-20 bg-neutral-900/95 backdrop-blur-md border-t border-white/15 rounded-t-2xl p-4 max-h-[60%] flex flex-col text-white">
+        <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <h4 class="text-xs font-bold">Viewers (<span id="story-viewers-sheet-count">0</span>)</h4>
+          </div>
+          <button type="button" id="btn-close-story-viewers" class="p-1 text-white/70 hover:text-white cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="story-viewers-list" class="flex-1 overflow-y-auto py-2 space-y-2 text-xs"></div>
+      </div>
+
+      <!-- Owner More Options Sheet -->
+      <div id="story-owner-menu" class="hidden absolute inset-x-0 bottom-0 z-20 bg-neutral-900/95 backdrop-blur-md border-t border-white/15 rounded-t-2xl p-3 space-y-1.5 text-white text-xs">
+        <button type="button" id="btn-story-share-to-feed" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/10 font-semibold flex items-center space-x-2.5 cursor-pointer">
+          <span>📸</span><span>Share to Feed</span>
+        </button>
+        <button type="button" id="btn-story-save-photo" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/10 font-semibold flex items-center space-x-2.5 cursor-pointer">
+          <span>💾</span><span>Save Photo</span>
+        </button>
+        <button type="button" id="btn-story-delete" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-500/20 text-rose-400 font-bold flex items-center space-x-2.5 cursor-pointer">
+          <span>🗑️</span><span>Delete Story</span>
+        </button>
+        <button type="button" id="btn-close-story-owner-menu" class="w-full text-center px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 font-semibold mt-1 cursor-pointer">
+          Cancel
         </button>
       </div>
 
@@ -10581,10 +10634,62 @@ function syncLikedStateToPosts() {
     }
     window.toggleNotificationsDropdown = toggleNotificationsDropdown;
 
+    function isOwnStoryObj(story) {
+      if (!story) return false;
+      if (story.isUser === true) return true;
+      const sUser = (story.username || '').toLowerCase().replace(/^@/, '');
+      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+      return sUser === 'your story' || (curU && sUser === curU);
+    }
+
+    function updateStoryHeartUI(story) {
+      const heartBtn = document.getElementById('btn-story-send-heart');
+      const heartIcon = document.getElementById('story-heart-icon');
+      if (!heartBtn || !heartIcon) return;
+      if (story && story.isLiked) {
+        heartBtn.classList.remove('text-white');
+        heartBtn.classList.add('text-rose-500');
+        heartIcon.setAttribute('fill', 'currentColor');
+        heartIcon.setAttribute('stroke', 'none');
+      } else {
+        heartBtn.classList.remove('text-rose-500');
+        heartBtn.classList.add('text-white');
+        heartIcon.setAttribute('fill', 'none');
+        heartIcon.setAttribute('stroke', 'currentColor');
+      }
+    }
+
+    function getStoryViewersList(story) {
+      if (Array.isArray(story && story.viewers) && story.viewers.length > 0) return story.viewers;
+      return (state.following || []).slice(0, 6).map(u => ({
+        username: u.username,
+        fullName: u.fullName || u.username,
+        avatar: u.avatar || BRADLEY_AVATAR_IMAGE
+      }));
+    }
+
+    function startStoryProgressTimer() {
+      const bar = document.getElementById('story-progress-bar');
+      if (!bar) return;
+      clearInterval(state.activeStoryTimer);
+      state.activeStoryTimer = setInterval(() => {
+        if (state.storyPaused) return;
+        state.activeStoryProgress = (state.activeStoryProgress || 0) + 2;
+        bar.style.width = `${state.activeStoryProgress}%`;
+        if (state.activeStoryProgress >= 100) {
+          clearInterval(state.activeStoryTimer);
+          closeStoryViewer();
+        }
+      }, 70);
+    }
+
     function openStoryViewer(idx) {
       const story = state.stories[idx];
       if (!story) return;
       state.activeStory = story;
+      state.activeStoryIndex = idx;
+      state.storyPaused = false;
+      state.activeStoryProgress = 0;
 
       const modal = document.getElementById('modal-story-viewer');
       document.getElementById('story-viewer-avatar').src = story.avatar;
@@ -10601,26 +10706,42 @@ function syncLikedStateToPosts() {
           captionEl.classList.add('hidden');
         }
       }
+
+      // Toggle Owner Controls vs Viewer Reply/Heart Controls
+      const ownerControls = document.getElementById('story-owner-controls');
+      const viewerControls = document.getElementById('story-viewer-controls');
+      const viewersSheet = document.getElementById('story-viewers-sheet');
+      const ownerMenu = document.getElementById('story-owner-menu');
+      if (viewersSheet) viewersSheet.classList.add('hidden');
+      if (ownerMenu) ownerMenu.classList.add('hidden');
+
+      if (isOwnStoryObj(story)) {
+        if (ownerControls) ownerControls.classList.remove('hidden');
+        if (viewerControls) viewerControls.classList.add('hidden');
+        const viewers = getStoryViewersList(story);
+        const countEl = document.getElementById('story-viewers-count');
+        const sheetCountEl = document.getElementById('story-viewers-sheet-count');
+        if (countEl) countEl.textContent = String(viewers.length);
+        if (sheetCountEl) sheetCountEl.textContent = String(viewers.length);
+      } else {
+        if (ownerControls) ownerControls.classList.add('hidden');
+        if (viewerControls) viewerControls.classList.remove('hidden');
+        updateStoryHeartUI(story);
+      }
       
       const bar = document.getElementById('story-progress-bar');
       bar.style.width = '0%';
-      modal.classList.remove('hidden'); modal.style.display = 'flex'; modal.style.display = 'flex';
-
-      // Animate progress bar
-      let progress = 0;
-      clearInterval(state.activeStoryTimer);
-      state.activeStoryTimer = setInterval(() => {
-        progress += 2;
-        bar.style.width = `${progress}%`;
-        if (progress >= 100) {
-          clearInterval(state.activeStoryTimer);
-          closeStoryViewer();
-        }
-      }, 70);
+      modal.classList.remove('hidden'); modal.style.display = 'flex';
+      startStoryProgressTimer();
     }
 
     function closeStoryViewer() {
       clearInterval(state.activeStoryTimer);
+      state.storyPaused = false;
+      const viewersSheet = document.getElementById('story-viewers-sheet');
+      const ownerMenu = document.getElementById('story-owner-menu');
+      if (viewersSheet) viewersSheet.classList.add('hidden');
+      if (ownerMenu) ownerMenu.classList.add('hidden');
       const storyModalEl = document.getElementById('modal-story-viewer'); storyModalEl.classList.add('hidden'); storyModalEl.style.display = 'none';
       state.activeStory = null;
     }
@@ -13343,7 +13464,123 @@ function syncLikedStateToPosts() {
         }
 
         bind('btn-close-story', 'click', closeStoryViewer);
-        bind('btn-story-send-heart', 'click', () => showToast('Sent ❤️ to story author!'));
+        bind('btn-story-send-heart', 'click', () => {
+          if (!state.activeStory || isOwnStoryObj(state.activeStory)) return;
+          state.activeStory.isLiked = !state.activeStory.isLiked;
+          updateStoryHeartUI(state.activeStory);
+          showToast(state.activeStory.isLiked ? 'Liked story ❤️' : 'Removed like');
+        });
+        const storyReplyInput = document.getElementById('story-reply-input');
+        if (storyReplyInput) {
+          storyReplyInput.addEventListener('focus', () => { state.storyPaused = true; });
+          storyReplyInput.addEventListener('blur', () => { state.storyPaused = false; });
+          storyReplyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && storyReplyInput.value.trim()) {
+              e.preventDefault();
+              const targetU = (state.activeStory && state.activeStory.username) || 'author';
+              storyReplyInput.value = '';
+              storyReplyInput.blur();
+              showToast(`Reply sent to ${targetU}!`);
+            }
+          });
+        }
+        bind('btn-story-viewer-share', 'click', () => {
+          if (navigator.clipboard) navigator.clipboard.writeText(window.location.href).catch(() => {});
+          showToast('Story link copied! 🔗');
+        });
+        bind('btn-story-viewer-more', 'click', () => {
+          showToast('Story options: Copy link or Mute');
+        });
+        bind('btn-story-viewers', 'click', () => {
+          if (!state.activeStory) return;
+          state.storyPaused = true;
+          const sheet = document.getElementById('story-viewers-sheet');
+          const list = document.getElementById('story-viewers-list');
+          const viewers = getStoryViewersList(state.activeStory);
+          if (list) {
+            list.innerHTML = viewers.map(v => `
+              <div class="flex items-center justify-between py-1.5 px-1 rounded-lg hover:bg-white/5">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <img src="${v.avatar}" alt="${v.username}" class="w-8 h-8 rounded-full object-cover border border-white/20 flex-shrink-0">
+                  <div class="min-w-0">
+                    <div class="font-bold text-white truncate">${v.fullName}</div>
+                    <div class="text-[10px] text-white/60 truncate">@${v.username}</div>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<div class="text-center text-white/50 py-4">No viewers yet</div>';
+          }
+          if (sheet) sheet.classList.remove('hidden');
+        });
+        bind('btn-close-story-viewers', 'click', () => {
+          const sheet = document.getElementById('story-viewers-sheet');
+          if (sheet) sheet.classList.add('hidden');
+          state.storyPaused = false;
+        });
+        bind('btn-story-owner-share', 'click', () => {
+          if (navigator.clipboard) navigator.clipboard.writeText(window.location.href).catch(() => {});
+          showToast('Story link copied! 🔗');
+        });
+        bind('btn-story-owner-more', 'click', () => {
+          state.storyPaused = true;
+          const menu = document.getElementById('story-owner-menu');
+          if (menu) menu.classList.remove('hidden');
+        });
+        bind('btn-close-story-owner-menu', 'click', () => {
+          const menu = document.getElementById('story-owner-menu');
+          if (menu) menu.classList.add('hidden');
+          state.storyPaused = false;
+        });
+        bind('btn-story-share-to-feed', 'click', () => {
+          if (!state.activeStory) return;
+          const curU = (state.currentUser && state.currentUser.username) || 'bradley_hansen';
+          const newPost = {
+            id: Date.now(),
+            author: curU,
+            authorName: (state.currentUser && state.currentUser.fullName) || curU,
+            authorAvatar: (state.currentUser && state.currentUser.avatar) || state.activeStory.avatar,
+            location: 'Shared from Story',
+            image: state.activeStory.image,
+            caption: state.activeStory.caption || 'Shared from my story ✨',
+            tags: [],
+            likes: 0,
+            isLiked: false,
+            timestamp: 'JUST NOW',
+            comments: []
+          };
+          state.posts.unshift(newPost);
+          if (typeof persistState === 'function') persistState();
+          if (typeof renderFeed === 'function') renderFeed();
+          if (typeof renderProfile === 'function') renderProfile();
+          closeStoryViewer();
+          showToast('Shared story to Feed! ✓');
+        });
+        bind('btn-story-save-photo', 'click', () => {
+          if (!state.activeStory) return;
+          const a = document.createElement('a');
+          a.href = state.activeStory.image;
+          a.download = 'pixlynote-story.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          const menu = document.getElementById('story-owner-menu');
+          if (menu) menu.classList.add('hidden');
+          state.storyPaused = false;
+          showToast('Story photo saved! 💾');
+        });
+        bind('btn-story-delete', 'click', () => {
+          if (!state.activeStory) return;
+          const idx = typeof state.activeStoryIndex === 'number' ? state.activeStoryIndex : -1;
+          if (idx > 0) {
+            state.stories.splice(idx, 1);
+          } else if (state.stories[0]) {
+            state.stories[0].image = PRESET_IMAGES[0].path;
+            state.stories[0].caption = '';
+          }
+          if (typeof renderStories === 'function') renderStories();
+          closeStoryViewer();
+          showToast('Story deleted');
+        });
 
         // Profile subtabs
         const tabBtnPosts = document.getElementById('tab-btn-posts');
