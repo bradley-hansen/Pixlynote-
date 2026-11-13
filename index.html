@@ -2583,6 +2583,16 @@
                   if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
                   renderNotes();
                 }
+                if (Array.isArray(data.likedStoryIds)) {
+                  const recentlyLikedStory = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+                  if (!snap.metadata.hasPendingWrites && !recentlyLikedStory) {
+                    state.likedStoryIds = new Set(data.likedStoryIds.map(String));
+                    if (state.activeStory && typeof getStoryLikeKey === 'function') {
+                      state.activeStory.isLiked = state.likedStoryIds.has(getStoryLikeKey(state.activeStory));
+                      if (typeof updateStoryHeartUI === 'function') updateStoryHeartUI(state.activeStory);
+                    }
+                  }
+                }
                 if (Array.isArray(data.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
                   const recentlyLiked = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
                   if (!snap.metadata.hasPendingWrites && !recentlyLiked) {
@@ -2875,6 +2885,9 @@ function saveAccountLikes(username) {
         if (state.likedNoteOrder) {
           localStorage.setItem('pixly_liked_note_order_' + u, JSON.stringify(state.likedNoteOrder));
         }
+        if (state.likedStoryIds) {
+          localStorage.setItem('pixly_liked_stories_' + u, JSON.stringify(Array.from(state.likedStoryIds).map(String)));
+        }
 
         // Backward compatibility for primary Bradley Hansen account
         if (u === 'bradley_hansen') {
@@ -2937,6 +2950,13 @@ function saveAccountLikes(username) {
         }
       } catch(e) {}
       state.likedNoteOrder = Array.isArray(noteOrder) ? noteOrder.map(String) : Array.from(state.likedNoteIds);
+
+      let likedStories = [];
+      try {
+        const rawStories = localStorage.getItem('pixly_liked_stories_' + u);
+        if (rawStories !== null) likedStories = JSON.parse(rawStories);
+      } catch(e) {}
+      state.likedStoryIds = new Set(Array.isArray(likedStories) ? likedStories.map(String) : []);
 
       syncLikedStateToPosts();
     }
@@ -3192,6 +3212,7 @@ function syncLikedStateToPosts() {
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
           notes: state.notes || [],
           likedNoteIds: likedNotesArr,
+          likedStoryIds: Array.from(new Set(Array.from(state.likedStoryIds || []).map(String))),
           highlights: state.highlights || [],
           photoURL: state.currentUser.avatar,
           avatar: state.currentUser.avatar,
@@ -4091,6 +4112,7 @@ function syncLikedStateToPosts() {
       likedOrder: [],
       deletedPostIds: new Set(),
       likedNoteIds: new Set(),
+      likedStoryIds: new Set(),
       activeStory: null,
       activeStoryTimer: null,
       currentModalPostId: null,
@@ -10873,6 +10895,16 @@ function syncLikedStateToPosts() {
     }
     window.toggleNotificationsDropdown = toggleNotificationsDropdown;
 
+    function getStoryLikeKey(story) {
+      if (!story) return '';
+      const raw = (story.username || '').trim();
+      if (raw && raw.toLowerCase() !== 'your story') {
+        return 'story_' + normalizeUsername(raw);
+      }
+      return 'story_' + String(story.id || 'owner');
+    }
+    window.getStoryLikeKey = getStoryLikeKey;
+
     function isOwnStoryObj(story) {
       if (!story) return false;
       if (story.isUser === true) return true;
@@ -10993,6 +11025,8 @@ function syncLikedStateToPosts() {
       } else {
         if (ownerControls) ownerControls.classList.add('hidden');
         if (viewerControls) viewerControls.classList.remove('hidden');
+        const skey = getStoryLikeKey(story);
+        story.isLiked = Boolean((state.likedStoryIds && state.likedStoryIds.has(skey)) || story.isLiked);
         updateStoryHeartUI(story);
       }
       
@@ -11918,6 +11952,10 @@ function syncLikedStateToPosts() {
             if (Array.isArray(d.likedPostIds)) {
               window._likesHydratedFromCloud = true;
               window.applyLikesFromRemote(d.likedPostIds);
+            }
+            if (Array.isArray(d.likedStoryIds)) {
+              state.likedStoryIds = new Set(d.likedStoryIds.map(String));
+              try { saveAccountLikes(normLoginU); } catch(e) {}
             }
             if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
               window.applyNoteLikesFromRemote(d.likedNoteIds);
@@ -13775,11 +13813,19 @@ function syncLikedStateToPosts() {
         bind('btn-story-send-reply', 'click', submitStoryReply);
         bind('btn-story-send-heart', 'click', () => {
           if (!state.activeStory || isOwnStoryObj(state.activeStory)) return;
-          state.activeStory.isLiked = !state.activeStory.isLiked;
+          if (!state.likedStoryIds) state.likedStoryIds = new Set();
+          const skey = getStoryLikeKey(state.activeStory);
+          const nowLiked = !state.activeStory.isLiked;
+          state.activeStory.isLiked = nowLiked;
+          if (nowLiked) state.likedStoryIds.add(skey);
+          else state.likedStoryIds.delete(skey);
           updateStoryHeartUI(state.activeStory);
-          if (state.activeStory.isLiked) {
+          window._lastLocalLikesWriteTs = Date.now();
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
+          if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
+          if (nowLiked) {
             const targetU = resolveStoryTargetUser(state.activeStory);
-            const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
             const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
             if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
               addNotificationForUser(targetU, {
@@ -13795,7 +13841,7 @@ function syncLikedStateToPosts() {
               });
             }
           }
-          showToast(state.activeStory.isLiked ? 'Liked story ❤️' : 'Removed like');
+          showToast(nowLiked ? 'Liked story ❤️' : 'Removed like');
         });
         const storyReplyInput = document.getElementById('story-reply-input');
         if (storyReplyInput) {
