@@ -3618,7 +3618,7 @@ function syncLikedStateToPosts() {
           isLiked: false,
           timestamp: "4 HOURS AGO",
           comments: [
-            { id: 301, user: "bradley_hansen", text: "The latte art symmetry is spot on! 👏" }
+            { id: 301, user: "latte_artist", text: "The latte art symmetry is spot on! 👏" }
           ]
         },
         {
@@ -3634,7 +3634,7 @@ function syncLikedStateToPosts() {
           isLiked: false,
           timestamp: "2 DAYS AGO",
           comments: [
-            { id: 302, user: "bradley_hansen", text: "Leo is the goodest boy! Look at that face 🐶" },
+            { id: 302, user: "trail_runner", text: "Leo is the goodest boy! Look at that face 🐶" },
             { id: 303, user: "elena_eats", text: "My heart just melted ❤️" }
           ]
         },
@@ -3667,7 +3667,7 @@ function syncLikedStateToPosts() {
           isLiked: false,
           timestamp: "1 DAY AGO",
           comments: [
-            { id: 305, user: "bradley_hansen", text: "Incredible mood in this shot!" }
+            { id: 305, user: "urban_lens", text: "Incredible mood in this shot!" }
           ]
         },
         {
@@ -6555,15 +6555,7 @@ function syncLikedStateToPosts() {
     }
     window.handleInstantExploreRefresh = handleInstantExploreRefresh;
 
-    function repopulateExploreContent() {
-      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
-      (state.explorePosts || []).forEach(p => {
-        if (p && p.id !== undefined) state.explorePostsArchive.set(String(p.id), p);
-      });
-      exploreRefreshCycle++;
-      const cycle = exploreRefreshCycle;
-
-      const freshPostBatches = [
+    const EXPLORE_POST_BATCHES = [
         [
           {
             author: "nordic_trails",
@@ -7006,7 +6998,18 @@ function syncLikedStateToPosts() {
         ]
       ];
 
-      window._explorePostBatches = freshPostBatches;
+
+    window._explorePostBatches = EXPLORE_POST_BATCHES;
+
+    function repopulateExploreContent() {
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      (state.explorePosts || []).forEach(p => {
+        if (p && p.id !== undefined) state.explorePostsArchive.set(String(p.id), p);
+      });
+      exploreRefreshCycle++;
+      const cycle = exploreRefreshCycle;
+
+      const freshPostBatches = window._explorePostBatches || EXPLORE_POST_BATCHES;
       const chosenBatch = freshPostBatches[cycle % freshPostBatches.length];
       
       state.explorePosts = chosenBatch.map((item, idx) => {
