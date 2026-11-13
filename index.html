@@ -1137,6 +1137,10 @@
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
               <span>POSTS</span>
             </button>
+            <button type="button" id="user-tab-btn-notes" class="flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span>NOTES</span>
+            </button>
             <button type="button" id="user-tab-btn-info" class="flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span>INFO & ABOUT</span>
@@ -1150,6 +1154,16 @@
             </div>
             <div id="user-profile-empty-posts" class="hidden py-12 text-center text-xs text-neutral-400">
               No photos posted yet by this creator.
+            </div>
+          </div>
+
+          <!-- Creator Notes View -->
+          <div id="user-profile-notes-view" class="hidden p-3 space-y-2.5">
+            <div id="user-profile-notes-list" class="space-y-2.5">
+              <!-- Dynamically populated -->
+            </div>
+            <div id="user-profile-empty-notes" class="hidden py-12 text-center text-xs text-neutral-400">
+              No notes posted yet by this creator.
             </div>
           </div>
 
@@ -1685,8 +1699,9 @@
       </div>
 
       <!-- Viewer Bottom Controls (Shown ONLY when viewing someone else's story) -->
-      <div id="story-viewer-controls" class="flex items-center space-x-2">
-        <input type="text" id="story-reply-input" placeholder="Reply to story..." class="flex-1 bg-white/10 text-white placeholder-white/50 text-xs px-3.5 py-2 rounded-full border border-white/20 focus:outline-none focus:border-white">
+      <div id="story-viewer-controls" class="flex items-center space-x-1.5">
+        <input type="text" id="story-reply-input" placeholder="Reply to story..." class="flex-1 min-w-0 bg-white/10 text-white placeholder-white/50 text-xs px-3.5 py-2 rounded-full border border-white/20 focus:outline-none focus:border-white">
+        <button type="button" id="btn-story-send-reply" class="px-3 py-2 rounded-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition cursor-pointer flex-shrink-0" title="Send Reply">Reply</button>
         <button type="button" id="btn-story-send-heart" class="p-2 text-white hover:scale-110 transition cursor-pointer" title="Like Story">
           <svg id="story-heart-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
         </button>
@@ -9209,7 +9224,10 @@ function syncLikedStateToPosts() {
         });
       }
 
-      if (posts.length < 3) {
+      const isKnownRealAccount = (typeof isAccountInAccountCenter === 'function' && isAccountInAccountCenter(cleanU)) ||
+        ['bradley_hansen', 'pixlynote', 'digitalassetpro'].includes(cleanU) ||
+        Boolean(window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]);
+      if (!isKnownRealAccount && posts.length < 3) {
         const creator = getCreatorInfo(cleanU);
         const needed = 4 - posts.length;
         const baseId = 8000 + Math.abs(cleanU.split('').reduce((a,c) => a + c.charCodeAt(0), 0)) % 1000;
@@ -9373,21 +9391,20 @@ function syncLikedStateToPosts() {
 
     function switchUserSubTab(tab) {
       const postsView = document.getElementById('user-profile-posts-view');
+      const notesView = document.getElementById('user-profile-notes-view');
       const infoView = document.getElementById('user-profile-info-view');
       const btnPosts = document.getElementById('user-tab-btn-posts');
+      const btnNotes = document.getElementById('user-tab-btn-notes');
       const btnInfo = document.getElementById('user-tab-btn-info');
+      const activeCls = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer";
+      const inactiveCls = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer";
 
-      if (tab === 'info') {
-        if (postsView) postsView.classList.add('hidden');
-        if (infoView) infoView.classList.remove('hidden');
-        if (btnInfo) btnInfo.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer";
-        if (btnPosts) btnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer";
-      } else {
-        if (postsView) postsView.classList.remove('hidden');
-        if (infoView) infoView.classList.add('hidden');
-        if (btnPosts) btnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition cursor-pointer";
-        if (btnInfo) btnInfo.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition cursor-pointer";
-      }
+      if (postsView) postsView.classList.toggle('hidden', tab !== 'posts');
+      if (notesView) notesView.classList.toggle('hidden', tab !== 'notes');
+      if (infoView) infoView.classList.toggle('hidden', tab !== 'info');
+      if (btnPosts) btnPosts.className = (tab === 'posts') ? activeCls : inactiveCls;
+      if (btnNotes) btnNotes.className = (tab === 'notes') ? activeCls : inactiveCls;
+      if (btnInfo) btnInfo.className = (tab === 'info') ? activeCls : inactiveCls;
     }
     window.switchUserSubTab = switchUserSubTab;
 
@@ -9506,6 +9523,96 @@ function syncLikedStateToPosts() {
             });
           });
         }
+      }
+
+      // Render creator's notes (local + Firestore cache)
+      const renderCreatorNotes = (remoteNotes = null) => {
+        const notesListEl = document.getElementById('user-profile-notes-list');
+        const emptyNotesEl = document.getElementById('user-profile-empty-notes');
+        if (!notesListEl) return;
+        const localNotes = (state.notes || []).concat(state.exploreNotes || []).filter(n => normalizeUsername(n.author) === cleanU);
+        const mergedMap = new Map();
+        localNotes.forEach(n => mergedMap.set(String(n.id), n));
+        if (Array.isArray(remoteNotes)) {
+          remoteNotes.forEach(n => {
+            if (n && normalizeUsername(n.author) === cleanU) {
+              mergedMap.set(String(n.id), n);
+              if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+              state.exploreNotesArchive.set(String(n.id), n);
+            }
+          });
+        }
+        const creatorNotes = Array.from(mergedMap.values());
+        if (creatorNotes.length === 0) {
+          notesListEl.innerHTML = '';
+          if (emptyNotesEl) emptyNotesEl.classList.remove('hidden');
+        } else {
+          if (emptyNotesEl) emptyNotesEl.classList.add('hidden');
+          notesListEl.innerHTML = creatorNotes.map(n => `
+            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300" onclick="openNoteDetailModal('${n.id}')">
+              <div class="flex items-center space-x-2.5">
+                <img src="${creator.avatar}" alt="${creator.username}" class="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0">
+                <div>
+                  <div class="font-bold text-xs text-neutral-900">${n.authorName || creator.fullName}</div>
+                  <div class="text-[10px] text-neutral-400">@${creator.username} · ${n.time || 'Just now'}</div>
+                </div>
+              </div>
+              <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text || '')}</p>
+            </div>
+          `).join('');
+        }
+      };
+      renderCreatorNotes();
+
+      // Hydrate real posts & notes from Firestore users/<cleanU> so other accounts see real content instead of demo placeholders
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          getDoc(doc(db, 'users', cleanU)).then(snap => {
+            if (!snap.exists()) return;
+            const d = snap.data();
+            if (!d) return;
+            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            window._remoteUserProfilesCache[cleanU] = d;
+            if (Array.isArray(d.customPosts)) {
+              const realPosts = d.customPosts.filter(p => p && normalizeUsername(p.author) === cleanU);
+              realPosts.forEach(rp => {
+                if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+                state.explorePostsArchive.set(String(rp.id), rp);
+              });
+              if (postsCountEl) postsCountEl.textContent = realPosts.length;
+              if (realPosts.length === 0) {
+                if (gridContainer) gridContainer.innerHTML = '';
+                if (emptyPosts) emptyPosts.classList.remove('hidden');
+              } else {
+                if (emptyPosts) emptyPosts.classList.add('hidden');
+                if (gridContainer) {
+                  gridContainer.innerHTML = realPosts.map(post => `
+                    <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-sm cursor-pointer user-grid-item" data-post-id="${post.id}">
+                      <img src="${post.image}" alt="Photo" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+                      <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
+                        <div class="flex items-center space-x-1">
+                          <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                          <span>${(post.likes || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                          <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                          <span>${post.comments ? post.comments.length : 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('');
+                  gridContainer.querySelectorAll('.user-grid-item').forEach(item => {
+                    item.addEventListener('click', () => openPostDetailModal(item.dataset.postId));
+                  });
+                }
+              }
+            }
+            if (Array.isArray(d.notes)) {
+              renderCreatorNotes(d.notes);
+            }
+          }).catch(() => {});
+        } catch(e) {}
       }
 
       // Reset to posts tab
@@ -12239,6 +12346,7 @@ function syncLikedStateToPosts() {
           btnUserTabPosts.addEventListener('click', () => switchUserSubTab('posts'));
         }
 
+        bind('user-tab-btn-notes', 'click', () => switchUserSubTab('notes'));
         const btnUserTabInfo = document.getElementById('user-tab-btn-info');
         if (btnUserTabInfo) {
           btnUserTabInfo.addEventListener('click', () => switchUserSubTab('info'));
@@ -13498,10 +13606,62 @@ function syncLikedStateToPosts() {
         }
 
         bind('btn-close-story', 'click', closeStoryViewer);
+        const resolveStoryTargetUser = (story) => {
+          if (!story) return 'bradley_hansen';
+          const raw = (story.username || '').trim();
+          if (!raw || raw.toLowerCase() === 'your story') return 'bradley_hansen';
+          return normalizeUsername(raw);
+        };
+
+        const submitStoryReply = () => {
+          const inp = document.getElementById('story-reply-input');
+          if (!inp || !inp.value.trim() || !state.activeStory) return;
+          const replyText = inp.value.trim();
+          const targetU = resolveStoryTargetUser(state.activeStory);
+          const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+          const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+          if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
+            addNotificationForUser(targetU, {
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              type: 'story_reply',
+              fromUser: curU,
+              fromAvatar: curAv,
+              text: `replied to your story: "${replyText.slice(0, 40)}${replyText.length > 40 ? '...' : ''}"`,
+              storyId: state.activeStory.id,
+              time: 'Just now',
+              timestamp: Date.now(),
+              read: false
+            });
+          }
+          inp.value = '';
+          inp.blur();
+          state.storyPaused = false;
+          showToast(`Reply sent to @${targetU}!`);
+        };
+
+        bind('btn-story-send-reply', 'click', submitStoryReply);
         bind('btn-story-send-heart', 'click', () => {
           if (!state.activeStory || isOwnStoryObj(state.activeStory)) return;
           state.activeStory.isLiked = !state.activeStory.isLiked;
           updateStoryHeartUI(state.activeStory);
+          if (state.activeStory.isLiked) {
+            const targetU = resolveStoryTargetUser(state.activeStory);
+            const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+            const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+            if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
+              addNotificationForUser(targetU, {
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                type: 'story_like',
+                fromUser: curU,
+                fromAvatar: curAv,
+                text: 'liked your story ❤️',
+                storyId: state.activeStory.id,
+                time: 'Just now',
+                timestamp: Date.now(),
+                read: false
+              });
+            }
+          }
           showToast(state.activeStory.isLiked ? 'Liked story ❤️' : 'Removed like');
         });
         const storyReplyInput = document.getElementById('story-reply-input');
@@ -13511,10 +13671,7 @@ function syncLikedStateToPosts() {
           storyReplyInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && storyReplyInput.value.trim()) {
               e.preventDefault();
-              const targetU = (state.activeStory && state.activeStory.username) || 'author';
-              storyReplyInput.value = '';
-              storyReplyInput.blur();
-              showToast(`Reply sent to ${targetU}!`);
+              submitStoryReply();
             }
           });
         }
