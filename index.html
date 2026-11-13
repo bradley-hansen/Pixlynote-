@@ -2205,12 +2205,15 @@
       <!-- Header -->
       <div class="p-4 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
         <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+          <button type="button" id="btn-ac-back" class="hidden p-1.5 -ml-1 text-neutral-600 hover:text-neutral-900 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Back">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div id="ac-header-icon" class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-neutral-900">Account Center</h3>
-            <p class="text-[10px] text-neutral-500">Switch or manage authenticated accounts</p>
+            <h3 id="ac-header-title" class="text-sm font-bold text-neutral-900">Account Center</h3>
+            <p id="ac-header-subtitle" class="text-[10px] text-neutral-500">Switch or manage authenticated accounts</p>
           </div>
         </div>
         <button type="button" id="btn-close-account-center" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
@@ -2218,21 +2221,113 @@
         </button>
       </div>
 
-      <!-- Authenticated Accounts List -->
-      <div id="account-center-list" class="flex-1 overflow-y-auto p-3.5 space-y-2.5">
-        <!-- Rendered dynamically -->
+      <!-- VIEW 1: MAIN ACCOUNT CENTER -->
+      <div id="ac-view-main" class="flex-1 flex flex-col min-h-0">
+        <!-- Authenticated Accounts List -->
+        <div class="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+          <div id="account-center-list" class="space-y-2.5">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Current Account Tab -->
+          <div class="pt-2 border-t border-neutral-100">
+            <button type="button" id="btn-ac-open-your-account" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+              <span class="text-xs font-bold text-neutral-900">Account</span>
+              <div class="flex items-center space-x-2 min-w-0">
+                <span id="ac-current-account-handle" class="text-xs font-semibold text-violet-700 truncate">@bradley_hansen</span>
+                <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Account Center Actions -->
+        <div class="p-3.5 border-t border-neutral-100 bg-neutral-50/80 space-y-2">
+          <button type="button" id="btn-ac-login" class="w-full py-2.5 px-4 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center space-x-2 shadow-2xs cursor-pointer">
+            <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+            <span>Log into another account</span>
+          </button>
+          <button type="button" id="btn-ac-signup" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
+            <span>Create a new account</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Account Center Actions -->
-      <div class="p-3.5 border-t border-neutral-100 bg-neutral-50/80 space-y-2">
-        <button type="button" id="btn-ac-login" class="w-full py-2.5 px-4 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center space-x-2 shadow-2xs cursor-pointer">
-          <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-          <span>Log into another account</span>
+      <!-- VIEW 2: YOUR ACCOUNT -->
+      <div id="ac-view-your-account" class="hidden flex-1 overflow-y-auto p-3.5 space-y-2.5">
+        <button type="button" id="btn-ac-tab-account-info" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-neutral-900">Account Info</span>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
-        <button type="button" id="btn-ac-signup" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
-          <span>Create a new account</span>
+
+        <button type="button" id="btn-ac-tab-change-password" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-neutral-900">Change your password</span>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+      </div>
+
+      <!-- VIEW 3: ACCOUNT INFO -->
+      <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
+        <div class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 text-xs">
+            <span class="font-semibold text-neutral-500">@username</span>
+            <span id="ac-info-username" class="font-bold text-neutral-900 text-right truncate ml-4">@bradley_hansen</span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 text-xs">
+            <span class="font-semibold text-neutral-500">Phone</span>
+            <span id="ac-info-phone" class="font-semibold text-neutral-900 text-right truncate ml-4">-</span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 text-xs">
+            <span class="font-semibold text-neutral-500">Email</span>
+            <span id="ac-info-email" class="font-semibold text-neutral-900 text-right truncate ml-4">-</span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 text-xs">
+            <span class="font-semibold text-neutral-500">Country</span>
+            <span id="ac-info-country" class="font-semibold text-neutral-900 text-right truncate ml-4">United States</span>
+          </div>
+        </div>
+
+        <button type="button" id="btn-ac-info-logout" class="w-full py-2.5 px-4 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          <span>Log out</span>
+        </button>
+      </div>
+
+      <!-- VIEW 4: CHANGE YOUR PASSWORD -->
+      <div id="ac-view-change-password" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3.5">
+        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
+          Password reset email delivery isn't connected yet. You can preview the form below, and live updates will work once an email service is configured.
+        </div>
+
+        <form id="form-ac-change-password" class="space-y-3">
+          <div>
+            <label for="ac-pw-current" class="block text-[11px] font-bold text-neutral-700 mb-1">Current password</label>
+            <input type="password" id="ac-pw-current" placeholder="Enter current password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+          </div>
+          <div>
+            <label for="ac-pw-new" class="block text-[11px] font-bold text-neutral-700 mb-1">New password</label>
+            <input type="password" id="ac-pw-new" placeholder="At least 8 characters" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+          </div>
+          <div>
+            <label for="ac-pw-confirm" class="block text-[11px] font-bold text-neutral-700 mb-1">Confirm new password</label>
+            <input type="password" id="ac-pw-confirm" placeholder="Re-enter new password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+          </div>
+          <div id="ac-pw-status" class="hidden text-[11px] font-medium px-3 py-2 rounded-xl"></div>
+          <button type="submit" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-sm cursor-pointer">
+            Update password
+          </button>
+        </form>
       </div>
 
     </div>
@@ -10232,9 +10327,63 @@ function syncLikedStateToPosts() {
     }
     window.isAccountInAccountCenter = isAccountInAccountCenter;
 
+    function setAccountCenterView(viewName) {
+      const views = {
+        main: document.getElementById('ac-view-main'),
+        yourAccount: document.getElementById('ac-view-your-account'),
+        accountInfo: document.getElementById('ac-view-account-info'),
+        changePassword: document.getElementById('ac-view-change-password')
+      };
+      Object.entries(views).forEach(([k, el]) => {
+        if (!el) return;
+        if (k === viewName) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      });
+
+      const backBtn = document.getElementById('btn-ac-back');
+      const iconEl = document.getElementById('ac-header-icon');
+      const titleEl = document.getElementById('ac-header-title');
+      const subEl = document.getElementById('ac-header-subtitle');
+      const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+
+      if (viewName === 'main') {
+        if (backBtn) backBtn.classList.add('hidden');
+        if (iconEl) iconEl.classList.remove('hidden');
+        if (titleEl) titleEl.textContent = 'Account Center';
+        if (subEl) subEl.textContent = 'Switch or manage authenticated accounts';
+      } else if (viewName === 'yourAccount') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'main'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Your Account';
+        if (subEl) subEl.textContent = '@' + curU;
+      } else if (viewName === 'accountInfo') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Account Info';
+        if (subEl) subEl.textContent = '@' + curU;
+        const uEl = document.getElementById('ac-info-username');
+        const pEl = document.getElementById('ac-info-phone');
+        const eEl = document.getElementById('ac-info-email');
+        const cEl = document.getElementById('ac-info-country');
+        if (uEl) uEl.textContent = '@' + curU;
+        if (pEl) pEl.textContent = (state.currentUser && state.currentUser.phone) ? state.currentUser.phone : 'Not set';
+        if (eEl) eEl.textContent = (state.currentUser && state.currentUser.email) ? state.currentUser.email : 'Not set';
+        if (cEl) cEl.textContent = (state.currentUser && state.currentUser.country) ? state.currentUser.country : 'United States';
+      } else if (viewName === 'changePassword') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Change your password';
+        if (subEl) subEl.textContent = '@' + curU;
+        const st = document.getElementById('ac-pw-status');
+        if (st) st.classList.add('hidden');
+      }
+    }
+    window.setAccountCenterView = setAccountCenterView;
+
     function openAccountCenterModal() {
       const modal = document.getElementById('modal-account-center');
       if (!modal) return;
+      setAccountCenterView('main');
       fetchCloudAccountCenter();
       renderAccountCenterList();
       modal.classList.remove('hidden');
@@ -10273,7 +10422,10 @@ function syncLikedStateToPosts() {
       const container = document.getElementById('account-center-list');
       if (!container) return;
       const accounts = getSessionAccounts();
-      const curNorm = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase();
+      const curRaw = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+      const curNorm = curRaw.toLowerCase();
+      const handleEl = document.getElementById('ac-current-account-handle');
+      if (handleEl) handleEl.textContent = '@' + curRaw;
 
       container.innerHTML = accounts.map(acc => {
         const isCurrent = (acc.username || '').toLowerCase() === curNorm;
@@ -11738,6 +11890,48 @@ function syncLikedStateToPosts() {
         bind('btn-switcher-login', 'click', () => openAuthFromSwitcher('login'));
         bind('btn-switcher-signup', 'click', () => openAuthFromSwitcher('signup'));
         bind('btn-close-account-center', 'click', closeAccountCenterModal);
+        bind('btn-ac-back', 'click', () => {
+          const backBtn = document.getElementById('btn-ac-back');
+          setAccountCenterView((backBtn && backBtn.dataset.target) || 'main');
+        });
+        bind('btn-ac-open-your-account', 'click', () => setAccountCenterView('yourAccount'));
+        bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
+        bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
+        bind('btn-ac-info-logout', 'click', () => {
+          closeAccountCenterModal();
+          if (typeof performLogout === 'function') performLogout();
+        });
+        const pwForm = document.getElementById('form-ac-change-password');
+        if (pwForm) {
+          pwForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const curPw = (document.getElementById('ac-pw-current') || {}).value || '';
+            const newPw = (document.getElementById('ac-pw-new') || {}).value || '';
+            const confPw = (document.getElementById('ac-pw-confirm') || {}).value || '';
+            const st = document.getElementById('ac-pw-status');
+            if (!st) return;
+            st.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-amber-50', 'text-amber-800');
+            if (!curPw || !newPw || !confPw) {
+              st.classList.add('bg-rose-50', 'text-rose-700');
+              st.textContent = 'Please fill out all password fields.';
+              return;
+            }
+            if (newPw.length < 8) {
+              st.classList.add('bg-rose-50', 'text-rose-700');
+              st.textContent = 'New password must be at least 8 characters.';
+              return;
+            }
+            if (newPw !== confPw) {
+              st.classList.add('bg-rose-50', 'text-rose-700');
+              st.textContent = 'New passwords do not match.';
+              return;
+            }
+            st.classList.add('bg-amber-50', 'text-amber-800');
+            st.textContent = 'Password change preview ready — email verification is not connected yet, so your password was not changed.';
+            pwForm.reset();
+            if (typeof showToast === 'function') showToast('Email service not connected yet — password not changed');
+          });
+        }
         const modalAccountCenter = document.getElementById('modal-account-center');
         if (modalAccountCenter) {
           modalAccountCenter.addEventListener('click', (e) => {
