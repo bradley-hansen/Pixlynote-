@@ -2580,13 +2580,14 @@
                 // 4. Notes & Liked Notes
                 if (Array.isArray(data.notes) && data.notes.length > 0) {
                   state.notes = data.notes;
-                  if (Array.isArray(data.likedNoteIds)) {
-                    state.notes.forEach(n => {
-                      n.isLiked = data.likedNoteIds.includes(n.id);
-                    });
-                  }
+                  if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
                   renderNotes();
-                  renderLikes();
+                }
+                if (Array.isArray(data.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
+                  const recentlyLiked = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+                  if (!snap.metadata.hasPendingWrites && !recentlyLiked) {
+                    window.applyNoteLikesFromRemote(data.likedNoteIds);
+                  }
                 }
 
                 // 5. Deleted Post IDs
@@ -3182,7 +3183,7 @@ function syncLikedStateToPosts() {
       try {
         const { db, doc, setDoc } = window.firebase;
         const likedArray = Array.from(state.likedOrder || state.likedPostIds || []);
-        const likedNotesArr = (state.notes || []).filter(n => n.isLiked).map(n => n.id);
+        const likedNotesArr = Array.from(new Set(Array.from(state.likedNoteOrder || state.likedNoteIds || []).map(String)));
         const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
         
         // Lightweight user document: stores likes, notes, bio, and avatar (NO heavy posts array to stay well under 1MB)
@@ -3400,6 +3401,34 @@ function syncLikedStateToPosts() {
       renderProfile();
       if (state.currentModalPostId) {
         openPostDetailModal(state.currentModalPostId);
+      }
+    };
+
+    window.applyNoteLikesFromRemote = function(likedNoteIdsArr) {
+      if (!Array.isArray(likedNoteIdsArr)) return;
+      const remoteNoteIds = likedNoteIdsArr.map(String).filter(Boolean);
+      remoteNoteIds.forEach(nid => {
+        if (typeof getNoteById === 'function') getNoteById(nid);
+      });
+      if (window.pendingLikesSync && state.likedNoteIds && state.likedNoteIds.size > 0) {
+        remoteNoteIds.forEach(id => state.likedNoteIds.add(id));
+        state.likedNoteOrder = Array.from(new Set([...Array.from(state.likedNoteOrder || state.likedNoteIds).map(String), ...remoteNoteIds]));
+        window.pendingLikesSync = false;
+        syncAllLikesToFirestore();
+      } else {
+        state.likedNoteIds = new Set(remoteNoteIds);
+        state.likedNoteOrder = Array.from(new Set(remoteNoteIds));
+      }
+      syncLikedStateToPosts();
+      try {
+        const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+        saveAccountLikes(curU);
+      } catch(e) {}
+      if (typeof renderNotes === 'function') renderNotes();
+      if (typeof renderLikes === 'function') renderLikes();
+      if (state.explorePosts && typeof renderExplore === 'function') renderExplore();
+      if (state.currentModalNoteId && typeof openNoteDetailModal === 'function') {
+        openNoteDetailModal(state.currentModalNoteId);
       }
     };
 // --- Comprehensive Persistent Storage Controller (Likes, Notes, Saved, Profile) ---
@@ -6059,6 +6088,25 @@ function syncLikedStateToPosts() {
       // Ensure note is archived
       if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
       state.exploreNotesArchive.set(strId, note);
+
+      window._lastLocalLikesWriteTs = Date.now();
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      if (!currentlyLiked && note.author && normalizeUsername(note.author) !== curU && typeof addNotificationForUser === 'function') {
+        const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+        addNotificationForUser(note.author, {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: 'like_note',
+          fromUser: curU,
+          fromAvatar: curAv,
+          text: `liked your note: "${(note.text || '').slice(0, 36)}${(note.text || '').length > 36 ? '...' : ''}"`,
+          noteId: note.id,
+          time: 'Just now',
+          timestamp: Date.now(),
+          read: false
+        });
+      }
+      if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
+      if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
 
       renderNotes();
       renderLikes();
@@ -11785,9 +11833,16 @@ function syncLikedStateToPosts() {
             if (!snap.exists()) return;
             const d = snap.data();
             if (!d) return;
+            if (Array.isArray(d.notes) && d.notes.length > 0) {
+              state.notes = d.notes;
+              if (typeof renderNotes === 'function') renderNotes();
+            }
             if (Array.isArray(d.likedPostIds)) {
               window._likesHydratedFromCloud = true;
               window.applyLikesFromRemote(d.likedPostIds);
+            }
+            if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
+              window.applyNoteLikesFromRemote(d.likedNoteIds);
             }
             let pendingSid = null;
             try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
