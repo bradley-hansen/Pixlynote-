@@ -10108,6 +10108,17 @@ function syncLikedStateToPosts() {
     }
     window.handleDrawerAccountCenterClick = handleDrawerAccountCenterClick;
 
+    function maskPhoneNumber(phone) {
+      if (!phone) return '';
+      const str = String(phone).trim();
+      const digits = str.replace(/\D/g, '');
+      if (digits.length === 0) return '';
+      if (digits.length <= 2) return str;
+      let seen = 0;
+      const maskCount = digits.length - 2;
+      return str.replace(/\d/g, (d) => (seen++ < maskCount ? '•' : d));
+    }
+
     function renderAccountCenterList() {
       const container = document.getElementById('account-center-list');
       if (!container) return;
@@ -10118,7 +10129,7 @@ function syncLikedStateToPosts() {
         const isCurrent = (acc.username || '').toLowerCase() === curNorm;
         const isBiz = acc.accountType === 'business' || (acc.username || '').toLowerCase() === 'pixlynote';
         const avatarSrc = acc.avatar || (isBiz ? PIXLYNOTE_SHUTTER_ICON : BRADLEY_AVATAR_IMAGE);
-        const phoneLine = acc.phone ? `<div class="text-[10px] text-emerald-700 font-medium flex items-center space-x-1 mt-0.5"><span>📱</span><span>${acc.phone}</span><span>· Authenticated</span></div>` : '';
+        const phoneLine = acc.phone ? `<div class="text-[10px] text-emerald-700 font-medium flex items-center space-x-1 mt-0.5"><span>📱</span><span>${maskPhoneNumber(acc.phone)}</span><span>· Authenticated</span></div>` : '';
 
         return `
           <div class="flex items-center justify-between p-3 rounded-2xl border ${isCurrent ? 'border-violet-300 bg-violet-50/70' : 'border-neutral-200/90 bg-white hover:bg-neutral-50'} transition space-x-2">
