@@ -3050,66 +3050,64 @@ function saveAccountLikes(username) {
     }
     window.loadAccountNotifications = loadAccountNotifications;
 
-    async function addNotificationForUser(targetUsername, notif) {
-      if (!targetUsername || !notif) return;
+    function addNotificationForUser(targetUsername, notif) {
+      if (!targetUsername || !notif) return Promise.resolve();
       const cleanTarget = normalizeUsername(targetUsername);
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+      if (cleanTarget === curU) return Promise.resolve();
 
-      // Avoid self-notifications
-      if (cleanTarget === curU) return;
+      window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
+        let notifs = [];
+        if (window.firebaseReady && window.firebase) {
+          try {
+            const { db, doc, getDoc } = window.firebase;
+            const snap = await getDoc(doc(db, 'users', cleanTarget));
+            if (snap.exists() && Array.isArray(snap.data().notifications)) {
+              notifs = snap.data().notifications;
+            }
+          } catch(e) {}
+        }
 
-      let notifs = [];
-      // Read from Firestore first so we never overwrite another device's notifications
-      if (window.firebaseReady && window.firebase) {
+        if (!Array.isArray(notifs) || notifs.length === 0) {
+          try {
+            const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+            if (raw) notifs = JSON.parse(raw);
+          } catch(e) {}
+        }
+        if (!Array.isArray(notifs)) notifs = [];
+
+        const isDup = notifs.some(n =>
+          n.fromUser === notif.fromUser &&
+          n.type === notif.type &&
+          String(n.postId || '') === String(notif.postId || '') &&
+          String(n.noteId || '') === String(notif.noteId || '') &&
+          String(n.storyId || '') === String(notif.storyId || '') &&
+          String(n.commentId || '') === String(notif.commentId || '') &&
+          (Date.now() - (n.timestamp || 0) < 10000)
+        );
+        if (isDup) return;
+
+        notifs.unshift(notif);
+        if (notifs.length > 100) notifs = notifs.slice(0, 100);
+
         try {
-          const { db, doc, getDoc } = window.firebase;
-          const snap = await getDoc(doc(db, 'users', cleanTarget));
-          if (snap.exists() && Array.isArray(snap.data().notifications)) {
-            notifs = snap.data().notifications;
-          }
+          localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
         } catch(e) {}
-      }
 
-      if (!Array.isArray(notifs) || notifs.length === 0) {
-        try {
-          const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-          if (raw) notifs = JSON.parse(raw);
-        } catch(e) {}
-      }
-      if (!Array.isArray(notifs)) notifs = [];
+        if (window.firebaseReady && window.firebase) {
+          try {
+            const { db, doc, setDoc } = window.firebase;
+            await setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true });
+          } catch(e) {}
+        }
 
-      // Avoid identical duplicate notification within 10 seconds
-      const isDup = notifs.some(n =>
-        n.fromUser === notif.fromUser &&
-        n.type === notif.type &&
-        String(n.postId || '') === String(notif.postId || '') &&
-        String(n.noteId || '') === String(notif.noteId || '') &&
-        String(n.storyId || '') === String(notif.storyId || '') &&
-        String(n.commentId || '') === String(notif.commentId || '') &&
-        (Date.now() - (n.timestamp || 0) < 10000)
-      );
-      if (isDup) return;
-
-      notifs.unshift(notif);
-      if (notifs.length > 100) notifs = notifs.slice(0, 100);
-
-      try {
-        localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
-      } catch(e) {}
-
-      // Cloud Firestore sync for recipient notifications
-      if (window.firebaseReady && window.firebase) {
-        try {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true }).catch(() => {});
-        } catch(e) {}
-      }
-
-      // If viewing user is recipient, update in-memory state & UI immediately
-      if (curU === cleanTarget) {
-        state.notifications = notifs;
-        renderNotifications();
-      }
+        const activeNow = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+        if (activeNow === cleanTarget) {
+          state.notifications = notifs;
+          renderNotifications(true);
+        }
+      }).catch(() => {});
+      return window._notifWriteQueue;
     }
     window.addNotificationForUser = addNotificationForUser;
 
@@ -12194,6 +12192,11 @@ function syncLikedStateToPosts() {
               pruneExpiredUserStories(false);
               if (typeof renderStories === 'function') renderStories();
             }
+            if (Array.isArray(d.notifications)) {
+              state.notifications = d.notifications;
+              try { localStorage.setItem('pixly_notifications_' + normLoginU, JSON.stringify(d.notifications)); } catch(e) {}
+              if (typeof renderNotifications === 'function') renderNotifications(true);
+            }
             if (Array.isArray(d.likedStoryIds)) {
               state.likedStoryIds = new Set(d.likedStoryIds.map(String));
               try { saveAccountLikes(normLoginU); } catch(e) {}
@@ -14273,10 +14276,17 @@ function syncLikedStateToPosts() {
           if (isOwnStoryObj(state.activeStory) && Array.isArray(state.userStories)) {
             const delId = String(state.activeStory.id);
             state.userStories = state.userStories.filter(s => String(s.id) !== delId);
+            const noStoriesLeft = state.userStories.length === 0;
+            const shouldDropNotif = (n) => {
+              if (!n) return false;
+              if (n.storyId !== undefined && String(n.storyId) === delId) return true;
+              if (noStoriesLeft && (n.type === 'story_like' || n.type === 'story_reply')) return true;
+              return false;
+            };
             if (Array.isArray(state.notifications)) {
-              state.notifications = state.notifications.filter(n => !(n && n.storyId !== undefined && String(n.storyId) === delId));
+              state.notifications = state.notifications.filter(n => !shouldDropNotif(n));
+              try { localStorage.setItem('pixly_notifications_' + curU, JSON.stringify(state.notifications)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
-              if (typeof saveAccountNotifications === 'function') saveAccountNotifications(curU, true);
             }
             if (state.likedStoryIds) state.likedStoryIds.delete('story_' + delId);
             try {
