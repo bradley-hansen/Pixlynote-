@@ -5341,8 +5341,16 @@ function syncLikedStateToPosts() {
         };
       }
 
-      // Format likes state
-      const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false;
+      // Format likes state (check both state.likedNoteIds and note.likedBy)
+      const _curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const _likedByMatch = _curU && Array.isArray(note.likedBy) && note.likedBy.map(normalizeUsername).includes(_curU);
+      if (_likedByMatch) {
+        if (!state.likedNoteIds) state.likedNoteIds = new Set();
+        state.likedNoteIds.add(String(note.id));
+        const _numId = parseInt(note.id, 10);
+        if (!isNaN(_numId)) state.likedNoteIds.add(_numId);
+      }
+      const isLiked = _likedByMatch || (state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false);
       if (likesCountEl) likesCountEl.textContent = note.likes || 0;
       if (likeIconEl) {
         likeIconEl.setAttribute('class', isLiked ? "w-4 h-4 fill-rose-500 text-rose-500 transition duration-200" : "w-4 h-4 text-neutral-700 transition duration-200");
@@ -5724,6 +5732,7 @@ function syncLikedStateToPosts() {
 
       openNoteDetailModal(note.id);
       renderNotes();
+      if (typeof window._refreshCreatorNotesUI === 'function') window._refreshCreatorNotesUI();
       renderLikes();
       renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
       persistState();
@@ -6154,6 +6163,7 @@ function syncLikedStateToPosts() {
       if (typeof syncNoteLikeToAuthorDoc === 'function') syncNoteLikeToAuthorDoc(note, curU, !currentlyLiked);
 
       renderNotes();
+      if (typeof window._refreshCreatorNotesUI === 'function') window._refreshCreatorNotesUI();
       renderLikes();
       renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
       if (state.currentModalNoteId && String(state.currentModalNoteId) === strId) {
@@ -9623,6 +9633,7 @@ function syncLikedStateToPosts() {
         const notesListEl = document.getElementById('user-profile-notes-list');
         const emptyNotesEl = document.getElementById('user-profile-empty-notes');
         if (!notesListEl) return;
+        const activeCurU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
         const localNotes = (state.notes || []).concat(state.exploreNotes || []).filter(n => normalizeUsername(n.author) === cleanU);
         const mergedMap = new Map();
         localNotes.forEach(n => mergedMap.set(String(n.id), n));
@@ -9635,6 +9646,13 @@ function syncLikedStateToPosts() {
             }
           });
         }
+        if (state.exploreNotesArchive instanceof Map) {
+          state.exploreNotesArchive.forEach(n => {
+            if (n && normalizeUsername(n.author) === cleanU && !mergedMap.has(String(n.id))) {
+              mergedMap.set(String(n.id), n);
+            }
+          });
+        }
         const creatorNotes = Array.from(mergedMap.values());
         if (creatorNotes.length === 0) {
           notesListEl.innerHTML = '';
@@ -9642,7 +9660,12 @@ function syncLikedStateToPosts() {
         } else {
           if (emptyNotesEl) emptyNotesEl.classList.add('hidden');
           notesListEl.innerHTML = creatorNotes.map(n => {
-            const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false;
+            const likedByMatch = activeCurU && Array.isArray(n.likedBy) && n.likedBy.map(normalizeUsername).includes(activeCurU);
+            if (likedByMatch) {
+              if (!state.likedNoteIds) state.likedNoteIds = new Set();
+              state.likedNoteIds.add(String(n.id));
+            }
+            const isLiked = likedByMatch || (state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false);
             return `
             <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300" onclick="openNoteDetailModal('${n.id}')">
               <div class="flex items-center space-x-2.5">
@@ -9664,6 +9687,7 @@ function syncLikedStateToPosts() {
           }).join('');
         }
       };
+      window._refreshCreatorNotesUI = () => renderCreatorNotes();
       renderCreatorNotes();
 
       // Hydrate real posts & notes from Firestore users/<cleanU> so other accounts see real content instead of demo placeholders
