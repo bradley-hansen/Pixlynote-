@@ -1687,10 +1687,16 @@
 
       <!-- Owner Bottom Controls (Shown ONLY when viewing your own story) -->
       <div id="story-owner-controls" class="hidden flex items-center justify-between text-white pt-1">
-        <button type="button" id="btn-story-viewers" class="flex items-center space-x-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer" title="Viewers">
-          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          <span id="story-viewers-count" class="text-xs font-bold">0</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          <button type="button" id="btn-story-viewers" class="flex items-center space-x-1.5 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer" title="Viewers">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span id="story-viewers-count" class="text-xs font-bold">0</span>
+          </button>
+          <button type="button" id="btn-story-owner-comments" class="flex items-center space-x-1.5 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer" title="View Comments">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <span id="story-owner-comments-count" class="text-xs font-bold">0</span>
+          </button>
+        </div>
 
         <div class="flex items-center space-x-2">
           <button type="button" id="btn-story-owner-share" class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer" title="Share Story">
@@ -1706,6 +1712,10 @@
       <div id="story-viewer-controls" class="flex items-center space-x-1.5">
         <input type="text" id="story-reply-input" placeholder="Reply to story..." class="flex-1 min-w-0 bg-white/10 text-white placeholder-white/50 text-xs px-3.5 py-2 rounded-full border border-white/20 focus:outline-none focus:border-white">
         <button type="button" id="btn-story-send-reply" class="px-3 py-2 rounded-full bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition cursor-pointer flex-shrink-0" title="Send Reply">Reply</button>
+        <button type="button" id="btn-story-viewer-comments" class="flex items-center space-x-1 px-2.5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition cursor-pointer flex-shrink-0" title="View Story Comments">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span id="story-viewer-comments-count">0</span>
+        </button>
         <button type="button" id="btn-story-send-heart" class="p-2 text-white hover:scale-110 transition cursor-pointer" title="Like Story">
           <svg id="story-heart-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
         </button>
@@ -1715,6 +1725,20 @@
         <button type="button" id="btn-story-viewer-more" class="p-2 text-white/90 hover:text-white transition cursor-pointer" title="More Options">
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
         </button>
+      </div>
+
+      <!-- Story Comments Sheet (Owner & Viewers) -->
+      <div id="story-comments-sheet" class="hidden absolute inset-x-0 bottom-0 z-30 bg-neutral-900/95 backdrop-blur-md border-t border-white/15 rounded-t-2xl p-4 max-h-[65%] flex flex-col text-white">
+        <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <h4 class="text-xs font-bold">Comments (<span id="story-comments-sheet-count">0</span>)</h4>
+          </div>
+          <button type="button" id="btn-close-story-comments" class="p-1 text-white/70 hover:text-white cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="story-comments-list" class="flex-1 overflow-y-auto py-2.5 space-y-2.5 text-xs"></div>
       </div>
 
       <!-- Owner Viewers List Sheet -->
@@ -11173,9 +11197,13 @@ function syncLikedStateToPosts() {
       const ownerControls = document.getElementById('story-owner-controls');
       const viewerControls = document.getElementById('story-viewer-controls');
       const viewersSheet = document.getElementById('story-viewers-sheet');
+      const commentsSheet = document.getElementById('story-comments-sheet');
       const ownerMenu = document.getElementById('story-owner-menu');
       if (viewersSheet) viewersSheet.classList.add('hidden');
+      if (commentsSheet) commentsSheet.classList.add('hidden');
       if (ownerMenu) ownerMenu.classList.add('hidden');
+      if (typeof updateStoryCommentsUI === 'function') updateStoryCommentsUI(story);
+      if (typeof fetchStoryCommentsFromFirestore === 'function') fetchStoryCommentsFromFirestore(story);
 
       if (isOwnStoryObj(story)) {
         if (ownerControls) ownerControls.classList.remove('hidden');
@@ -11226,8 +11254,10 @@ function syncLikedStateToPosts() {
       clearInterval(state.activeStoryTimer);
       state.storyPaused = false;
       const viewersSheet = document.getElementById('story-viewers-sheet');
+      const commentsSheet = document.getElementById('story-comments-sheet');
       const ownerMenu = document.getElementById('story-owner-menu');
       if (viewersSheet) viewersSheet.classList.add('hidden');
+      if (commentsSheet) commentsSheet.classList.add('hidden');
       if (ownerMenu) ownerMenu.classList.add('hidden');
       const storyModalEl = document.getElementById('modal-story-viewer'); storyModalEl.classList.add('hidden'); storyModalEl.style.display = 'none';
       state.activeStory = null;
@@ -13983,6 +14013,71 @@ function syncLikedStateToPosts() {
           return normalizeUsername(raw);
         };
 
+        window.updateStoryCommentsUI = (story) => {
+          if (!story) return;
+          const comments = Array.isArray(story.comments) ? story.comments : [];
+          const countStr = String(comments.length);
+          const oCount = document.getElementById('story-owner-comments-count');
+          const vCount = document.getElementById('story-viewer-comments-count');
+          const sCount = document.getElementById('story-comments-sheet-count');
+          if (oCount) oCount.textContent = countStr;
+          if (vCount) vCount.textContent = countStr;
+          if (sCount) sCount.textContent = countStr;
+          const list = document.getElementById('story-comments-list');
+          if (list) {
+            list.innerHTML = comments.map(c => `
+              <div class="flex items-start space-x-2.5 py-1.5 border-b border-white/5 last:border-0">
+                <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-white truncate">@${c.user}</span>
+                    <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                  </div>
+                  <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
+                </div>
+              </div>
+            `).join('') || '<div class="text-center text-white/50 py-6">No comments yet. Be the first to reply!</div>';
+          }
+        };
+
+        window.fetchStoryCommentsFromFirestore = async (story) => {
+          if (!story || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
+          const targetU = resolveStoryTargetUser(story);
+          if (!targetU) return;
+          try {
+            const { db, doc, getDoc } = window.firebase;
+            const snap = await getDoc(doc(db, 'users', targetU));
+            if (!snap.exists()) return;
+            const d = snap.data();
+            if (!d || !d.storyComments) return;
+            const remoteComments = d.storyComments[String(story.id)];
+            if (Array.isArray(remoteComments)) {
+              const byId = new Map();
+              (story.comments || []).forEach(c => byId.set(String(c.id), c));
+              remoteComments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
+              story.comments = Array.from(byId.values());
+              if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+                window.updateStoryCommentsUI(story);
+              }
+            }
+          } catch(e) {}
+        };
+
+        const openStoryCommentsSheet = () => {
+          if (!state.activeStory) return;
+          state.storyPaused = true;
+          window.updateStoryCommentsUI(state.activeStory);
+          const sheet = document.getElementById('story-comments-sheet');
+          if (sheet) sheet.classList.remove('hidden');
+        };
+        bind('btn-story-owner-comments', 'click', openStoryCommentsSheet);
+        bind('btn-story-viewer-comments', 'click', openStoryCommentsSheet);
+        bind('btn-close-story-comments', 'click', () => {
+          const sheet = document.getElementById('story-comments-sheet');
+          if (sheet) sheet.classList.add('hidden');
+          state.storyPaused = false;
+        });
+
         const submitStoryReply = () => {
           const inp = document.getElementById('story-reply-input');
           if (!inp || !inp.value.trim() || !state.activeStory) return;
@@ -13990,6 +14085,29 @@ function syncLikedStateToPosts() {
           const targetU = resolveStoryTargetUser(state.activeStory);
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+
+          if (!Array.isArray(state.activeStory.comments)) state.activeStory.comments = [];
+          const newComment = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            user: curU,
+            userAvatar: curAv,
+            text: replyText,
+            time: 'Just now',
+            timestamp: Date.now()
+          };
+          state.activeStory.comments.push(newComment);
+          window.updateStoryCommentsUI(state.activeStory);
+
+          // Persist story comment to Firestore users/<targetU>.storyComments.<storyId>
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'users', targetU), {
+                storyComments: { [String(state.activeStory.id)]: state.activeStory.comments }
+              }, { merge: true }).catch(() => {});
+            } catch(e) {}
+          }
+
           if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
             addNotificationForUser(targetU, {
               id: Date.now() + Math.floor(Math.random() * 1000),
