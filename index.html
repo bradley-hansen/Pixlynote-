@@ -3165,6 +3165,7 @@ function saveAccountLikes(username) {
 
     function addNotificationForUser(targetUsername, notif) {
       if (!targetUsername || !notif) return Promise.resolve();
+      if (typeof notif.timestamp !== 'number' || !notif.timestamp) notif.timestamp = Date.now();
       const cleanTarget = normalizeUsername(targetUsername);
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
       if (cleanTarget === curU) return Promise.resolve();
@@ -11132,7 +11133,7 @@ function syncLikedStateToPosts() {
             backdrop.classList.remove('hidden');
             backdrop.style.display = 'block';
           }
-          renderNotifications();
+          renderNotifications(true);
         } else {
           dd.classList.add('hidden');
           dd.style.display = 'none';
@@ -11424,6 +11425,30 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Notifications ---
+    function formatNotificationTime(n) {
+      if (!n) return 'Just now';
+      let ts = null;
+      if (typeof n.timestamp === 'number' && n.timestamp > 0) {
+        ts = n.timestamp;
+      } else if (typeof n.id === 'number' && n.id > 1000000000000) {
+        ts = n.id;
+      } else if (typeof n.timestamp === 'string' && !isNaN(Date.parse(n.timestamp))) {
+        ts = Date.parse(n.timestamp);
+      }
+      if (!ts) return n.time || 'Just now';
+      const diffMs = Math.max(0, Date.now() - ts);
+      if (diffMs < 86400000) {
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        return `${hrs}h ago`;
+      }
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    window.formatNotificationTime = formatNotificationTime;
+
     function renderNotifications(force = false) {
       const list = document.getElementById('notifications-list');
       const badge = document.getElementById('notif-badge');
@@ -11478,7 +11503,7 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
                   <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
                 </div>
-                <div class="text-[10px] text-neutral-400 font-medium">${n.time || 'Just now'}</div>
+                <div class="text-[10px] text-neutral-400 font-medium">${formatNotificationTime(n)}</div>
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
