@@ -2651,10 +2651,16 @@
                 window._notificationsHydrated = window._notificationsHydrated || {};
                 window._notificationsHydrated['bradley_hansen'] = true;
                 if (Array.isArray(data.notifications)) {
-                  if (JSON.stringify(data.notifications) !== JSON.stringify(state.notifications)) {
-                    state.notifications = data.notifications;
-                    try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(data.notifications)); } catch(e) {}
-                    if (typeof renderNotifications === 'function') renderNotifications();
+                  let localNotifs = [];
+                  try {
+                    const rawLocal = localStorage.getItem('pixly_notifications_bradley_hansen');
+                    if (rawLocal) localNotifs = JSON.parse(rawLocal);
+                  } catch(e) {}
+                  const merged = mergeNotificationsLists(data.notifications, localNotifs);
+                  if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                    state.notifications = merged;
+                    try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(merged)); } catch(e) {}
+                    if (typeof renderNotifications === 'function') renderNotifications(true);
                   }
                 }
                 if (data.commentsMap && typeof applyCommentsMap === 'function') {
@@ -2692,7 +2698,7 @@
           // Per-account live notifications listener for any active account
           if (!window._notifUnsubMap) window._notifUnsubMap = {};
           window.attachAccountNotificationsListener = function(username) {
-            const cleanU = (username || (state.currentUser && state.currentUser.username) || 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
             if (!cleanU || cleanU === 'bradley_hansen') return;
             if (window._notifUnsubMap[cleanU]) return;
             try {
@@ -2700,11 +2706,19 @@
               window._notifUnsubMap[cleanU] = onSnapshot(uRef, (snap) => {
                 if (!snap.exists()) return;
                 const d = snap.data();
-                const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+                const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
                 if (curU === cleanU && d && Array.isArray(d.notifications)) {
-                  state.notifications = d.notifications;
-                  try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
-                  if (typeof renderNotifications === 'function') renderNotifications();
+                  let localNotifs = [];
+                  try {
+                    const rawLocal = localStorage.getItem('pixly_notifications_' + cleanU);
+                    if (rawLocal) localNotifs = JSON.parse(rawLocal);
+                  } catch(e) {}
+                  const merged = mergeNotificationsLists(d.notifications, localNotifs);
+                  if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                    state.notifications = merged;
+                    try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(merged)); } catch(e) {}
+                    if (typeof renderNotifications === 'function') renderNotifications(true);
+                  }
                 }
               }, () => {});
             } catch(e) {}
@@ -2743,9 +2757,15 @@
             if (Array.isArray(d.notifications)) {
               window._notificationsHydrated = window._notificationsHydrated || {};
               window._notificationsHydrated[cleanU] = true;
-              if (JSON.stringify(d.notifications) !== JSON.stringify(state.notifications)) {
-                state.notifications = d.notifications;
-                try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + cleanU);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const merged = mergeNotificationsLists(d.notifications, localNotifs);
+              if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                state.notifications = merged;
+                try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(merged)); } catch(e) {}
                 if (typeof renderNotifications === 'function') renderNotifications(true);
               }
             }
@@ -3106,6 +3126,79 @@ function saveAccountLikes(username) {
     }
     window.loadAccountLikes = loadAccountLikes;
 
+    // --- Story Comments localStorage & Notification Merge Helpers ---
+    function getLocalStoryComments(targetU, sid) {
+      const u = normalizeUsername(targetU);
+      if (!u || !sid) return [];
+      try {
+        const raw = localStorage.getItem('pixly_story_comments_' + u);
+        if (!raw) return [];
+        const map = JSON.parse(raw);
+        return (map && Array.isArray(map[String(sid)])) ? map[String(sid)] : [];
+      } catch(e) { return []; }
+    }
+    window.getLocalStoryComments = getLocalStoryComments;
+
+    function saveLocalStoryComments(targetU, sid, commentsArr) {
+      const u = normalizeUsername(targetU);
+      if (!u || !sid) return;
+      try {
+        const raw = localStorage.getItem('pixly_story_comments_' + u);
+        const map = raw ? (JSON.parse(raw) || {}) : {};
+        map[String(sid)] = Array.isArray(commentsArr) ? commentsArr : [];
+        localStorage.setItem('pixly_story_comments_' + u, JSON.stringify(map));
+      } catch(e) {}
+    }
+    window.saveLocalStoryComments = saveLocalStoryComments;
+
+    function mergeStoryCommentsLists(...lists) {
+      const byId = new Map();
+      lists.forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(c => {
+          if (!c || c.id === undefined || c.id === null) return;
+          const key = String(c.id);
+          const prev = byId.get(key);
+          if (!prev) {
+            byId.set(key, { ...c });
+          } else {
+            byId.set(key, {
+              ...prev,
+              ...c,
+              isSpam: (typeof c.isSpam === 'boolean') ? c.isSpam : prev.isSpam
+            });
+          }
+        });
+      });
+      return Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    }
+    window.mergeStoryCommentsLists = mergeStoryCommentsLists;
+
+    function mergeNotificationsLists(primaryList, secondaryList) {
+      const deletedSet = window._deletedNotifIds || new Set();
+      const byKey = new Map();
+      const addList = (arr) => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(n => {
+          if (!n) return;
+          const idKey = n.id !== undefined && n.id !== null ? String(n.id) : `${n.type || ''}_${n.fromUser || ''}_${n.storyId || n.postId || n.noteId || ''}_${n.timestamp || 0}`;
+          if (deletedSet.has(idKey)) return;
+          const prev = byKey.get(idKey);
+          if (!prev) {
+            byKey.set(idKey, { ...n });
+          } else {
+            byKey.set(idKey, { ...n, ...prev, read: Boolean(prev.read || n.read) });
+          }
+        });
+      };
+      addList(primaryList);
+      addList(secondaryList);
+      return Array.from(byKey.values())
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 100);
+    }
+    window.mergeNotificationsLists = mergeNotificationsLists;
+
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
     function saveAccountNotifications(username, forceDbWrite = false) {
@@ -3144,14 +3237,19 @@ function saveAccountLikes(username) {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', u)).then((snap) => {
             window._notificationsHydrated[u] = true;
-            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
             if (curU !== u) return;
             if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              const incoming = snap.data().notifications;
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + u);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const incoming = mergeNotificationsLists(snap.data().notifications, localNotifs);
               if (JSON.stringify(incoming) !== JSON.stringify(state.notifications)) {
                 state.notifications = incoming;
                 try { localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications)); } catch(e) {}
-                if (typeof renderNotifications === 'function') renderNotifications();
+                if (typeof renderNotifications === 'function') renderNotifications(true);
               }
             }
           }).catch(() => {});
@@ -3167,43 +3265,53 @@ function saveAccountLikes(username) {
       if (!targetUsername || !notif) return Promise.resolve();
       if (typeof notif.timestamp !== 'number' || !notif.timestamp) notif.timestamp = Date.now();
       const cleanTarget = normalizeUsername(targetUsername);
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-      if (cleanTarget === curU) return Promise.resolve();
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      if (!cleanTarget || cleanTarget === curU) return Promise.resolve();
+
+      // Synchronously update localStorage right away so immediate account switches on localStorage never miss it
+      let localNotifs = [];
+      try {
+        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+        if (raw) localNotifs = JSON.parse(raw);
+      } catch(e) {}
+      if (!Array.isArray(localNotifs)) localNotifs = [];
+
+      const isDupLocal = localNotifs.some(n =>
+        n.fromUser === notif.fromUser &&
+        n.type === notif.type &&
+        String(n.postId || '') === String(notif.postId || '') &&
+        String(n.noteId || '') === String(notif.noteId || '') &&
+        String(n.storyId || '') === String(notif.storyId || '') &&
+        String(n.commentId || '') === String(notif.commentId || '') &&
+        (Date.now() - (n.timestamp || 0) < 10000)
+      );
+      if (isDupLocal) return Promise.resolve();
+
+      localNotifs.unshift(notif);
+      if (localNotifs.length > 100) localNotifs = localNotifs.slice(0, 100);
+      try {
+        localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(localNotifs));
+      } catch(e) {}
 
       window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
-        let notifs = [];
+        let remoteNotifs = [];
         if (window.firebaseReady && window.firebase) {
           try {
             const { db, doc, getDoc } = window.firebase;
             const snap = await getDoc(doc(db, 'users', cleanTarget));
             if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              notifs = snap.data().notifications;
+              remoteNotifs = snap.data().notifications;
             }
           } catch(e) {}
         }
 
-        if (!Array.isArray(notifs) || notifs.length === 0) {
-          try {
-            const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-            if (raw) notifs = JSON.parse(raw);
-          } catch(e) {}
-        }
-        if (!Array.isArray(notifs)) notifs = [];
+        let latestLocal = [];
+        try {
+          const rawLatest = localStorage.getItem('pixly_notifications_' + cleanTarget);
+          if (rawLatest) latestLocal = JSON.parse(rawLatest);
+        } catch(e) {}
 
-        const isDup = notifs.some(n =>
-          n.fromUser === notif.fromUser &&
-          n.type === notif.type &&
-          String(n.postId || '') === String(notif.postId || '') &&
-          String(n.noteId || '') === String(notif.noteId || '') &&
-          String(n.storyId || '') === String(notif.storyId || '') &&
-          String(n.commentId || '') === String(notif.commentId || '') &&
-          (Date.now() - (n.timestamp || 0) < 10000)
-        );
-        if (isDup) return;
-
-        notifs.unshift(notif);
-        if (notifs.length > 100) notifs = notifs.slice(0, 100);
-
+        const notifs = mergeNotificationsLists(latestLocal, remoteNotifs);
         try {
           localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
         } catch(e) {}
@@ -3215,10 +3323,10 @@ function saveAccountLikes(username) {
           } catch(e) {}
         }
 
-        const activeNow = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+        const activeNow = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
         if (activeNow === cleanTarget) {
           state.notifications = notifs;
-          renderNotifications(true);
+          if (typeof renderNotifications === 'function') renderNotifications(true);
         }
       }).catch(() => {});
       return window._notifWriteQueue;
@@ -11342,7 +11450,8 @@ function syncLikedStateToPosts() {
           const slMap = remoteCache.storyLikes || {};
           openStoryQueue(activeRemote.map(s => {
             const sid = String(s.id || ('creator_' + targetU));
-            const remoteComments = Array.isArray(scMap[sid]) ? scMap[sid] : (Array.isArray(s.comments) ? s.comments : []);
+            const localComments = getLocalStoryComments(targetU, sid);
+            const remoteComments = mergeStoryCommentsLists(s.comments, scMap[sid], localComments);
             const remoteLikes = Array.isArray(slMap[sid]) ? slMap[sid] : [];
             const likedInDb = Boolean((curU && remoteLikes.includes(curU)) || (state.likedStoryIds && state.likedStoryIds.has('story_' + sid)));
             return {
@@ -12434,8 +12543,14 @@ function syncLikedStateToPosts() {
               if (typeof renderStories === 'function') renderStories();
             }
             if (Array.isArray(d.notifications)) {
-              state.notifications = d.notifications;
-              try { localStorage.setItem('pixly_notifications_' + normLoginU, JSON.stringify(d.notifications)); } catch(e) {}
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + normLoginU);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const mergedNotifs = mergeNotificationsLists(d.notifications, localNotifs);
+              state.notifications = mergedNotifs;
+              try { localStorage.setItem('pixly_notifications_' + normLoginU, JSON.stringify(mergedNotifs)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
             }
             if (Array.isArray(d.likedStoryIds)) {
@@ -14276,10 +14391,11 @@ function syncLikedStateToPosts() {
           if (!c) return;
           c.isSpam = Boolean(markSpam);
           window.updateStoryCommentsUI(story);
-          showToast(c.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+          showToast(c.isSpam ? 'Moved comment to Spam' : 'Restored comment from Spam');
 
           const targetU = resolveStoryTargetUser(story);
           const sid = String(story.id || ('creator_' + targetU));
+          saveLocalStoryComments(targetU, sid, story.comments);
           window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
           window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
           window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
@@ -14354,14 +14470,13 @@ function syncLikedStateToPosts() {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
           const skey = getStoryLikeKey(story);
 
+          const localCached = getLocalStoryComments(targetU, sid);
           const cachedProfile = window._remoteUserProfilesCache && window._remoteUserProfilesCache[targetU];
           const cachedMap = cachedProfile && cachedProfile.storyComments;
-          if (cachedMap && Array.isArray(cachedMap[sid])) {
-            const byId = new Map();
-            (story.comments || []).forEach(c => byId.set(String(c.id), c));
-            cachedMap[sid].forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-            story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+          const cachedArr = (cachedMap && Array.isArray(cachedMap[sid])) ? cachedMap[sid] : [];
+          if (localCached.length > 0 || cachedArr.length > 0) {
+            story.comments = mergeStoryCommentsLists(story.comments, cachedArr, localCached);
+            if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
               window.updateStoryCommentsUI(story);
             }
           }
@@ -14386,11 +14501,10 @@ function syncLikedStateToPosts() {
 
             if (d.storyComments && Array.isArray(d.storyComments[sid])) {
               const remoteComments = d.storyComments[sid];
-              const byId = new Map();
-              (story.comments || []).forEach(c => byId.set(String(c.id), c));
-              remoteComments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-              story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-              if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+              const latestLocal = getLocalStoryComments(targetU, sid);
+              story.comments = mergeStoryCommentsLists(story.comments, remoteComments, latestLocal);
+              saveLocalStoryComments(targetU, sid, story.comments);
+              if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
                 window.updateStoryCommentsUI(story);
               }
             }
@@ -14458,8 +14572,8 @@ function syncLikedStateToPosts() {
           const storyRef = state.activeStory;
           if (!inp || !inp.value.trim() || !storyRef) return;
           const replyText = inp.value.trim();
-          const storyIdStr = String(storyRef.id);
           const targetU = resolveStoryTargetUser(storyRef);
+          const storyIdStr = String(storyRef.id || ('creator_' + targetU));
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
 
@@ -14472,8 +14586,22 @@ function syncLikedStateToPosts() {
             time: 'Just now',
             timestamp: Date.now()
           };
-          storyRef.comments.push(newComment);
+          storyRef.comments = mergeStoryCommentsLists(storyRef.comments, getLocalStoryComments(targetU, storyIdStr), [newComment]);
           window.updateStoryCommentsUI(storyRef);
+
+          // Persist to localStorage immediately so exiting and returning never loses the comment
+          saveLocalStoryComments(targetU, storyIdStr, storyRef.comments);
+          if (Array.isArray(state.stories)) {
+            const matchBar = state.stories.find(s => s && String(s.id || ('creator_' + resolveStoryTargetUser(s))) === storyIdStr);
+            if (matchBar) matchBar.comments = [...storyRef.comments];
+          }
+          if (targetU === curU && Array.isArray(state.userStories)) {
+            const matchOwn = state.userStories.find(s => s && String(s.id) === storyIdStr);
+            if (matchOwn) {
+              matchOwn.comments = [...storyRef.comments];
+              try { localStorage.setItem('pixly_user_stories_' + curU, JSON.stringify(state.userStories)); } catch(e) {}
+            }
+          }
 
           // Update in-memory remote cache immediately
           window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
@@ -14494,11 +14622,9 @@ function syncLikedStateToPosts() {
               const snap = await getDoc(userRef);
               const existingMap = (snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
               const remoteArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
-              const byId = new Map();
-              remoteArr.forEach(c => byId.set(String(c.id), c));
-              storyRef.comments.forEach(c => byId.set(String(c.id), c));
-              const mergedComments = Array.from(byId.values());
+              const mergedComments = mergeStoryCommentsLists(remoteArr, storyRef.comments, getLocalStoryComments(targetU, storyIdStr));
               storyRef.comments = mergedComments;
+              saveLocalStoryComments(targetU, storyIdStr, mergedComments);
               window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
               await setDoc(userRef, {
                 storyComments: { [storyIdStr]: mergedComments }
@@ -14688,6 +14814,12 @@ function syncLikedStateToPosts() {
               return false;
             };
             if (Array.isArray(state.notifications)) {
+              window._deletedNotifIds = window._deletedNotifIds || new Set();
+              state.notifications.forEach(n => {
+                if (shouldDropNotif(n) && n && n.id !== undefined && n.id !== null) {
+                  window._deletedNotifIds.add(String(n.id));
+                }
+              });
               state.notifications = state.notifications.filter(n => !shouldDropNotif(n));
               try { localStorage.setItem('pixly_notifications_' + curU, JSON.stringify(state.notifications)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
