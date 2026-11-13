@@ -777,8 +777,8 @@
                 <div class="space-y-0.5">
                   <div class="flex items-center justify-center sm:justify-start space-x-1.5">
                     <h1 class="text-xl font-bold text-neutral-900" id="profile-page-username">bradley_hansen</h1>
-                    <!-- Pixlynote Verified Badge (Violet) -->
-                    <svg class="w-4 h-4 text-violet-600 fill-current" viewBox="0 0 24 24">
+                    <!-- Pixlynote Verified Badge (Blue - driven by Firestore isVerified) -->
+                    <svg id="profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" title="Verified Subscriber" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
                   </div>
@@ -2524,6 +2524,13 @@
                   state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
                   renderProfile();
                   renderFeed();
+                }
+
+                // 5b. Subscription Verified Badge from Cloud Firestore
+                if (typeof data.isVerified === 'boolean') {
+                  state.currentUser.isVerified = data.isVerified;
+                  state.currentUser.subscriptionStatus = data.subscriptionStatus || (data.isVerified ? 'active' : 'inactive');
+                  if (typeof renderProfile === 'function') renderProfile();
                 }
 
                 // 6. Heart Notifications from Cloud Firestore
@@ -4905,6 +4912,16 @@ function syncLikedStateToPosts() {
       const nameEl = document.getElementById('profile-full-name');
       if (nameEl) nameEl.textContent = isPixly ? 'Pixlynote' : (state.currentUser.fullName || state.currentUser.username);
       
+      // Blue Verified Checkmark (Firestore subscription status)
+      const verifiedBadge = document.getElementById('profile-verified-badge');
+      if (verifiedBadge) {
+        if (state.currentUser && state.currentUser.isVerified === true) {
+          verifiedBadge.classList.remove('hidden');
+        } else {
+          verifiedBadge.classList.add('hidden');
+        }
+      }
+
       // Business Badge
       const bizBadge = document.getElementById('profile-business-badge');
       if (bizBadge) {
@@ -11488,6 +11505,13 @@ function syncLikedStateToPosts() {
               window._likesHydratedFromCloud = true;
               window.applyLikesFromRemote(d.likedPostIds);
             }
+            if (typeof d.isVerified === 'boolean') {
+              state.currentUser.isVerified = d.isVerified;
+              state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
+              if (typeof renderProfile === 'function') renderProfile();
+            } else {
+              state.currentUser.isVerified = false;
+            }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
               applyCommentsMap(d.commentsMap);
@@ -13966,6 +13990,16 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
+      const buyBtn = document.getElementById('pixly-stripe-buy-btn');
+      if (buyBtn && state.currentUser && state.currentUser.username) {
+        const cleanU = normalizeUsername(state.currentUser.username);
+        if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
+        if (state.currentUser.email && state.currentUser.email.includes('@')) {
+          buyBtn.setAttribute('customer-email', state.currentUser.email.trim());
+        } else {
+          buyBtn.removeAttribute('customer-email');
+        }
+      }
       if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -14077,6 +14111,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       </div>
       <div class="p-4 overflow-y-auto flex flex-col items-center justify-center bg-neutral-50/50">
         <stripe-buy-button
+          id="pixly-stripe-buy-btn"
           buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
           publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
         >
