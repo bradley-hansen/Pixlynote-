@@ -5645,6 +5645,43 @@ function syncLikedStateToPosts() {
     }
     window.closeNoteDetailModal = closeNoteDetailModal;
 
+    function isSpamComment(comment) {
+      if (!comment) return false;
+      if (comment.isSpam === true) return true;
+      if (comment.isSpam === false) return false;
+      const txt = String(comment.text || '').trim();
+      if (!txt) return false;
+      if (/(https?:\/\/|www\.|bit\.ly|tinyurl\.com|t\.me\/|wa\.me\/|linktr\.ee)/i.test(txt)) return true;
+      if (/(\bfree\s+(followers|likes|crypto|money|cash|giveaway|iphone)\b|\bdm\s+(me|for)\b|\bclick\s+(link|here|my\s+bio)\b|\bcheck\s+(my\s+)?(bio|profile|link)\b|\b(buy\s+followers|cashapp|whatsapp\s*\+|telegram\s*@|onlyfans|guaranteed\s+profit|crypto\s+pump|airdrop\s+claim)\b)/i.test(txt)) return true;
+      if (/(.)\1{7,}/.test(txt)) return true;
+      return false;
+    }
+    window.isSpamComment = isSpamComment;
+
+    function toggleNoteCommentSpam(noteId, commentId, markSpam) {
+      const note = getNoteById(noteId);
+      if (!note || !note.comments) return;
+      const comment = note.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      comment.isSpam = Boolean(markSpam);
+      renderNoteModalComments(note);
+      persistState();
+      showToast(comment.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+    }
+    window.toggleNoteCommentSpam = toggleNoteCommentSpam;
+
+    function togglePostCommentSpam(postId, commentId, markSpam) {
+      const post = getPostById(postId);
+      if (!post || !post.comments) return;
+      const comment = post.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      comment.isSpam = Boolean(markSpam);
+      openPostDetailModal(post.id);
+      persistState();
+      showToast(comment.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+    }
+    window.togglePostCommentSpam = togglePostCommentSpam;
+
     function toggleLikeNoteComment(noteId, commentId, replyId = null) {
       const note = getNoteById(noteId);
       if (!note || !note.comments) return;
@@ -5699,18 +5736,12 @@ function syncLikedStateToPosts() {
       if (!listEl) return;
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
-      const comments = note.comments || [];
+      const allComments = note.comments || [];
+      const comments = allComments.filter(c => !isSpamComment(c));
+      const spamComments = allComments.filter(c => isSpamComment(c));
       if (countEl) countEl.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
 
-      if (comments.length === 0) {
-        listEl.innerHTML = `
-          <div class="py-6 text-center text-xs text-neutral-400 space-y-1">
-            <p class="font-medium text-neutral-600">No comments yet</p>
-            <p class="text-[11px]">Be the first to reply or share your vibe on this note!</p>
-          </div>
-        `;
-      } else {
-        listEl.innerHTML = comments.map(c => {
+      const renderNoteCommentItem = (c, inSpam = false) => {
           const userAvatar = c.userAvatar || (getCreatorInfo(c.user).avatar) || COMMUNITY_IMAGES[0];
           const isLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
           const likesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
@@ -5756,13 +5787,37 @@ function syncLikedStateToPosts() {
                 <p class="text-neutral-700 mt-0.5 leading-relaxed">${escapeHtml(c.text)}</p>
                 <div class="mt-1">
                   <button type="button" onclick="startReplyToNoteComment('${note.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                  <button type="button" onclick="toggleNoteCommentSpam('${note.id}', '${c.id}', ${inSpam ? 'false' : 'true'})" class="text-[10px] font-semibold text-neutral-400 hover:text-rose-500 cursor-pointer ml-2">${inSpam ? 'Not spam' : 'Spam'}</button>
                 </div>
                 ${repliesHtml}
               </div>
             </div>
           `;
-        }).join('');
-      }
+      };
+
+      const normalHtml = comments.length === 0 ? `
+          <div class="py-5 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-600">No comments yet</p>
+            <p class="text-[11px]">Be the first to reply or share your vibe on this note!</p>
+          </div>
+        ` : comments.map(c => renderNoteCommentItem(c, false)).join('');
+
+      const noteSpamOpen = Boolean(window._noteSpamFolderOpen);
+      const spamFolderHtml = `
+        <div class="mt-2 pt-2 border-t border-neutral-100">
+          <button type="button" onclick="window._noteSpamFolderOpen = !window._noteSpamFolderOpen; const n = getNoteById('${note.id}'); if (n) renderNoteModalComments(n);" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5 transition-transform ${noteSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span>Spam folder${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+          </button>
+          ${noteSpamOpen ? `
+            <div class="pl-3 mt-1 space-y-1 border-l-2 border-neutral-100">
+              ${spamComments.length > 0 ? spamComments.map(c => renderNoteCommentItem(c, true)).join('') : '<div class="py-2 text-[11px] text-neutral-400">No spam comments</div>'}
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      listEl.innerHTML = normalHtml + spamFolderHtml;
     }
 
     function submitNoteModalComment() {
@@ -6983,7 +7038,11 @@ function syncLikedStateToPosts() {
         </div>
 
         <!-- Comments -->
-        ${(post.comments || []).map(c => {
+        ${(() => {
+          const allPostComments = post.comments || [];
+          const normalPostComments = allPostComments.filter(c => !isSpamComment(c));
+          const spamPostComments = allPostComments.filter(c => isSpamComment(c));
+          const renderPostCommentItem = (c, inSpam = false) => {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const cLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
           const cLikesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
@@ -7016,6 +7075,7 @@ function syncLikedStateToPosts() {
                 </div>
                 <div class="mt-0.5">
                   <button type="button" onclick="startReplyToPostComment('${post.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                  <button type="button" onclick="togglePostCommentSpam('${post.id}', '${c.id}', ${inSpam ? 'false' : 'true'})" class="text-[10px] font-semibold text-neutral-400 hover:text-rose-500 cursor-pointer ml-2">${inSpam ? 'Not spam' : 'Spam'}</button>
                 </div>
                 ${repliesHtml}
               </div>
@@ -7025,7 +7085,24 @@ function syncLikedStateToPosts() {
               ${cLikesCount > 0 ? `<span class="text-[10px]">${cLikesCount}</span>` : ''}
             </button>
           </div>`;
-        }).join('')}
+          };
+          const postSpamOpen = Boolean(window._postSpamFolderOpen);
+          const normalHtml = normalPostComments.map(c => renderPostCommentItem(c, false)).join('');
+          const spamFolderHtml = `
+            <div class="mt-2 pt-2 border-t border-neutral-100">
+              <button type="button" onclick="window._postSpamFolderOpen = !window._postSpamFolderOpen; openPostDetailModal('${post.id}');" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5 transition-transform ${postSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span>Spam folder${spamPostComments.length > 0 ? ` (${spamPostComments.length})` : ''}</span>
+              </button>
+              ${postSpamOpen ? `
+                <div class="pl-3 mt-1.5 space-y-2 border-l-2 border-neutral-100">
+                  ${spamPostComments.length > 0 ? spamPostComments.map(c => renderPostCommentItem(c, true)).join('') : '<div class="py-1.5 text-[11px] text-neutral-400">No spam comments</div>'}
+                </div>
+              ` : ''}
+            </div>
+          `;
+          return normalHtml + spamFolderHtml;
+        })()}
       `;
 
       modal.classList.remove('hidden'); modal.style.display = 'flex'; modal.style.display = 'flex';
@@ -14192,9 +14269,37 @@ function syncLikedStateToPosts() {
           return normalizeUsername(raw);
         };
 
+        window.toggleStoryCommentSpam = async (commentId, markSpam) => {
+          const story = state.activeStory;
+          if (!story || !Array.isArray(story.comments)) return;
+          const c = story.comments.find(item => String(item.id) === String(commentId));
+          if (!c) return;
+          c.isSpam = Boolean(markSpam);
+          window.updateStoryCommentsUI(story);
+          showToast(c.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+
+          const targetU = resolveStoryTargetUser(story);
+          const sid = String(story.id || ('creator_' + targetU));
+          window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+          window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+          window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
+          window._remoteUserProfilesCache[targetU].storyComments[sid] = [...story.comments];
+
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              await setDoc(doc(db, 'users', targetU), {
+                storyComments: { [sid]: story.comments }
+              }, { merge: true });
+            } catch(e) {}
+          }
+        };
+
         window.updateStoryCommentsUI = (story) => {
           if (!story) return;
-          const comments = Array.isArray(story.comments) ? story.comments : [];
+          const allComments = Array.isArray(story.comments) ? story.comments : [];
+          const comments = allComments.filter(c => !isSpamComment(c));
+          const spamComments = allComments.filter(c => isSpamComment(c));
           const countStr = String(comments.length);
           const oCount = document.getElementById('story-owner-comments-count');
           const vCount = document.getElementById('story-viewer-comments-count');
@@ -14204,18 +14309,40 @@ function syncLikedStateToPosts() {
           if (sCount) sCount.textContent = countStr;
           const list = document.getElementById('story-comments-list');
           if (list) {
-            list.innerHTML = comments.map(c => `
+            const renderStoryCommentItem = (c, inSpam = false) => `
               <div class="flex items-start space-x-2.5 py-1.5 border-b border-white/5 last:border-0">
                 <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="font-bold text-white truncate">@${c.user}</span>
-                    <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                  <div class="flex items-center justify-between space-x-2">
+                    <div class="flex items-center space-x-1.5 min-w-0">
+                      <span class="font-bold text-white truncate">@${c.user}</span>
+                      <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                    </div>
+                    <button type="button" onclick="window.toggleStoryCommentSpam('${c.id}', ${inSpam ? 'false' : 'true'})" class="text-[10px] font-semibold text-white/40 hover:text-rose-400 cursor-pointer flex-shrink-0">${inSpam ? 'Not spam' : 'Spam'}</button>
                   </div>
                   <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
                 </div>
               </div>
-            `).join('') || '<div class="text-center text-white/50 py-6">No comments yet. Be the first to reply!</div>';
+            `;
+            const normalHtml = comments.length > 0
+              ? comments.map(c => renderStoryCommentItem(c, false)).join('')
+              : '<div class="text-center text-white/50 py-4">No comments yet. Be the first to reply!</div>';
+
+            const storySpamOpen = Boolean(window._storySpamFolderOpen);
+            const spamFolderHtml = `
+              <div class="mt-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="window._storySpamFolderOpen = !window._storySpamFolderOpen; if (state.activeStory) window.updateStoryCommentsUI(state.activeStory);" class="flex items-center space-x-1.5 text-xs font-medium text-white/60 hover:text-white/90 py-1 cursor-pointer">
+                  <svg class="w-3.5 h-3.5 transition-transform ${storySpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>Spam folder${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+                </button>
+                ${storySpamOpen ? `
+                  <div class="pl-3 mt-1 space-y-1 border-l border-white/10">
+                    ${spamComments.length > 0 ? spamComments.map(c => renderStoryCommentItem(c, true)).join('') : '<div class="py-2 text-[11px] text-white/40">No spam comments</div>'}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+            list.innerHTML = normalHtml + spamFolderHtml;
           }
         };
 
