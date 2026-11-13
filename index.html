@@ -14056,15 +14056,28 @@ function syncLikedStateToPosts() {
         };
 
         window.fetchStoryCommentsFromFirestore = async (story) => {
-          if (!story || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
+          if (!story) return;
           const targetU = resolveStoryTargetUser(story);
           if (!targetU) return;
+          const cachedMap = window._remoteUserProfilesCache && window._remoteUserProfilesCache[targetU] && window._remoteUserProfilesCache[targetU].storyComments;
+          if (cachedMap && Array.isArray(cachedMap[String(story.id)])) {
+            const byId = new Map();
+            (story.comments || []).forEach(c => byId.set(String(c.id), c));
+            cachedMap[String(story.id)].forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
+            story.comments = Array.from(byId.values());
+            if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+              window.updateStoryCommentsUI(story);
+            }
+          }
+          if (!window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
           try {
             const { db, doc, getDoc } = window.firebase;
             const snap = await getDoc(doc(db, 'users', targetU));
             if (!snap.exists()) return;
             const d = snap.data();
             if (!d || !d.storyComments) return;
+            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            window._remoteUserProfilesCache[targetU] = d;
             const remoteComments = d.storyComments[String(story.id)];
             if (Array.isArray(remoteComments)) {
               const byId = new Map();
@@ -14082,6 +14095,9 @@ function syncLikedStateToPosts() {
           if (!state.activeStory) return;
           state.storyPaused = true;
           window.updateStoryCommentsUI(state.activeStory);
+          if (typeof window.fetchStoryCommentsFromFirestore === 'function') {
+            window.fetchStoryCommentsFromFirestore(state.activeStory);
+          }
           const sheet = document.getElementById('story-comments-sheet');
           if (sheet) sheet.classList.remove('hidden');
         };
@@ -14093,15 +14109,17 @@ function syncLikedStateToPosts() {
           state.storyPaused = false;
         });
 
-        const submitStoryReply = () => {
+        const submitStoryReply = async () => {
           const inp = document.getElementById('story-reply-input');
-          if (!inp || !inp.value.trim() || !state.activeStory) return;
+          const storyRef = state.activeStory;
+          if (!inp || !inp.value.trim() || !storyRef) return;
           const replyText = inp.value.trim();
-          const targetU = resolveStoryTargetUser(state.activeStory);
+          const storyIdStr = String(storyRef.id);
+          const targetU = resolveStoryTargetUser(storyRef);
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
 
-          if (!Array.isArray(state.activeStory.comments)) state.activeStory.comments = [];
+          if (!Array.isArray(storyRef.comments)) storyRef.comments = [];
           const newComment = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             user: curU,
@@ -14110,16 +14128,37 @@ function syncLikedStateToPosts() {
             time: 'Just now',
             timestamp: Date.now()
           };
-          state.activeStory.comments.push(newComment);
-          window.updateStoryCommentsUI(state.activeStory);
+          storyRef.comments.push(newComment);
+          window.updateStoryCommentsUI(storyRef);
 
-          // Persist story comment to Firestore users/<targetU>.storyComments.<storyId>
+          // Update in-memory remote cache immediately
+          window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+          window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+          window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
+          window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = [...storyRef.comments];
+
+          inp.value = '';
+          inp.blur();
+          state.storyPaused = false;
+          showToast(`Reply sent to @${targetU}!`);
+
+          // Merge & persist story comment to Firestore users/<targetU>.storyComments.<storyId>
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             try {
-              const { db, doc, setDoc } = window.firebase;
-              setDoc(doc(db, 'users', targetU), {
-                storyComments: { [String(state.activeStory.id)]: state.activeStory.comments }
-              }, { merge: true }).catch(() => {});
+              const { db, doc, getDoc, setDoc } = window.firebase;
+              const userRef = doc(db, 'users', targetU);
+              const snap = await getDoc(userRef);
+              const existingMap = (snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
+              const remoteArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
+              const byId = new Map();
+              remoteArr.forEach(c => byId.set(String(c.id), c));
+              storyRef.comments.forEach(c => byId.set(String(c.id), c));
+              const mergedComments = Array.from(byId.values());
+              storyRef.comments = mergedComments;
+              window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
+              await setDoc(userRef, {
+                storyComments: { [storyIdStr]: mergedComments }
+              }, { merge: true });
             } catch(e) {}
           }
 
@@ -14130,16 +14169,12 @@ function syncLikedStateToPosts() {
               fromUser: curU,
               fromAvatar: curAv,
               text: `replied to your story: "${replyText.slice(0, 40)}${replyText.length > 40 ? '...' : ''}"`,
-              storyId: state.activeStory.id,
+              storyId: storyRef.id,
               time: 'Just now',
               timestamp: Date.now(),
               read: false
             });
           }
-          inp.value = '';
-          inp.blur();
-          state.storyPaused = false;
-          showToast(`Reply sent to @${targetU}!`);
         };
 
         bind('btn-story-send-reply', 'click', submitStoryReply);
@@ -14178,7 +14213,7 @@ function syncLikedStateToPosts() {
         const storyReplyInput = document.getElementById('story-reply-input');
         if (storyReplyInput) {
           storyReplyInput.addEventListener('focus', () => { state.storyPaused = true; });
-          storyReplyInput.addEventListener('blur', () => { state.storyPaused = false; });
+          storyReplyInput.addEventListener('blur', () => { setTimeout(() => { state.storyPaused = false; }, 250); });
           storyReplyInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && storyReplyInput.value.trim()) {
               e.preventDefault();
