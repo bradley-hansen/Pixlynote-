@@ -5057,6 +5057,32 @@ function syncLikedStateToPosts() {
         }
       } catch(e) {}
 
+      // 5. Reconstruct deterministic Explore note (1001+) if needed after cache clear
+      if (!isNaN(numId) && numId >= 1001 && Array.isArray(window._exploreNoteBatches) && window._exploreNoteBatches.length > 0) {
+        const offset = numId - 1000;
+        const cycle = Math.floor((offset - 1) / 20);
+        const idx = (offset - 1) % 20;
+        const batch = window._exploreNoteBatches[cycle % window._exploreNoteBatches.length];
+        if (batch && batch[idx]) {
+          const item = batch[idx];
+          const reconstructed = {
+            id: numId,
+            author: item.author,
+            authorName: item.authorName,
+            authorAvatar: item.authorAvatar,
+            text: item.text,
+            time: item.time || 'Just now',
+            likes: item.likes || 0,
+            isLiked: false,
+            replies: item.replies || 0,
+            comments: []
+          };
+          if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+          state.exploreNotesArchive.set(strId, reconstructed);
+          return reconstructed;
+        }
+      }
+
       return null;
     }
     window.getNoteById = getNoteById;
@@ -5322,6 +5348,8 @@ function syncLikedStateToPosts() {
 
       notifyMentionsInText(text, { kind: 'note', noteId: note.id });
       input.value = '';
+      window._lastLocalCommentsWriteTs = Date.now();
+      window._commentsDirty = true;
       if (typeof persistState === 'function') persistState();
       if (window.firebaseReady && window.firebase) {
         try {
@@ -5534,7 +5562,7 @@ function syncLikedStateToPosts() {
           map['post:' + String(p.id)] = p.comments;
         }
       });
-      const allNotes = [...(state.notes || [])];
+      const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
       if (state.exploreNotesArchive instanceof Map) {
         state.exploreNotesArchive.forEach(n => allNotes.push(n));
       }
@@ -5566,11 +5594,14 @@ function syncLikedStateToPosts() {
         });
         return Array.from(byId.values());
       };
-      // Reconstruct any explore posts referenced in cmap so replies survive cache clears
+      // Reconstruct any explore posts & notes referenced in cmap so replies survive cache clears
       Object.keys(cmap).forEach(k => {
         if (k.startsWith('post:')) {
           const pid = k.slice(5);
           if (typeof getPostById === 'function') getPostById(pid);
+        } else if (k.startsWith('note:')) {
+          const nid = k.slice(5);
+          if (typeof getNoteById === 'function') getNoteById(nid);
         }
       });
       const postsToMerge = [...(state.posts || []), ...(state.explorePosts || [])];
@@ -5581,7 +5612,7 @@ function syncLikedStateToPosts() {
         const key = 'post:' + String(p.id);
         if (Array.isArray(cmap[key])) p.comments = mergeLists(p.comments, cmap[key]);
       });
-      const allNotes = [...(state.notes || [])];
+      const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
       if (state.exploreNotesArchive instanceof Map) state.exploreNotesArchive.forEach(n => allNotes.push(n));
       allNotes.forEach(n => {
         const key = 'note:' + String(n.id);
@@ -5611,9 +5642,12 @@ function syncLikedStateToPosts() {
       const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
       const items = [];
 
-      // Collect from posts (feed + explore)
+      // Collect from posts (feed + explore + archived explore)
       const seenPostIds = new Set();
       const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach(p => allPosts.push(p));
+      }
       allPosts.forEach(p => {
         if (!p || seenPostIds.has(String(p.id))) return;
         seenPostIds.add(String(p.id));
@@ -5653,9 +5687,9 @@ function syncLikedStateToPosts() {
         });
       });
 
-      // Collect from notes
+      // Collect from notes (user + explore + archived explore)
       const seenNoteIds = new Set();
-      const allNotes = [...(state.notes || [])];
+      const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
       if (state.exploreNotesArchive instanceof Map) {
         state.exploreNotesArchive.forEach(n => allNotes.push(n));
       }
@@ -7001,6 +7035,282 @@ function syncLikedStateToPosts() {
 
     window._explorePostBatches = EXPLORE_POST_BATCHES;
 
+    const EXPLORE_NOTE_BATCHES = [
+        [
+          {
+            id: 1000 + 1,
+            author: "nordic_trails",
+            authorName: "Freja Hansen",
+            authorAvatar: COMMUNITY_IMAGES[5],
+            text: "Arctic photography tip: Keep spare camera batteries inside your inner coat pocket! Cold drains lithium cells in under 20 minutes ❄️📸 #lofoten #cameratips",
+            time: "Just now",
+            likes: 45,
+            isLiked: false,
+            replies: 7
+          },
+          {
+            id: 1000 + 2,
+            author: "tokyo_wanderer",
+            authorName: "Ren Tanaka",
+            authorAvatar: COMMUNITY_IMAGES[3],
+            text: "Shinjuku camera stores still sell 35mm Portra 400 for reasonable prices if you check the basement shops off the main street 🎞️🎌 #filmphotography",
+            time: "1m ago",
+            likes: 89,
+            isLiked: false,
+            replies: 14
+          },
+          {
+            id: 1000 + 3,
+            author: "coastal_nomad",
+            authorName: "Julian Vance",
+            authorAvatar: COMMUNITY_IMAGES[9],
+            text: "Offshore winds forecasted for sunrise tomorrow across the eastern points. Board is waxed and ready to paddle out 🏄‍♂️🌊 #surfreport",
+            time: "3m ago",
+            likes: 112,
+            isLiked: false,
+            replies: 19
+          },
+          {
+            id: 1000 + 4,
+            author: "patisserie_chef",
+            authorName: "Camille Dupont",
+            authorAvatar: COMMUNITY_IMAGES[0],
+            text: "Secret to flaky laminated dough: keep butter and dough at the EXACT same 14°C temperature when rolling the turns 🥐⚖️ #pastryschool",
+            time: "5m ago",
+            likes: 178,
+            isLiked: false,
+            replies: 23
+          },
+          {
+            id: 1000 + 5,
+            author: "desert_mirage",
+            authorName: "Tariq Mansoor",
+            authorAvatar: COMMUNITY_IMAGES[6],
+            text: "Bortle 1 dark skies in Wadi Rum tonight. Star tracker is locked on the Andromeda galaxy for 3-minute exposures 🌌🔭 #astrophotography",
+            time: "7m ago",
+            likes: 215,
+            isLiked: false,
+            replies: 31
+          },
+          {
+            id: 1000 + 6,
+            author: "kyoto_moments",
+            authorName: "Hanae Mori",
+            authorAvatar: COMMUNITY_IMAGES[2],
+            text: "The gentle acoustic sound of rain falling on temple tatami mats in Arashiyama is the ultimate focus soundtrack 🎋🌧️ #zenlife",
+            time: "10m ago",
+            likes: 142,
+            isLiked: false,
+            replies: 12
+          }
+        ],
+        [
+          {
+            id: 1000 + 1,
+            author: "swiss_peaks",
+            authorName: "Noah Keller",
+            authorAvatar: COMMUNITY_IMAGES[5],
+            text: "Alpine trail conditions: Gornergrat ridge is completely dry up to 3,100m. Microspikes only needed on the glacier crossing 🏔️🥾 #zermatt",
+            time: "Just now",
+            likes: 62,
+            isLiked: false,
+            replies: 11
+          },
+          {
+            id: 1000 + 2,
+            author: "sushi_artisan",
+            authorName: "Jiro Takahashi",
+            authorAvatar: COMMUNITY_IMAGES[0],
+            text: "Fresh akami tuna rested for 4 days in kelp paper. The natural umami deepens exponentially when aged with care 🍣🔪 #sushimaster",
+            time: "2m ago",
+            likes: 134,
+            isLiked: false,
+            replies: 18
+          },
+          {
+            id: 1000 + 3,
+            author: "pacific_northwest",
+            authorName: "Sierra Brooks",
+            authorAvatar: COMMUNITY_IMAGES[9],
+            text: "Low tide at 6:42 AM tomorrow reveals the sea caves at Cape Kiwanda. Remember a waterproof headlamp if you explore the inner chambers! 🌊🔦",
+            time: "4m ago",
+            likes: 95,
+            isLiked: false,
+            replies: 8
+          },
+          {
+            id: 1000 + 4,
+            author: "barcelona_light",
+            authorName: "Mateo Gomez",
+            authorAvatar: COMMUNITY_IMAGES[2],
+            text: "Best spot to sketch medieval archways without tourist crowds: Carrer del Bisbe before 8:00 AM on weekdays 🏛️🎨 #barcelonasecrets",
+            time: "6m ago",
+            likes: 189,
+            isLiked: false,
+            replies: 22
+          },
+          {
+            id: 1000 + 5,
+            author: "wildflower_pup",
+            authorName: "Kaitlyn Miller",
+            authorAvatar: COMMUNITY_IMAGES[1],
+            text: "Reminder to trail runners: check your dog's paws for pine sap and burrs after backcountry mountain trails 🐶🌲 #traildog",
+            time: "9m ago",
+            likes: 240,
+            isLiked: false,
+            replies: 15
+          },
+          {
+            id: 1000 + 6,
+            author: "cozy_scandi",
+            authorName: "Linnea Berg",
+            authorAvatar: COMMUNITY_IMAGES[7],
+            text: "Nordic winter living rule: warm lighting at eye level, never harsh overhead ceiling bulbs. Cardamom buns in the oven ☕🕯️ #hygge",
+            time: "12m ago",
+            likes: 173,
+            isLiked: false,
+            replies: 28
+          }
+        ],
+        [
+          {
+            id: 1000 + 1,
+            author: "cali_coastline",
+            authorName: "Dylan Chase",
+            authorAvatar: COMMUNITY_IMAGES[3],
+            text: "Big Sur road report: Highway 1 morning marine layer burns off by 11 AM. Spectacular lighting on Bixby Creek Bridge 🌉🚗 #highway1",
+            time: "Just now",
+            likes: 88,
+            isLiked: false,
+            replies: 16
+          },
+          {
+            id: 1000 + 2,
+            author: "street_food_hunt",
+            authorName: "Bao Nguyen",
+            authorAvatar: COMMUNITY_IMAGES[8],
+            text: "The crispy banh mi cart behind the market opens at 5:00 AM. Pate made fresh every night, crust shatters on first bite 🥖🌶️ #saigoneats",
+            time: "2m ago",
+            likes: 195,
+            isLiked: false,
+            replies: 25
+          },
+          {
+            id: 1000 + 3,
+            author: "amalfi_dreaming",
+            authorName: "Chiara Marino",
+            authorAvatar: COMMUNITY_IMAGES[10],
+            text: "Rent a wooden gozzo boat at Marina Grande instead of the crowded ferry. Anchoring beneath the Faraglioni rocks is pure magic 🍋⛵ #caprilife",
+            time: "5m ago",
+            likes: 260,
+            isLiked: false,
+            replies: 19
+          },
+          {
+            id: 1000 + 4,
+            author: "marcus_pups",
+            authorName: "Marcus Vance",
+            authorAvatar: COMMUNITY_IMAGES[1],
+            text: "Puppy training milestone: Leo mastered the gentle heel walk through outdoor cafe crowds without lunging at croissants! 🐾🏆 #goldenretriever",
+            time: "7m ago",
+            likes: 310,
+            isLiked: false,
+            replies: 42
+          },
+          {
+            id: 1000 + 5,
+            author: "neon_vibes",
+            authorName: "Maya Lin",
+            authorAvatar: COMMUNITY_IMAGES[3],
+            text: "Rainy evening camera settings: shoot wide open at f/1.4, underexpose by -1 EV to make wet neon reflections pop against dark asphalt 🏮📸 #nightstreet",
+            time: "11m ago",
+            likes: 228,
+            isLiked: false,
+            replies: 17
+          },
+          {
+            id: 1000 + 6,
+            author: "elena_eats",
+            authorName: "Elena Rostova",
+            authorAvatar: COMMUNITY_IMAGES[0],
+            text: "Single-origin Ethiopian Yirgacheffe on the V60 today: notes of sweet jasmine, bergamot, and ripe yellow peach ☕🍑 #pourovercoffee",
+            time: "15m ago",
+            likes: 184,
+            isLiked: false,
+            replies: 20
+          }
+        ],
+        [
+          {
+            id: 1000 + 1,
+            author: "aurora_hunter",
+            authorName: "Astrid Lindgren",
+            authorAvatar: COMMUNITY_IMAGES[6],
+            text: "Kp index is spiking to 5.2 tonight over Tromsø! Emerald green ribbons already dancing towards the northern horizon 🌌✨ #northernlights",
+            time: "Just now",
+            likes: 145,
+            isLiked: false,
+            replies: 33
+          },
+          {
+            id: 1000 + 2,
+            author: "arch_digest",
+            authorName: "Kenji Sato",
+            authorAvatar: COMMUNITY_IMAGES[2],
+            text: "The interplay of raw board-formed concrete and filtered skylight creates living art throughout the afternoon 🏛️📐 #minimalism",
+            time: "2m ago",
+            likes: 170,
+            isLiked: false,
+            replies: 14
+          },
+          {
+            id: 1000 + 3,
+            author: "bali_sol",
+            authorName: "Wayan Surya",
+            authorAvatar: COMMUNITY_IMAGES[4],
+            text: "Solid 8-foot swell arriving at Uluwatu reef tomorrow afternoon. Spectators can watch the sets peel from the cliffside warungs 🏄‍♂️🥥 #balisurf",
+            time: "5m ago",
+            likes: 215,
+            isLiked: false,
+            replies: 27
+          },
+          {
+            id: 1000 + 4,
+            author: "golden_paws",
+            authorName: "Samira Cole",
+            authorAvatar: COMMUNITY_IMAGES[1],
+            text: "Rocky's favorite backpacking gear: collapsible silicone bowl and his ultralight fleece jacket for chilly summit campouts 🐕⛺ #adventurepup",
+            time: "8m ago",
+            likes: 290,
+            isLiked: false,
+            replies: 19
+          },
+          {
+            id: 1000 + 5,
+            author: "scandi_living",
+            authorName: "Lars Nilsson",
+            authorAvatar: COMMUNITY_IMAGES[7],
+            text: "Sunday morning baking: cinnamon swirls spiced with freshly crushed green cardamom pods. Whole apartment smells like heaven 🥐🕯️",
+            time: "12m ago",
+            likes: 210,
+            isLiked: false,
+            replies: 18
+          },
+          {
+            id: 1000 + 6,
+            author: "night_market_pro",
+            authorName: "Kenichi Mori",
+            authorAvatar: COMMUNITY_IMAGES[8],
+            text: "The secret to Raohe pepper buns is the scallion-to-black pepper ratio in the minced pork filling. Charred perfection 🔥🥟 #taipeifood",
+            time: "16m ago",
+            likes: 198,
+            isLiked: false,
+            replies: 24
+          }
+        ]
+    ];
+    window._exploreNoteBatches = EXPLORE_NOTE_BATCHES;
+
     function repopulateExploreContent() {
       if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
       (state.explorePosts || []).forEach(p => {
@@ -7035,289 +7345,21 @@ function syncLikedStateToPosts() {
       // Keep archive of all explore posts so liked/saved/replied references never break
       if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
       state.explorePosts.forEach(p => state.explorePostsArchive.set(String(p.id), p));
+      const freshNoteBatches = window._exploreNoteBatches || EXPLORE_NOTE_BATCHES;
+
+      const chosenNoteBatch = freshNoteBatches[cycle % freshNoteBatches.length];
+      window._exploreNoteBatches = freshNoteBatches;
+      state.exploreNotes = chosenNoteBatch.map((item, idx) => ({
+        ...item,
+        id: 1000 + (cycle * 20) + (idx + 1),
+        comments: Array.isArray(item.comments) ? item.comments : []
+      }));
+
+      syncLikedStateToPosts();
+      archiveAllNotes();
       if (window._lastRemoteCommentsMap && typeof applyCommentsMap === 'function') {
         applyCommentsMap(window._lastRemoteCommentsMap);
       }
-
-      const freshNoteBatches = [
-        [
-          {
-            id: 1000 + (cycle * 20) + 1,
-            author: "nordic_trails",
-            authorName: "Freja Hansen",
-            authorAvatar: COMMUNITY_IMAGES[5],
-            text: "Arctic photography tip: Keep spare camera batteries inside your inner coat pocket! Cold drains lithium cells in under 20 minutes ❄️📸 #lofoten #cameratips",
-            time: "Just now",
-            likes: 45,
-            isLiked: false,
-            replies: 7
-          },
-          {
-            id: 1000 + (cycle * 20) + 2,
-            author: "tokyo_wanderer",
-            authorName: "Ren Tanaka",
-            authorAvatar: COMMUNITY_IMAGES[3],
-            text: "Shinjuku camera stores still sell 35mm Portra 400 for reasonable prices if you check the basement shops off the main street 🎞️🎌 #filmphotography",
-            time: "1m ago",
-            likes: 89,
-            isLiked: false,
-            replies: 14
-          },
-          {
-            id: 1000 + (cycle * 20) + 3,
-            author: "coastal_nomad",
-            authorName: "Julian Vance",
-            authorAvatar: COMMUNITY_IMAGES[9],
-            text: "Offshore winds forecasted for sunrise tomorrow across the eastern points. Board is waxed and ready to paddle out 🏄‍♂️🌊 #surfreport",
-            time: "3m ago",
-            likes: 112,
-            isLiked: false,
-            replies: 19
-          },
-          {
-            id: 1000 + (cycle * 20) + 4,
-            author: "patisserie_chef",
-            authorName: "Camille Dupont",
-            authorAvatar: COMMUNITY_IMAGES[0],
-            text: "Secret to flaky laminated dough: keep butter and dough at the EXACT same 14°C temperature when rolling the turns 🥐⚖️ #pastryschool",
-            time: "5m ago",
-            likes: 178,
-            isLiked: false,
-            replies: 23
-          },
-          {
-            id: 1000 + (cycle * 20) + 5,
-            author: "desert_mirage",
-            authorName: "Tariq Mansoor",
-            authorAvatar: COMMUNITY_IMAGES[6],
-            text: "Bortle 1 dark skies in Wadi Rum tonight. Star tracker is locked on the Andromeda galaxy for 3-minute exposures 🌌🔭 #astrophotography",
-            time: "7m ago",
-            likes: 215,
-            isLiked: false,
-            replies: 31
-          },
-          {
-            id: 1000 + (cycle * 20) + 6,
-            author: "kyoto_moments",
-            authorName: "Hanae Mori",
-            authorAvatar: COMMUNITY_IMAGES[2],
-            text: "The gentle acoustic sound of rain falling on temple tatami mats in Arashiyama is the ultimate focus soundtrack 🎋🌧️ #zenlife",
-            time: "10m ago",
-            likes: 142,
-            isLiked: false,
-            replies: 12
-          }
-        ],
-        [
-          {
-            id: 1000 + (cycle * 20) + 1,
-            author: "swiss_peaks",
-            authorName: "Noah Keller",
-            authorAvatar: COMMUNITY_IMAGES[5],
-            text: "Alpine trail conditions: Gornergrat ridge is completely dry up to 3,100m. Microspikes only needed on the glacier crossing 🏔️🥾 #zermatt",
-            time: "Just now",
-            likes: 62,
-            isLiked: false,
-            replies: 11
-          },
-          {
-            id: 1000 + (cycle * 20) + 2,
-            author: "sushi_artisan",
-            authorName: "Jiro Takahashi",
-            authorAvatar: COMMUNITY_IMAGES[0],
-            text: "Fresh akami tuna rested for 4 days in kelp paper. The natural umami deepens exponentially when aged with care 🍣🔪 #sushimaster",
-            time: "2m ago",
-            likes: 134,
-            isLiked: false,
-            replies: 18
-          },
-          {
-            id: 1000 + (cycle * 20) + 3,
-            author: "pacific_northwest",
-            authorName: "Sierra Brooks",
-            authorAvatar: COMMUNITY_IMAGES[9],
-            text: "Low tide at 6:42 AM tomorrow reveals the sea caves at Cape Kiwanda. Remember a waterproof headlamp if you explore the inner chambers! 🌊🔦",
-            time: "4m ago",
-            likes: 95,
-            isLiked: false,
-            replies: 8
-          },
-          {
-            id: 1000 + (cycle * 20) + 4,
-            author: "barcelona_light",
-            authorName: "Mateo Gomez",
-            authorAvatar: COMMUNITY_IMAGES[2],
-            text: "Best spot to sketch medieval archways without tourist crowds: Carrer del Bisbe before 8:00 AM on weekdays 🏛️🎨 #barcelonasecrets",
-            time: "6m ago",
-            likes: 189,
-            isLiked: false,
-            replies: 22
-          },
-          {
-            id: 1000 + (cycle * 20) + 5,
-            author: "wildflower_pup",
-            authorName: "Kaitlyn Miller",
-            authorAvatar: COMMUNITY_IMAGES[1],
-            text: "Reminder to trail runners: check your dog's paws for pine sap and burrs after backcountry mountain trails 🐶🌲 #traildog",
-            time: "9m ago",
-            likes: 240,
-            isLiked: false,
-            replies: 15
-          },
-          {
-            id: 1000 + (cycle * 20) + 6,
-            author: "cozy_scandi",
-            authorName: "Linnea Berg",
-            authorAvatar: COMMUNITY_IMAGES[7],
-            text: "Nordic winter living rule: warm lighting at eye level, never harsh overhead ceiling bulbs. Cardamom buns in the oven ☕🕯️ #hygge",
-            time: "12m ago",
-            likes: 173,
-            isLiked: false,
-            replies: 28
-          }
-        ],
-        [
-          {
-            id: 1000 + (cycle * 20) + 1,
-            author: "cali_coastline",
-            authorName: "Dylan Chase",
-            authorAvatar: COMMUNITY_IMAGES[3],
-            text: "Big Sur road report: Highway 1 morning marine layer burns off by 11 AM. Spectacular lighting on Bixby Creek Bridge 🌉🚗 #highway1",
-            time: "Just now",
-            likes: 88,
-            isLiked: false,
-            replies: 16
-          },
-          {
-            id: 1000 + (cycle * 20) + 2,
-            author: "street_food_hunt",
-            authorName: "Bao Nguyen",
-            authorAvatar: COMMUNITY_IMAGES[8],
-            text: "The crispy banh mi cart behind the market opens at 5:00 AM. Pate made fresh every night, crust shatters on first bite 🥖🌶️ #saigoneats",
-            time: "2m ago",
-            likes: 195,
-            isLiked: false,
-            replies: 25
-          },
-          {
-            id: 1000 + (cycle * 20) + 3,
-            author: "amalfi_dreaming",
-            authorName: "Chiara Marino",
-            authorAvatar: COMMUNITY_IMAGES[10],
-            text: "Rent a wooden gozzo boat at Marina Grande instead of the crowded ferry. Anchoring beneath the Faraglioni rocks is pure magic 🍋⛵ #caprilife",
-            time: "5m ago",
-            likes: 260,
-            isLiked: false,
-            replies: 19
-          },
-          {
-            id: 1000 + (cycle * 20) + 4,
-            author: "marcus_pups",
-            authorName: "Marcus Vance",
-            authorAvatar: COMMUNITY_IMAGES[1],
-            text: "Puppy training milestone: Leo mastered the gentle heel walk through outdoor cafe crowds without lunging at croissants! 🐾🏆 #goldenretriever",
-            time: "7m ago",
-            likes: 310,
-            isLiked: false,
-            replies: 42
-          },
-          {
-            id: 1000 + (cycle * 20) + 5,
-            author: "neon_vibes",
-            authorName: "Maya Lin",
-            authorAvatar: COMMUNITY_IMAGES[3],
-            text: "Rainy evening camera settings: shoot wide open at f/1.4, underexpose by -1 EV to make wet neon reflections pop against dark asphalt 🏮📸 #nightstreet",
-            time: "11m ago",
-            likes: 228,
-            isLiked: false,
-            replies: 17
-          },
-          {
-            id: 1000 + (cycle * 20) + 6,
-            author: "elena_eats",
-            authorName: "Elena Rostova",
-            authorAvatar: COMMUNITY_IMAGES[0],
-            text: "Single-origin Ethiopian Yirgacheffe on the V60 today: notes of sweet jasmine, bergamot, and ripe yellow peach ☕🍑 #pourovercoffee",
-            time: "15m ago",
-            likes: 184,
-            isLiked: false,
-            replies: 20
-          }
-        ],
-        [
-          {
-            id: 1000 + (cycle * 20) + 1,
-            author: "aurora_hunter",
-            authorName: "Astrid Lindgren",
-            authorAvatar: COMMUNITY_IMAGES[6],
-            text: "Kp index is spiking to 5.2 tonight over Tromsø! Emerald green ribbons already dancing towards the northern horizon 🌌✨ #northernlights",
-            time: "Just now",
-            likes: 145,
-            isLiked: false,
-            replies: 33
-          },
-          {
-            id: 1000 + (cycle * 20) + 2,
-            author: "arch_digest",
-            authorName: "Kenji Sato",
-            authorAvatar: COMMUNITY_IMAGES[2],
-            text: "The interplay of raw board-formed concrete and filtered skylight creates living art throughout the afternoon 🏛️📐 #minimalism",
-            time: "2m ago",
-            likes: 170,
-            isLiked: false,
-            replies: 14
-          },
-          {
-            id: 1000 + (cycle * 20) + 3,
-            author: "bali_sol",
-            authorName: "Wayan Surya",
-            authorAvatar: COMMUNITY_IMAGES[4],
-            text: "Solid 8-foot swell arriving at Uluwatu reef tomorrow afternoon. Spectators can watch the sets peel from the cliffside warungs 🏄‍♂️🥥 #balisurf",
-            time: "5m ago",
-            likes: 215,
-            isLiked: false,
-            replies: 27
-          },
-          {
-            id: 1000 + (cycle * 20) + 4,
-            author: "golden_paws",
-            authorName: "Samira Cole",
-            authorAvatar: COMMUNITY_IMAGES[1],
-            text: "Rocky's favorite backpacking gear: collapsible silicone bowl and his ultralight fleece jacket for chilly summit campouts 🐕⛺ #adventurepup",
-            time: "8m ago",
-            likes: 290,
-            isLiked: false,
-            replies: 19
-          },
-          {
-            id: 1000 + (cycle * 20) + 5,
-            author: "scandi_living",
-            authorName: "Lars Nilsson",
-            authorAvatar: COMMUNITY_IMAGES[7],
-            text: "Sunday morning baking: cinnamon swirls spiced with freshly crushed green cardamom pods. Whole apartment smells like heaven 🥐🕯️",
-            time: "12m ago",
-            likes: 210,
-            isLiked: false,
-            replies: 18
-          },
-          {
-            id: 1000 + (cycle * 20) + 6,
-            author: "night_market_pro",
-            authorName: "Kenichi Mori",
-            authorAvatar: COMMUNITY_IMAGES[8],
-            text: "The secret to Raohe pepper buns is the scallion-to-black pepper ratio in the minced pork filling. Charred perfection 🔥🥟 #taipeifood",
-            time: "16m ago",
-            likes: 198,
-            isLiked: false,
-            replies: 24
-          }
-        ]
-      ];
-
-      state.exploreNotes = freshNoteBatches[cycle % freshNoteBatches.length];
-      
-      syncLikedStateToPosts();
-      archiveAllNotes();
     }
     window.repopulateExploreContent = repopulateExploreContent;
 
