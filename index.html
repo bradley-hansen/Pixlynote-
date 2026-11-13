@@ -1652,10 +1652,12 @@
   <div id="modal-story-viewer" class="hidden fixed inset-0 z-50 bg-black/95 items-center justify-center" style="display: none;">
     <div class="relative w-full max-w-sm h-full max-h-[85vh] bg-neutral-900 rounded-2xl overflow-hidden flex flex-col justify-between p-4 shadow-2xl">
       
-      <!-- Top Progress Bar -->
+      <!-- Top Progress Bar (Segmented for multiple 24h stories) -->
       <div class="space-y-3">
-        <div class="w-full bg-white/20 h-1 rounded-full overflow-hidden">
-          <div id="story-progress-bar" class="h-full bg-white w-0 transition-all duration-100 ease-linear"></div>
+        <div id="story-progress-segments" class="w-full flex items-center space-x-1">
+          <div class="flex-1 bg-white/20 h-1 rounded-full overflow-hidden">
+            <div id="story-progress-bar" class="h-full bg-white w-0 transition-all duration-100 ease-linear"></div>
+          </div>
         </div>
 
         <!-- Story Author Header -->
@@ -1675,10 +1677,12 @@
         </div>
       </div>
 
-      <!-- Center Story Media -->
+      <!-- Center Story Media (tap left/right to navigate multiple stories) -->
       <div class="flex-1 my-3 rounded-xl overflow-hidden relative flex items-center justify-center">
         <img id="story-viewer-image" src="" alt="Story" class="w-full h-full object-cover">
-        <div id="story-viewer-caption" class="hidden absolute bottom-3 inset-x-3 bg-black/60 backdrop-blur-xs text-white text-xs p-2.5 rounded-xl text-center font-medium leading-relaxed"></div>
+        <button type="button" id="btn-story-prev" onclick="prevStorySlide()" class="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer bg-transparent" title="Previous story"></button>
+        <button type="button" id="btn-story-next" onclick="nextStorySlide()" class="absolute inset-y-0 right-0 w-2/3 z-10 cursor-pointer bg-transparent" title="Next story"></button>
+        <div id="story-viewer-caption" class="hidden absolute bottom-3 inset-x-3 z-20 pointer-events-none bg-black/60 backdrop-blur-xs text-white text-xs p-2.5 rounded-xl text-center font-medium leading-relaxed"></div>
       </div>
 
       <!-- Owner Bottom Controls (Shown ONLY when viewing your own story) -->
@@ -2541,11 +2545,14 @@
                   renderFeed();
                 }
 
-                // 3c. Story from Cloud Firestore
-                if (data.story && data.story.image) {
-                  if (!state.stories) state.stories = [];
-                  state.stories[0] = data.story;
-                  state.hasActiveUserStory = true;
+                // 3c. Stories (24h TTL) from Cloud Firestore
+                if (Array.isArray(data.userStories)) {
+                  state.userStories = data.userStories;
+                  pruneExpiredUserStories(true);
+                  renderStories();
+                } else if (data.story && data.story.image) {
+                  state.userStories = [data.story];
+                  pruneExpiredUserStories(true);
                   renderStories();
                 }
 
@@ -4436,8 +4443,104 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Stories ---
+    const STORY_TTL_MS = 24 * 60 * 60 * 1000;
+
+    function formatStoryRelativeTime(ts) {
+      if (!ts || typeof ts !== 'number') return 'Just now';
+      const diffMs = Math.max(0, Date.now() - ts);
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      return `${hrs}h ago`;
+    }
+    window.formatStoryRelativeTime = formatStoryRelativeTime;
+
+    function pruneExpiredUserStories(saveIfChanged = true) {
+      const now = Date.now();
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      if (!Array.isArray(state.userStories)) {
+        let loaded = [];
+        try {
+          const raw = localStorage.getItem('pixly_user_stories_' + curU) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_user_story') : null);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            loaded = Array.isArray(parsed) ? parsed : (parsed && parsed.image ? [parsed] : []);
+          }
+        } catch(e) {}
+        state.userStories = loaded;
+      }
+      const beforeLen = state.userStories.length;
+      state.userStories = state.userStories.filter(s => {
+        if (!s || !s.image) return false;
+        const ts = typeof s.timestamp === 'number' ? s.timestamp : now;
+        s.timestamp = ts;
+        s.time = formatStoryRelativeTime(ts);
+        return (now - ts) < STORY_TTL_MS;
+      });
+      state.hasActiveUserStory = state.userStories.length > 0;
+
+      if (state.stories && state.stories[0]) {
+        if (state.userStories.length > 0) {
+          const latest = state.userStories[state.userStories.length - 1];
+          state.stories[0] = {
+            ...latest,
+            isUser: true,
+            username: (curU === 'bradley_hansen') ? 'Your Story' : ('@' + curU),
+            time: formatStoryRelativeTime(latest.timestamp)
+          };
+        } else {
+          state.stories[0] = {
+            id: 'empty_owner_story',
+            username: (curU === 'bradley_hansen') ? 'Your Story' : ('@' + curU),
+            avatar: (state.currentUser && state.currentUser.avatar) || PRESET_IMAGES[0].path,
+            image: (state.currentUser && state.currentUser.avatar) || PRESET_IMAGES[0].path,
+            time: '',
+            caption: '',
+            isUser: true,
+            isEmptyPlaceholder: true
+          };
+        }
+      }
+
+      const ringEl = document.getElementById('btn-profile-pic');
+      if (ringEl) {
+        if (state.hasActiveUserStory) {
+          ringEl.classList.add('story-gradient');
+          ringEl.classList.remove('bg-neutral-200');
+        } else {
+          ringEl.classList.remove('story-gradient');
+          ringEl.classList.add('bg-neutral-200');
+        }
+      }
+
+      if (saveIfChanged && beforeLen !== state.userStories.length) {
+        try {
+          localStorage.setItem('pixly_user_stories_' + curU, JSON.stringify(state.userStories));
+          if (curU === 'bradley_hansen') {
+            if (state.userStories.length > 0) localStorage.setItem('pixly_user_story', JSON.stringify(state.userStories[state.userStories.length - 1]));
+            else localStorage.removeItem('pixly_user_story');
+          }
+        } catch(e) {}
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, setDoc } = window.firebase;
+            setDoc(doc(db, 'users', curU), {
+              userStories: state.userStories,
+              story: state.userStories.length > 0 ? state.userStories[state.userStories.length - 1] : null,
+              lastUpdated: Date.now()
+            }, { merge: true }).catch(() => {});
+          } catch(e) {}
+        }
+      }
+      return state.userStories;
+    }
+    window.pruneExpiredUserStories = pruneExpiredUserStories;
+
     function renderStories() {
+      pruneExpiredUserStories(true);
       const container = document.getElementById('stories-container');
+      if (!container) return;
       container.innerHTML = state.stories.map((story, idx) => `
         <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}">
           <div class="w-16 h-16 rounded-full p-0.5 story-gradient flex items-center justify-center hover:scale-105 transition shadow-xs">
@@ -8230,30 +8333,41 @@ function syncLikedStateToPosts() {
           timestamp: Date.now()
         };
 
-        if (!state.stories) state.stories = [];
-        state.stories[0] = userStory;
+        const normStoryU = normalizeUsername(currentUsername);
+        if (!Array.isArray(state.userStories)) state.userStories = [];
+        pruneExpiredUserStories(false);
+        state.userStories.push(userStory);
         state.hasActiveUserStory = true;
+        if (!state.stories) state.stories = [];
+        state.stories[0] = {
+          ...userStory,
+          username: (normStoryU === 'bradley_hansen') ? 'Your Story' : ('@' + normStoryU)
+        };
 
-        // 2. Persist story locally
+        // 2. Persist multi-story 24h queue locally
         try {
-          localStorage.setItem('pixly_user_story', JSON.stringify(userStory));
-          sessionStorage.setItem('pixly_user_story', JSON.stringify(userStory));
+          localStorage.setItem('pixly_user_stories_' + normStoryU, JSON.stringify(state.userStories));
+          if (normStoryU === 'bradley_hansen') {
+            localStorage.setItem('pixly_user_story', JSON.stringify(userStory));
+            sessionStorage.setItem('pixly_user_story', JSON.stringify(userStory));
+          }
         } catch(e) {}
-        if (window.idbStorage) {
+        if (window.idbStorage && normStoryU === 'bradley_hansen') {
           idbStorage.set('pixly_user_story', JSON.stringify(userStory));
         }
 
-        // 3. Persist to Cloud Firestore users/bradley_hansen
+        // 3. Persist to Cloud Firestore users/<normStoryU>
         if (window.firebase && window.firebase.db) {
           try {
             const { db, doc, setDoc } = window.firebase;
-            const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+            const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : normStoryU;
             const payload = {
+              userStories: state.userStories,
               story: userStory,
               lastUpdated: Date.now()
             };
-            setDoc(doc(db, 'users', 'bradley_hansen'), payload, { merge: true }).catch(() => {});
-            if (uid && uid !== 'bradley_hansen') {
+            setDoc(doc(db, 'users', normStoryU), payload, { merge: true }).catch(() => {});
+            if (normStoryU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
               setDoc(doc(db, 'users', uid), payload, { merge: true }).catch(() => {});
             }
           } catch(e) {}
@@ -10939,17 +11053,49 @@ function syncLikedStateToPosts() {
       }));
     }
 
+    function renderStoryProgressSegments(total, activeIdx) {
+      const wrap = document.getElementById('story-progress-segments');
+      if (!wrap) return;
+      const count = Math.max(1, total || 1);
+      wrap.innerHTML = Array.from({ length: count }).map((_, i) => `
+        <div class="flex-1 bg-white/20 h-1 rounded-full overflow-hidden">
+          <div ${i === activeIdx ? 'id="story-progress-bar"' : ''} class="h-full bg-white transition-all duration-100 ease-linear" style="width: ${i < activeIdx ? '100%' : '0%'};"></div>
+        </div>
+      `).join('');
+    }
+
+    function nextStorySlide() {
+      if (Array.isArray(state.activeStoryQueue) && state.activeStorySlideIdx < state.activeStoryQueue.length - 1) {
+        state.activeStorySlideIdx += 1;
+        displayStorySlide(state.activeStoryQueue[state.activeStorySlideIdx]);
+      } else {
+        closeStoryViewer();
+      }
+    }
+    window.nextStorySlide = nextStorySlide;
+
+    function prevStorySlide() {
+      if (Array.isArray(state.activeStoryQueue) && state.activeStorySlideIdx > 0) {
+        state.activeStorySlideIdx -= 1;
+        displayStorySlide(state.activeStoryQueue[state.activeStorySlideIdx]);
+      } else {
+        state.activeStoryProgress = 0;
+        const bar = document.getElementById('story-progress-bar');
+        if (bar) bar.style.width = '0%';
+      }
+    }
+    window.prevStorySlide = prevStorySlide;
+
     function startStoryProgressTimer() {
-      const bar = document.getElementById('story-progress-bar');
-      if (!bar) return;
       clearInterval(state.activeStoryTimer);
       state.activeStoryTimer = setInterval(() => {
         if (state.storyPaused) return;
+        const bar = document.getElementById('story-progress-bar');
         state.activeStoryProgress = (state.activeStoryProgress || 0) + 2;
-        bar.style.width = `${state.activeStoryProgress}%`;
+        if (bar) bar.style.width = `${state.activeStoryProgress}%`;
         if (state.activeStoryProgress >= 100) {
           clearInterval(state.activeStoryTimer);
-          closeStoryViewer();
+          nextStorySlide();
         }
       }, 70);
     }
@@ -10958,15 +11104,24 @@ function syncLikedStateToPosts() {
       if (!creator || !creator.username) return;
       const targetU = normalizeUsername(creator.username);
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
-      const existingIdx = (state.stories || []).findIndex(s => {
-        const su = normalizeUsername(s.username);
-        return su === targetU || (targetU === curU && s.isUser === true);
-      });
+      if (curU && targetU === curU) {
+        openStoryViewer(0);
+        return;
+      }
+      const remoteCache = window._remoteUserProfilesCache && window._remoteUserProfilesCache[targetU];
+      if (remoteCache && Array.isArray(remoteCache.userStories)) {
+        const now = Date.now();
+        const activeRemote = remoteCache.userStories.filter(s => s && s.image && (now - (s.timestamp || now)) < STORY_TTL_MS);
+        if (activeRemote.length > 0) {
+          openStoryQueue(activeRemote.map(s => ({ ...s, username: creator.username, avatar: creator.avatar || s.avatar, isUser: false, time: formatStoryRelativeTime(s.timestamp) })));
+          return;
+        }
+      }
+      const existingIdx = (state.stories || []).findIndex(s => normalizeUsername(s.username) === targetU);
       if (existingIdx !== -1) {
         openStoryViewer(existingIdx);
         return;
       }
-      // Build a story view from the creator's latest post or avatar
       const creatorPosts = (state.posts || []).concat(state.explorePosts || []).filter(p => normalizeUsername(p.author) === targetU);
       const latestPost = creatorPosts[0];
       const storyObj = {
@@ -10976,24 +11131,33 @@ function syncLikedStateToPosts() {
         image: (latestPost && latestPost.image) ? latestPost.image : (creator.avatar || PRESET_IMAGES[0].path),
         caption: (latestPost && latestPost.caption) ? latestPost.caption : `${creator.fullName || creator.username}'s story`,
         time: (latestPost && latestPost.timestamp) ? latestPost.timestamp : '2h ago',
-        isUser: (curU && targetU === curU)
+        isUser: false
       };
       openStoryViewer(storyObj);
     }
     window.openCreatorStory = openCreatorStory;
 
-    function openStoryViewer(idxOrStory) {
-      const story = (typeof idxOrStory === 'object' && idxOrStory !== null) ? idxOrStory : state.stories[idxOrStory];
+    function openStoryQueue(queueArr) {
+      if (!Array.isArray(queueArr) || queueArr.length === 0) return;
+      state.activeStoryQueue = queueArr;
+      state.activeStorySlideIdx = 0;
+      displayStorySlide(queueArr[0]);
+    }
+
+    function displayStorySlide(story) {
       if (!story) return;
       state.activeStory = story;
-      state.activeStoryIndex = (typeof idxOrStory === 'number') ? idxOrStory : -1;
       state.storyPaused = false;
       state.activeStoryProgress = 0;
 
+      const total = Array.isArray(state.activeStoryQueue) ? state.activeStoryQueue.length : 1;
+      const slideIdx = typeof state.activeStorySlideIdx === 'number' ? state.activeStorySlideIdx : 0;
+      renderStoryProgressSegments(total, slideIdx);
+
       const modal = document.getElementById('modal-story-viewer');
-      document.getElementById('story-viewer-avatar').src = story.avatar;
-      document.getElementById('story-viewer-username').textContent = story.username;
-      document.getElementById('story-viewer-time').textContent = story.time;
+      document.getElementById('story-viewer-avatar').src = story.avatar || (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+      document.getElementById('story-viewer-username').textContent = story.username || 'Your Story';
+      document.getElementById('story-viewer-time').textContent = story.timestamp ? formatStoryRelativeTime(story.timestamp) : (story.time || 'Just now');
       document.getElementById('story-viewer-image').src = story.image;
 
       const captionEl = document.getElementById('story-viewer-caption');
@@ -11006,7 +11170,6 @@ function syncLikedStateToPosts() {
         }
       }
 
-      // Toggle Owner Controls vs Viewer Reply/Heart Controls
       const ownerControls = document.getElementById('story-owner-controls');
       const viewerControls = document.getElementById('story-viewer-controls');
       const viewersSheet = document.getElementById('story-viewers-sheet');
@@ -11029,11 +11192,34 @@ function syncLikedStateToPosts() {
         story.isLiked = Boolean((state.likedStoryIds && state.likedStoryIds.has(skey)) || story.isLiked);
         updateStoryHeartUI(story);
       }
-      
-      const bar = document.getElementById('story-progress-bar');
-      bar.style.width = '0%';
+
       modal.classList.remove('hidden'); modal.style.display = 'flex';
       startStoryProgressTimer();
+    }
+
+    function openStoryViewer(idxOrStory) {
+      // Refresh 24-hour story expiration every time stories are checked!
+      const activeUserStories = pruneExpiredUserStories(true);
+
+      if (idxOrStory === 0 || (typeof idxOrStory === 'object' && idxOrStory !== null && isOwnStoryObj(idxOrStory))) {
+        if (activeUserStories.length === 0) {
+          if (typeof showToast === 'function') showToast('No active stories (stories expire after 24 hours)');
+          if (typeof renderStories === 'function') renderStories();
+          return;
+        }
+        state.activeStoryIndex = 0;
+        openStoryQueue(activeUserStories.map(s => ({
+          ...s,
+          isUser: true,
+          username: s.username || ((state.currentUser && state.currentUser.username) || 'Your Story')
+        })));
+        return;
+      }
+
+      const story = (typeof idxOrStory === 'object' && idxOrStory !== null) ? idxOrStory : state.stories[idxOrStory];
+      if (!story) return;
+      state.activeStoryIndex = (typeof idxOrStory === 'number') ? idxOrStory : -1;
+      openStoryQueue([story]);
     }
 
     function closeStoryViewer() {
@@ -11952,6 +12138,19 @@ function syncLikedStateToPosts() {
             if (Array.isArray(d.likedPostIds)) {
               window._likesHydratedFromCloud = true;
               window.applyLikesFromRemote(d.likedPostIds);
+            }
+            if (Array.isArray(d.userStories)) {
+              state.userStories = d.userStories;
+              pruneExpiredUserStories(true);
+              if (typeof renderStories === 'function') renderStories();
+            } else if (d.story && d.story.image) {
+              state.userStories = [d.story];
+              pruneExpiredUserStories(true);
+              if (typeof renderStories === 'function') renderStories();
+            } else {
+              state.userStories = [];
+              pruneExpiredUserStories(false);
+              if (typeof renderStories === 'function') renderStories();
             }
             if (Array.isArray(d.likedStoryIds)) {
               state.likedStoryIds = new Set(d.likedStoryIds.map(String));
@@ -13940,12 +14139,31 @@ function syncLikedStateToPosts() {
         });
         bind('btn-story-delete', 'click', () => {
           if (!state.activeStory) return;
-          const idx = typeof state.activeStoryIndex === 'number' ? state.activeStoryIndex : -1;
-          if (idx > 0) {
-            state.stories.splice(idx, 1);
-          } else if (state.stories[0]) {
-            state.stories[0].image = PRESET_IMAGES[0].path;
-            state.stories[0].caption = '';
+          const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+          if (isOwnStoryObj(state.activeStory) && Array.isArray(state.userStories)) {
+            const delId = String(state.activeStory.id);
+            state.userStories = state.userStories.filter(s => String(s.id) !== delId);
+            try {
+              localStorage.setItem('pixly_user_stories_' + curU, JSON.stringify(state.userStories));
+              if (curU === 'bradley_hansen') {
+                if (state.userStories.length > 0) localStorage.setItem('pixly_user_story', JSON.stringify(state.userStories[state.userStories.length - 1]));
+                else localStorage.removeItem('pixly_user_story');
+              }
+            } catch(e) {}
+            if (window.firebaseReady && window.firebase && window.firebase.db) {
+              try {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'users', curU), {
+                  userStories: state.userStories,
+                  story: state.userStories.length > 0 ? state.userStories[state.userStories.length - 1] : null,
+                  lastUpdated: Date.now()
+                }, { merge: true }).catch(() => {});
+              } catch(e) {}
+            }
+            pruneExpiredUserStories(false);
+          } else {
+            const idx = typeof state.activeStoryIndex === 'number' ? state.activeStoryIndex : -1;
+            if (idx > 0) state.stories.splice(idx, 1);
           }
           if (typeof renderStories === 'function') renderStories();
           closeStoryViewer();
