@@ -1425,6 +1425,10 @@
             </div>
           </div>
           <div class="flex items-center space-x-2">
+            <button type="button" id="btn-modal-edit-post" class="hidden px-2.5 py-1 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-sky-200 cursor-pointer shadow-xs" title="Edit Post (Pixlynote Plus)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span>Edit</span>
+            </button>
             <button type="button" id="btn-modal-delete-post" class="hidden px-2.5 py-1 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-600 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-rose-200 cursor-pointer shadow-xs" title="Delete Post">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               <span>Delete</span>
@@ -5640,9 +5644,16 @@ function syncLikedStateToPosts() {
                     <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${n.time || 'Just now'}</div>
                   </div>
                 </div>
-                <button type="button" onclick="event.stopPropagation(); handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
+                <div class="flex items-center space-x-1">
+                  ${(typeof isPlusUser === 'function' && isPlusUser()) ? `
+                    <button type="button" onclick="event.stopPropagation(); openEditNoteModal('${n.id}')" class="text-neutral-400 hover:text-sky-600 transition p-1 cursor-pointer" title="Edit note (Pixlynote Plus)">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                  ` : ''}
+                  <button type="button" onclick="event.stopPropagation(); handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text)}</p>
               <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
@@ -6503,16 +6514,22 @@ function syncLikedStateToPosts() {
         }
       }
 
-      // Show Delete button if viewing your own post
+      // Show Edit (Plus-only) & Delete buttons if viewing your own post
+      const editBtn = document.getElementById('btn-modal-edit-post');
       const delBtn = document.getElementById('btn-modal-delete-post');
       const followBtn = document.getElementById('btn-modal-follow-toggle');
       const curU = (state.currentUser.username || 'bradley_hansen').toLowerCase().replace(/^@/, '');
       const pAuthor = (post.author || '').toLowerCase().replace(/^@/, '');
       const isMyPost = (pAuthor === curU);
       if (isMyPost) {
+        if (editBtn) {
+          if (typeof isPlusUser === 'function' && isPlusUser()) editBtn.classList.remove('hidden');
+          else editBtn.classList.add('hidden');
+        }
         if (delBtn) delBtn.classList.remove('hidden');
         if (followBtn) followBtn.classList.add('hidden');
       } else {
+        if (editBtn) editBtn.classList.add('hidden');
         if (delBtn) delBtn.classList.add('hidden');
         if (followBtn) followBtn.classList.remove('hidden');
       }
@@ -6621,6 +6638,11 @@ function syncLikedStateToPosts() {
       }
 
       const modal = document.getElementById('modal-edit-profile');
+      const activePill = document.getElementById('sub-active-pill');
+      if (activePill) {
+        if (isPlusUser()) activePill.classList.remove('hidden');
+        else activePill.classList.add('hidden');
+      }
       if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -13181,6 +13203,10 @@ function syncLikedStateToPosts() {
 
         bind('profile-avatar-container', 'click', () => openStoryViewer(0));
 
+        bind('btn-modal-edit-post', 'click', (e) => {
+          e.preventDefault();
+          openEditPostModal();
+        });
         bind('btn-modal-delete-post', 'click', (e) => {
           e.preventDefault();
           handleDeletePostAction();
@@ -14053,6 +14079,120 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       } catch(e) {}
     })();
 
+    function isPlusUser() {
+      return Boolean(state.currentUser && (state.currentUser.isVerified === true || state.currentUser.isPlus === true));
+    }
+    window.isPlusUser = isPlusUser;
+
+    let _editingContentTarget = null;
+    function openEditPostModal(postId) {
+      if (!isPlusUser()) {
+        if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit posts');
+        return;
+      }
+      const pid = postId || state.currentModalPostId;
+      const post = getPostById(pid);
+      if (!post) return;
+      _editingContentTarget = { kind: 'post', id: post.id };
+      const titleEl = document.getElementById('edit-content-modal-title');
+      const locWrap = document.getElementById('edit-content-location-wrap');
+      const locInp = document.getElementById('edit-content-location');
+      const lbl = document.getElementById('edit-content-text-label');
+      const txt = document.getElementById('edit-content-text');
+      if (titleEl) titleEl.textContent = 'Edit Post';
+      if (locWrap) locWrap.classList.remove('hidden');
+      if (locInp) locInp.value = post.location || '';
+      if (lbl) lbl.textContent = 'Caption';
+      if (txt) txt.value = post.caption || '';
+      const modal = document.getElementById('modal-edit-content');
+      if (modal) { modal.classList.remove('hidden'); modal.style.display = 'flex'; }
+    }
+    window.openEditPostModal = openEditPostModal;
+
+    function openEditNoteModal(noteId) {
+      if (!isPlusUser()) {
+        if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit notes');
+        return;
+      }
+      const note = getNoteById(noteId);
+      if (!note) return;
+      _editingContentTarget = { kind: 'note', id: note.id };
+      const titleEl = document.getElementById('edit-content-modal-title');
+      const locWrap = document.getElementById('edit-content-location-wrap');
+      const lbl = document.getElementById('edit-content-text-label');
+      const txt = document.getElementById('edit-content-text');
+      if (titleEl) titleEl.textContent = 'Edit Note';
+      if (locWrap) locWrap.classList.add('hidden');
+      if (lbl) lbl.textContent = 'Note';
+      if (txt) txt.value = note.text || '';
+      const modal = document.getElementById('modal-edit-content');
+      if (modal) { modal.classList.remove('hidden'); modal.style.display = 'flex'; }
+    }
+    window.openEditNoteModal = openEditNoteModal;
+
+    function closeEditContentModal() {
+      const modal = document.getElementById('modal-edit-content');
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+      _editingContentTarget = null;
+    }
+    window.closeEditContentModal = closeEditContentModal;
+
+    function saveEditedContent() {
+      if (!_editingContentTarget) return;
+      const txtEl = document.getElementById('edit-content-text');
+      const locEl = document.getElementById('edit-content-location');
+      const newText = txtEl ? txtEl.value.trim() : '';
+      if (!newText) {
+        if (typeof showToast === 'function') showToast('Text cannot be empty');
+        return;
+      }
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
+
+      if (_editingContentTarget.kind === 'post') {
+        const post = getPostById(_editingContentTarget.id);
+        if (post) {
+          post.caption = newText;
+          if (locEl) post.location = locEl.value.trim();
+          post.edited = true;
+          if (typeof persistState === 'function') persistState();
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'posts', String(post.id)), { caption: post.caption, location: post.location || '', edited: true }, { merge: true }).catch(() => {});
+              const myCustomPosts = (state.posts || []).filter(p => normalizeUsername(p.author) === curU);
+              setDoc(doc(db, 'users', curU), { customPosts: myCustomPosts }, { merge: true }).catch(() => {});
+            } catch(e) {}
+          }
+          if (typeof renderFeed === 'function') renderFeed();
+          if (typeof renderProfile === 'function') renderProfile();
+          if (state.currentModalPostId && String(state.currentModalPostId) === String(post.id)) {
+            openPostDetailModal(post.id);
+          }
+          if (typeof showToast === 'function') showToast('Post updated! ✓');
+        }
+      } else if (_editingContentTarget.kind === 'note') {
+        const note = getNoteById(_editingContentTarget.id);
+        if (note) {
+          note.text = newText;
+          note.edited = true;
+          if (typeof persistState === 'function') persistState();
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'users', curU), { notes: state.notes || [], lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            } catch(e) {}
+          }
+          if (typeof renderNotes === 'function') renderNotes();
+          if (state.currentModalNoteId && String(state.currentModalNoteId) === String(note.id) && typeof openNoteDetailModal === 'function') {
+            openNoteDetailModal(note.id);
+          }
+          if (typeof showToast === 'function') showToast('Note updated! ✓');
+        }
+      }
+      closeEditContentModal();
+    }
+    window.saveEditedContent = saveEditedContent;
+
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
@@ -14156,6 +14296,42 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
 
   <!-- ========================================================================= -->
+  <!-- EDIT POST / NOTE MODAL (PIXLYNOTE PLUS) -->
+  <!-- ========================================================================= -->
+  <div id="modal-edit-content" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeEditContentModal();">
+    <div class="relative bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+      <div class="p-4 border-b border-neutral-200 flex items-center justify-between bg-white">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </div>
+          <div>
+            <h3 id="edit-content-modal-title" class="text-sm font-bold text-neutral-900">Edit Post</h3>
+            <p class="text-[10px] text-sky-600 font-semibold">Pixlynote Plus Feature ✓</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditContentModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="form-edit-content" class="p-4 space-y-3" onsubmit="event.preventDefault(); saveEditedContent();">
+        <div id="edit-content-location-wrap">
+          <label for="edit-content-location" class="block text-[11px] font-bold text-neutral-700 mb-1">Location</label>
+          <input type="text" id="edit-content-location" placeholder="Add location..." class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white">
+        </div>
+        <div>
+          <label id="edit-content-text-label" for="edit-content-text" class="block text-[11px] font-bold text-neutral-700 mb-1">Caption</label>
+          <textarea id="edit-content-text" rows="4" placeholder="Write your updated text..." class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-none"></textarea>
+        </div>
+        <div class="flex items-center justify-end space-x-2 pt-1">
+          <button type="button" onclick="closeEditContentModal()" class="px-3.5 py-2 text-xs font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition shadow-sm cursor-pointer">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
   <!-- SUBSCRIPTION MODAL (STRIPE BUY BUTTON) -->
   <!-- ========================================================================= -->
   <div id="modal-subscription" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeSubscriptionModal();">
@@ -14174,7 +14350,30 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="p-4 overflow-y-auto flex flex-col items-center justify-center bg-neutral-50/50">
+      <div class="p-4 overflow-y-auto flex flex-col items-center space-y-3.5 bg-neutral-50/50">
+        <!-- Pixlynote Plus Benefits Box -->
+        <div class="w-full rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-3.5 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-4 h-4 text-sky-500 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <h4 class="text-xs font-extrabold text-neutral-900">Pixlynote Plus Benefits</h4>
+            </div>
+            <span id="sub-active-pill" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-sky-100 text-sky-700 border border-sky-200">Active ✓</span>
+          </div>
+          <ul class="space-y-2 text-[11px] text-neutral-700">
+            <li class="flex items-start space-x-2">
+              <span class="text-sky-500 font-bold leading-4">✓</span>
+              <span><strong>Plus Checkmark</strong> — Display the verified blue checkmark badge next to your profile handle.</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <span class="text-sky-500 font-bold leading-4">✓</span>
+              <span><strong>Edit Posts &amp; Notes</strong> — Edit your published posts and notes anytime directly from your profile or post modal.</span>
+            </li>
+          </ul>
+        </div>
+
         <stripe-buy-button
           id="pixly-stripe-buy-btn"
           buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
