@@ -1035,7 +1035,7 @@
           <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-5 sm:space-y-0 sm:space-x-8">
             
             <!-- Avatar with Squircle Story Gradient -->
-            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 story-gradient shadow-md shadow-violet-500/20 flex-shrink-0">
+            <div id="user-profile-avatar-container" class="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 story-gradient shadow-md shadow-violet-500/20 flex-shrink-0 cursor-pointer hover:scale-105 transition" title="View Story">
               <div class="w-full h-full rounded-[22px] overflow-hidden border-2 border-white bg-white">
                 <img id="user-profile-avatar" src="" alt="Creator" class="w-full h-full object-cover">
               </div>
@@ -9424,6 +9424,12 @@ function syncLikedStateToPosts() {
 
       const profileAvatar = document.getElementById('user-profile-avatar');
       if (profileAvatar) profileAvatar.src = creator.avatar;
+      const profileAvatarBox = document.getElementById('user-profile-avatar-container');
+      if (profileAvatarBox) {
+        profileAvatarBox.onclick = () => {
+          if (typeof openCreatorStory === 'function') openCreatorStory(creator);
+        };
+      }
 
       const profileFullName = document.getElementById('user-profile-fullname');
       if (profileFullName) profileFullName.textContent = creator.fullName;
@@ -10683,11 +10689,39 @@ function syncLikedStateToPosts() {
       }, 70);
     }
 
-    function openStoryViewer(idx) {
-      const story = state.stories[idx];
+    function openCreatorStory(creator) {
+      if (!creator || !creator.username) return;
+      const targetU = normalizeUsername(creator.username);
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      const existingIdx = (state.stories || []).findIndex(s => {
+        const su = normalizeUsername(s.username);
+        return su === targetU || (targetU === curU && s.isUser === true);
+      });
+      if (existingIdx !== -1) {
+        openStoryViewer(existingIdx);
+        return;
+      }
+      // Build a story view from the creator's latest post or avatar
+      const creatorPosts = (state.posts || []).concat(state.explorePosts || []).filter(p => normalizeUsername(p.author) === targetU);
+      const latestPost = creatorPosts[0];
+      const storyObj = {
+        id: 'creator_' + targetU,
+        username: creator.username,
+        avatar: creator.avatar || BRADLEY_AVATAR_IMAGE,
+        image: (latestPost && latestPost.image) ? latestPost.image : (creator.avatar || PRESET_IMAGES[0].path),
+        caption: (latestPost && latestPost.caption) ? latestPost.caption : `${creator.fullName || creator.username}'s story`,
+        time: (latestPost && latestPost.timestamp) ? latestPost.timestamp : '2h ago',
+        isUser: (curU && targetU === curU)
+      };
+      openStoryViewer(storyObj);
+    }
+    window.openCreatorStory = openCreatorStory;
+
+    function openStoryViewer(idxOrStory) {
+      const story = (typeof idxOrStory === 'object' && idxOrStory !== null) ? idxOrStory : state.stories[idxOrStory];
       if (!story) return;
       state.activeStory = story;
-      state.activeStoryIndex = idx;
+      state.activeStoryIndex = (typeof idxOrStory === 'number') ? idxOrStory : -1;
       state.storyPaused = false;
       state.activeStoryProgress = 0;
 
