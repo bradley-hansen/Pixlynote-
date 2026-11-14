@@ -11661,7 +11661,7 @@ function syncLikedStateToPosts() {
         return `
           <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
             <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-              <img src="${m.avatar || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: m.user }) : '')}" alt="${m.name}" class="w-full h-full object-cover">
+              <img src="${resolveDmAvatar(m)}" alt="${m.name}" class="w-full h-full object-cover">
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
             </div>
             <div class="flex-1 min-w-0">
@@ -11701,9 +11701,33 @@ function syncLikedStateToPosts() {
     }
     window.renderMessages = renderMessages;
 
+    function resolveDmAvatar(threadOrUser) {
+      if (!threadOrUser) return (typeof PRESET_IMAGES !== 'undefined' && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '';
+      const av = typeof threadOrUser === 'object' ? threadOrUser.avatar : '';
+      if (av && typeof av === 'string' && av.trim() !== '') return av;
+      const uname = (typeof threadOrUser === 'object' ? threadOrUser.user : threadOrUser) || '';
+      const cleanU = uname.toLowerCase().replace(/^@/, '');
+      if (cleanU === 'pixlynote' || cleanU === 'pixai') {
+        if (typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined') return PIXLYNOTE_SHUTTER_ICON;
+      }
+      if (typeof getCreatorInfo === 'function') {
+        const info = getCreatorInfo(cleanU);
+        if (info && info.avatar) return info.avatar;
+      }
+      const fol = (state.following || []).find(f => (f.username || '').toLowerCase() === cleanU);
+      if (fol && fol.avatar) return fol.avatar;
+      if (typeof getPostAuthorAvatar === 'function') {
+        const pa = getPostAuthorAvatar({ author: cleanU });
+        if (pa) return pa;
+      }
+      return (typeof PRESET_IMAGES !== 'undefined' && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '';
+    }
+    window.resolveDmAvatar = resolveDmAvatar;
+
     function renderActiveChat(idx) {
       const thread = state.messages[idx];
       if (!thread) return;
+      const threadAvatar = resolveDmAvatar(thread);
 
       state.activeDmThreadIndex = idx;
       thread.unread = 0;
@@ -11717,7 +11741,7 @@ function syncLikedStateToPosts() {
       }
 
       const avatarEl = document.getElementById('dm-active-avatar');
-      if (avatarEl) avatarEl.src = thread.avatar;
+      if (avatarEl) avatarEl.src = threadAvatar;
 
       const container = document.getElementById('dm-messages-container');
       if (!container) return;
@@ -11726,7 +11750,7 @@ function syncLikedStateToPosts() {
         container.innerHTML = `
           <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
             <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
-              <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+              <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
             </div>
             <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
             <div class="text-[11px] text-neutral-400">@${thread.user}</div>
@@ -11777,7 +11801,7 @@ function syncLikedStateToPosts() {
           <div class="flex ${alignClass} items-end space-x-1.5 mb-1 group">
             ${!isMe ? `
               <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1 border border-neutral-200 shadow-2xs">
-                <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+                <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
               </div>
             ` : ''}
             <div class="max-w-[78%] sm:max-w-[70%]">
