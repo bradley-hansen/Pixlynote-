@@ -2859,6 +2859,11 @@
                 if (Array.isArray(data.accountCenterAccounts) && typeof window.mergeAccountCenterFromCloud === 'function') {
                   window.mergeAccountCenterFromCloud(data.accountCenterAccounts, data.removedAccountCenterUsernames || []);
                 }
+
+                // 8. Security & Sessions sync from Cloud Firestore
+                if (typeof window.applyCloudSecurityData === 'function') {
+                  window.applyCloudSecurityData('bradley_hansen', data);
+                }
               }
             }
           }, (err) => console.log("User doc snapshot notice:", err));
@@ -11179,6 +11184,7 @@ function syncLikedStateToPosts() {
         if (titleEl) titleEl.textContent = 'Security and access';
         if (subEl) subEl.textContent = '@' + curU;
         renderSecurityAccessSummary();
+        fetchCloudSecurityData();
       } else if (viewName === 'twoFactorAuth') {
         if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'securityAccess'; }
         if (iconEl) iconEl.classList.add('hidden');
@@ -11193,6 +11199,7 @@ function syncLikedStateToPosts() {
         const confirmBox = document.getElementById('ac-logout-others-confirm');
         if (confirmBox) confirmBox.classList.add('hidden');
         renderSessionsView();
+        fetchCloudSecurityData();
       }
     }
     window.setAccountCenterView = setAccountCenterView;
@@ -11410,67 +11417,75 @@ function syncLikedStateToPosts() {
       };
     }
 
+    function applyCloudSecurityData(username, data) {
+      if (!data) return;
+      const uKey = (username || getSecurityUsernameKey()).toLowerCase().replace(/^@/, '');
+      if (data.twoFactorAuth && typeof data.twoFactorAuth === 'object') {
+        try { localStorage.setItem('pixly_2fa_' + uKey, JSON.stringify(data.twoFactorAuth)); } catch(e) {}
+      }
+      if (Array.isArray(data.activeSessions)) {
+        const current = detectCurrentSessionInfo();
+        const others = data.activeSessions.filter(s => s && s.id && s.id !== current.id);
+        try { localStorage.setItem('pixly_sessions_' + uKey, JSON.stringify(others)); } catch(e) {}
+      } else if (Array.isArray(data.otherSessions)) {
+        const current = detectCurrentSessionInfo();
+        const others = data.otherSessions.filter(s => s && s.id && s.id !== current.id);
+        try { localStorage.setItem('pixly_sessions_' + uKey, JSON.stringify(others)); } catch(e) {}
+      }
+      if (uKey === getSecurityUsernameKey()) {
+        try { renderSecurityAccessSummary(); } catch(e) {}
+        const twoFaEl = document.getElementById('ac-view-2fa');
+        if (twoFaEl && !twoFaEl.classList.contains('hidden')) {
+          try { render2FAView(); } catch(e) {}
+        }
+        const sessEl = document.getElementById('ac-view-sessions');
+        if (sessEl && !sessEl.classList.contains('hidden')) {
+          try { renderSessionsView(); } catch(e) {}
+        }
+      }
+    }
+    window.applyCloudSecurityData = applyCloudSecurityData;
+
+    function fetchCloudSecurityData() {
+      const uKey = getSecurityUsernameKey();
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { doc, getDoc } = window.firebase;
+          getDoc(doc(window.firebase.db, 'users', uKey)).then(snap => {
+            if (snap.exists()) applyCloudSecurityData(uKey, snap.data());
+          }).catch(() => {});
+        }
+      } catch(e) {}
+    }
+
     function getAccountSessions() {
       const uKey = getSecurityUsernameKey();
       const key = 'pixly_sessions_' + uKey;
       const current = detectCurrentSessionInfo();
-      let others = null;
+      let others = [];
       try {
         const raw = localStorage.getItem(key);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) others = parsed;
+          if (Array.isArray(parsed)) {
+            others = parsed.filter(s => s && s.id && s.id !== current.id && s.id !== 'sess_web_backup' && s.id !== 'sess_mobile_alt');
+          }
         }
       } catch(e) {}
-
-      if (others === null) {
-        const curName = (current.device || '').toLowerCase();
-        const altPhone = curName.includes('pixel 9') ? 'Google Pixel 10 Pro' : 'Google Pixel 9 Pro';
-        others = [
-          {
-            id: 'sess_mobile_alt',
-            device: altPhone,
-            browser: 'Google Chrome',
-            icon: '📱',
-            location: 'Galloway, NJ',
-            isCurrent: false,
-            lastActive: '2 hours ago'
-          },
-          {
-            id: 'sess_web_backup',
-            device: 'Windows PC',
-            browser: 'Google Chrome',
-            icon: '💻',
-            location: 'New Jersey, US',
-            isCurrent: false,
-            lastActive: 'Yesterday'
-          }
-        ];
-        try { localStorage.setItem(key, JSON.stringify(others)); } catch(e) {}
-      } else {
-        let changed = false;
-        others = others.map(s => {
-          if (s && s.device === 'Android Device') {
-            changed = true;
-            const curName = (current.device || '').toLowerCase();
-            return { ...s, device: curName.includes('pixel 9') ? 'Google Pixel 10 Pro' : 'Google Pixel 9 Pro' };
-          }
-          return s;
-        });
-        if (changed) { try { localStorage.setItem(key, JSON.stringify(others)); } catch(e) {} }
-      }
-
-      return [current, ...others.filter(s => s && s.id !== current.id)];
+      return [current, ...others];
     }
 
     function saveOtherSessions(otherList) {
       const uKey = getSecurityUsernameKey();
-      try { localStorage.setItem('pixly_sessions_' + uKey, JSON.stringify(otherList)); } catch(e) {}
+      const current = detectCurrentSessionInfo();
+      const cleanOthers = (otherList || []).filter(s => s && s.id && s.id !== current.id);
+      try { localStorage.setItem('pixly_sessions_' + uKey, JSON.stringify(cleanOthers)); } catch(e) {}
       try {
         if (window.firebaseReady && window.firebase && window.firebase.db) {
           const { doc, setDoc } = window.firebase;
           setDoc(doc(window.firebase.db, 'users', uKey), {
-            otherSessions: otherList,
+            activeSessions: [current, ...cleanOthers],
+            otherSessions: cleanOthers,
             sessionRevokedAt: Date.now()
           }, { merge: true }).catch(() => {});
         }
