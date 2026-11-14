@@ -2717,6 +2717,63 @@
 
 
   <!-- 100% Free Spark Plan Firebase Cloud Integration (Auth + Cloud Firestore - No Billing Required) -->
+  
+  <!-- Forgot Password Modal (Resend Email Verification) -->
+  <div id="modal-forgot-password" class="fixed inset-0 z-[120] hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden animate-fade-in">
+      <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-xl story-gradient flex items-center justify-center text-white text-xs font-bold shadow-xs">🔐</div>
+          <h3 class="text-sm font-bold text-neutral-900">Reset Password</h3>
+        </div>
+        <button type="button" id="btn-close-forgot-password" class="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-500 flex items-center justify-center text-xs font-bold transition cursor-pointer">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- Step 1: Request 6-digit code -->
+        <form id="form-forgot-step-1" class="space-y-3">
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            Enter the email address (or username) for your Pixlynote account and we'll email you a 6-digit reset code.
+          </p>
+          <div>
+            <label for="forgot-identifier" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Email or Username</label>
+            <input type="text" id="forgot-identifier" placeholder="you@example.com or @username" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div id="forgot-step1-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
+          <button type="submit" id="btn-forgot-send-code" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
+            Send Reset Code
+          </button>
+        </form>
+
+        <!-- Step 2: Verify code + set new password -->
+        <form id="form-forgot-step-2" class="hidden space-y-3">
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            We sent a 6-digit code to <span id="forgot-sent-email-label" class="font-semibold text-neutral-800"></span>. Enter it below to choose a new password.
+          </p>
+          <div>
+            <label for="forgot-reset-code" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">6-Digit Code</label>
+            <input type="text" id="forgot-reset-code" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full px-3 py-2.5 text-sm tracking-widest font-mono bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div>
+            <label for="forgot-new-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">New Password</label>
+            <input type="password" id="forgot-new-password" placeholder="At least 4 characters" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div>
+            <label for="forgot-confirm-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Confirm New Password</label>
+            <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div id="forgot-step2-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
+          <button type="submit" id="btn-forgot-confirm-reset" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
+            Update Password
+          </button>
+          <button type="button" id="btn-forgot-back" class="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition cursor-pointer">
+            ← Use a different email
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script>
     // =========================================================================
     // GOOGLE GEMINI API KEY FOR PIXAI
@@ -15329,12 +15386,14 @@ function syncLikedStateToPosts() {
           if (idInput && loginVal) idInput.value = loginVal;
           forgotModal.classList.remove('hidden');
           forgotModal.classList.add('flex');
+          forgotModal.style.display = 'flex';
         }
 
         function closeForgotPasswordModal() {
           if (!forgotModal) return;
           forgotModal.classList.add('hidden');
           forgotModal.classList.remove('flex');
+          forgotModal.style.display = 'none';
         }
 
         bind('btn-forgot-password', 'click', openForgotPasswordModal);
@@ -17749,62 +17808,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     </div>
   </div>
 
-
-  <!-- Forgot Password Modal (Resend Email Verification) -->
-  <div id="modal-forgot-password" class="fixed inset-0 z-[120] hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-    <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden animate-fade-in">
-      <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <div class="w-7 h-7 rounded-xl story-gradient flex items-center justify-center text-white text-xs font-bold shadow-xs">🔐</div>
-          <h3 class="text-sm font-bold text-neutral-900">Reset Password</h3>
-        </div>
-        <button type="button" id="btn-close-forgot-password" class="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-500 flex items-center justify-center text-xs font-bold transition cursor-pointer">✕</button>
-      </div>
-
-      <div class="p-5 space-y-4">
-        <!-- Step 1: Request 6-digit code -->
-        <form id="form-forgot-step-1" class="space-y-3">
-          <p class="text-xs text-neutral-500 leading-relaxed">
-            Enter the email address (or username) for your Pixlynote account and we'll email you a 6-digit reset code.
-          </p>
-          <div>
-            <label for="forgot-identifier" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Email or Username</label>
-            <input type="text" id="forgot-identifier" placeholder="you@example.com or @username" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
-          </div>
-          <div id="forgot-step1-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
-          <button type="submit" id="btn-forgot-send-code" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
-            Send Reset Code
-          </button>
-        </form>
-
-        <!-- Step 2: Verify code + set new password -->
-        <form id="form-forgot-step-2" class="hidden space-y-3">
-          <p class="text-xs text-neutral-500 leading-relaxed">
-            We sent a 6-digit code to <span id="forgot-sent-email-label" class="font-semibold text-neutral-800"></span>. Enter it below to choose a new password.
-          </p>
-          <div>
-            <label for="forgot-reset-code" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">6-Digit Code</label>
-            <input type="text" id="forgot-reset-code" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full px-3 py-2.5 text-sm tracking-widest font-mono bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
-          </div>
-          <div>
-            <label for="forgot-new-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">New Password</label>
-            <input type="password" id="forgot-new-password" placeholder="At least 4 characters" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
-          </div>
-          <div>
-            <label for="forgot-confirm-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Confirm New Password</label>
-            <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
-          </div>
-          <div id="forgot-step2-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
-          <button type="submit" id="btn-forgot-confirm-reset" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
-            Update Password
-          </button>
-          <button type="button" id="btn-forgot-back" class="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition cursor-pointer">
-            ← Use a different email
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
 
 </body>
 </html>
