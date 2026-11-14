@@ -2541,6 +2541,22 @@
                 <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </div>
             </button>
+
+            <button type="button" id="btn-ac-open-login-activity" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="text-left min-w-0">
+                  <div class="text-xs font-bold text-neutral-900">Login activity log</div>
+                  <div class="text-[10px] text-neutral-500 truncate">Password updates and recent sign-in events</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+                <span id="ac-login-activity-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">0 events</span>
+                <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </button>
           </div>
 
           <!-- TAB PANEL 2: APPS AND SESSIONS -->
@@ -2683,6 +2699,26 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
             <span>Log out of all other sessions</span>
           </button>
+        </div>
+      </div>
+
+      <!-- VIEW 10: LOGIN ACTIVITY LOG -->
+      <div id="ac-view-login-activity" class="hidden flex-1 flex flex-col min-h-0">
+        <div class="px-3.5 pt-3 pb-2.5 border-b border-neutral-100 bg-white space-y-2">
+          <div class="p-2.5 rounded-xl bg-violet-50/70 border border-violet-200/70 flex items-start space-x-2">
+            <svg class="w-4 h-4 text-violet-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <div class="text-[11px] text-violet-900 leading-snug">
+              Only your most recently updated password is active for sign-in. Previous passwords are automatically invalidated.
+            </div>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button type="button" id="btn-ac-log-filter-all" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-neutral-900 text-white transition cursor-pointer">All events</button>
+            <button type="button" id="btn-ac-log-filter-password" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-100 text-neutral-600 hover:text-neutral-900 transition cursor-pointer">Password updates</button>
+            <button type="button" id="btn-ac-log-filter-login" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-100 text-neutral-600 hover:text-neutral-900 transition cursor-pointer">Sign-ins</button>
+          </div>
+        </div>
+        <div id="ac-login-activity-list" class="flex-1 overflow-y-auto p-3.5 space-y-2">
+          <!-- Rendered dynamically -->
         </div>
       </div>
 
@@ -11566,6 +11602,7 @@ function syncLikedStateToPosts() {
         securityAccess: document.getElementById('ac-view-security-access'),
         twoFactorAuth: document.getElementById('ac-view-2fa'),
         sessions: document.getElementById('ac-view-sessions'),
+        loginActivity: document.getElementById('ac-view-login-activity'),
         privacySafety: document.getElementById('ac-view-privacy-safety'),
         spamList: document.getElementById('ac-view-spam-list')
       };
@@ -11632,6 +11669,13 @@ function syncLikedStateToPosts() {
         const confirmBox = document.getElementById('ac-logout-others-confirm');
         if (confirmBox) confirmBox.classList.add('hidden');
         renderSessionsView();
+        fetchCloudSecurityData();
+      } else if (viewName === 'loginActivity') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'securityAccess'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Login activity log';
+        if (subEl) subEl.textContent = '@' + curU;
+        renderLoginActivityView();
         fetchCloudSecurityData();
       } else if (viewName === 'privacySafety') {
         if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
@@ -11893,7 +11937,196 @@ function syncLikedStateToPosts() {
       if (sBadge) {
         sBadge.textContent = sessions.length + ' active';
       }
+      const logEvents = getLoginActivityLog();
+      const logBadge = document.getElementById('ac-login-activity-badge');
+      if (logBadge) {
+        const pwCount = logEvents.filter(ev => ev.type === 'password_updated' || ev.type === 'password_reset').length;
+        if (pwCount > 0) {
+          logBadge.textContent = pwCount + (pwCount === 1 ? ' password update' : ' password updates');
+          logBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200';
+        } else {
+          logBadge.textContent = logEvents.length + (logEvents.length === 1 ? ' event' : ' events');
+          logBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
+        }
+      }
     }
+
+    function getActiveAccountPassword(username) {
+      const uKey = (username || '').toLowerCase().replace(/^@/, '').trim();
+      if (!uKey) return null;
+      try {
+        const direct = localStorage.getItem('pixly_user_password_' + uKey);
+        if (direct) return direct;
+        const indivRaw = localStorage.getItem('pixly_account_' + uKey);
+        if (indivRaw) {
+          const indiv = JSON.parse(indivRaw);
+          if (indiv && indiv.password) return indiv.password;
+        }
+        const acctsRaw = localStorage.getItem('pixly_accounts');
+        if (acctsRaw) {
+          const accts = JSON.parse(acctsRaw);
+          if (accts && accts[uKey] && accts[uKey].password) return accts[uKey].password;
+        }
+        if (uKey === 'pixlynote') {
+          const pixPw = localStorage.getItem('pixlynote_password') || localStorage.getItem('pixly_password_pixlynote');
+          if (pixPw) return pixPw;
+        }
+        if (uKey === 'bradley_hansen') {
+          if (state.currentUser && state.currentUser.username && state.currentUser.username.toLowerCase() === 'bradley_hansen' && state.currentUser.password) {
+            return state.currentUser.password;
+          }
+          const genPw = localStorage.getItem('pixly_user_password');
+          if (genPw) return genPw;
+        }
+      } catch(e) {}
+      if (state.currentUser && state.currentUser.username && state.currentUser.username.toLowerCase() === uKey && state.currentUser.password) {
+        return state.currentUser.password;
+      }
+      return null;
+    }
+    window.getActiveAccountPassword = getActiveAccountPassword;
+
+    function getLoginActivityLog(username) {
+      const uKey = (username || getSecurityUsernameKey()).toLowerCase().replace(/^@/, '').trim();
+      if (!uKey) return [];
+      try {
+        const raw = localStorage.getItem('pixly_login_activity_' + uKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            return parsed.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          }
+        }
+      } catch(e) {}
+      return [];
+    }
+    window.getLoginActivityLog = getLoginActivityLog;
+
+    function recordLoginActivityEvent(type, detail, username) {
+      const uKey = (username || getSecurityUsernameKey()).toLowerCase().replace(/^@/, '').trim();
+      if (!uKey) return;
+      const sess = (typeof detectCurrentSessionInfo === 'function') ? detectCurrentSessionInfo() : { device: 'Web Browser', browser: 'Browser', location: 'Local' };
+      const eventItem = {
+        id: 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        type: type || 'login',
+        detail: detail || '',
+        timestamp: Date.now(),
+        device: sess.device || 'Web Browser',
+        browser: sess.browser || 'Browser',
+        location: sess.location || ''
+      };
+      const existing = getLoginActivityLog(uKey);
+      const updated = [eventItem, ...existing].slice(0, 50);
+      try {
+        localStorage.setItem('pixly_login_activity_' + uKey, JSON.stringify(updated));
+      } catch(e) {}
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { doc, setDoc } = window.firebase;
+          setDoc(doc(window.firebase.db, 'users', uKey), {
+            loginActivityLog: updated,
+            lastUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+        }
+      } catch(e) {}
+      if (uKey === getSecurityUsernameKey()) {
+        try { renderSecurityAccessSummary(); } catch(e) {}
+        const logView = document.getElementById('ac-view-login-activity');
+        if (logView && !logView.classList.contains('hidden')) {
+          try { renderLoginActivityView(); } catch(e) {}
+        }
+      }
+      return eventItem;
+    }
+    window.recordLoginActivityEvent = recordLoginActivityEvent;
+
+    function formatActivityTimestamp(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      let rel = 'Just now';
+      if (diffSec >= 60 && diffSec < 3600) rel = Math.floor(diffSec / 60) + 'm ago';
+      else if (diffSec >= 3600 && diffSec < 86400) rel = Math.floor(diffSec / 3600) + 'h ago';
+      else if (diffSec >= 86400) rel = Math.floor(diffSec / 86400) + 'd ago';
+      const exact = d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return exact + ' (' + rel + ')';
+    }
+
+    function escapeActivityHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    let _acLoginActivityFilter = 'all';
+    function setLoginActivityFilter(filterType) {
+      _acLoginActivityFilter = filterType || 'all';
+      const btns = {
+        all: document.getElementById('btn-ac-log-filter-all'),
+        password: document.getElementById('btn-ac-log-filter-password'),
+        login: document.getElementById('btn-ac-log-filter-login')
+      };
+      Object.entries(btns).forEach(([k, btn]) => {
+        if (!btn) return;
+        if (k === _acLoginActivityFilter) {
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-neutral-900 text-white transition cursor-pointer';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-100 text-neutral-600 hover:text-neutral-900 transition cursor-pointer';
+        }
+      });
+      renderLoginActivityView();
+    }
+    window.setLoginActivityFilter = setLoginActivityFilter;
+
+    function renderLoginActivityView() {
+      const listEl = document.getElementById('ac-login-activity-list');
+      if (!listEl) return;
+      let events = getLoginActivityLog();
+      if (_acLoginActivityFilter === 'password') {
+        events = events.filter(ev => ev.type === 'password_updated' || ev.type === 'password_reset');
+      } else if (_acLoginActivityFilter === 'login') {
+        events = events.filter(ev => ev.type === 'login');
+      }
+      if (!events.length) {
+        listEl.innerHTML = `
+          <div class="p-6 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 text-center space-y-1.5">
+            <div class="text-xs font-bold text-neutral-700">No activity recorded yet</div>
+            <div class="text-[11px] text-neutral-500">Password updates and sign-ins will appear here with timestamps and device details.</div>
+          </div>
+        `;
+        return;
+      }
+      listEl.innerHTML = events.map((ev, idx) => {
+        const isPw = ev.type === 'password_updated' || ev.type === 'password_reset';
+        const badgeBg = isPw ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        const iconBg = isPw ? 'bg-violet-50 text-violet-600' : 'bg-emerald-50 text-emerald-600';
+        const title = ev.type === 'password_reset' ? 'Password reset' : (ev.type === 'password_updated' ? 'Password updated' : 'Signed in');
+        const activeTag = (isPw && idx === events.findIndex(x => x.type === 'password_updated' || x.type === 'password_reset'))
+          ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 ml-1.5">Active password</span>'
+          : (isPw ? '<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-500 ml-1.5">Superseded</span>' : '');
+        const iconSvg = isPw
+          ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>'
+          : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>';
+        return `
+          <div class="p-3 rounded-2xl border border-neutral-200 bg-white flex items-start space-x-3">
+            <div class="w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0 mt-0.5">
+              ${iconSvg}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center flex-wrap">
+                <span class="text-xs font-bold text-neutral-900">${escapeActivityHtml(title)}</span>
+                ${activeTag}
+              </div>
+              <div class="text-[11px] font-medium text-neutral-700 mt-0.5">${escapeActivityHtml(formatActivityTimestamp(ev.timestamp))}</div>
+              ${ev.detail ? `<div class="text-[10px] text-neutral-500 mt-0.5">${escapeActivityHtml(ev.detail)}</div>` : ''}
+              <div class="text-[10px] text-neutral-400 mt-1 flex items-center space-x-1.5">
+                <span class="px-1.5 py-0.5 rounded-md border ${badgeBg} font-semibold">${escapeActivityHtml(ev.device || 'Web Browser')}</span>
+                ${ev.location ? `<span>• ${escapeActivityHtml(ev.location)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    window.renderLoginActivityView = renderLoginActivityView;
 
     function render2FAView() {
       const cfg = get2FASettings();
@@ -12026,6 +12259,18 @@ function syncLikedStateToPosts() {
       if (data.twoFactorAuth && typeof data.twoFactorAuth === 'object') {
         try { localStorage.setItem('pixly_2fa_' + uKey, JSON.stringify(data.twoFactorAuth)); } catch(e) {}
       }
+      if (Array.isArray(data.loginActivityLog)) {
+        try {
+          const localRaw = localStorage.getItem('pixly_login_activity_' + uKey);
+          const localArr = localRaw ? JSON.parse(localRaw) : [];
+          const mergedMap = new Map();
+          [...(Array.isArray(localArr) ? localArr : []), ...data.loginActivityLog].forEach(ev => {
+            if (ev && ev.id) mergedMap.set(ev.id, ev);
+          });
+          const merged = Array.from(mergedMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 50);
+          localStorage.setItem('pixly_login_activity_' + uKey, JSON.stringify(merged));
+        } catch(e) {}
+      }
       if (Array.isArray(data.activeSessions)) {
         const current = detectCurrentSessionInfo();
         const others = data.activeSessions.filter(s => s && s.id && s.id !== current.id);
@@ -12044,6 +12289,10 @@ function syncLikedStateToPosts() {
         const sessEl = document.getElementById('ac-view-sessions');
         if (sessEl && !sessEl.classList.contains('hidden')) {
           try { renderSessionsView(); } catch(e) {}
+        }
+        const logEl = document.getElementById('ac-view-login-activity');
+        if (logEl && !logEl.classList.contains('hidden')) {
+          try { renderLoginActivityView(); } catch(e) {}
         }
       }
     }
@@ -14187,6 +14436,10 @@ function syncLikedStateToPosts() {
         bind('btn-ac-sa-tab-apps-sessions', 'click', () => setSecurityAccessTab('appsSessions'));
         bind('btn-ac-open-2fa', 'click', () => setAccountCenterView('twoFactorAuth'));
         bind('btn-ac-open-sessions', 'click', () => setAccountCenterView('sessions'));
+        bind('btn-ac-open-login-activity', 'click', () => setAccountCenterView('loginActivity'));
+        bind('btn-ac-log-filter-all', 'click', () => setLoginActivityFilter('all'));
+        bind('btn-ac-log-filter-password', 'click', () => setLoginActivityFilter('password'));
+        bind('btn-ac-log-filter-login', 'click', () => setLoginActivityFilter('login'));
 
         bind('btn-ac-2fa-toggle', 'click', () => {
           const cfg = get2FASettings();
@@ -14297,18 +14550,37 @@ function syncLikedStateToPosts() {
               return;
             }
             const activeUser = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username.toLowerCase() : '';
+            const storedPw = activeUser ? getActiveAccountPassword(activeUser) : null;
+            if (storedPw && curPw !== storedPw) {
+              st.classList.add('bg-rose-50', 'text-rose-700');
+              st.textContent = 'Current password is incorrect.';
+              return;
+            }
             if (state && state.currentUser) state.currentUser.password = newPw;
             if (activeUser) {
               try {
                 localStorage.setItem('pixly_user_password_' + activeUser, newPw);
                 localStorage.setItem('pixly_user_password', newPw);
+                if (activeUser === 'pixlynote') {
+                  localStorage.setItem('pixlynote_password', newPw);
+                  localStorage.setItem('pixly_password_pixlynote', newPw);
+                }
+                const indivRaw = localStorage.getItem('pixly_account_' + activeUser);
+                if (indivRaw) {
+                  const indiv = JSON.parse(indivRaw);
+                  if (indiv) { indiv.password = newPw; localStorage.setItem('pixly_account_' + activeUser, JSON.stringify(indiv)); }
+                }
                 const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
                 if (accts[activeUser]) { accts[activeUser].password = newPw; localStorage.setItem('pixly_accounts', JSON.stringify(accts)); }
+                if (window._pixlyAccounts && window._pixlyAccounts[activeUser]) {
+                  window._pixlyAccounts[activeUser].password = newPw;
+                }
               } catch(err) {}
               if (window.firebaseReady && window.firebase && window.firebase.db) {
                 const { db, doc, setDoc } = window.firebase;
                 setDoc(doc(db, 'users', activeUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
               }
+              recordLoginActivityEvent('password_updated', 'Changed from Account Center (previous password invalidated)', activeUser);
             }
             const userEmail = (state && state.currentUser && state.currentUser.email) ? state.currentUser.email : '';
             if (userEmail && typeof sendPixlynoteEmail === 'function') {
@@ -14962,11 +15234,11 @@ function syncLikedStateToPosts() {
 
           if (isBradley) {
             // Personal account @bradley_hansen:
-            // Always authenticate with user's personal password (at least 4 characters), or demo1234, or saved password
-            const savedBradPw = localStorage.getItem('pixly_user_password_bradley_hansen') ||
-                                localStorage.getItem('pixly_user_password') ||
-                                (state.currentUser && state.currentUser.username === 'bradley_hansen' ? state.currentUser.password : null);
-            if (pw.length >= 4 || pw === 'demo1234' || (savedBradPw && pw === savedBradPw) || (matchedAccount && pw === matchedAccount.password)) {
+            // Once a password is saved/updated, ONLY that latest password works; old passwords are rejected.
+            const savedBradPw = getActiveAccountPassword('bradley_hansen') || (matchedAccount && matchedAccount.password) || null;
+            if (savedBradPw) {
+              isPasswordValid = (pw === savedBradPw);
+            } else if (pw.length >= 4) {
               isPasswordValid = true;
               try {
                 localStorage.setItem('pixly_user_password_bradley_hansen', pw);
@@ -14975,31 +15247,23 @@ function syncLikedStateToPosts() {
             }
           } else if (isPixlynote) {
             // Business account @pixlynote:
-            // Authenticate with user's password (at least 4 characters), or saved password, or demo1234
-            const savedPixlyPw = (matchedAccount && matchedAccount.password) ||
-                                 localStorage.getItem('pixlynote_password') ||
-                                 localStorage.getItem('pixly_password_pixlynote') ||
-                                 localStorage.getItem('pixly_user_password_pixlynote') ||
-                                 localStorage.getItem('pixly_last_signup_password') ||
-                                 sessionStorage.getItem('pixly_last_signup_password');
-
-            if (pw.length >= 4 || pw === 'demo1234' || (savedPixlyPw && pw === savedPixlyPw) || (matchedAccount && pw === matchedAccount.password)) {
+            // Once a password is saved/updated, ONLY that latest password works; old passwords are rejected.
+            const savedPixlyPw = getActiveAccountPassword('pixlynote') || (matchedAccount && matchedAccount.password) || null;
+            if (savedPixlyPw) {
+              isPasswordValid = (pw === savedPixlyPw);
+            } else if (pw.length >= 4) {
               isPasswordValid = true;
               try {
                 localStorage.setItem('pixlynote_password', pw);
                 localStorage.setItem('pixly_password_pixlynote', pw);
                 localStorage.setItem('pixly_user_password_pixlynote', pw);
                 localStorage.setItem('pixly_user_password_' + cleanInput, pw);
-                localStorage.setItem('pixly_last_signup_password', pw);
               } catch(e) {}
             }
-          } else if (matchedAccount && matchedAccount.password) {
-            isPasswordValid = (pw === matchedAccount.password);
           } else {
-            const fallbackPw = localStorage.getItem('pixly_user_password_' + cleanInput) ||
-                               localStorage.getItem('pixly_last_signup_password');
-            if (fallbackPw) {
-              isPasswordValid = (pw === fallbackPw);
+            const activeOtherPw = getActiveAccountPassword(matchedAccount ? matchedAccount.username : cleanInput) || (matchedAccount && matchedAccount.password) || null;
+            if (activeOtherPw) {
+              isPasswordValid = (pw === activeOtherPw);
             } else {
               isPasswordValid = (pw.length >= 4);
             }
@@ -15045,14 +15309,17 @@ function syncLikedStateToPosts() {
             localStorage.setItem('pixly_account_' + targetUsername.toLowerCase(), JSON.stringify(accRec));
             localStorage.setItem('pixly_user_password_' + targetUsername.toLowerCase(), pw);
             if (isBradley) localStorage.setItem('pixly_user_password_bradley_hansen', pw);
-            if (isPixlynote) localStorage.setItem('pixlynote_password', pw);
-            localStorage.setItem('pixly_password_pixlynote', pw);
+            if (isPixlynote) {
+              localStorage.setItem('pixlynote_password', pw);
+              localStorage.setItem('pixly_password_pixlynote', pw);
+            }
             localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pw);
             localStorage.setItem('pixlynote_user', JSON.stringify(accRec));
           } catch(e) {}
 
           showToast(`Welcome back, @${targetUsername}!`);
           performLogin(targetUsername, targetFullName, targetEmail, pw, targetPhone, targetType);
+          recordLoginActivityEvent('login', 'Signed in with active password', targetUsername);
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             const { db, doc, setDoc } = window.firebase;
@@ -15487,6 +15754,18 @@ function syncLikedStateToPosts() {
             try {
               if (targetUser) {
                 localStorage.setItem('pixly_user_password_' + targetUser, newPw);
+                if (targetUser === 'pixlynote') {
+                  localStorage.setItem('pixlynote_password', newPw);
+                  localStorage.setItem('pixly_password_pixlynote', newPw);
+                }
+                const indivRaw = localStorage.getItem('pixly_account_' + targetUser);
+                if (indivRaw) {
+                  const indiv = JSON.parse(indivRaw);
+                  if (indiv) { indiv.password = newPw; localStorage.setItem('pixly_account_' + targetUser, JSON.stringify(indiv)); }
+                }
+                if (window._pixlyAccounts && window._pixlyAccounts[targetUser]) {
+                  window._pixlyAccounts[targetUser].password = newPw;
+                }
               }
               localStorage.setItem('pixly_user_password', newPw);
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
@@ -15503,6 +15782,9 @@ function syncLikedStateToPosts() {
             if (window.firebaseReady && window.firebase && window.firebase.db && targetUser) {
               const { db, doc, setDoc } = window.firebase;
               setDoc(doc(db, 'users', targetUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            }
+            if (targetUser) {
+              recordLoginActivityEvent('password_reset', 'Reset via email verification (previous password invalidated)', targetUser);
             }
 
             const loginUserInp = document.getElementById('login-username');
