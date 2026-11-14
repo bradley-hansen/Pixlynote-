@@ -14524,16 +14524,39 @@ function syncLikedStateToPosts() {
           closeAccountCenterModal();
           if (typeof performLogout === 'function') performLogout();
         });
+        function resolveUserEmailForSecurity(username) {
+          const uKey = (username || '').toLowerCase().replace(/^@/, '').trim();
+          if (state && state.currentUser && state.currentUser.email && state.currentUser.email.includes('@')) {
+            return state.currentUser.email.trim();
+          }
+          if (uKey) {
+            try {
+              if (window._pixlyAccounts && window._pixlyAccounts[uKey] && window._pixlyAccounts[uKey].email) {
+                return window._pixlyAccounts[uKey].email.trim();
+              }
+              const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+              if (accts[uKey] && accts[uKey].email) return accts[uKey].email.trim();
+              const indivRaw = localStorage.getItem('pixly_account_' + uKey);
+              if (indivRaw) {
+                const indiv = JSON.parse(indivRaw);
+                if (indiv && indiv.email) return indiv.email.trim();
+              }
+            } catch(e) {}
+            if (uKey === 'bradley_hansen') return 'bradley.g.hansen@hotmail.com';
+          }
+          return '';
+        }
+
         const pwForm = document.getElementById('form-ac-change-password');
         if (pwForm) {
-          pwForm.addEventListener('submit', (e) => {
+          pwForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const curPw = (document.getElementById('ac-pw-current') || {}).value || '';
             const newPw = (document.getElementById('ac-pw-new') || {}).value || '';
             const confPw = (document.getElementById('ac-pw-confirm') || {}).value || '';
             const st = document.getElementById('ac-pw-status');
             if (!st) return;
-            st.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-amber-50', 'text-amber-800');
+            st.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-amber-50', 'text-amber-800', 'bg-emerald-50', 'text-emerald-700');
             if (!curPw || !newPw || !confPw) {
               st.classList.add('bg-rose-50', 'text-rose-700');
               st.textContent = 'Please fill out all password fields.';
@@ -14556,6 +14579,10 @@ function syncLikedStateToPosts() {
               st.textContent = 'Current password is incorrect.';
               return;
             }
+            const submitBtn = pwForm.querySelector('button[type="submit"]');
+            const origBtnText = submitBtn ? submitBtn.textContent : 'Update password';
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Updating...'; }
+
             if (state && state.currentUser) state.currentUser.password = newPw;
             if (activeUser) {
               try {
@@ -14582,18 +14609,38 @@ function syncLikedStateToPosts() {
               }
               recordLoginActivityEvent('password_updated', 'Changed from Account Center (previous password invalidated)', activeUser);
             }
-            const userEmail = (state && state.currentUser && state.currentUser.email) ? state.currentUser.email : '';
+
+            const userEmail = resolveUserEmailForSecurity(activeUser);
+            const sess = (typeof detectCurrentSessionInfo === 'function') ? detectCurrentSessionInfo() : { device: 'Web Browser', browser: 'Browser', location: '' };
+            const changedAt = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+            let emailSent = false;
+            let emailError = '';
             if (userEmail && typeof sendPixlynoteEmail === 'function') {
-              sendPixlynoteEmail(
-                userEmail,
-                'Your Pixlynote password was updated',
-                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Updated</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${activeUser || 'your account'}</strong> was just changed.</p><p style="color:#888;font-size:12px;margin-top:16px;">If this wasn't you, reset your password immediately from the Pixlynote login screen.</p></div>`
-              ).catch(() => {});
+              try {
+                await sendPixlynoteEmail(
+                  userEmail,
+                  'Your Pixlynote password was updated',
+                  `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Updated</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${activeUser || 'your account'}</strong> was changed on ${changedAt}.</p><p style="color:#666;font-size:12px;line-height:1.4;">Device: ${sess.device || 'Web Browser'} (${sess.browser || 'Browser'})${sess.location ? ' • ' + sess.location : ''}</p><p style="color:#888;font-size:12px;margin-top:16px;">This change has been recorded in your Login activity log. If this wasn't you, reset your password immediately from the Pixlynote login screen.</p></div>`
+                );
+                emailSent = true;
+              } catch (err) {
+                emailError = (err && err.message) ? err.message : 'Resend delivery failed';
+              }
             }
-            st.classList.add('bg-emerald-50', 'text-emerald-700');
-            st.textContent = userEmail ? 'Password updated and confirmation sent to ' + userEmail : 'Password updated successfully.';
+
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origBtnText; }
+            if (emailSent) {
+              st.classList.add('bg-emerald-50', 'text-emerald-700');
+              st.textContent = 'Password updated, logged in activity, and confirmation sent to ' + userEmail;
+            } else if (userEmail && emailError) {
+              st.classList.add('bg-amber-50', 'text-amber-800');
+              st.textContent = 'Password updated and logged in activity, but Resend confirmation failed: ' + emailError;
+            } else {
+              st.classList.add('bg-amber-50', 'text-amber-800');
+              st.textContent = 'Password updated and logged in activity. No email on file for Resend confirmation.';
+            }
             pwForm.reset();
-            if (typeof showToast === 'function') showToast('Password updated!');
+            if (typeof showToast === 'function') showToast(emailSent ? 'Password updated & confirmation sent!' : 'Password updated!');
           });
         }
         const modalAccountCenter = document.getElementById('modal-account-center');
@@ -15785,6 +15832,14 @@ function syncLikedStateToPosts() {
             }
             if (targetUser) {
               recordLoginActivityEvent('password_reset', 'Reset via email verification (previous password invalidated)', targetUser);
+            }
+            if (pendingReset.email && typeof sendPixlynoteEmail === 'function') {
+              const resetAt = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+              sendPixlynoteEmail(
+                pendingReset.email,
+                'Your Pixlynote password was reset',
+                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Reset Confirmed</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${targetUser || pendingReset.email}</strong> was reset on ${resetAt}.</p><p style="color:#888;font-size:12px;margin-top:16px;">This event has been recorded in your Login activity log. If this wasn't you, secure your account immediately.</p></div>`
+              ).catch(() => {});
             }
 
             const loginUserInp = document.getElementById('login-username');
