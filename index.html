@@ -11340,11 +11340,42 @@ function syncLikedStateToPosts() {
       }
     }
 
+    window._pixlyResolvedDeviceModel = window._pixlyResolvedDeviceModel || '';
+    (function resolveHighEntropyDeviceModel() {
+      try {
+        if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === 'function') {
+          navigator.userAgentData.getHighEntropyValues(['model', 'platform']).then(vals => {
+            const m = (vals && vals.model) ? String(vals.model).trim() : '';
+            if (m && m.toUpperCase() !== 'K') {
+              window._pixlyResolvedDeviceModel = m;
+              const el = document.getElementById('ac-current-session-device-name');
+              if (el) el.textContent = m;
+            }
+          }).catch(() => {});
+        }
+      } catch(e) {}
+    })();
+
     function detectCurrentSessionInfo() {
       const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
       let device = 'Desktop Browser';
       let icon = '💻';
-      if (/Android/i.test(ua)) { device = 'Android Device'; icon = '📱'; }
+      const pixelMatch = ua.match(/Pixel\s+\d+(?:\s+Pro(?:\s+XL)?)?/i);
+      const smMatch = ua.match(/SM-[A-Z0-9]+/i);
+      if (window._pixlyResolvedDeviceModel) {
+        device = window._pixlyResolvedDeviceModel;
+        icon = /Android|iPhone|iPad|Pixel|SM-/i.test(ua + ' ' + device) ? '📱' : '💻';
+      } else if (pixelMatch) {
+        device = 'Google ' + pixelMatch[0].replace(/\s+/g, ' ').trim();
+        icon = '📱';
+      } else if (smMatch) {
+        device = 'Samsung ' + smMatch[0];
+        icon = '📱';
+      } else if (/Android/i.test(ua)) {
+        const androidVer = ua.match(/Android\s+([\d.]+)/i);
+        device = androidVer ? ('Android ' + androidVer[1] + ' Phone') : 'Android Phone';
+        icon = '📱';
+      }
       else if (/iPhone/i.test(ua)) { device = 'iPhone'; icon = '📱'; }
       else if (/iPad/i.test(ua)) { device = 'iPad'; icon = '📱'; }
       else if (/Macintosh|Mac OS X/i.test(ua)) { device = 'Mac'; icon = '💻'; }
@@ -11393,7 +11424,18 @@ function syncLikedStateToPosts() {
       } catch(e) {}
 
       if (others === null) {
+        const curName = (current.device || '').toLowerCase();
+        const altPhone = curName.includes('pixel 9') ? 'Google Pixel 10 Pro' : 'Google Pixel 9 Pro';
         others = [
+          {
+            id: 'sess_mobile_alt',
+            device: altPhone,
+            browser: 'Google Chrome',
+            icon: '📱',
+            location: 'Galloway, NJ',
+            isCurrent: false,
+            lastActive: '2 hours ago'
+          },
           {
             id: 'sess_web_backup',
             device: 'Windows PC',
@@ -11401,19 +11443,21 @@ function syncLikedStateToPosts() {
             icon: '💻',
             location: 'New Jersey, US',
             isCurrent: false,
-            lastActive: '2 hours ago'
-          },
-          {
-            id: 'sess_mobile_alt',
-            device: 'Android Device',
-            browser: 'Pixlynote Web App',
-            icon: '📱',
-            location: 'Galloway, NJ',
-            isCurrent: false,
             lastActive: 'Yesterday'
           }
         ];
         try { localStorage.setItem(key, JSON.stringify(others)); } catch(e) {}
+      } else {
+        let changed = false;
+        others = others.map(s => {
+          if (s && s.device === 'Android Device') {
+            changed = true;
+            const curName = (current.device || '').toLowerCase();
+            return { ...s, device: curName.includes('pixel 9') ? 'Google Pixel 10 Pro' : 'Google Pixel 9 Pro' };
+          }
+          return s;
+        });
+        if (changed) { try { localStorage.setItem(key, JSON.stringify(others)); } catch(e) {} }
       }
 
       return [current, ...others.filter(s => s && s.id !== current.id)];
@@ -11451,7 +11495,7 @@ function syncLikedStateToPosts() {
               <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base flex-shrink-0">${current.icon}</div>
               <div class="min-w-0">
                 <div class="flex items-center space-x-1.5">
-                  <span class="text-xs font-bold text-neutral-900 truncate">${current.device}</span>
+                  <span id="ac-current-session-device-name" class="text-xs font-bold text-neutral-900 truncate">${current.device}</span>
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">This device</span>
                 </div>
                 <div class="text-[10px] text-neutral-600 truncate mt-0.5">${current.browser} · ${current.location}</div>
