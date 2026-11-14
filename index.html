@@ -2521,6 +2521,20 @@
           if (firestoreListenerAttached) return;
           firestoreListenerAttached = true;
 
+          try {
+            const activeDmUser = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
+            if (activeDmUser) {
+              onSnapshot(doc(db, 'users', activeDmUser + '__dms'), (dmSnap) => {
+                if (dmSnap.exists() && !dmSnap.metadata.hasPendingWrites) {
+                  const dmData = dmSnap.data();
+                  if (dmData && Array.isArray(dmData.dms) && dmData.dms.length > 0 && typeof applyLoadedDms === 'function') {
+                    applyLoadedDms(dmData.dms, activeDmUser);
+                  }
+                }
+              }, () => {});
+            }
+          } catch(e) {}
+
           const userDocRef = doc(db, 'users', 'bradley_hansen');
           onSnapshot(userDocRef, (snap) => {
             if (snap.exists()) {
@@ -2816,6 +2830,9 @@
           window.hydrateActiveAccountFromFirestore = async function(username) {
             const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
             if (!cleanU || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
+            if (typeof loadDirectMessagesFromFirestore === 'function') {
+              loadDirectMessagesFromFirestore(cleanU);
+            }
             try {
               const snap = await getDoc(doc(db, 'users', cleanU));
               if (snap.exists()) {
@@ -11141,6 +11158,9 @@ function syncLikedStateToPosts() {
         const badge = document.querySelector('#btn-open-messages span');
         if (badge) badge.classList.add('hidden');
         renderMessages();
+        if (typeof loadDirectMessagesFromFirestore === 'function') {
+          loadDirectMessagesFromFirestore();
+        }
         setTimeout(() => {
           const input = document.getElementById('dm-input-text');
           if (input && window.innerWidth >= 640) input.focus();
@@ -11641,7 +11661,7 @@ function syncLikedStateToPosts() {
         return `
           <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
             <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-              <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
+              <img src="${m.avatar || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: m.user }) : '')}" alt="${m.name}" class="w-full h-full object-cover">
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
             </div>
             <div class="flex-1 min-w-0">
@@ -11737,9 +11757,11 @@ function syncLikedStateToPosts() {
           const scClick = sc.kind === 'post'
             ? `openPostDetailModal('${sc.id}')`
             : `if(typeof openNoteDetailModal==='function') openNoteDetailModal('${sc.id}')`;
+          const livePost = (sc.kind === 'post' && typeof getPostById === 'function') ? getPostById(sc.id) : null;
+          const scImage = sc.image || (livePost && livePost.image) || '';
           contentHtml += `
             <div onclick="${scClick}" class="cursor-pointer rounded-xl overflow-hidden mb-1.5 border ${isMe ? 'border-white/25 bg-black/20' : 'border-neutral-200 bg-neutral-50'} hover:opacity-95 transition">
-              ${sc.image ? `<img src="${sc.image}" alt="Shared post" class="w-full max-h-40 object-cover">` : ''}
+              ${scImage ? `<img src="${scImage}" alt="Shared post" class="w-full max-h-40 object-cover">` : ''}
               <div class="p-2 text-left">
                 <div class="text-[10px] font-bold ${isMe ? 'text-white/90' : 'text-neutral-900'}">@${escapeHtml(sc.author || '')} · ${sc.kind === 'post' ? 'Post' : 'Note'}</div>
                 ${sc.caption ? `<div class="text-[11px] ${isMe ? 'text-white/85' : 'text-neutral-600'} line-clamp-2 mt-0.5">${escapeHtml(sc.caption)}</div>` : ''}
@@ -12160,33 +12182,111 @@ function syncLikedStateToPosts() {
     }
     window.handleDmMobileBack = handleDmMobileBack;
 
-    function persistDirectMessages() {
+    function sanitizeDmsForFirestore(messages) {
+      if (!Array.isArray(messages)) return [];
+      return messages.map(t => {
+        const copy = Object.assign({}, t);
+        if (typeof copy.avatar === 'string' && copy.avatar.startsWith('data:') && copy.avatar.length > 2000) {
+          copy.avatar = '';
+        }
+        if (Array.isArray(copy.chat)) {
+          copy.chat = copy.chat.map(m => {
+            const mc = Object.assign({}, m);
+            if (typeof mc.image === 'string' && mc.image.startsWith('data:') && mc.image.length > 250000) {
+              mc.image = '';
+            }
+            if (mc.sharedContent && typeof mc.sharedContent === 'object') {
+              const sc = Object.assign({}, mc.sharedContent);
+              if (typeof sc.image === 'string' && sc.image.startsWith('data:') && sc.image.length > 2000) {
+                sc.image = '';
+              }
+              mc.sharedContent = sc;
+            }
+            return mc;
+          });
+        }
+        return copy;
+      });
+    }
+
+    function applyLoadedDms(dms, username) {
+      if (!Array.isArray(dms) || dms.length === 0) return;
+      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      state.messages = dms;
       try {
-        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
-        localStorage.setItem('pixly_dms_' + curU, JSON.stringify(state.messages));
+        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(dms));
+        localStorage.setItem('pixly_dms', JSON.stringify(dms));
+      } catch(e) {}
+      if (window.idbStorage) {
+        idbStorage.set('pixly_dms', JSON.stringify(dms));
+      }
+      if (typeof renderMessages === 'function') renderMessages();
+    }
+    window.applyLoadedDms = applyLoadedDms;
+
+    async function loadDirectMessagesFromFirestore(username) {
+      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      if (!cleanU || !window.firebase || !window.firebase.db || !window.firebase.getDoc) return;
+      try {
+        const { db, doc, getDoc } = window.firebase;
+        const dmSnap = await getDoc(doc(db, 'users', cleanU + '__dms'));
+        if (dmSnap.exists() && Array.isArray(dmSnap.data().dms) && dmSnap.data().dms.length > 0) {
+          applyLoadedDms(dmSnap.data().dms, cleanU);
+          return;
+        }
+        const userSnap = await getDoc(doc(db, 'users', cleanU));
+        if (userSnap.exists() && Array.isArray(userSnap.data().dms) && userSnap.data().dms.length > 0) {
+          applyLoadedDms(userSnap.data().dms, cleanU);
+        }
+      } catch(e) {
+        console.warn('loadDirectMessagesFromFirestore notice:', e);
+      }
+    }
+    window.loadDirectMessagesFromFirestore = loadDirectMessagesFromFirestore;
+
+    function persistDirectMessages() {
+      const cleanU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
+      try {
+        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(state.messages));
         localStorage.setItem('pixly_dms', JSON.stringify(state.messages));
       } catch(e) {}
       if (window.idbStorage) {
         idbStorage.set('pixly_dms', JSON.stringify(state.messages));
       }
-      if (window.firebase && window.firebase.db) {
-        try {
-          const { db, doc, setDoc } = window.firebase;
-          const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
-          const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : curU;
-          if (curU) {
-            setDoc(doc(db, 'users', curU), {
-              dms: state.messages,
-              lastDmUpdated: Date.now()
-            }, { merge: true }).catch(() => {});
+      const writeToDb = () => {
+        if (window.firebase && window.firebase.db && window.firebase.setDoc) {
+          try {
+            const { db, doc, setDoc } = window.firebase;
+            const safeDms = sanitizeDmsForFirestore(state.messages);
+            if (cleanU) {
+              setDoc(doc(db, 'users', cleanU + '__dms'), {
+                dms: safeDms,
+                lastDmUpdated: Date.now()
+              }, { merge: true }).catch(err => console.warn('DM dedicated doc write error:', err));
+              setDoc(doc(db, 'users', cleanU), {
+                dms: safeDms,
+                lastDmUpdated: Date.now()
+              }, { merge: true }).catch(() => {});
+            }
+            const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
+            if (uid && uid !== cleanU) {
+              setDoc(doc(db, 'users', uid + '__dms'), {
+                dms: safeDms,
+                lastDmUpdated: Date.now()
+              }, { merge: true }).catch(() => {});
+            }
+            return true;
+          } catch(e) {
+            console.warn('persistDirectMessages error:', e);
           }
-          if (uid && uid !== curU) {
-            setDoc(doc(db, 'users', uid), {
-              dms: state.messages,
-              lastDmUpdated: Date.now()
-            }, { merge: true }).catch(() => {});
-          }
-        } catch(e) {}
+        }
+        return false;
+      };
+      if (!writeToDb()) {
+        const retry = setInterval(() => {
+          if (writeToDb()) clearInterval(retry);
+        }, 400);
+        setTimeout(() => clearInterval(retry), 12000);
       }
     }
     window.persistDirectMessages = persistDirectMessages;
