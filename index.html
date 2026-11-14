@@ -4623,7 +4623,7 @@ function syncLikedStateToPosts() {
         if (weeks < 5) return `${weeks}w ago`;
         return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
-      return note.time || fallback;
+      return note.time || (typeof note.timestamp === 'string' && note.timestamp.trim() ? note.timestamp : '') || fallback;
     }
     window.formatNoteRelativeTime = formatNoteRelativeTime;
 
@@ -5170,8 +5170,10 @@ function syncLikedStateToPosts() {
           const post = (state.posts && state.posts.find(p => p.id === postId)) || (state.explorePosts && state.explorePosts.find(p => p.id === postId));
           if (post) {
             if (!post.comments) post.comments = [];
+            const nowTs = Date.now();
             const newComment = {
-              id: Date.now(),
+              id: nowTs,
+              createdAt: nowTs,
               user: state.currentUser.username,
               text: text,
               timestamp: 'Just now',
@@ -5780,7 +5782,7 @@ function syncLikedStateToPosts() {
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-1.5 min-w-0">
                     <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
-                    <span class="text-[10px] text-neutral-400">@${c.user} · ${c.timestamp || 'Just now'}</span>
+                    <span class="text-[10px] text-neutral-400">@${c.user} · ${formatNoteRelativeTime(c)}</span>
                   </div>
                   <button type="button" onclick="toggleLikeNoteComment('${note.id}', '${c.id}')" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
                     <svg class="w-3.5 h-3.5 ${isLiked ? 'fill-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -5819,7 +5821,8 @@ function syncLikedStateToPosts() {
         const parentComment = note.comments.find(c => String(c.id) === String(replyTarget.commentId));
         if (parentComment) {
           if (!Array.isArray(parentComment.replies)) parentComment.replies = [];
-          const newReply = { id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', likedBy: [] };
+          const nowTs = Date.now();
+          const newReply = { id: nowTs, createdAt: nowTs, user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', likedBy: [] };
           parentComment.replies.push(newReply);
           if (normalizeUsername(parentComment.user) !== normalizeUsername(curU)) {
             addNotificationForUser(parentComment.user, {
@@ -5839,8 +5842,10 @@ function syncLikedStateToPosts() {
         window._replyingToNoteComment = null;
         input.placeholder = 'Reply to this note or share your thought...';
       } else {
+        const nowTs = Date.now();
         const newComment = {
-          id: Date.now(),
+          id: nowTs,
+          createdAt: nowTs,
           user: curU,
           userName: curName,
           userAvatar: curAvatar,
@@ -6232,7 +6237,7 @@ function syncLikedStateToPosts() {
               targetImage: p.image || '',
               targetSnippet: p.caption || '',
               text: c.text || '',
-              time: c.timestamp || 'Just now',
+              time: formatNoteRelativeTime(c),
               sortTs: c.id || 0,
               contextLabel: `Commented on @${p.author || 'creator'}'s post`
             });
@@ -6248,7 +6253,7 @@ function syncLikedStateToPosts() {
                 targetImage: p.image || '',
                 targetSnippet: p.caption || '',
                 text: r.text || '',
-                time: r.timestamp || 'Just now',
+                time: formatNoteRelativeTime(r),
                 sortTs: r.id || 0,
                 contextLabel: `Replied to @${c.user || 'creator'} on @${p.author || 'creator'}'s post`
               });
@@ -6277,7 +6282,7 @@ function syncLikedStateToPosts() {
               targetImage: '',
               targetSnippet: n.text || '',
               text: c.text || '',
-              time: c.timestamp || 'Just now',
+              time: formatNoteRelativeTime(c),
               sortTs: c.id || 0,
               contextLabel: `Commented on @${n.author || 'creator'}'s note`
             });
@@ -6293,7 +6298,7 @@ function syncLikedStateToPosts() {
                 targetImage: '',
                 targetSnippet: n.text || '',
                 text: r.text || '',
-                time: r.timestamp || 'Just now',
+                time: formatNoteRelativeTime(r),
                 sortTs: r.id || 0,
                 contextLabel: `Replied to @${c.user || 'creator'} on @${n.author || 'creator'}'s note`
               });
@@ -14117,7 +14122,8 @@ function syncLikedStateToPosts() {
                 const parentC = post.comments.find(c => String(c.id) === String(replyTarget.commentId));
                 if (parentC) {
                   if (!Array.isArray(parentC.replies)) parentC.replies = [];
-                  const newReply = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [] };
+                  const nowTs = Date.now();
+                  const newReply = { id: nowTs, createdAt: nowTs, user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [] };
                   parentC.replies.push(newReply);
                   if (parentC.user && normalizeUsername(parentC.user) !== curU) {
                     addNotificationForUser(parentC.user, {
@@ -14138,7 +14144,8 @@ function syncLikedStateToPosts() {
                 window._replyingToPostComment = null;
                 if (input) input.placeholder = 'Add a comment...';
               } else {
-                const newComment = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [], replies: [] };
+                const nowTs = Date.now();
+                const newComment = { id: nowTs, createdAt: nowTs, user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [], replies: [] };
                 post.comments.push(newComment);
                 if (post.author && normalizeUsername(post.author) !== curU) {
                   addNotificationForUser(post.author, {
