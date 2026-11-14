@@ -695,16 +695,8 @@
 
           <!-- Direct Messages Button -->
           <button type="button" id="btn-open-messages" title="Messages" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <defs>
-                <linearGradient id="pixly-dm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#a855f7"/>
-                  <stop offset="55%" stop-color="#6366f1"/>
-                  <stop offset="100%" stop-color="#0ea5e9"/>
-                </linearGradient>
-              </defs>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
             </svg>
             <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-sky-500 rounded-full"></span>
           </button>
@@ -1475,9 +1467,6 @@
               </button>
               <button type="button" id="btn-modal-focus-comment" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-              </button>
-              <button type="button" id="btn-modal-dm-share" onclick="if(state.currentModalPostId) openDmShareModal('post', state.currentModalPostId);" class="text-neutral-700 hover:text-violet-600 transition cursor-pointer" title="Send in DM">
-                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
               </button>
               <button type="button" id="btn-modal-share" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
@@ -2521,20 +2510,6 @@
           if (firestoreListenerAttached) return;
           firestoreListenerAttached = true;
 
-          try {
-            const activeDmUser = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
-            if (activeDmUser) {
-              onSnapshot(doc(db, 'users', activeDmUser + '__dms'), (dmSnap) => {
-                if (dmSnap.exists() && !dmSnap.metadata.hasPendingWrites) {
-                  const dmData = dmSnap.data();
-                  if (dmData && Array.isArray(dmData.dms) && dmData.dms.length > 0 && typeof applyLoadedDms === 'function') {
-                    applyLoadedDms(dmData.dms, activeDmUser);
-                  }
-                }
-              }, () => {});
-            }
-          } catch(e) {}
-
           const userDocRef = doc(db, 'users', 'bradley_hansen');
           onSnapshot(userDocRef, (snap) => {
             if (snap.exists()) {
@@ -2676,10 +2651,16 @@
                 window._notificationsHydrated = window._notificationsHydrated || {};
                 window._notificationsHydrated['bradley_hansen'] = true;
                 if (Array.isArray(data.notifications)) {
-                  if (JSON.stringify(data.notifications) !== JSON.stringify(state.notifications)) {
-                    state.notifications = data.notifications;
-                    try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(data.notifications)); } catch(e) {}
-                    if (typeof renderNotifications === 'function') renderNotifications();
+                  let localNotifs = [];
+                  try {
+                    const rawLocal = localStorage.getItem('pixly_notifications_bradley_hansen');
+                    if (rawLocal) localNotifs = JSON.parse(rawLocal);
+                  } catch(e) {}
+                  const merged = mergeNotificationsLists(data.notifications, localNotifs);
+                  if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                    state.notifications = merged;
+                    try { localStorage.setItem('pixly_notifications_bradley_hansen', JSON.stringify(merged)); } catch(e) {}
+                    if (typeof renderNotifications === 'function') renderNotifications(true);
                   }
                 }
                 if (data.commentsMap && typeof applyCommentsMap === 'function') {
@@ -2717,7 +2698,7 @@
           // Per-account live notifications listener for any active account
           if (!window._notifUnsubMap) window._notifUnsubMap = {};
           window.attachAccountNotificationsListener = function(username) {
-            const cleanU = (username || (state.currentUser && state.currentUser.username) || 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
             if (!cleanU || cleanU === 'bradley_hansen') return;
             if (window._notifUnsubMap[cleanU]) return;
             try {
@@ -2725,11 +2706,19 @@
               window._notifUnsubMap[cleanU] = onSnapshot(uRef, (snap) => {
                 if (!snap.exists()) return;
                 const d = snap.data();
-                const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+                const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
                 if (curU === cleanU && d && Array.isArray(d.notifications)) {
-                  state.notifications = d.notifications;
-                  try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
-                  if (typeof renderNotifications === 'function') renderNotifications();
+                  let localNotifs = [];
+                  try {
+                    const rawLocal = localStorage.getItem('pixly_notifications_' + cleanU);
+                    if (rawLocal) localNotifs = JSON.parse(rawLocal);
+                  } catch(e) {}
+                  const merged = mergeNotificationsLists(d.notifications, localNotifs);
+                  if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                    state.notifications = merged;
+                    try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(merged)); } catch(e) {}
+                    if (typeof renderNotifications === 'function') renderNotifications(true);
+                  }
                 }
               }, () => {});
             } catch(e) {}
@@ -2768,9 +2757,15 @@
             if (Array.isArray(d.notifications)) {
               window._notificationsHydrated = window._notificationsHydrated || {};
               window._notificationsHydrated[cleanU] = true;
-              if (JSON.stringify(d.notifications) !== JSON.stringify(state.notifications)) {
-                state.notifications = d.notifications;
-                try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + cleanU);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const merged = mergeNotificationsLists(d.notifications, localNotifs);
+              if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                state.notifications = merged;
+                try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(merged)); } catch(e) {}
                 if (typeof renderNotifications === 'function') renderNotifications(true);
               }
             }
@@ -2793,30 +2788,15 @@
                 window.applyNoteLikesFromRemote(d.likedNoteIds);
               }
             }
-            let pendingCancel = null;
             let pendingSid = null;
-            try {
-              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
-              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
-            } catch(e) {}
-            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
-              applyStripeSubscriptionCancellation(cleanU);
-            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
+            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
+            if (pendingSid && typeof applyStripeSessionVerification === 'function') {
               applyStripeSessionVerification(cleanU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
               state.currentUser.isPlus = Boolean(d.isPlus || d.isVerified);
               state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
-            }
-            if (Array.isArray(d.dms) && d.dms.length > 0 && !hasPendingWrites) {
-              state.messages = d.dms;
-              try {
-                localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                localStorage.setItem('pixly_dms', JSON.stringify(d.dms));
-              } catch(e) {}
-              if (window.idbStorage) idbStorage.set('pixly_dms', JSON.stringify(d.dms));
-              if (typeof renderMessages === 'function') renderMessages();
             }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
@@ -2830,9 +2810,6 @@
           window.hydrateActiveAccountFromFirestore = async function(username) {
             const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
             if (!cleanU || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
-            if (typeof loadDirectMessagesFromFirestore === 'function') {
-              loadDirectMessagesFromFirestore(cleanU);
-            }
             try {
               const snap = await getDoc(doc(db, 'users', cleanU));
               if (snap.exists()) {
@@ -3149,6 +3126,79 @@ function saveAccountLikes(username) {
     }
     window.loadAccountLikes = loadAccountLikes;
 
+    // --- Story Comments localStorage & Notification Merge Helpers ---
+    function getLocalStoryComments(targetU, sid) {
+      const u = normalizeUsername(targetU);
+      if (!u || !sid) return [];
+      try {
+        const raw = localStorage.getItem('pixly_story_comments_' + u);
+        if (!raw) return [];
+        const map = JSON.parse(raw);
+        return (map && Array.isArray(map[String(sid)])) ? map[String(sid)] : [];
+      } catch(e) { return []; }
+    }
+    window.getLocalStoryComments = getLocalStoryComments;
+
+    function saveLocalStoryComments(targetU, sid, commentsArr) {
+      const u = normalizeUsername(targetU);
+      if (!u || !sid) return;
+      try {
+        const raw = localStorage.getItem('pixly_story_comments_' + u);
+        const map = raw ? (JSON.parse(raw) || {}) : {};
+        map[String(sid)] = Array.isArray(commentsArr) ? commentsArr : [];
+        localStorage.setItem('pixly_story_comments_' + u, JSON.stringify(map));
+      } catch(e) {}
+    }
+    window.saveLocalStoryComments = saveLocalStoryComments;
+
+    function mergeStoryCommentsLists(...lists) {
+      const byId = new Map();
+      lists.forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(c => {
+          if (!c || c.id === undefined || c.id === null) return;
+          const key = String(c.id);
+          const prev = byId.get(key);
+          if (!prev) {
+            byId.set(key, { ...c });
+          } else {
+            byId.set(key, {
+              ...prev,
+              ...c,
+              isSpam: (typeof c.isSpam === 'boolean') ? c.isSpam : prev.isSpam
+            });
+          }
+        });
+      });
+      return Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    }
+    window.mergeStoryCommentsLists = mergeStoryCommentsLists;
+
+    function mergeNotificationsLists(primaryList, secondaryList) {
+      const deletedSet = window._deletedNotifIds || new Set();
+      const byKey = new Map();
+      const addList = (arr) => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(n => {
+          if (!n) return;
+          const idKey = n.id !== undefined && n.id !== null ? String(n.id) : `${n.type || ''}_${n.fromUser || ''}_${n.storyId || n.postId || n.noteId || ''}_${n.timestamp || 0}`;
+          if (deletedSet.has(idKey)) return;
+          const prev = byKey.get(idKey);
+          if (!prev) {
+            byKey.set(idKey, { ...n });
+          } else {
+            byKey.set(idKey, { ...n, ...prev, read: Boolean(prev.read || n.read) });
+          }
+        });
+      };
+      addList(primaryList);
+      addList(secondaryList);
+      return Array.from(byKey.values())
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 100);
+    }
+    window.mergeNotificationsLists = mergeNotificationsLists;
+
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
     function saveAccountNotifications(username, forceDbWrite = false) {
@@ -3187,14 +3237,19 @@ function saveAccountLikes(username) {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', u)).then((snap) => {
             window._notificationsHydrated[u] = true;
-            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
             if (curU !== u) return;
             if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              const incoming = snap.data().notifications;
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + u);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const incoming = mergeNotificationsLists(snap.data().notifications, localNotifs);
               if (JSON.stringify(incoming) !== JSON.stringify(state.notifications)) {
                 state.notifications = incoming;
                 try { localStorage.setItem('pixly_notifications_' + u, JSON.stringify(state.notifications)); } catch(e) {}
-                if (typeof renderNotifications === 'function') renderNotifications();
+                if (typeof renderNotifications === 'function') renderNotifications(true);
               }
             }
           }).catch(() => {});
@@ -3208,44 +3263,55 @@ function saveAccountLikes(username) {
 
     function addNotificationForUser(targetUsername, notif) {
       if (!targetUsername || !notif) return Promise.resolve();
+      if (typeof notif.timestamp !== 'number' || !notif.timestamp) notif.timestamp = Date.now();
       const cleanTarget = normalizeUsername(targetUsername);
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-      if (cleanTarget === curU) return Promise.resolve();
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      if (!cleanTarget || cleanTarget === curU) return Promise.resolve();
+
+      // Synchronously update localStorage right away so immediate account switches on localStorage never miss it
+      let localNotifs = [];
+      try {
+        const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
+        if (raw) localNotifs = JSON.parse(raw);
+      } catch(e) {}
+      if (!Array.isArray(localNotifs)) localNotifs = [];
+
+      const isDupLocal = localNotifs.some(n =>
+        n.fromUser === notif.fromUser &&
+        n.type === notif.type &&
+        String(n.postId || '') === String(notif.postId || '') &&
+        String(n.noteId || '') === String(notif.noteId || '') &&
+        String(n.storyId || '') === String(notif.storyId || '') &&
+        String(n.commentId || '') === String(notif.commentId || '') &&
+        (Date.now() - (n.timestamp || 0) < 10000)
+      );
+      if (isDupLocal) return Promise.resolve();
+
+      localNotifs.unshift(notif);
+      if (localNotifs.length > 100) localNotifs = localNotifs.slice(0, 100);
+      try {
+        localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(localNotifs));
+      } catch(e) {}
 
       window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
-        let notifs = [];
+        let remoteNotifs = [];
         if (window.firebaseReady && window.firebase) {
           try {
             const { db, doc, getDoc } = window.firebase;
             const snap = await getDoc(doc(db, 'users', cleanTarget));
             if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              notifs = snap.data().notifications;
+              remoteNotifs = snap.data().notifications;
             }
           } catch(e) {}
         }
 
-        if (!Array.isArray(notifs) || notifs.length === 0) {
-          try {
-            const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-            if (raw) notifs = JSON.parse(raw);
-          } catch(e) {}
-        }
-        if (!Array.isArray(notifs)) notifs = [];
+        let latestLocal = [];
+        try {
+          const rawLatest = localStorage.getItem('pixly_notifications_' + cleanTarget);
+          if (rawLatest) latestLocal = JSON.parse(rawLatest);
+        } catch(e) {}
 
-        const isDup = notifs.some(n =>
-          n.fromUser === notif.fromUser &&
-          n.type === notif.type &&
-          String(n.postId || '') === String(notif.postId || '') &&
-          String(n.noteId || '') === String(notif.noteId || '') &&
-          String(n.storyId || '') === String(notif.storyId || '') &&
-          String(n.commentId || '') === String(notif.commentId || '') &&
-          (Date.now() - (n.timestamp || 0) < 10000)
-        );
-        if (isDup) return;
-
-        notifs.unshift(notif);
-        if (notifs.length > 100) notifs = notifs.slice(0, 100);
-
+        const notifs = mergeNotificationsLists(latestLocal, remoteNotifs);
         try {
           localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
         } catch(e) {}
@@ -3257,10 +3323,10 @@ function saveAccountLikes(username) {
           } catch(e) {}
         }
 
-        const activeNow = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+        const activeNow = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
         if (activeNow === cleanTarget) {
           state.notifications = notifs;
-          renderNotifications(true);
+          if (typeof renderNotifications === 'function') renderNotifications(true);
         }
       }).catch(() => {});
       return window._notifWriteQueue;
@@ -4928,11 +4994,6 @@ function syncLikedStateToPosts() {
                     </svg>
                   </button>
 
-                  <!-- DM Share Button -->
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('post', '${post.id}');" class="btn-dm-share-post p-0.5 text-neutral-800 hover:text-violet-600 transition cursor-pointer" data-post-id="${post.id}" title="Send in DM">
-                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-                  </button>
-
                   <!-- Share Button -->
                   <button type="button" class="btn-share-post p-0.5 text-neutral-800 hover:text-neutral-600 transition" data-post-id="${post.id}" title="Share">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5692,6 +5753,43 @@ function syncLikedStateToPosts() {
     }
     window.closeNoteDetailModal = closeNoteDetailModal;
 
+    function isSpamComment(comment) {
+      if (!comment) return false;
+      if (comment.isSpam === true) return true;
+      if (comment.isSpam === false) return false;
+      const txt = String(comment.text || '').trim();
+      if (!txt) return false;
+      if (/(https?:\/\/|www\.|bit\.ly|tinyurl\.com|t\.me\/|wa\.me\/|linktr\.ee)/i.test(txt)) return true;
+      if (/(\bfree\s+(followers|likes|crypto|money|cash|giveaway|iphone)\b|\bdm\s+(me|for)\b|\bclick\s+(link|here|my\s+bio)\b|\bcheck\s+(my\s+)?(bio|profile|link)\b|\b(buy\s+followers|cashapp|whatsapp\s*\+|telegram\s*@|onlyfans|guaranteed\s+profit|crypto\s+pump|airdrop\s+claim)\b)/i.test(txt)) return true;
+      if (/(.)\1{7,}/.test(txt)) return true;
+      return false;
+    }
+    window.isSpamComment = isSpamComment;
+
+    function toggleNoteCommentSpam(noteId, commentId, markSpam) {
+      const note = getNoteById(noteId);
+      if (!note || !note.comments) return;
+      const comment = note.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      comment.isSpam = Boolean(markSpam);
+      renderNoteModalComments(note);
+      persistState();
+      showToast(comment.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+    }
+    window.toggleNoteCommentSpam = toggleNoteCommentSpam;
+
+    function togglePostCommentSpam(postId, commentId, markSpam) {
+      const post = getPostById(postId);
+      if (!post || !post.comments) return;
+      const comment = post.comments.find(c => String(c.id) === String(commentId));
+      if (!comment) return;
+      comment.isSpam = Boolean(markSpam);
+      openPostDetailModal(post.id);
+      persistState();
+      showToast(comment.isSpam ? 'Moved comment to Spam folder' : 'Restored comment from Spam folder');
+    }
+    window.togglePostCommentSpam = togglePostCommentSpam;
+
     function toggleLikeNoteComment(noteId, commentId, replyId = null) {
       const note = getNoteById(noteId);
       if (!note || !note.comments) return;
@@ -5746,18 +5844,12 @@ function syncLikedStateToPosts() {
       if (!listEl) return;
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
-      const comments = note.comments || [];
+      const allComments = note.comments || [];
+      const comments = allComments.filter(c => !isSpamComment(c));
+      const spamComments = allComments.filter(c => isSpamComment(c));
       if (countEl) countEl.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
 
-      if (comments.length === 0) {
-        listEl.innerHTML = `
-          <div class="py-6 text-center text-xs text-neutral-400 space-y-1">
-            <p class="font-medium text-neutral-600">No comments yet</p>
-            <p class="text-[11px]">Be the first to reply or share your vibe on this note!</p>
-          </div>
-        `;
-      } else {
-        listEl.innerHTML = comments.map(c => {
+      const renderNoteCommentItem = (c, inSpam = false) => {
           const userAvatar = c.userAvatar || (getCreatorInfo(c.user).avatar) || COMMUNITY_IMAGES[0];
           const isLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
           const likesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
@@ -5803,13 +5895,37 @@ function syncLikedStateToPosts() {
                 <p class="text-neutral-700 mt-0.5 leading-relaxed">${escapeHtml(c.text)}</p>
                 <div class="mt-1">
                   <button type="button" onclick="startReplyToNoteComment('${note.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                  <button type="button" onclick="toggleNoteCommentSpam('${note.id}', '${c.id}', ${inSpam ? 'false' : 'true'})" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-neutral-300 bg-white shadow-2xs hover:bg-rose-50 hover:border-rose-300 text-[11px] font-semibold text-neutral-700 hover:text-rose-600 active:scale-95 transition cursor-pointer ml-2 flex-shrink-0"><svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span>${inSpam ? 'Not spam' : 'Spam'}</span></button>
                 </div>
                 ${repliesHtml}
               </div>
             </div>
           `;
-        }).join('');
-      }
+      };
+
+      const normalHtml = comments.length === 0 ? `
+          <div class="py-5 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-600">No comments yet</p>
+            <p class="text-[11px]">Be the first to reply or share your vibe on this note!</p>
+          </div>
+        ` : comments.map(c => renderNoteCommentItem(c, false)).join('');
+
+      const noteSpamOpen = Boolean(window._noteSpamFolderOpen);
+      const spamFolderHtml = `
+        <div class="mt-2 pt-2 border-t border-neutral-100">
+          <button type="button" onclick="window._noteSpamFolderOpen = !window._noteSpamFolderOpen; const n = getNoteById('${note.id}'); if (n) renderNoteModalComments(n);" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5 transition-transform ${noteSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span>Spam${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+          </button>
+          ${noteSpamOpen ? `
+            <div class="pl-3 mt-1 space-y-1 border-l-2 border-neutral-100">
+              ${spamComments.length > 0 ? spamComments.map(c => renderNoteCommentItem(c, true)).join('') : '<div class="py-2 text-[11px] text-neutral-400">No spam comments</div>'}
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      listEl.innerHTML = normalHtml + spamFolderHtml;
     }
 
     function submitNoteModalComment() {
@@ -6116,15 +6232,10 @@ function syncLikedStateToPosts() {
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text)}</p>
               <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
-                <div class="flex items-center space-x-3">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
-                    <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${n.likes || 0}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}');" class="flex items-center space-x-1 text-neutral-400 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Send in DM">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-                  </button>
-                </div>
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
+                  <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${n.likes || 0}</span>
+                </button>
                 <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${n.id}')" class="flex items-center space-x-1 ${isSaved ? 'text-amber-500 font-bold' : 'text-neutral-400 hover:text-neutral-700'} cursor-pointer">
                   <span>${isSaved ? '🔖 Saved' : '🔖 Save'}</span>
                 </button>
@@ -6879,7 +6990,7 @@ function syncLikedStateToPosts() {
 
               <!-- Bottom Info Gradient with Author & Likes Count -->
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6 flex items-end justify-between text-white text-[10px] sm:text-xs font-semibold z-10 pointer-events-none">
-                <span class="truncate max-w-[70%] drop-shadow-sm">@${post.author}</span>
+                <button type="button" class="btn-explore-author pointer-events-auto truncate max-w-[70%] drop-shadow-sm hover:underline cursor-pointer text-left" data-author="${post.author}">@${post.author}</button>
                 <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
                   <span>${isLiked ? '❤️' : '🤍'}</span>
                   <span>${post.likes}</span>
@@ -6915,13 +7026,13 @@ function syncLikedStateToPosts() {
             return `
             <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/90 rounded-xl p-3.5 transition space-y-2.5 explore-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${note.id}" onclick="openNoteDetailModal('${note.id}')">
               <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 cursor-pointer group/author" onclick="event.stopPropagation(); openCreatorProfile('${note.author}')">
                   <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200">
                     <img src="${getNoteAuthorAvatar(note)}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
                   </div>
                   <div>
-                    <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
-                    <div class="text-[10px] text-neutral-400">@${note.author} · ${note.time}</div>
+                    <div class="font-bold text-xs text-neutral-900 group-hover/author:text-violet-700 transition">${note.authorName || note.author}</div>
+                    <div class="text-[10px] text-neutral-400 group-hover/author:text-violet-600 transition">@${note.author} · ${note.time}</div>
                   </div>
                 </div>
               </div>
@@ -6939,9 +7050,6 @@ function syncLikedStateToPosts() {
                 <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                   <span>${note.replies || 0}</span>
-                </button>
-                <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${note.id}');" class="flex items-center space-x-1 text-neutral-500 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Send in DM">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
                 </button>
                 <button type="button" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
@@ -7038,7 +7146,11 @@ function syncLikedStateToPosts() {
         </div>
 
         <!-- Comments -->
-        ${(post.comments || []).map(c => {
+        ${(() => {
+          const allPostComments = post.comments || [];
+          const normalPostComments = allPostComments.filter(c => !isSpamComment(c));
+          const spamPostComments = allPostComments.filter(c => isSpamComment(c));
+          const renderPostCommentItem = (c, inSpam = false) => {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const cLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
           const cLikesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
@@ -7071,6 +7183,7 @@ function syncLikedStateToPosts() {
                 </div>
                 <div class="mt-0.5">
                   <button type="button" onclick="startReplyToPostComment('${post.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
+                  <button type="button" onclick="togglePostCommentSpam('${post.id}', '${c.id}', ${inSpam ? 'false' : 'true'})" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-neutral-300 bg-white shadow-2xs hover:bg-rose-50 hover:border-rose-300 text-[11px] font-semibold text-neutral-700 hover:text-rose-600 active:scale-95 transition cursor-pointer ml-2 flex-shrink-0"><svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span>${inSpam ? 'Not spam' : 'Spam'}</span></button>
                 </div>
                 ${repliesHtml}
               </div>
@@ -7080,7 +7193,24 @@ function syncLikedStateToPosts() {
               ${cLikesCount > 0 ? `<span class="text-[10px]">${cLikesCount}</span>` : ''}
             </button>
           </div>`;
-        }).join('')}
+          };
+          const postSpamOpen = Boolean(window._postSpamFolderOpen);
+          const normalHtml = normalPostComments.map(c => renderPostCommentItem(c, false)).join('');
+          const spamFolderHtml = `
+            <div class="mt-2 pt-2 border-t border-neutral-100">
+              <button type="button" onclick="window._postSpamFolderOpen = !window._postSpamFolderOpen; openPostDetailModal('${post.id}');" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 py-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5 transition-transform ${postSpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span>Spam${spamPostComments.length > 0 ? ` (${spamPostComments.length})` : ''}</span>
+              </button>
+              ${postSpamOpen ? `
+                <div class="pl-3 mt-1.5 space-y-2 border-l-2 border-neutral-100">
+                  ${spamPostComments.length > 0 ? spamPostComments.map(c => renderPostCommentItem(c, true)).join('') : '<div class="py-1.5 text-[11px] text-neutral-400">No spam comments</div>'}
+                </div>
+              ` : ''}
+            </div>
+          `;
+          return normalHtml + spamFolderHtml;
+        })()}
       `;
 
       modal.classList.remove('hidden'); modal.style.display = 'flex'; modal.style.display = 'flex';
@@ -11158,9 +11288,6 @@ function syncLikedStateToPosts() {
         const badge = document.querySelector('#btn-open-messages span');
         if (badge) badge.classList.add('hidden');
         renderMessages();
-        if (typeof loadDirectMessagesFromFirestore === 'function') {
-          loadDirectMessagesFromFirestore();
-        }
         setTimeout(() => {
           const input = document.getElementById('dm-input-text');
           if (input && window.innerWidth >= 640) input.focus();
@@ -11191,7 +11318,7 @@ function syncLikedStateToPosts() {
             backdrop.classList.remove('hidden');
             backdrop.style.display = 'block';
           }
-          renderNotifications();
+          renderNotifications(true);
         } else {
           dd.classList.add('hidden');
           dd.style.display = 'none';
@@ -11323,7 +11450,8 @@ function syncLikedStateToPosts() {
           const slMap = remoteCache.storyLikes || {};
           openStoryQueue(activeRemote.map(s => {
             const sid = String(s.id || ('creator_' + targetU));
-            const remoteComments = Array.isArray(scMap[sid]) ? scMap[sid] : (Array.isArray(s.comments) ? s.comments : []);
+            const localComments = getLocalStoryComments(targetU, sid);
+            const remoteComments = mergeStoryCommentsLists(s.comments, scMap[sid], localComments);
             const remoteLikes = Array.isArray(slMap[sid]) ? slMap[sid] : [];
             const likedInDb = Boolean((curU && remoteLikes.includes(curU)) || (state.likedStoryIds && state.likedStoryIds.has('story_' + sid)));
             return {
@@ -11483,6 +11611,30 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Notifications ---
+    function formatNotificationTime(n) {
+      if (!n) return 'Just now';
+      let ts = null;
+      if (typeof n.timestamp === 'number' && n.timestamp > 0) {
+        ts = n.timestamp;
+      } else if (typeof n.id === 'number' && n.id > 1000000000000) {
+        ts = n.id;
+      } else if (typeof n.timestamp === 'string' && !isNaN(Date.parse(n.timestamp))) {
+        ts = Date.parse(n.timestamp);
+      }
+      if (!ts) return n.time || 'Just now';
+      const diffMs = Math.max(0, Date.now() - ts);
+      if (diffMs < 86400000) {
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        return `${hrs}h ago`;
+      }
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    window.formatNotificationTime = formatNotificationTime;
+
     function renderNotifications(force = false) {
       const list = document.getElementById('notifications-list');
       const badge = document.getElementById('notif-badge');
@@ -11537,7 +11689,7 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
                   <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
                 </div>
-                <div class="text-[10px] text-neutral-400 font-medium">${n.time || 'Just now'}</div>
+                <div class="text-[10px] text-neutral-400 font-medium">${formatNotificationTime(n)}</div>
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -11661,7 +11813,7 @@ function syncLikedStateToPosts() {
         return `
           <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
             <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-              <img src="${resolveDmAvatar(m)}" alt="${m.name}" class="w-full h-full object-cover">
+              <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
             </div>
             <div class="flex-1 min-w-0">
@@ -11701,36 +11853,9 @@ function syncLikedStateToPosts() {
     }
     window.renderMessages = renderMessages;
 
-    function resolveDmAvatar(threadOrUser) {
-      const fallback = (typeof COMMUNITY_IMAGES !== 'undefined' && COMMUNITY_IMAGES[0])
-        ? COMMUNITY_IMAGES[0]
-        : ((typeof PRESET_IMAGES !== 'undefined' && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '');
-      if (!threadOrUser) return fallback;
-      const uname = (typeof threadOrUser === 'object' ? threadOrUser.user : threadOrUser) || '';
-      const cleanU = uname.toLowerCase().replace(/^@/, '');
-      if (cleanU === 'pixlynote' || cleanU === 'pixai') {
-        if (typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined') return PIXLYNOTE_SHUTTER_ICON;
-      }
-      if (typeof getCreatorInfo === 'function') {
-        const info = getCreatorInfo(cleanU);
-        if (info && info.avatar) return info.avatar;
-      }
-      const fol = (state.following || []).find(f => (f.username || '').toLowerCase() === cleanU);
-      if (fol && fol.avatar) return fol.avatar;
-      if (typeof getPostAuthorAvatar === 'function') {
-        const pa = getPostAuthorAvatar({ author: cleanU });
-        if (pa) return pa;
-      }
-      const av = typeof threadOrUser === 'object' ? threadOrUser.avatar : '';
-      if (av && typeof av === 'string' && (av.startsWith('data:image/') || av.startsWith('https://'))) return av;
-      return fallback;
-    }
-    window.resolveDmAvatar = resolveDmAvatar;
-
     function renderActiveChat(idx) {
       const thread = state.messages[idx];
       if (!thread) return;
-      const threadAvatar = resolveDmAvatar(thread);
 
       state.activeDmThreadIndex = idx;
       thread.unread = 0;
@@ -11744,10 +11869,7 @@ function syncLikedStateToPosts() {
       }
 
       const avatarEl = document.getElementById('dm-active-avatar');
-      if (avatarEl) {
-        avatarEl.onerror = function() { this.onerror = null; this.src = (typeof COMMUNITY_IMAGES !== 'undefined' && COMMUNITY_IMAGES[0]) ? COMMUNITY_IMAGES[0] : ''; };
-        avatarEl.src = threadAvatar;
-      }
+      if (avatarEl) avatarEl.src = thread.avatar;
 
       const container = document.getElementById('dm-messages-container');
       if (!container) return;
@@ -11756,7 +11878,7 @@ function syncLikedStateToPosts() {
         container.innerHTML = `
           <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
             <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
-              <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
+              <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
             </div>
             <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
             <div class="text-[11px] text-neutral-400">@${thread.user}</div>
@@ -11782,23 +11904,6 @@ function syncLikedStateToPosts() {
             </div>
           `;
         }
-        if (msg.sharedContent) {
-          const sc = msg.sharedContent;
-          const scClick = sc.kind === 'post'
-            ? `openPostDetailModal('${sc.id}')`
-            : `if(typeof openNoteDetailModal==='function') openNoteDetailModal('${sc.id}')`;
-          const livePost = (sc.kind === 'post' && typeof getPostById === 'function') ? getPostById(sc.id) : null;
-          const scImage = sc.image || (livePost && livePost.image) || '';
-          contentHtml += `
-            <div onclick="${scClick}" class="cursor-pointer rounded-xl overflow-hidden mb-1.5 border ${isMe ? 'border-white/25 bg-black/20' : 'border-neutral-200 bg-neutral-50'} hover:opacity-95 transition">
-              ${scImage ? `<img src="${scImage}" alt="Shared post" class="w-full max-h-40 object-cover">` : ''}
-              <div class="p-2 text-left">
-                <div class="text-[10px] font-bold ${isMe ? 'text-white/90' : 'text-neutral-900'}">@${escapeHtml(sc.author || '')} · ${sc.kind === 'post' ? 'Post' : 'Note'}</div>
-                ${sc.caption ? `<div class="text-[11px] ${isMe ? 'text-white/85' : 'text-neutral-600'} line-clamp-2 mt-0.5">${escapeHtml(sc.caption)}</div>` : ''}
-              </div>
-            </div>
-          `;
-        }
         if (msg.text) {
           contentHtml += `<div class="whitespace-pre-line leading-relaxed">${escapeHtml(msg.text)}</div>`;
         }
@@ -11807,7 +11912,7 @@ function syncLikedStateToPosts() {
           <div class="flex ${alignClass} items-end space-x-1.5 mb-1 group">
             ${!isMe ? `
               <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1 border border-neutral-200 shadow-2xs">
-                <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
+                <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
               </div>
             ` : ''}
             <div class="max-w-[78%] sm:max-w-[70%]">
@@ -12212,111 +12317,30 @@ function syncLikedStateToPosts() {
     }
     window.handleDmMobileBack = handleDmMobileBack;
 
-    function sanitizeDmsForFirestore(messages) {
-      if (!Array.isArray(messages)) return [];
-      return messages.map(t => {
-        const copy = Object.assign({}, t);
-        if (typeof copy.avatar === 'string' && copy.avatar.startsWith('data:') && copy.avatar.length > 2000) {
-          copy.avatar = '';
-        }
-        if (Array.isArray(copy.chat)) {
-          copy.chat = copy.chat.map(m => {
-            const mc = Object.assign({}, m);
-            if (typeof mc.image === 'string' && mc.image.startsWith('data:') && mc.image.length > 250000) {
-              mc.image = '';
-            }
-            if (mc.sharedContent && typeof mc.sharedContent === 'object') {
-              const sc = Object.assign({}, mc.sharedContent);
-              if (typeof sc.image === 'string' && sc.image.startsWith('data:') && sc.image.length > 2000) {
-                sc.image = '';
-              }
-              mc.sharedContent = sc;
-            }
-            return mc;
-          });
-        }
-        return copy;
-      });
-    }
-
-    function applyLoadedDms(dms, username) {
-      if (!Array.isArray(dms) || dms.length === 0) return;
-      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
-      state.messages = dms;
-      try {
-        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(dms));
-        localStorage.setItem('pixly_dms', JSON.stringify(dms));
-      } catch(e) {}
-      if (window.idbStorage) {
-        idbStorage.set('pixly_dms', JSON.stringify(dms));
-      }
-      if (typeof renderMessages === 'function') renderMessages();
-    }
-    window.applyLoadedDms = applyLoadedDms;
-
-    async function loadDirectMessagesFromFirestore(username) {
-      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
-      if (!cleanU || !window.firebase || !window.firebase.db || !window.firebase.getDoc) return;
-      try {
-        const { db, doc, getDoc } = window.firebase;
-        const dmSnap = await getDoc(doc(db, 'users', cleanU + '__dms'));
-        if (dmSnap.exists() && Array.isArray(dmSnap.data().dms) && dmSnap.data().dms.length > 0) {
-          applyLoadedDms(dmSnap.data().dms, cleanU);
-          return;
-        }
-        const userSnap = await getDoc(doc(db, 'users', cleanU));
-        if (userSnap.exists() && Array.isArray(userSnap.data().dms) && userSnap.data().dms.length > 0) {
-          applyLoadedDms(userSnap.data().dms, cleanU);
-        }
-      } catch(e) {
-        console.warn('loadDirectMessagesFromFirestore notice:', e);
-      }
-    }
-    window.loadDirectMessagesFromFirestore = loadDirectMessagesFromFirestore;
-
     function persistDirectMessages() {
-      const cleanU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
       try {
-        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(state.messages));
+        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+        localStorage.setItem('pixly_dms_' + curU, JSON.stringify(state.messages));
         localStorage.setItem('pixly_dms', JSON.stringify(state.messages));
       } catch(e) {}
       if (window.idbStorage) {
         idbStorage.set('pixly_dms', JSON.stringify(state.messages));
       }
-      const writeToDb = () => {
-        if (window.firebase && window.firebase.db && window.firebase.setDoc) {
-          try {
-            const { db, doc, setDoc } = window.firebase;
-            const safeDms = sanitizeDmsForFirestore(state.messages);
-            if (cleanU) {
-              setDoc(doc(db, 'users', cleanU + '__dms'), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(err => console.warn('DM dedicated doc write error:', err));
-              setDoc(doc(db, 'users', cleanU), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(() => {});
-            }
-            const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
-            if (uid && uid !== cleanU) {
-              setDoc(doc(db, 'users', uid + '__dms'), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(() => {});
-            }
-            return true;
-          } catch(e) {
-            console.warn('persistDirectMessages error:', e);
+      if (window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+          setDoc(doc(db, 'users', 'bradley_hansen'), {
+            dms: state.messages,
+            lastDmUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+          if (uid !== 'bradley_hansen') {
+            setDoc(doc(db, 'users', uid), {
+              dms: state.messages,
+              lastDmUpdated: Date.now()
+            }, { merge: true }).catch(() => {});
           }
-        }
-        return false;
-      };
-      if (!writeToDb()) {
-        const retry = setInterval(() => {
-          if (writeToDb()) clearInterval(retry);
-        }, 400);
-        setTimeout(() => clearInterval(retry), 12000);
+        } catch(e) {}
       }
     }
     window.persistDirectMessages = persistDirectMessages;
@@ -12519,8 +12543,14 @@ function syncLikedStateToPosts() {
               if (typeof renderStories === 'function') renderStories();
             }
             if (Array.isArray(d.notifications)) {
-              state.notifications = d.notifications;
-              try { localStorage.setItem('pixly_notifications_' + normLoginU, JSON.stringify(d.notifications)); } catch(e) {}
+              let localNotifs = [];
+              try {
+                const rawLocal = localStorage.getItem('pixly_notifications_' + normLoginU);
+                if (rawLocal) localNotifs = JSON.parse(rawLocal);
+              } catch(e) {}
+              const mergedNotifs = mergeNotificationsLists(d.notifications, localNotifs);
+              state.notifications = mergedNotifs;
+              try { localStorage.setItem('pixly_notifications_' + normLoginU, JSON.stringify(mergedNotifs)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
             }
             if (Array.isArray(d.likedStoryIds)) {
@@ -12530,15 +12560,9 @@ function syncLikedStateToPosts() {
             if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
               window.applyNoteLikesFromRemote(d.likedNoteIds);
             }
-            let pendingCancel = null;
             let pendingSid = null;
-            try {
-              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
-              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
-            } catch(e) {}
-            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
-              applyStripeSubscriptionCancellation(normLoginU);
-            } else if (pendingSid) {
+            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
+            if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
@@ -12547,15 +12571,6 @@ function syncLikedStateToPosts() {
               if (typeof renderProfile === 'function') renderProfile();
             } else {
               state.currentUser.isVerified = false;
-            }
-            if (Array.isArray(d.dms) && d.dms.length > 0) {
-              state.messages = d.dms;
-              try {
-                localStorage.setItem('pixly_dms_' + normLoginU, JSON.stringify(d.dms));
-                localStorage.setItem('pixly_dms', JSON.stringify(d.dms));
-              } catch(e) {}
-              if (window.idbStorage) idbStorage.set('pixly_dms', JSON.stringify(d.dms));
-              if (typeof renderMessages === 'function') renderMessages();
             }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
@@ -14369,9 +14384,38 @@ function syncLikedStateToPosts() {
           return normalizeUsername(raw);
         };
 
+        window.toggleStoryCommentSpam = async (commentId, markSpam) => {
+          const story = state.activeStory;
+          if (!story || !Array.isArray(story.comments)) return;
+          const c = story.comments.find(item => String(item.id) === String(commentId));
+          if (!c) return;
+          c.isSpam = Boolean(markSpam);
+          window.updateStoryCommentsUI(story);
+          showToast(c.isSpam ? 'Moved comment to Spam' : 'Restored comment from Spam');
+
+          const targetU = resolveStoryTargetUser(story);
+          const sid = String(story.id || ('creator_' + targetU));
+          saveLocalStoryComments(targetU, sid, story.comments);
+          window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+          window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+          window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
+          window._remoteUserProfilesCache[targetU].storyComments[sid] = [...story.comments];
+
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              await setDoc(doc(db, 'users', targetU), {
+                storyComments: { [sid]: story.comments }
+              }, { merge: true });
+            } catch(e) {}
+          }
+        };
+
         window.updateStoryCommentsUI = (story) => {
           if (!story) return;
-          const comments = Array.isArray(story.comments) ? story.comments : [];
+          const allComments = Array.isArray(story.comments) ? story.comments : [];
+          const comments = allComments.filter(c => !isSpamComment(c));
+          const spamComments = allComments.filter(c => isSpamComment(c));
           const countStr = String(comments.length);
           const oCount = document.getElementById('story-owner-comments-count');
           const vCount = document.getElementById('story-viewer-comments-count');
@@ -14381,18 +14425,40 @@ function syncLikedStateToPosts() {
           if (sCount) sCount.textContent = countStr;
           const list = document.getElementById('story-comments-list');
           if (list) {
-            list.innerHTML = comments.map(c => `
+            const renderStoryCommentItem = (c, inSpam = false) => `
               <div class="flex items-start space-x-2.5 py-1.5 border-b border-white/5 last:border-0">
                 <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="font-bold text-white truncate">@${c.user}</span>
-                    <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                  <div class="flex items-center justify-between space-x-2">
+                    <div class="flex items-center space-x-1.5 min-w-0">
+                      <span class="font-bold text-white truncate">@${c.user}</span>
+                      <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                    </div>
+                    <button type="button" onclick="window.toggleStoryCommentSpam('${c.id}', ${inSpam ? 'false' : 'true'})" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/25 bg-white/10 hover:bg-rose-500/20 hover:border-rose-400/50 text-[11px] font-semibold text-white/90 hover:text-rose-200 active:scale-95 transition cursor-pointer flex-shrink-0"><svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span>${inSpam ? 'Not spam' : 'Spam'}</span></button>
                   </div>
                   <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
                 </div>
               </div>
-            `).join('') || '<div class="text-center text-white/50 py-6">No comments yet. Be the first to reply!</div>';
+            `;
+            const normalHtml = comments.length > 0
+              ? comments.map(c => renderStoryCommentItem(c, false)).join('')
+              : '<div class="text-center text-white/50 py-4">No comments yet. Be the first to reply!</div>';
+
+            const storySpamOpen = Boolean(window._storySpamFolderOpen);
+            const spamFolderHtml = `
+              <div class="mt-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="window._storySpamFolderOpen = !window._storySpamFolderOpen; if (state.activeStory) window.updateStoryCommentsUI(state.activeStory);" class="flex items-center space-x-1.5 text-xs font-medium text-white/60 hover:text-white/90 py-1 cursor-pointer">
+                  <svg class="w-3.5 h-3.5 transition-transform ${storySpamOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>Spam${spamComments.length > 0 ? ` (${spamComments.length})` : ''}</span>
+                </button>
+                ${storySpamOpen ? `
+                  <div class="pl-3 mt-1 space-y-1 border-l border-white/10">
+                    ${spamComments.length > 0 ? spamComments.map(c => renderStoryCommentItem(c, true)).join('') : '<div class="py-2 text-[11px] text-white/40">No spam comments</div>'}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+            list.innerHTML = normalHtml + spamFolderHtml;
           }
         };
 
@@ -14404,14 +14470,13 @@ function syncLikedStateToPosts() {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
           const skey = getStoryLikeKey(story);
 
+          const localCached = getLocalStoryComments(targetU, sid);
           const cachedProfile = window._remoteUserProfilesCache && window._remoteUserProfilesCache[targetU];
           const cachedMap = cachedProfile && cachedProfile.storyComments;
-          if (cachedMap && Array.isArray(cachedMap[sid])) {
-            const byId = new Map();
-            (story.comments || []).forEach(c => byId.set(String(c.id), c));
-            cachedMap[sid].forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-            story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+          const cachedArr = (cachedMap && Array.isArray(cachedMap[sid])) ? cachedMap[sid] : [];
+          if (localCached.length > 0 || cachedArr.length > 0) {
+            story.comments = mergeStoryCommentsLists(story.comments, cachedArr, localCached);
+            if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
               window.updateStoryCommentsUI(story);
             }
           }
@@ -14436,11 +14501,10 @@ function syncLikedStateToPosts() {
 
             if (d.storyComments && Array.isArray(d.storyComments[sid])) {
               const remoteComments = d.storyComments[sid];
-              const byId = new Map();
-              (story.comments || []).forEach(c => byId.set(String(c.id), c));
-              remoteComments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-              story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-              if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+              const latestLocal = getLocalStoryComments(targetU, sid);
+              story.comments = mergeStoryCommentsLists(story.comments, remoteComments, latestLocal);
+              saveLocalStoryComments(targetU, sid, story.comments);
+              if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
                 window.updateStoryCommentsUI(story);
               }
             }
@@ -14508,8 +14572,8 @@ function syncLikedStateToPosts() {
           const storyRef = state.activeStory;
           if (!inp || !inp.value.trim() || !storyRef) return;
           const replyText = inp.value.trim();
-          const storyIdStr = String(storyRef.id);
           const targetU = resolveStoryTargetUser(storyRef);
+          const storyIdStr = String(storyRef.id || ('creator_' + targetU));
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
 
@@ -14522,8 +14586,22 @@ function syncLikedStateToPosts() {
             time: 'Just now',
             timestamp: Date.now()
           };
-          storyRef.comments.push(newComment);
+          storyRef.comments = mergeStoryCommentsLists(storyRef.comments, getLocalStoryComments(targetU, storyIdStr), [newComment]);
           window.updateStoryCommentsUI(storyRef);
+
+          // Persist to localStorage immediately so exiting and returning never loses the comment
+          saveLocalStoryComments(targetU, storyIdStr, storyRef.comments);
+          if (Array.isArray(state.stories)) {
+            const matchBar = state.stories.find(s => s && String(s.id || ('creator_' + resolveStoryTargetUser(s))) === storyIdStr);
+            if (matchBar) matchBar.comments = [...storyRef.comments];
+          }
+          if (targetU === curU && Array.isArray(state.userStories)) {
+            const matchOwn = state.userStories.find(s => s && String(s.id) === storyIdStr);
+            if (matchOwn) {
+              matchOwn.comments = [...storyRef.comments];
+              try { localStorage.setItem('pixly_user_stories_' + curU, JSON.stringify(state.userStories)); } catch(e) {}
+            }
+          }
 
           // Update in-memory remote cache immediately
           window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
@@ -14544,11 +14622,9 @@ function syncLikedStateToPosts() {
               const snap = await getDoc(userRef);
               const existingMap = (snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
               const remoteArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
-              const byId = new Map();
-              remoteArr.forEach(c => byId.set(String(c.id), c));
-              storyRef.comments.forEach(c => byId.set(String(c.id), c));
-              const mergedComments = Array.from(byId.values());
+              const mergedComments = mergeStoryCommentsLists(remoteArr, storyRef.comments, getLocalStoryComments(targetU, storyIdStr));
               storyRef.comments = mergedComments;
+              saveLocalStoryComments(targetU, storyIdStr, mergedComments);
               window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
               await setDoc(userRef, {
                 storyComments: { [storyIdStr]: mergedComments }
@@ -14738,6 +14814,12 @@ function syncLikedStateToPosts() {
               return false;
             };
             if (Array.isArray(state.notifications)) {
+              window._deletedNotifIds = window._deletedNotifIds || new Set();
+              state.notifications.forEach(n => {
+                if (shouldDropNotif(n) && n && n.id !== undefined && n.id !== null) {
+                  window._deletedNotifIds.add(String(n.id));
+                }
+              });
               state.notifications = state.notifications.filter(n => !shouldDropNotif(n));
               try { localStorage.setItem('pixly_notifications_' + curU, JSON.stringify(state.notifications)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
@@ -14916,6 +14998,18 @@ function syncLikedStateToPosts() {
               togglePostLike(postId);
               const isNowLiked = state.likedPostIds && state.likedPostIds.has(String(postId));
               showToast(isNowLiked ? 'Liked explore photo! Saved to profile ❤️' : 'Unliked photo');
+              return;
+            }
+
+            // 2b. Author handle tap opens creator profile
+            const authorBtn = e.target.closest('.btn-explore-author');
+            if (authorBtn) {
+              e.preventDefault();
+              e.stopPropagation();
+              const authorHandle = authorBtn.dataset.author;
+              if (authorHandle && typeof openCreatorProfile === 'function') {
+                openCreatorProfile(authorHandle);
+              }
               return;
             }
 
@@ -15486,70 +15580,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSessionVerification = applyStripeSessionVerification;
 
-    function applyStripeSubscriptionCancellation(username) {
-      if (!username) return;
-      const cleanU = normalizeUsername(username);
-      if (!cleanU) return;
-      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
-        state.currentUser.isVerified = false;
-        state.currentUser.isPlus = false;
-        state.currentUser.subscriptionStatus = 'canceled';
-      }
-      try {
-        localStorage.removeItem('pixly_pending_stripe_cancel');
-        localStorage.removeItem('pixly_pending_stripe_session');
-      } catch(e) {}
-      if (typeof persistState === 'function') persistState();
-      if (typeof renderProfile === 'function') renderProfile();
-      if (typeof renderFeed === 'function') renderFeed();
-      if (typeof renderNotes === 'function') renderNotes();
-
-      const writeCancellationToFirestore = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
-            isVerified: false,
-            isPlus: false,
-            subscriptionStatus: 'canceled',
-            canceledUpdatedAt: Date.now()
-          }, { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-
-      if (!writeCancellationToFirestore()) {
-        const retryTimer = setInterval(() => {
-          if (writeCancellationToFirestore()) clearInterval(retryTimer);
-        }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
-      if (typeof showToast === 'function') {
-        showToast('Pixlynote Plus membership canceled');
-      }
-    }
-    window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
-
     (function handleStripeRedirectOnLoad() {
       try {
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get('session_id');
         const subscribed = params.get('subscribed');
-        const canceled = params.get('canceled');
         const token = (sessionId && sessionId.trim()) || (subscribed === 'true' ? ('subscribed_' + Date.now()) : '');
-        if (canceled === 'true') {
-          localStorage.setItem('pixly_pending_stripe_cancel', 'true');
-          localStorage.removeItem('pixly_pending_stripe_session');
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
-          setTimeout(() => {
-            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-              applyStripeSubscriptionCancellation(state.currentUser.username);
-            }
-          }, 300);
-        } else if (token) {
+        if (token) {
           localStorage.setItem('pixly_pending_stripe_session', token);
-          localStorage.removeItem('pixly_pending_stripe_cancel');
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
           setTimeout(() => {
@@ -15678,31 +15716,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
-      const activePill = document.getElementById('sub-active-pill');
-      const subscribeWrap = document.getElementById('pixly-stripe-subscribe-wrap');
-      const manageWrap = document.getElementById('pixly-stripe-manage-wrap');
-      const cancelBtn = document.getElementById('pixly-stripe-cancel-btn');
-      const plusActive = typeof isPlusUser === 'function' && isPlusUser();
-
-      if (activePill) {
-        if (plusActive) activePill.classList.remove('hidden');
-        else activePill.classList.add('hidden');
-      }
-      if (subscribeWrap) {
-        if (plusActive) subscribeWrap.classList.add('hidden');
-        else subscribeWrap.classList.remove('hidden');
-      }
-      if (manageWrap) {
-        if (plusActive) manageWrap.classList.remove('hidden');
-        else manageWrap.classList.add('hidden');
-      }
-      if (cancelBtn) {
-        let portalUrl = 'https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00';
-        if (state.currentUser && state.currentUser.email && state.currentUser.email.includes('@')) {
-          portalUrl += '?prefilled_email=' + encodeURIComponent(state.currentUser.email.trim());
-        }
-        cancelBtn.setAttribute('href', portalUrl);
-      }
       if (buyBtn && state.currentUser && state.currentUser.username) {
         const cleanU = normalizeUsername(state.currentUser.username);
         if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
@@ -15839,208 +15852,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
   </div>
 
   <!-- ========================================================================= -->
-  <!-- DM SHARE MODAL (4-ACROSS CHAT HEADS UP TO 30 FOLLOWED USERS) -->
-  <!-- ========================================================================= -->
-  <div id="modal-dm-share" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeDmShareModal();">
-    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-neutral-900">Share in DM</h3>
-            <p class="text-[10px] text-neutral-500">Select people you follow (up to 30)</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeDmShareModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <!-- Shared Content Preview -->
-      <div id="dm-share-preview" class="px-3.5 py-2.5 bg-neutral-50 border-b border-neutral-100 flex items-center space-x-2.5"></div>
-
-      <!-- 4-Across Chat Heads Grid -->
-      <div id="dm-share-grid" class="flex-1 overflow-y-auto p-3.5 grid grid-cols-4 gap-3 content-start"></div>
-
-      <!-- Optional Message & Send Button -->
-      <div class="p-3 border-t border-neutral-200 bg-white space-y-2.5">
-        <input type="text" id="dm-share-note-input" placeholder="Write a message..." class="w-full px-3 py-2 text-xs bg-neutral-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-xl focus:outline-none transition">
-        <button type="button" id="btn-dm-share-send" onclick="sendDmShare()" disabled class="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-sky-500 text-white text-xs font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-          Message
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let _dmShareTarget = null;
-    let _dmShareSelected = new Set();
-
-    function getDmShareFollowedUsers() {
-      const list = Array.isArray(state.following) ? state.following : [];
-      const active = list.filter(u => u && u.isFollowing);
-      const source = active.length > 0 ? active : list;
-      return source.slice(0, 30);
-    }
-
-    function openDmShareModal(kind, itemId) {
-      const item = kind === 'post' ? getPostById(itemId) : (typeof getNoteById === 'function' ? getNoteById(itemId) : null);
-      if (!item) {
-        if (typeof showToast === 'function') showToast('Unable to load item to share');
-        return;
-      }
-      _dmShareTarget = { kind, item };
-      _dmShareSelected = new Set();
-
-      const noteInp = document.getElementById('dm-share-note-input');
-      if (noteInp) noteInp.value = '';
-
-      const previewEl = document.getElementById('dm-share-preview');
-      if (previewEl) {
-        const textPreview = kind === 'post' ? (item.caption || 'Photo post') : (item.text || '');
-        const thumbHtml = (kind === 'post' && item.image)
-          ? `<img src="${item.image}" alt="" class="w-10 h-10 rounded-lg object-cover border border-neutral-200 flex-shrink-0">`
-          : `<div class="w-10 h-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold flex-shrink-0">📝</div>`;
-        previewEl.innerHTML = `
-          ${thumbHtml}
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] font-bold text-neutral-900 truncate">@${escapeHtml(item.author || 'creator')} · ${kind === 'post' ? 'Post' : 'Note'}</div>
-            <div class="text-[11px] text-neutral-500 truncate">${escapeHtml(textPreview)}</div>
-          </div>
-        `;
-      }
-
-      renderDmShareGrid();
-      updateDmShareSendBtn();
-
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-      }
-    }
-    window.openDmShareModal = openDmShareModal;
-
-    function closeDmShareModal() {
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-      }
-      _dmShareTarget = null;
-      _dmShareSelected.clear();
-    }
-    window.closeDmShareModal = closeDmShareModal;
-
-    function toggleDmShareRecipient(username) {
-      if (!username) return;
-      if (_dmShareSelected.has(username)) _dmShareSelected.delete(username);
-      else _dmShareSelected.add(username);
-      renderDmShareGrid();
-      updateDmShareSendBtn();
-    }
-    window.toggleDmShareRecipient = toggleDmShareRecipient;
-
-    function updateDmShareSendBtn() {
-      const btn = document.getElementById('btn-dm-share-send');
-      if (!btn) return;
-      const count = _dmShareSelected.size;
-      btn.disabled = count === 0;
-      btn.textContent = count > 0 ? `Message (${count})` : 'Message';
-    }
-
-    function renderDmShareGrid() {
-      const grid = document.getElementById('dm-share-grid');
-      if (!grid) return;
-      const users = getDmShareFollowedUsers();
-      if (users.length === 0) {
-        grid.innerHTML = `<div class="col-span-4 py-8 text-center text-xs text-neutral-400">Follow creators to share posts and notes in DMs.</div>`;
-        return;
-      }
-      grid.innerHTML = users.map(u => {
-        const uname = u.username || '';
-        const isSel = _dmShareSelected.has(uname);
-        const av = u.avatar || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: uname }) : '');
-        const label = u.fullName || uname;
-        return `
-          <button type="button" onclick="toggleDmShareRecipient('${escapeHtml(uname)}')" class="flex flex-col items-center text-center group cursor-pointer focus:outline-none">
-            <div class="relative w-14 h-14 rounded-full p-0.5 transition ${isSel ? 'ring-2 ring-violet-600 bg-gradient-to-tr from-violet-500 to-sky-400' : 'border border-neutral-200 group-hover:border-violet-300'}">
-              <img src="${av}" alt="${escapeHtml(label)}" class="w-full h-full rounded-full object-cover bg-neutral-100">
-              ${isSel ? `<span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">✓</span>` : ''}
-            </div>
-            <span class="mt-1.5 text-[10px] font-semibold ${isSel ? 'text-violet-700' : 'text-neutral-700'} truncate w-full">${escapeHtml(label)}</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    function sendDmShare() {
-      if (!_dmShareTarget || _dmShareSelected.size === 0) return;
-      const { kind, item } = _dmShareTarget;
-      const noteInp = document.getElementById('dm-share-note-input');
-      const customNote = noteInp ? noteInp.value.trim() : '';
-      const users = getDmShareFollowedUsers();
-
-      if (!Array.isArray(state.messages)) state.messages = [];
-      const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const summaryText = customNote || (kind === 'post' ? `Shared a post by @${item.author || 'creator'}` : `Shared a note by @${item.author || 'creator'}`);
-
-      let sentCount = 0;
-      _dmShareSelected.forEach(targetUsername => {
-        const userObj = users.find(u => u.username === targetUsername);
-        const cleanTarget = targetUsername.trim().replace(/^@/, '');
-        let idx = state.messages.findIndex(m => (m.user || '').toLowerCase() === cleanTarget.toLowerCase());
-        let thread;
-        if (idx === -1) {
-          thread = {
-            user: cleanTarget,
-            name: (userObj && userObj.fullName) ? userObj.fullName : cleanTarget,
-            avatar: (userObj && userObj.avatar) ? userObj.avatar : (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: cleanTarget }) : ''),
-            lastMsg: summaryText,
-            time: 'Just now',
-            unread: 0,
-            chat: []
-          };
-          state.messages.unshift(thread);
-        } else {
-          thread = state.messages.splice(idx, 1)[0];
-          state.messages.unshift(thread);
-        }
-
-        if (!Array.isArray(thread.chat)) thread.chat = [];
-        thread.chat.push({
-          sender: 'me',
-          text: customNote,
-          sharedContent: {
-            kind: kind,
-            id: String(item.id),
-            author: item.author || '',
-            authorName: item.authorName || item.author || '',
-            image: kind === 'post' ? (item.image || '') : '',
-            caption: kind === 'post' ? (item.caption || '') : (item.text || '')
-          },
-          time: timeStr,
-          timestamp: Date.now()
-        });
-        thread.lastMsg = summaryText;
-        thread.time = 'Just now';
-        sentCount++;
-      });
-
-      state.activeDmThreadIndex = 0;
-      persistDirectMessages();
-      if (typeof renderMessages === 'function') renderMessages();
-      closeDmShareModal();
-      if (typeof showToast === 'function') {
-        showToast(sentCount === 1 ? 'Sent to DM! ✓' : `Sent to ${sentCount} DMs! ✓`);
-      }
-    }
-    window.sendDmShare = sendDmShare;
-  </script>
-
-  <!-- ========================================================================= -->
   <!-- SUBSCRIPTION MODAL (STRIPE BUY BUTTON) -->
   <!-- ========================================================================= -->
   <div id="modal-subscription" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeSubscriptionModal();">
@@ -16083,32 +15894,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </ul>
         </div>
 
-        <div id="pixly-stripe-subscribe-wrap" class="w-full flex justify-center">
-          <stripe-buy-button
-            id="pixly-stripe-buy-btn"
-            buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
-            publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
-          >
-          </stripe-buy-button>
-        </div>
-
-        <div id="pixly-stripe-manage-wrap" class="hidden w-full rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xs space-y-3 text-center">
-          <div class="space-y-1">
-            <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
-              <span>●</span>
-              <span>Pixlynote Plus Active</span>
-            </div>
-            <p class="text-xs font-semibold text-neutral-800 pt-1">$9.99 / month • Managed via Stripe</p>
-            <p class="text-[11px] text-neutral-500">Need to cancel or update your billing? Open the Stripe Customer Portal below.</p>
-          </div>
-          <a
-            id="pixly-stripe-cancel-btn"
-            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
-            class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold shadow-sm transition cursor-pointer"
-          >
-            Cancel Membership
-          </a>
-        </div>
+        <stripe-buy-button
+          id="pixly-stripe-buy-btn"
+          buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
+          publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
+        >
+        </stripe-buy-button>
       </div>
     </div>
   </div>
