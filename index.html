@@ -2485,8 +2485,8 @@
 
       <!-- VIEW 4: CHANGE YOUR PASSWORD -->
       <div id="ac-view-change-password" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3.5">
-        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-          Password reset email delivery isn't connected yet. You can preview the form below, and live updates will work once an email service is configured.
+        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 leading-relaxed">
+          Email delivery is connected via Resend. Updating your password will save immediately and send a security confirmation to your email on file.
         </div>
 
         <form id="form-ac-change-password" class="space-y-3">
@@ -14239,10 +14239,32 @@ function syncLikedStateToPosts() {
               st.textContent = 'New passwords do not match.';
               return;
             }
-            st.classList.add('bg-amber-50', 'text-amber-800');
-            st.textContent = 'Password change preview ready — email verification is not connected yet, so your password was not changed.';
+            const activeUser = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username.toLowerCase() : '';
+            if (state && state.currentUser) state.currentUser.password = newPw;
+            if (activeUser) {
+              try {
+                localStorage.setItem('pixly_user_password_' + activeUser, newPw);
+                localStorage.setItem('pixly_user_password', newPw);
+                const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+                if (accts[activeUser]) { accts[activeUser].password = newPw; localStorage.setItem('pixly_accounts', JSON.stringify(accts)); }
+              } catch(err) {}
+              if (window.firebaseReady && window.firebase && window.firebase.db) {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'users', activeUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+              }
+            }
+            const userEmail = (state && state.currentUser && state.currentUser.email) ? state.currentUser.email : '';
+            if (userEmail && typeof sendPixlynoteEmail === 'function') {
+              sendPixlynoteEmail(
+                userEmail,
+                'Your Pixlynote password was updated',
+                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Updated</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${activeUser || 'your account'}</strong> was just changed.</p><p style="color:#888;font-size:12px;margin-top:16px;">If this wasn't you, reset your password immediately from the Pixlynote login screen.</p></div>`
+              ).catch(() => {});
+            }
+            st.classList.add('bg-emerald-50', 'text-emerald-700');
+            st.textContent = userEmail ? 'Password updated and confirmation sent to ' + userEmail : 'Password updated successfully.';
             pwForm.reset();
-            if (typeof showToast === 'function') showToast('Email service not connected yet — password not changed');
+            if (typeof showToast === 'function') showToast('Password updated!');
           });
         }
         const modalAccountCenter = document.getElementById('modal-account-center');
@@ -15237,9 +15259,204 @@ function syncLikedStateToPosts() {
           });
         }
 
-        bind('btn-forgot-password', 'click', () => {
-          showToast('Password reset instructions sent to your email.');
+        const PIXLYNOTE_EMAIL_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
+        async function sendPixlynoteEmail(to, subject, htmlBody) {
+          const res = await fetch(PIXLYNOTE_EMAIL_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, subject, html: htmlBody })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data.message || data.error || 'Failed to send email');
+          }
+          return data;
+        }
+        window.sendPixlynoteEmail = sendPixlynoteEmail;
+
+        function resolveEmailAndUsernameForReset(rawIdentifier) {
+          const val = (rawIdentifier || '').trim();
+          const clean = val.replace(/^@/, '').toLowerCase();
+          let email = val.includes('@') && val.includes('.') ? val : '';
+          let username = !email ? clean : '';
+
+          try {
+            const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            for (const k in accts) {
+              const acc = accts[k];
+              if (!acc || typeof acc !== 'object') continue;
+              if (email && acc.email && acc.email.toLowerCase() === email.toLowerCase()) {
+                username = (acc.username || k).toLowerCase();
+                break;
+              }
+              if (!email && acc.username && acc.username.toLowerCase() === clean) {
+                username = acc.username.toLowerCase();
+                if (acc.email) email = acc.email;
+                break;
+              }
+            }
+          } catch(e) {}
+
+          if (!email && (clean === 'bradley_hansen' || (state && state.currentUser && state.currentUser.username && state.currentUser.username.toLowerCase() === clean))) {
+            email = (state && state.currentUser && state.currentUser.email) ? state.currentUser.email : 'Brad.g.hansen@gmail.com';
+            username = username || clean;
+          }
+          return { email, username };
+        }
+
+        const forgotModal = document.getElementById('modal-forgot-password');
+        const forgotStep1 = document.getElementById('form-forgot-step-1');
+        const forgotStep2 = document.getElementById('form-forgot-step-2');
+        const forgotStatus1 = document.getElementById('forgot-step1-status');
+        const forgotStatus2 = document.getElementById('forgot-step2-status');
+        let pendingReset = null;
+
+        function setForgotStatus(el, msg, isError) {
+          if (!el) return;
+          el.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-emerald-50', 'text-emerald-700');
+          el.classList.add(isError ? 'bg-rose-50' : 'bg-emerald-50', isError ? 'text-rose-700' : 'text-emerald-700');
+          el.textContent = msg;
+        }
+
+        function openForgotPasswordModal() {
+          if (!forgotModal) return;
+          if (forgotStep1) forgotStep1.classList.remove('hidden');
+          if (forgotStep2) forgotStep2.classList.add('hidden');
+          if (forgotStatus1) forgotStatus1.classList.add('hidden');
+          if (forgotStatus2) forgotStatus2.classList.add('hidden');
+          const loginVal = (document.getElementById('login-username') || {}).value || '';
+          const idInput = document.getElementById('forgot-identifier');
+          if (idInput && loginVal) idInput.value = loginVal;
+          forgotModal.classList.remove('hidden');
+          forgotModal.classList.add('flex');
+        }
+
+        function closeForgotPasswordModal() {
+          if (!forgotModal) return;
+          forgotModal.classList.add('hidden');
+          forgotModal.classList.remove('flex');
+        }
+
+        bind('btn-forgot-password', 'click', openForgotPasswordModal);
+        bind('btn-close-forgot-password', 'click', closeForgotPasswordModal);
+        if (forgotModal) {
+          forgotModal.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-forgot-password') closeForgotPasswordModal();
+          });
+        }
+        bind('btn-forgot-back', 'click', () => {
+          if (forgotStep2) forgotStep2.classList.add('hidden');
+          if (forgotStep1) forgotStep1.classList.remove('hidden');
+          if (forgotStatus2) forgotStatus2.classList.add('hidden');
         });
+
+        if (forgotStep1) {
+          forgotStep1.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const raw = ((document.getElementById('forgot-identifier') || {}).value || '').trim();
+            if (!raw) {
+              setForgotStatus(forgotStatus1, 'Please enter your email address or username.', true);
+              return;
+            }
+            const { email, username } = resolveEmailAndUsernameForReset(raw);
+            if (!email) {
+              setForgotStatus(forgotStatus1, 'No email address found for that username. Please enter your email directly.', true);
+              return;
+            }
+            const sendBtn = document.getElementById('btn-forgot-send-code');
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending...'; }
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            pendingReset = { code, email, username, expiresAt: Date.now() + 15 * 60 * 1000 };
+            try {
+              sessionStorage.setItem('pixly_pending_reset', JSON.stringify(pendingReset));
+            } catch(err) {}
+            if (window.firebaseReady && window.firebase && window.firebase.db) {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'password_resets', email.toLowerCase()), pendingReset).catch(() => {});
+            }
+            try {
+              await sendPixlynoteEmail(
+                email,
+                'Your Pixlynote Password Reset Code: ' + code,
+                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 8px;color:#111;">Pixlynote Password Reset</h2><p style="color:#555;font-size:14px;line-height:1.5;">Use this 6-digit code to reset your Pixlynote password. It expires in 15 minutes.</p><div style="margin:20px 0;padding:16px;background:#f7f5ff;border-radius:12px;text-align:center;font-size:28px;font-weight:bold;letter-spacing:6px;color:#5b21b6;">${code}</div><p style="color:#888;font-size:12px;">If you didn't request this, you can safely ignore this email.</p></div>`
+              );
+              const labelEl = document.getElementById('forgot-sent-email-label');
+              if (labelEl) labelEl.textContent = email;
+              forgotStep1.classList.add('hidden');
+              if (forgotStep2) forgotStep2.classList.remove('hidden');
+              if (typeof showToast === 'function') showToast('Reset code sent to ' + email);
+            } catch (err) {
+              setForgotStatus(forgotStatus1, 'Could not send email: ' + (err.message || 'Unknown error'), true);
+            } finally {
+              if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Reset Code'; }
+            }
+          });
+        }
+
+        if (forgotStep2) {
+          forgotStep2.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const enteredCode = ((document.getElementById('forgot-reset-code') || {}).value || '').trim();
+            const newPw = ((document.getElementById('forgot-new-password') || {}).value || '').trim();
+            const confPw = ((document.getElementById('forgot-confirm-password') || {}).value || '').trim();
+
+            if (!pendingReset) {
+              try { pendingReset = JSON.parse(sessionStorage.getItem('pixly_pending_reset') || 'null'); } catch(err) {}
+            }
+            if (!pendingReset) {
+              setForgotStatus(forgotStatus2, 'Reset session expired. Please request a new code.', true);
+              return;
+            }
+            if (Date.now() > pendingReset.expiresAt) {
+              setForgotStatus(forgotStatus2, 'That code has expired. Please request a new one.', true);
+              return;
+            }
+            if (enteredCode !== pendingReset.code) {
+              setForgotStatus(forgotStatus2, 'Incorrect 6-digit code. Please check your email.', true);
+              return;
+            }
+            if (newPw.length < 4) {
+              setForgotStatus(forgotStatus2, 'New password must be at least 4 characters.', true);
+              return;
+            }
+            if (newPw !== confPw) {
+              setForgotStatus(forgotStatus2, 'Passwords do not match.', true);
+              return;
+            }
+
+            const targetUser = (pendingReset.username || '').toLowerCase();
+            try {
+              if (targetUser) {
+                localStorage.setItem('pixly_user_password_' + targetUser, newPw);
+              }
+              localStorage.setItem('pixly_user_password', newPw);
+              const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+              for (const k in accts) {
+                const acc = accts[k];
+                if (acc && ((targetUser && acc.username && acc.username.toLowerCase() === targetUser) || (acc.email && acc.email.toLowerCase() === pendingReset.email.toLowerCase()))) {
+                  acc.password = newPw;
+                }
+              }
+              localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+              sessionStorage.removeItem('pixly_pending_reset');
+            } catch(err) {}
+
+            if (window.firebaseReady && window.firebase && window.firebase.db && targetUser) {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'users', targetUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            }
+
+            const loginUserInp = document.getElementById('login-username');
+            const loginPwInp = document.getElementById('login-password');
+            if (loginUserInp && !loginUserInp.value) loginUserInp.value = pendingReset.username || pendingReset.email;
+            if (loginPwInp) loginPwInp.value = '';
+
+            pendingReset = null;
+            forgotStep2.reset();
+            closeForgotPasswordModal();
+            if (typeof showToast === 'function') showToast('Password updated! You can now log in.');
+          });
+        }
         // Jump directly to profile without password
 
 
@@ -17529,6 +17746,63 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         </button>
       </div>
 
+    </div>
+  </div>
+
+
+  <!-- Forgot Password Modal (Resend Email Verification) -->
+  <div id="modal-forgot-password" class="fixed inset-0 z-[120] hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden animate-fade-in">
+      <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-xl story-gradient flex items-center justify-center text-white text-xs font-bold shadow-xs">🔐</div>
+          <h3 class="text-sm font-bold text-neutral-900">Reset Password</h3>
+        </div>
+        <button type="button" id="btn-close-forgot-password" class="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-500 flex items-center justify-center text-xs font-bold transition cursor-pointer">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- Step 1: Request 6-digit code -->
+        <form id="form-forgot-step-1" class="space-y-3">
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            Enter the email address (or username) for your Pixlynote account and we'll email you a 6-digit reset code.
+          </p>
+          <div>
+            <label for="forgot-identifier" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Email or Username</label>
+            <input type="text" id="forgot-identifier" placeholder="you@example.com or @username" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div id="forgot-step1-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
+          <button type="submit" id="btn-forgot-send-code" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
+            Send Reset Code
+          </button>
+        </form>
+
+        <!-- Step 2: Verify code + set new password -->
+        <form id="form-forgot-step-2" class="hidden space-y-3">
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            We sent a 6-digit code to <span id="forgot-sent-email-label" class="font-semibold text-neutral-800"></span>. Enter it below to choose a new password.
+          </p>
+          <div>
+            <label for="forgot-reset-code" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">6-Digit Code</label>
+            <input type="text" id="forgot-reset-code" inputmode="numeric" maxlength="6" placeholder="123456" class="w-full px-3 py-2.5 text-sm tracking-widest font-mono bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div>
+            <label for="forgot-new-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">New Password</label>
+            <input type="password" id="forgot-new-password" placeholder="At least 4 characters" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div>
+            <label for="forgot-confirm-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Confirm New Password</label>
+            <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+          </div>
+          <div id="forgot-step2-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
+          <button type="submit" id="btn-forgot-confirm-reset" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
+            Update Password
+          </button>
+          <button type="button" id="btn-forgot-back" class="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition cursor-pointer">
+            ← Use a different email
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 
