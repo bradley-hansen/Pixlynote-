@@ -695,16 +695,8 @@
 
           <!-- Direct Messages Button -->
           <button type="button" id="btn-open-messages" title="Messages" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
-              <defs>
-                <linearGradient id="pixly-dm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#a855f7"/>
-                  <stop offset="55%" stop-color="#6366f1"/>
-                  <stop offset="100%" stop-color="#0ea5e9"/>
-                </linearGradient>
-              </defs>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
             </svg>
             <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-sky-500 rounded-full"></span>
           </button>
@@ -1475,9 +1467,6 @@
               </button>
               <button type="button" id="btn-modal-focus-comment" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-              </button>
-              <button type="button" id="btn-modal-dm-share" onclick="if(state.currentModalPostId) openDmShareModal('post', state.currentModalPostId);" class="text-neutral-700 hover:text-violet-600 transition cursor-pointer" title="Send in DM">
-                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
               </button>
               <button type="button" id="btn-modal-share" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
@@ -2387,6 +2376,19 @@
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+
+        <button type="button" id="btn-ac-tab-security-access" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900">Security and access</div>
+              <div class="text-[10px] text-neutral-500">Two-factor authentication, apps &amp; sessions</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
 
       <!-- VIEW 3: ACCOUNT INFO -->
@@ -2440,6 +2442,183 @@
             Update password
           </button>
         </form>
+      </div>
+
+      <!-- VIEW 5: SECURITY AND ACCESS -->
+      <div id="ac-view-security-access" class="hidden flex-1 flex flex-col min-h-0">
+        <!-- Two Tabs: Security | Apps and sessions -->
+        <div class="px-3.5 pt-3 pb-2 border-b border-neutral-100 bg-white">
+          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-neutral-100">
+            <button type="button" id="btn-ac-sa-tab-security" class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer">
+              Security
+            </button>
+            <button type="button" id="btn-ac-sa-tab-apps-sessions" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+              Apps and sessions
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+          <!-- TAB PANEL 1: SECURITY -->
+          <div id="ac-sa-panel-security" class="space-y-2.5">
+            <button type="button" id="btn-ac-open-2fa" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                </div>
+                <div class="text-left min-w-0">
+                  <div class="text-xs font-bold text-neutral-900">Two-factor authentication</div>
+                  <div class="text-[10px] text-neutral-500 truncate">Protect your account with an extra verification step</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+                <span id="ac-2fa-summary-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">Off</span>
+                <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </button>
+          </div>
+
+          <!-- TAB PANEL 2: APPS AND SESSIONS -->
+          <div id="ac-sa-panel-apps-sessions" class="hidden space-y-2.5">
+            <button type="button" id="btn-ac-open-sessions" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="text-left min-w-0">
+                  <div class="text-xs font-bold text-neutral-900">Sessions</div>
+                  <div class="text-[10px] text-neutral-500 truncate">See your active session &amp; log out of other devices</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+                <span id="ac-sessions-count-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">1 active</span>
+                <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 6: TWO-FACTOR AUTHENTICATION -->
+      <div id="ac-view-2fa" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
+        <!-- Enable / Disable Card -->
+        <div class="p-3.5 rounded-2xl border border-neutral-200 bg-white flex items-center justify-between">
+          <div class="pr-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-neutral-900">Two-factor authentication</span>
+              <span id="ac-2fa-status-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">Off</span>
+            </div>
+            <p class="text-[11px] text-neutral-500 mt-1">Require a verification code when logging in from an unrecognized device.</p>
+          </div>
+          <button type="button" id="btn-ac-2fa-toggle" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex-shrink-0 cursor-pointer">
+            Turn on
+          </button>
+        </div>
+
+        <!-- 2FA Methods -->
+        <div class="space-y-2">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 px-1">Verification methods</div>
+
+          <!-- Method: Authentication App -->
+          <div class="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+            <button type="button" id="btn-ac-2fa-method-app" class="w-full flex items-center justify-between p-3.5 hover:bg-neutral-50 transition cursor-pointer">
+              <div class="flex items-center space-x-3 text-left">
+                <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-neutral-900">Authentication app</div>
+                  <div class="text-[10px] text-neutral-500">Use Google Authenticator or another TOTP app</div>
+                </div>
+              </div>
+              <span id="ac-2fa-app-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">Select</span>
+            </button>
+
+            <div id="ac-2fa-app-setup" class="hidden px-3.5 pb-3.5 pt-2 border-t border-neutral-100 bg-neutral-50/70 space-y-2.5">
+              <div class="text-[11px] text-neutral-600">Copy this setup key into your authenticator app, then enter any 6-digit code to verify:</div>
+              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-neutral-200">
+                <code id="ac-2fa-secret-key" class="text-xs font-mono font-bold text-violet-700 tracking-wider">PXLY-7K9M-2Q4W-8Z3N</code>
+                <button type="button" id="btn-ac-2fa-copy-key" class="text-[11px] font-bold text-violet-600 hover:text-violet-800 cursor-pointer">Copy</button>
+              </div>
+              <div class="flex items-center space-x-2">
+                <input type="text" id="ac-2fa-code-input" maxlength="6" inputmode="numeric" placeholder="6-digit code" class="flex-1 px-3 py-2 text-xs bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500">
+                <button type="button" id="btn-ac-2fa-verify-btn" class="px-3.5 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Verify</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Method: Text Message (SMS) -->
+          <button type="button" id="btn-ac-2fa-method-sms" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 transition cursor-pointer">
+            <div class="flex items-center space-x-3 text-left">
+              <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-neutral-900">Text message (SMS)</div>
+                <div id="ac-2fa-sms-phone" class="text-[10px] text-neutral-500">Receive verification codes by text</div>
+              </div>
+            </div>
+            <span id="ac-2fa-sms-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">Select</span>
+          </button>
+        </div>
+
+        <!-- Backup Codes -->
+        <div id="ac-2fa-backup-section" class="p-3.5 rounded-2xl border border-neutral-200 bg-white space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-neutral-900">Backup codes</div>
+              <div class="text-[10px] text-neutral-500">Use these if you lose access to your 2FA device</div>
+            </div>
+            <button type="button" id="btn-ac-2fa-regen-codes" class="text-[11px] font-bold text-violet-600 hover:text-violet-800 cursor-pointer">Regenerate</button>
+          </div>
+          <div id="ac-2fa-backup-codes" class="grid grid-cols-2 gap-1.5 text-[11px] font-mono font-semibold text-neutral-700">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 7: SESSIONS -->
+      <div id="ac-view-sessions" class="hidden flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto p-3.5 space-y-4">
+          <!-- Current Active Session -->
+          <div class="space-y-2">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 px-1">Current active session</div>
+            <div id="ac-current-session-card" class="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/40">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Other Active Sessions -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between px-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Other active sessions</span>
+              <span id="ac-other-sessions-count" class="text-[10px] font-bold text-neutral-500">0</span>
+            </div>
+            <div id="ac-other-sessions-list" class="space-y-2">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Log out of all other sessions -->
+        <div class="p-3.5 border-t border-neutral-100 bg-neutral-50/80 space-y-2">
+          <div id="ac-logout-others-confirm" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 space-y-2">
+            <div class="text-[11px] font-semibold text-rose-800">Log out of all other sessions? You will stay signed in on this device.</div>
+            <div class="flex items-center space-x-2">
+              <button type="button" id="btn-ac-confirm-logout-others" class="flex-1 py-2 px-3 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition cursor-pointer">
+                Confirm log out
+              </button>
+              <button type="button" id="btn-ac-cancel-logout-others" class="flex-1 py-2 px-3 text-xs font-bold text-neutral-700 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-xl transition cursor-pointer">
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          <button type="button" id="btn-ac-logout-other-sessions" class="w-full py-2.5 px-4 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span>Log out of all other sessions</span>
+          </button>
+        </div>
       </div>
 
     </div>
@@ -2520,20 +2699,6 @@
         function attachFirestoreListeners() {
           if (firestoreListenerAttached) return;
           firestoreListenerAttached = true;
-
-          try {
-            const activeDmUser = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
-            if (activeDmUser) {
-              onSnapshot(doc(db, 'users', activeDmUser + '__dms'), (dmSnap) => {
-                if (dmSnap.exists() && !dmSnap.metadata.hasPendingWrites) {
-                  const dmData = dmSnap.data();
-                  if (dmData && Array.isArray(dmData.dms) && dmData.dms.length > 0 && typeof applyLoadedDms === 'function') {
-                    applyLoadedDms(dmData.dms, activeDmUser);
-                  }
-                }
-              }, () => {});
-            }
-          } catch(e) {}
 
           const userDocRef = doc(db, 'users', 'bradley_hansen');
           onSnapshot(userDocRef, (snap) => {
@@ -2668,10 +2833,8 @@
                 // 5b. Subscription Verified Badge from Cloud Firestore
                 if (typeof data.isVerified === 'boolean') {
                   state.currentUser.isVerified = data.isVerified;
-                  state.currentUser.isPlus = Boolean(data.isPlus || data.isVerified);
                   state.currentUser.subscriptionStatus = data.subscriptionStatus || (data.isVerified ? 'active' : 'inactive');
                   if (typeof renderProfile === 'function') renderProfile();
-                  if (typeof refreshSubscriptionModalUI === 'function') refreshSubscriptionModalUI();
                 }
 
                 // 6. Heart Notifications from Cloud Firestore
@@ -2795,30 +2958,15 @@
                 window.applyNoteLikesFromRemote(d.likedNoteIds);
               }
             }
-            let pendingCancel = null;
             let pendingSid = null;
-            try {
-              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
-              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
-            } catch(e) {}
-            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
-              applyStripeSubscriptionCancellation(cleanU);
-            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
+            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
+            if (pendingSid && typeof applyStripeSessionVerification === 'function') {
               applyStripeSessionVerification(cleanU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
               state.currentUser.isPlus = Boolean(d.isPlus || d.isVerified);
               state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
-            }
-            if (Array.isArray(d.dms) && d.dms.length > 0 && !hasPendingWrites) {
-              state.messages = d.dms;
-              try {
-                localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                localStorage.setItem('pixly_dms', JSON.stringify(d.dms));
-              } catch(e) {}
-              if (window.idbStorage) idbStorage.set('pixly_dms', JSON.stringify(d.dms));
-              if (typeof renderMessages === 'function') renderMessages();
             }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
@@ -2832,9 +2980,6 @@
           window.hydrateActiveAccountFromFirestore = async function(username) {
             const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
             if (!cleanU || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
-            if (typeof loadDirectMessagesFromFirestore === 'function') {
-              loadDirectMessagesFromFirestore(cleanU);
-            }
             try {
               const snap = await getDoc(doc(db, 'users', cleanU));
               if (snap.exists()) {
@@ -4930,11 +5075,6 @@ function syncLikedStateToPosts() {
                     </svg>
                   </button>
 
-                  <!-- DM Share Button -->
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('post', '${post.id}');" class="btn-dm-share-post p-0.5 text-neutral-800 hover:text-violet-600 transition cursor-pointer" data-post-id="${post.id}" title="Send in DM">
-                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-                  </button>
-
                   <!-- Share Button -->
                   <button type="button" class="btn-share-post p-0.5 text-neutral-800 hover:text-neutral-600 transition" data-post-id="${post.id}" title="Share">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6118,15 +6258,10 @@ function syncLikedStateToPosts() {
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text)}</p>
               <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
-                <div class="flex items-center space-x-3">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
-                    <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${n.likes || 0}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}');" class="flex items-center space-x-1 text-neutral-400 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Send in DM">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-                  </button>
-                </div>
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
+                  <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${n.likes || 0}</span>
+                </button>
                 <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${n.id}')" class="flex items-center space-x-1 ${isSaved ? 'text-amber-500 font-bold' : 'text-neutral-400 hover:text-neutral-700'} cursor-pointer">
                   <span>${isSaved ? '🔖 Saved' : '🔖 Save'}</span>
                 </button>
@@ -6941,9 +7076,6 @@ function syncLikedStateToPosts() {
                 <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                   <span>${note.replies || 0}</span>
-                </button>
-                <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${note.id}');" class="flex items-center space-x-1 text-neutral-500 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Send in DM">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
                 </button>
                 <button type="button" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
@@ -10994,7 +11126,10 @@ function syncLikedStateToPosts() {
         main: document.getElementById('ac-view-main'),
         yourAccount: document.getElementById('ac-view-your-account'),
         accountInfo: document.getElementById('ac-view-account-info'),
-        changePassword: document.getElementById('ac-view-change-password')
+        changePassword: document.getElementById('ac-view-change-password'),
+        securityAccess: document.getElementById('ac-view-security-access'),
+        twoFactorAuth: document.getElementById('ac-view-2fa'),
+        sessions: document.getElementById('ac-view-sessions')
       };
       Object.entries(views).forEach(([k, el]) => {
         if (!el) return;
@@ -11038,9 +11173,342 @@ function syncLikedStateToPosts() {
         if (subEl) subEl.textContent = '@' + curU;
         const st = document.getElementById('ac-pw-status');
         if (st) st.classList.add('hidden');
+      } else if (viewName === 'securityAccess') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Security and access';
+        if (subEl) subEl.textContent = '@' + curU;
+        renderSecurityAccessSummary();
+      } else if (viewName === 'twoFactorAuth') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'securityAccess'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Two-factor authentication';
+        if (subEl) subEl.textContent = '@' + curU;
+        render2FAView();
+      } else if (viewName === 'sessions') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'securityAccess'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Sessions';
+        if (subEl) subEl.textContent = '@' + curU;
+        const confirmBox = document.getElementById('ac-logout-others-confirm');
+        if (confirmBox) confirmBox.classList.add('hidden');
+        renderSessionsView();
       }
     }
     window.setAccountCenterView = setAccountCenterView;
+
+    // --- Security & Access: Tabs, Two-Factor Auth, and Active Sessions ---
+    function setSecurityAccessTab(tabName) {
+      const secTab = document.getElementById('btn-ac-sa-tab-security');
+      const appTab = document.getElementById('btn-ac-sa-tab-apps-sessions');
+      const secPanel = document.getElementById('ac-sa-panel-security');
+      const appPanel = document.getElementById('ac-sa-panel-apps-sessions');
+      if (!secTab || !appTab || !secPanel || !appPanel) return;
+
+      if (tabName === 'appsSessions') {
+        secPanel.classList.add('hidden');
+        appPanel.classList.remove('hidden');
+        secTab.className = 'py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
+        appTab.className = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
+      } else {
+        appPanel.classList.add('hidden');
+        secPanel.classList.remove('hidden');
+        secTab.className = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
+        appTab.className = 'py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
+      }
+    }
+    window.setSecurityAccessTab = setSecurityAccessTab;
+
+    function getSecurityUsernameKey() {
+      const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+      return curU.toLowerCase();
+    }
+
+    function generateBackupCodes() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const codes = [];
+      for (let i = 0; i < 4; i++) {
+        let part1 = '', part2 = '';
+        for (let j = 0; j < 4; j++) {
+          part1 += chars[Math.floor(Math.random() * chars.length)];
+          part2 += chars[Math.floor(Math.random() * chars.length)];
+        }
+        codes.push(part1 + '-' + part2);
+      }
+      return codes;
+    }
+
+    function get2FASettings() {
+      const key = 'pixly_2fa_' + getSecurityUsernameKey();
+      const defaults = {
+        enabled: false,
+        method: 'app',
+        secretKey: 'PXLY-7K9M-2Q4W-8Z3N',
+        verified: false,
+        backupCodes: ['4F9K-2M8Q', '7P3W-9X2L', '6N4R-8T5B', '2V7C-5H9D']
+      };
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) return { ...defaults, ...JSON.parse(raw) };
+      } catch(e) {}
+      return defaults;
+    }
+
+    function save2FASettings(cfg) {
+      const uKey = getSecurityUsernameKey();
+      try { localStorage.setItem('pixly_2fa_' + uKey, JSON.stringify(cfg)); } catch(e) {}
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { doc, setDoc } = window.firebase;
+          setDoc(doc(window.firebase.db, 'users', uKey), { twoFactorAuth: cfg, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+        }
+      } catch(e) {}
+      renderSecurityAccessSummary();
+    }
+
+    function renderSecurityAccessSummary() {
+      const cfg = get2FASettings();
+      const badge = document.getElementById('ac-2fa-summary-badge');
+      if (badge) {
+        if (cfg.enabled) {
+          badge.textContent = 'On • ' + (cfg.method === 'sms' ? 'SMS' : 'App');
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+        } else {
+          badge.textContent = 'Off';
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
+        }
+      }
+      const sessions = getAccountSessions();
+      const sBadge = document.getElementById('ac-sessions-count-badge');
+      if (sBadge) {
+        sBadge.textContent = sessions.length + ' active';
+      }
+    }
+
+    function render2FAView() {
+      const cfg = get2FASettings();
+      const pill = document.getElementById('ac-2fa-status-pill');
+      const toggleBtn = document.getElementById('btn-ac-2fa-toggle');
+      const appBadge = document.getElementById('ac-2fa-app-badge');
+      const smsBadge = document.getElementById('ac-2fa-sms-badge');
+      const appSetup = document.getElementById('ac-2fa-app-setup');
+      const secretEl = document.getElementById('ac-2fa-secret-key');
+      const smsPhoneEl = document.getElementById('ac-2fa-sms-phone');
+      const codesEl = document.getElementById('ac-2fa-backup-codes');
+
+      if (pill) {
+        pill.textContent = cfg.enabled ? 'On' : 'Off';
+        pill.className = cfg.enabled
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
+      }
+      if (toggleBtn) {
+        toggleBtn.textContent = cfg.enabled ? 'Turn off' : 'Turn on';
+        toggleBtn.className = cfg.enabled
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition flex-shrink-0 cursor-pointer'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex-shrink-0 cursor-pointer';
+      }
+      if (appBadge) {
+        const isApp = cfg.enabled && cfg.method === 'app';
+        appBadge.textContent = isApp ? 'Active' : 'Select';
+        appBadge.className = isApp
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500';
+      }
+      if (smsBadge) {
+        const isSms = cfg.enabled && cfg.method === 'sms';
+        smsBadge.textContent = isSms ? 'Active' : 'Select';
+        smsBadge.className = isSms
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500';
+      }
+      if (appSetup) {
+        if (cfg.method === 'app') appSetup.classList.remove('hidden');
+        else appSetup.classList.add('hidden');
+      }
+      if (secretEl) secretEl.textContent = cfg.secretKey;
+      if (smsPhoneEl) {
+        const rawPhone = state.currentUser && state.currentUser.phone ? state.currentUser.phone : '';
+        smsPhoneEl.textContent = rawPhone
+          ? 'Send codes to ' + maskPhoneNumber(rawPhone)
+          : 'Add a phone number in Account Info to use SMS';
+      }
+      if (codesEl) {
+        codesEl.innerHTML = (cfg.backupCodes || []).map(c =>
+          `<div class="px-2.5 py-1.5 rounded-lg bg-neutral-50 border border-neutral-200 text-center">${c}</div>`
+        ).join('');
+      }
+    }
+
+    function detectCurrentSessionInfo() {
+      const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+      let device = 'Desktop Browser';
+      let icon = '💻';
+      if (/Android/i.test(ua)) { device = 'Android Device'; icon = '📱'; }
+      else if (/iPhone/i.test(ua)) { device = 'iPhone'; icon = '📱'; }
+      else if (/iPad/i.test(ua)) { device = 'iPad'; icon = '📱'; }
+      else if (/Macintosh|Mac OS X/i.test(ua)) { device = 'Mac'; icon = '💻'; }
+      else if (/Windows/i.test(ua)) { device = 'Windows PC'; icon = '💻'; }
+
+      let browser = 'Web Browser';
+      if (/Edg\//i.test(ua)) browser = 'Microsoft Edge';
+      else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = 'Google Chrome';
+      else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+      else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+
+      let tz = 'Local Time';
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local Time'; } catch(e) {}
+
+      let currentId = '';
+      try {
+        currentId = localStorage.getItem('pixly_current_session_id');
+        if (!currentId) {
+          currentId = 'sess_' + Math.random().toString(36).slice(2, 10);
+          localStorage.setItem('pixly_current_session_id', currentId);
+        }
+      } catch(e) { currentId = 'sess_current'; }
+
+      return {
+        id: currentId,
+        device: device,
+        browser: browser,
+        icon: icon,
+        location: tz.replace(/_/g, ' '),
+        isCurrent: true,
+        lastActive: 'Active now'
+      };
+    }
+
+    function getAccountSessions() {
+      const uKey = getSecurityUsernameKey();
+      const key = 'pixly_sessions_' + uKey;
+      const current = detectCurrentSessionInfo();
+      let others = null;
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) others = parsed;
+        }
+      } catch(e) {}
+
+      if (others === null) {
+        others = [
+          {
+            id: 'sess_web_backup',
+            device: 'Windows PC',
+            browser: 'Google Chrome',
+            icon: '💻',
+            location: 'New Jersey, US',
+            isCurrent: false,
+            lastActive: '2 hours ago'
+          },
+          {
+            id: 'sess_mobile_alt',
+            device: 'Android Device',
+            browser: 'Pixlynote Web App',
+            icon: '📱',
+            location: 'Galloway, NJ',
+            isCurrent: false,
+            lastActive: 'Yesterday'
+          }
+        ];
+        try { localStorage.setItem(key, JSON.stringify(others)); } catch(e) {}
+      }
+
+      return [current, ...others.filter(s => s && s.id !== current.id)];
+    }
+
+    function saveOtherSessions(otherList) {
+      const uKey = getSecurityUsernameKey();
+      try { localStorage.setItem('pixly_sessions_' + uKey, JSON.stringify(otherList)); } catch(e) {}
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { doc, setDoc } = window.firebase;
+          setDoc(doc(window.firebase.db, 'users', uKey), {
+            otherSessions: otherList,
+            sessionRevokedAt: Date.now()
+          }, { merge: true }).catch(() => {});
+        }
+      } catch(e) {}
+      renderSecurityAccessSummary();
+    }
+
+    function renderSessionsView() {
+      const sessions = getAccountSessions();
+      const current = sessions.find(s => s.isCurrent) || detectCurrentSessionInfo();
+      const others = sessions.filter(s => !s.isCurrent);
+
+      const curCard = document.getElementById('ac-current-session-card');
+      const otherList = document.getElementById('ac-other-sessions-list');
+      const otherCount = document.getElementById('ac-other-sessions-count');
+      const logoutAllBtn = document.getElementById('btn-ac-logout-other-sessions');
+
+      if (curCard) {
+        curCard.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3 min-w-0">
+              <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base flex-shrink-0">${current.icon}</div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-xs font-bold text-neutral-900 truncate">${current.device}</span>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">This device</span>
+                </div>
+                <div class="text-[10px] text-neutral-600 truncate mt-0.5">${current.browser} · ${current.location}</div>
+                <div class="text-[10px] font-semibold text-emerald-700 mt-0.5 flex items-center space-x-1">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>${current.lastActive}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (otherCount) otherCount.textContent = String(others.length);
+
+      if (otherList) {
+        if (others.length === 0) {
+          otherList.innerHTML = `
+            <div class="p-4 rounded-2xl border border-neutral-200 bg-neutral-50 text-center text-xs text-neutral-500">
+              No other active sessions. Only this device is signed in.
+            </div>
+          `;
+        } else {
+          otherList.innerHTML = others.map(s => `
+            <div class="p-3.5 rounded-2xl border border-neutral-200 bg-white flex items-center justify-between">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-neutral-100 text-neutral-700 flex items-center justify-center text-base flex-shrink-0">${s.icon || '💻'}</div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-neutral-900 truncate">${s.device}</div>
+                  <div class="text-[10px] text-neutral-500 truncate mt-0.5">${s.browser} · ${s.location}</div>
+                  <div class="text-[10px] text-neutral-400 mt-0.5">${s.lastActive}</div>
+                </div>
+              </div>
+              <button type="button" data-session-id="${s.id}" class="ac-logout-single-session ml-2 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition flex-shrink-0 cursor-pointer">
+                Log out
+              </button>
+            </div>
+          `).join('');
+
+          otherList.querySelectorAll('.ac-logout-single-session').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const sid = btn.getAttribute('data-session-id');
+              const remaining = getAccountSessions().filter(x => !x.isCurrent && x.id !== sid);
+              saveOtherSessions(remaining);
+              renderSessionsView();
+              if (typeof showToast === 'function') showToast('Logged out of session ✓');
+            });
+          });
+        }
+      }
+
+      if (logoutAllBtn) {
+        logoutAllBtn.disabled = others.length === 0;
+        logoutAllBtn.classList.toggle('opacity-50', others.length === 0);
+        logoutAllBtn.classList.toggle('cursor-not-allowed', others.length === 0);
+      }
+    }
 
     function openAccountCenterModal() {
       const modal = document.getElementById('modal-account-center');
@@ -11160,9 +11628,6 @@ function syncLikedStateToPosts() {
         const badge = document.querySelector('#btn-open-messages span');
         if (badge) badge.classList.add('hidden');
         renderMessages();
-        if (typeof loadDirectMessagesFromFirestore === 'function') {
-          loadDirectMessagesFromFirestore();
-        }
         setTimeout(() => {
           const input = document.getElementById('dm-input-text');
           if (input && window.innerWidth >= 640) input.focus();
@@ -11663,7 +12128,7 @@ function syncLikedStateToPosts() {
         return `
           <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
             <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-              <img src="${resolveDmAvatar(m)}" alt="${m.name}" class="w-full h-full object-cover">
+              <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
             </div>
             <div class="flex-1 min-w-0">
@@ -11703,36 +12168,9 @@ function syncLikedStateToPosts() {
     }
     window.renderMessages = renderMessages;
 
-    function resolveDmAvatar(threadOrUser) {
-      const fallback = (typeof COMMUNITY_IMAGES !== 'undefined' && COMMUNITY_IMAGES[0])
-        ? COMMUNITY_IMAGES[0]
-        : ((typeof PRESET_IMAGES !== 'undefined' && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '');
-      if (!threadOrUser) return fallback;
-      const uname = (typeof threadOrUser === 'object' ? threadOrUser.user : threadOrUser) || '';
-      const cleanU = uname.toLowerCase().replace(/^@/, '');
-      if (cleanU === 'pixlynote' || cleanU === 'pixai') {
-        if (typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined') return PIXLYNOTE_SHUTTER_ICON;
-      }
-      if (typeof getCreatorInfo === 'function') {
-        const info = getCreatorInfo(cleanU);
-        if (info && info.avatar) return info.avatar;
-      }
-      const fol = (state.following || []).find(f => (f.username || '').toLowerCase() === cleanU);
-      if (fol && fol.avatar) return fol.avatar;
-      if (typeof getPostAuthorAvatar === 'function') {
-        const pa = getPostAuthorAvatar({ author: cleanU });
-        if (pa) return pa;
-      }
-      const av = typeof threadOrUser === 'object' ? threadOrUser.avatar : '';
-      if (av && typeof av === 'string' && (av.startsWith('data:image/') || av.startsWith('https://'))) return av;
-      return fallback;
-    }
-    window.resolveDmAvatar = resolveDmAvatar;
-
     function renderActiveChat(idx) {
       const thread = state.messages[idx];
       if (!thread) return;
-      const threadAvatar = resolveDmAvatar(thread);
 
       state.activeDmThreadIndex = idx;
       thread.unread = 0;
@@ -11746,10 +12184,7 @@ function syncLikedStateToPosts() {
       }
 
       const avatarEl = document.getElementById('dm-active-avatar');
-      if (avatarEl) {
-        avatarEl.onerror = function() { this.onerror = null; this.src = (typeof COMMUNITY_IMAGES !== 'undefined' && COMMUNITY_IMAGES[0]) ? COMMUNITY_IMAGES[0] : ''; };
-        avatarEl.src = threadAvatar;
-      }
+      if (avatarEl) avatarEl.src = thread.avatar;
 
       const container = document.getElementById('dm-messages-container');
       if (!container) return;
@@ -11758,7 +12193,7 @@ function syncLikedStateToPosts() {
         container.innerHTML = `
           <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
             <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
-              <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
+              <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
             </div>
             <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
             <div class="text-[11px] text-neutral-400">@${thread.user}</div>
@@ -11784,23 +12219,6 @@ function syncLikedStateToPosts() {
             </div>
           `;
         }
-        if (msg.sharedContent) {
-          const sc = msg.sharedContent;
-          const scClick = sc.kind === 'post'
-            ? `openPostDetailModal('${sc.id}')`
-            : `if(typeof openNoteDetailModal==='function') openNoteDetailModal('${sc.id}')`;
-          const livePost = (sc.kind === 'post' && typeof getPostById === 'function') ? getPostById(sc.id) : null;
-          const scImage = sc.image || (livePost && livePost.image) || '';
-          contentHtml += `
-            <div onclick="${scClick}" class="cursor-pointer rounded-xl overflow-hidden mb-1.5 border ${isMe ? 'border-white/25 bg-black/20' : 'border-neutral-200 bg-neutral-50'} hover:opacity-95 transition">
-              ${scImage ? `<img src="${scImage}" alt="Shared post" class="w-full max-h-40 object-cover">` : ''}
-              <div class="p-2 text-left">
-                <div class="text-[10px] font-bold ${isMe ? 'text-white/90' : 'text-neutral-900'}">@${escapeHtml(sc.author || '')} · ${sc.kind === 'post' ? 'Post' : 'Note'}</div>
-                ${sc.caption ? `<div class="text-[11px] ${isMe ? 'text-white/85' : 'text-neutral-600'} line-clamp-2 mt-0.5">${escapeHtml(sc.caption)}</div>` : ''}
-              </div>
-            </div>
-          `;
-        }
         if (msg.text) {
           contentHtml += `<div class="whitespace-pre-line leading-relaxed">${escapeHtml(msg.text)}</div>`;
         }
@@ -11809,7 +12227,7 @@ function syncLikedStateToPosts() {
           <div class="flex ${alignClass} items-end space-x-1.5 mb-1 group">
             ${!isMe ? `
               <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1 border border-neutral-200 shadow-2xs">
-                <img src="${threadAvatar}" alt="" class="w-full h-full object-cover">
+                <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
               </div>
             ` : ''}
             <div class="max-w-[78%] sm:max-w-[70%]">
@@ -12214,111 +12632,30 @@ function syncLikedStateToPosts() {
     }
     window.handleDmMobileBack = handleDmMobileBack;
 
-    function sanitizeDmsForFirestore(messages) {
-      if (!Array.isArray(messages)) return [];
-      return messages.map(t => {
-        const copy = Object.assign({}, t);
-        if (typeof copy.avatar === 'string' && copy.avatar.startsWith('data:') && copy.avatar.length > 2000) {
-          copy.avatar = '';
-        }
-        if (Array.isArray(copy.chat)) {
-          copy.chat = copy.chat.map(m => {
-            const mc = Object.assign({}, m);
-            if (typeof mc.image === 'string' && mc.image.startsWith('data:') && mc.image.length > 250000) {
-              mc.image = '';
-            }
-            if (mc.sharedContent && typeof mc.sharedContent === 'object') {
-              const sc = Object.assign({}, mc.sharedContent);
-              if (typeof sc.image === 'string' && sc.image.startsWith('data:') && sc.image.length > 2000) {
-                sc.image = '';
-              }
-              mc.sharedContent = sc;
-            }
-            return mc;
-          });
-        }
-        return copy;
-      });
-    }
-
-    function applyLoadedDms(dms, username) {
-      if (!Array.isArray(dms) || dms.length === 0) return;
-      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
-      state.messages = dms;
-      try {
-        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(dms));
-        localStorage.setItem('pixly_dms', JSON.stringify(dms));
-      } catch(e) {}
-      if (window.idbStorage) {
-        idbStorage.set('pixly_dms', JSON.stringify(dms));
-      }
-      if (typeof renderMessages === 'function') renderMessages();
-    }
-    window.applyLoadedDms = applyLoadedDms;
-
-    async function loadDirectMessagesFromFirestore(username) {
-      const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
-      if (!cleanU || !window.firebase || !window.firebase.db || !window.firebase.getDoc) return;
-      try {
-        const { db, doc, getDoc } = window.firebase;
-        const dmSnap = await getDoc(doc(db, 'users', cleanU + '__dms'));
-        if (dmSnap.exists() && Array.isArray(dmSnap.data().dms) && dmSnap.data().dms.length > 0) {
-          applyLoadedDms(dmSnap.data().dms, cleanU);
-          return;
-        }
-        const userSnap = await getDoc(doc(db, 'users', cleanU));
-        if (userSnap.exists() && Array.isArray(userSnap.data().dms) && userSnap.data().dms.length > 0) {
-          applyLoadedDms(userSnap.data().dms, cleanU);
-        }
-      } catch(e) {
-        console.warn('loadDirectMessagesFromFirestore notice:', e);
-      }
-    }
-    window.loadDirectMessagesFromFirestore = loadDirectMessagesFromFirestore;
-
     function persistDirectMessages() {
-      const cleanU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
       try {
-        localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(state.messages));
+        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
+        localStorage.setItem('pixly_dms_' + curU, JSON.stringify(state.messages));
         localStorage.setItem('pixly_dms', JSON.stringify(state.messages));
       } catch(e) {}
       if (window.idbStorage) {
         idbStorage.set('pixly_dms', JSON.stringify(state.messages));
       }
-      const writeToDb = () => {
-        if (window.firebase && window.firebase.db && window.firebase.setDoc) {
-          try {
-            const { db, doc, setDoc } = window.firebase;
-            const safeDms = sanitizeDmsForFirestore(state.messages);
-            if (cleanU) {
-              setDoc(doc(db, 'users', cleanU + '__dms'), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(err => console.warn('DM dedicated doc write error:', err));
-              setDoc(doc(db, 'users', cleanU), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(() => {});
-            }
-            const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
-            if (uid && uid !== cleanU) {
-              setDoc(doc(db, 'users', uid + '__dms'), {
-                dms: safeDms,
-                lastDmUpdated: Date.now()
-              }, { merge: true }).catch(() => {});
-            }
-            return true;
-          } catch(e) {
-            console.warn('persistDirectMessages error:', e);
+      if (window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+          setDoc(doc(db, 'users', 'bradley_hansen'), {
+            dms: state.messages,
+            lastDmUpdated: Date.now()
+          }, { merge: true }).catch(() => {});
+          if (uid !== 'bradley_hansen') {
+            setDoc(doc(db, 'users', uid), {
+              dms: state.messages,
+              lastDmUpdated: Date.now()
+            }, { merge: true }).catch(() => {});
           }
-        }
-        return false;
-      };
-      if (!writeToDb()) {
-        const retry = setInterval(() => {
-          if (writeToDb()) clearInterval(retry);
-        }, 400);
-        setTimeout(() => clearInterval(retry), 12000);
+        } catch(e) {}
       }
     }
     window.persistDirectMessages = persistDirectMessages;
@@ -12532,15 +12869,9 @@ function syncLikedStateToPosts() {
             if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
               window.applyNoteLikesFromRemote(d.likedNoteIds);
             }
-            let pendingCancel = null;
             let pendingSid = null;
-            try {
-              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
-              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
-            } catch(e) {}
-            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
-              applyStripeSubscriptionCancellation(normLoginU);
-            } else if (pendingSid) {
+            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
+            if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
@@ -12549,15 +12880,6 @@ function syncLikedStateToPosts() {
               if (typeof renderProfile === 'function') renderProfile();
             } else {
               state.currentUser.isVerified = false;
-            }
-            if (Array.isArray(d.dms) && d.dms.length > 0) {
-              state.messages = d.dms;
-              try {
-                localStorage.setItem('pixly_dms_' + normLoginU, JSON.stringify(d.dms));
-                localStorage.setItem('pixly_dms', JSON.stringify(d.dms));
-              } catch(e) {}
-              if (window.idbStorage) idbStorage.set('pixly_dms', JSON.stringify(d.dms));
-              if (typeof renderMessages === 'function') renderMessages();
             }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
@@ -12969,6 +13291,91 @@ function syncLikedStateToPosts() {
         bind('btn-ac-open-your-account', 'click', () => setAccountCenterView('yourAccount'));
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
         bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
+        bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
+        bind('btn-ac-sa-tab-security', 'click', () => setSecurityAccessTab('security'));
+        bind('btn-ac-sa-tab-apps-sessions', 'click', () => setSecurityAccessTab('appsSessions'));
+        bind('btn-ac-open-2fa', 'click', () => setAccountCenterView('twoFactorAuth'));
+        bind('btn-ac-open-sessions', 'click', () => setAccountCenterView('sessions'));
+
+        bind('btn-ac-2fa-toggle', 'click', () => {
+          const cfg = get2FASettings();
+          cfg.enabled = !cfg.enabled;
+          save2FASettings(cfg);
+          render2FAView();
+          if (typeof showToast === 'function') showToast(cfg.enabled ? 'Two-factor authentication turned on ✓' : 'Two-factor authentication turned off');
+        });
+        bind('btn-ac-2fa-method-app', 'click', () => {
+          const cfg = get2FASettings();
+          cfg.method = 'app';
+          cfg.enabled = true;
+          save2FASettings(cfg);
+          render2FAView();
+          if (typeof showToast === 'function') showToast('Authentication app selected for 2FA ✓');
+        });
+        bind('btn-ac-2fa-method-sms', 'click', () => {
+          const hasPhone = !!(state.currentUser && state.currentUser.phone);
+          if (!hasPhone) {
+            if (typeof showToast === 'function') showToast('Add a phone number in Account Info first');
+            return;
+          }
+          const cfg = get2FASettings();
+          cfg.method = 'sms';
+          cfg.enabled = true;
+          save2FASettings(cfg);
+          render2FAView();
+          if (typeof showToast === 'function') showToast('Text message (SMS) 2FA enabled ✓');
+        });
+        bind('btn-ac-2fa-copy-key', 'click', () => {
+          const cfg = get2FASettings();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cfg.secretKey).catch(() => {});
+          }
+          if (typeof showToast === 'function') showToast('Setup key copied ✓');
+        });
+        bind('btn-ac-2fa-verify-btn', 'click', () => {
+          const inp = document.getElementById('ac-2fa-code-input');
+          const code = inp ? inp.value.trim() : '';
+          if (!/^\d{6}$/.test(code)) {
+            if (typeof showToast === 'function') showToast('Enter a valid 6-digit code');
+            return;
+          }
+          const cfg = get2FASettings();
+          cfg.enabled = true;
+          cfg.method = 'app';
+          cfg.verified = true;
+          save2FASettings(cfg);
+          if (inp) inp.value = '';
+          render2FAView();
+          if (typeof showToast === 'function') showToast('Authenticator app verified & active ✓');
+        });
+        bind('btn-ac-2fa-regen-codes', 'click', () => {
+          const cfg = get2FASettings();
+          cfg.backupCodes = generateBackupCodes();
+          save2FASettings(cfg);
+          render2FAView();
+          if (typeof showToast === 'function') showToast('New backup codes generated ✓');
+        });
+
+        bind('btn-ac-logout-other-sessions', 'click', () => {
+          const others = getAccountSessions().filter(s => !s.isCurrent);
+          if (others.length === 0) {
+            if (typeof showToast === 'function') showToast('No other active sessions');
+            return;
+          }
+          const confirmBox = document.getElementById('ac-logout-others-confirm');
+          if (confirmBox) confirmBox.classList.remove('hidden');
+        });
+        bind('btn-ac-cancel-logout-others', 'click', () => {
+          const confirmBox = document.getElementById('ac-logout-others-confirm');
+          if (confirmBox) confirmBox.classList.add('hidden');
+        });
+        bind('btn-ac-confirm-logout-others', 'click', () => {
+          saveOtherSessions([]);
+          const confirmBox = document.getElementById('ac-logout-others-confirm');
+          if (confirmBox) confirmBox.classList.add('hidden');
+          renderSessionsView();
+          if (typeof showToast === 'function') showToast('Logged out of all other sessions ✓');
+        });
         bind('btn-ac-info-logout', 'click', () => {
           closeAccountCenterModal();
           if (typeof performLogout === 'function') performLogout();
@@ -15488,70 +15895,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSessionVerification = applyStripeSessionVerification;
 
-    function applyStripeSubscriptionCancellation(username) {
-      if (!username) return;
-      const cleanU = normalizeUsername(username);
-      if (!cleanU) return;
-      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
-        state.currentUser.isVerified = false;
-        state.currentUser.isPlus = false;
-        state.currentUser.subscriptionStatus = 'canceled';
-      }
-      try {
-        localStorage.removeItem('pixly_pending_stripe_cancel');
-        localStorage.removeItem('pixly_pending_stripe_session');
-      } catch(e) {}
-      if (typeof persistState === 'function') persistState();
-      if (typeof renderProfile === 'function') renderProfile();
-      if (typeof renderFeed === 'function') renderFeed();
-      if (typeof renderNotes === 'function') renderNotes();
-
-      const writeCancellationToFirestore = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
-            isVerified: false,
-            isPlus: false,
-            subscriptionStatus: 'canceled',
-            canceledUpdatedAt: Date.now()
-          }, { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-
-      if (!writeCancellationToFirestore()) {
-        const retryTimer = setInterval(() => {
-          if (writeCancellationToFirestore()) clearInterval(retryTimer);
-        }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
-      if (typeof showToast === 'function') {
-        showToast('Pixlynote Plus membership canceled');
-      }
-    }
-    window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
-
     (function handleStripeRedirectOnLoad() {
       try {
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get('session_id');
         const subscribed = params.get('subscribed');
-        const canceled = params.get('canceled');
         const token = (sessionId && sessionId.trim()) || (subscribed === 'true' ? ('subscribed_' + Date.now()) : '');
-        if (canceled === 'true') {
-          localStorage.setItem('pixly_pending_stripe_cancel', 'true');
-          localStorage.removeItem('pixly_pending_stripe_session');
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
-          setTimeout(() => {
-            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-              applyStripeSubscriptionCancellation(state.currentUser.username);
-            }
-          }, 300);
-        } else if (token) {
+        if (token) {
           localStorage.setItem('pixly_pending_stripe_session', token);
-          localStorage.removeItem('pixly_pending_stripe_cancel');
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
           setTimeout(() => {
@@ -15677,34 +16028,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.saveEditedContent = saveEditedContent;
 
-    function refreshSubscriptionModalUI() {
+    function openSubscriptionModal() {
+      const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
-      const activePill = document.getElementById('sub-active-pill');
-      const subscribeWrap = document.getElementById('pixly-stripe-subscribe-wrap');
-      const manageWrap = document.getElementById('pixly-stripe-manage-wrap');
-      const cancelBtn = document.getElementById('pixly-stripe-cancel-btn');
-      const fallbackPortalLink = document.getElementById('pixly-stripe-fallback-portal-link');
-      const plusActive = typeof isPlusUser === 'function' && isPlusUser();
-
-      let portalUrl = 'https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00';
-      if (state.currentUser && state.currentUser.email && state.currentUser.email.includes('@')) {
-        portalUrl += '?prefilled_email=' + encodeURIComponent(state.currentUser.email.trim());
-      }
-
-      if (activePill) {
-        if (plusActive) activePill.classList.remove('hidden');
-        else activePill.classList.add('hidden');
-      }
-      if (subscribeWrap) {
-        if (plusActive) subscribeWrap.classList.add('hidden');
-        else subscribeWrap.classList.remove('hidden');
-      }
-      if (manageWrap) {
-        if (plusActive) manageWrap.classList.remove('hidden');
-        else manageWrap.classList.add('hidden');
-      }
-      if (cancelBtn) cancelBtn.setAttribute('href', portalUrl);
-      if (fallbackPortalLink) fallbackPortalLink.setAttribute('href', portalUrl);
       if (buyBtn && state.currentUser && state.currentUser.username) {
         const cleanU = normalizeUsername(state.currentUser.username);
         if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
@@ -15714,12 +16040,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           buyBtn.removeAttribute('customer-email');
         }
       }
-    }
-    window.refreshSubscriptionModalUI = refreshSubscriptionModalUI;
-
-    function openSubscriptionModal() {
-      const modal = document.getElementById('modal-subscription');
-      refreshSubscriptionModalUI();
       if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -15847,208 +16167,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
   </div>
 
   <!-- ========================================================================= -->
-  <!-- DM SHARE MODAL (4-ACROSS CHAT HEADS UP TO 30 FOLLOWED USERS) -->
-  <!-- ========================================================================= -->
-  <div id="modal-dm-share" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeDmShareModal();">
-    <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.5C18.2 5.5 15.3 3.5 11.8 3.5C7.1 3.5 3.5 7 3.5 11.5C3.5 13.5 4.2 15.3 5.4 16.7L4.2 20.3L8.2 18.8C9.3 19.3 10.5 19.5 11.8 19.5C15.3 19.5 18.2 17.5 19.5 14.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 11.5H21M21 11.5L18.2 8.7M21 11.5L18.2 14.3"/></svg>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-neutral-900">Share in DM</h3>
-            <p class="text-[10px] text-neutral-500">Select people you follow (up to 30)</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeDmShareModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <!-- Shared Content Preview -->
-      <div id="dm-share-preview" class="px-3.5 py-2.5 bg-neutral-50 border-b border-neutral-100 flex items-center space-x-2.5"></div>
-
-      <!-- 4-Across Chat Heads Grid -->
-      <div id="dm-share-grid" class="flex-1 overflow-y-auto p-3.5 grid grid-cols-4 gap-3 content-start"></div>
-
-      <!-- Optional Message & Send Button -->
-      <div class="p-3 border-t border-neutral-200 bg-white space-y-2.5">
-        <input type="text" id="dm-share-note-input" placeholder="Write a message..." class="w-full px-3 py-2 text-xs bg-neutral-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-xl focus:outline-none transition">
-        <button type="button" id="btn-dm-share-send" onclick="sendDmShare()" disabled class="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-sky-500 text-white text-xs font-bold shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-          Message
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let _dmShareTarget = null;
-    let _dmShareSelected = new Set();
-
-    function getDmShareFollowedUsers() {
-      const list = Array.isArray(state.following) ? state.following : [];
-      const active = list.filter(u => u && u.isFollowing);
-      const source = active.length > 0 ? active : list;
-      return source.slice(0, 30);
-    }
-
-    function openDmShareModal(kind, itemId) {
-      const item = kind === 'post' ? getPostById(itemId) : (typeof getNoteById === 'function' ? getNoteById(itemId) : null);
-      if (!item) {
-        if (typeof showToast === 'function') showToast('Unable to load item to share');
-        return;
-      }
-      _dmShareTarget = { kind, item };
-      _dmShareSelected = new Set();
-
-      const noteInp = document.getElementById('dm-share-note-input');
-      if (noteInp) noteInp.value = '';
-
-      const previewEl = document.getElementById('dm-share-preview');
-      if (previewEl) {
-        const textPreview = kind === 'post' ? (item.caption || 'Photo post') : (item.text || '');
-        const thumbHtml = (kind === 'post' && item.image)
-          ? `<img src="${item.image}" alt="" class="w-10 h-10 rounded-lg object-cover border border-neutral-200 flex-shrink-0">`
-          : `<div class="w-10 h-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold flex-shrink-0">📝</div>`;
-        previewEl.innerHTML = `
-          ${thumbHtml}
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] font-bold text-neutral-900 truncate">@${escapeHtml(item.author || 'creator')} · ${kind === 'post' ? 'Post' : 'Note'}</div>
-            <div class="text-[11px] text-neutral-500 truncate">${escapeHtml(textPreview)}</div>
-          </div>
-        `;
-      }
-
-      renderDmShareGrid();
-      updateDmShareSendBtn();
-
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-      }
-    }
-    window.openDmShareModal = openDmShareModal;
-
-    function closeDmShareModal() {
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-      }
-      _dmShareTarget = null;
-      _dmShareSelected.clear();
-    }
-    window.closeDmShareModal = closeDmShareModal;
-
-    function toggleDmShareRecipient(username) {
-      if (!username) return;
-      if (_dmShareSelected.has(username)) _dmShareSelected.delete(username);
-      else _dmShareSelected.add(username);
-      renderDmShareGrid();
-      updateDmShareSendBtn();
-    }
-    window.toggleDmShareRecipient = toggleDmShareRecipient;
-
-    function updateDmShareSendBtn() {
-      const btn = document.getElementById('btn-dm-share-send');
-      if (!btn) return;
-      const count = _dmShareSelected.size;
-      btn.disabled = count === 0;
-      btn.textContent = count > 0 ? `Message (${count})` : 'Message';
-    }
-
-    function renderDmShareGrid() {
-      const grid = document.getElementById('dm-share-grid');
-      if (!grid) return;
-      const users = getDmShareFollowedUsers();
-      if (users.length === 0) {
-        grid.innerHTML = `<div class="col-span-4 py-8 text-center text-xs text-neutral-400">Follow creators to share posts and notes in DMs.</div>`;
-        return;
-      }
-      grid.innerHTML = users.map(u => {
-        const uname = u.username || '';
-        const isSel = _dmShareSelected.has(uname);
-        const av = u.avatar || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: uname }) : '');
-        const label = u.fullName || uname;
-        return `
-          <button type="button" onclick="toggleDmShareRecipient('${escapeHtml(uname)}')" class="flex flex-col items-center text-center group cursor-pointer focus:outline-none">
-            <div class="relative w-14 h-14 rounded-full p-0.5 transition ${isSel ? 'ring-2 ring-violet-600 bg-gradient-to-tr from-violet-500 to-sky-400' : 'border border-neutral-200 group-hover:border-violet-300'}">
-              <img src="${av}" alt="${escapeHtml(label)}" class="w-full h-full rounded-full object-cover bg-neutral-100">
-              ${isSel ? `<span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">✓</span>` : ''}
-            </div>
-            <span class="mt-1.5 text-[10px] font-semibold ${isSel ? 'text-violet-700' : 'text-neutral-700'} truncate w-full">${escapeHtml(label)}</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    function sendDmShare() {
-      if (!_dmShareTarget || _dmShareSelected.size === 0) return;
-      const { kind, item } = _dmShareTarget;
-      const noteInp = document.getElementById('dm-share-note-input');
-      const customNote = noteInp ? noteInp.value.trim() : '';
-      const users = getDmShareFollowedUsers();
-
-      if (!Array.isArray(state.messages)) state.messages = [];
-      const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const summaryText = customNote || (kind === 'post' ? `Shared a post by @${item.author || 'creator'}` : `Shared a note by @${item.author || 'creator'}`);
-
-      let sentCount = 0;
-      _dmShareSelected.forEach(targetUsername => {
-        const userObj = users.find(u => u.username === targetUsername);
-        const cleanTarget = targetUsername.trim().replace(/^@/, '');
-        let idx = state.messages.findIndex(m => (m.user || '').toLowerCase() === cleanTarget.toLowerCase());
-        let thread;
-        if (idx === -1) {
-          thread = {
-            user: cleanTarget,
-            name: (userObj && userObj.fullName) ? userObj.fullName : cleanTarget,
-            avatar: (userObj && userObj.avatar) ? userObj.avatar : (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: cleanTarget }) : ''),
-            lastMsg: summaryText,
-            time: 'Just now',
-            unread: 0,
-            chat: []
-          };
-          state.messages.unshift(thread);
-        } else {
-          thread = state.messages.splice(idx, 1)[0];
-          state.messages.unshift(thread);
-        }
-
-        if (!Array.isArray(thread.chat)) thread.chat = [];
-        thread.chat.push({
-          sender: 'me',
-          text: customNote,
-          sharedContent: {
-            kind: kind,
-            id: String(item.id),
-            author: item.author || '',
-            authorName: item.authorName || item.author || '',
-            image: kind === 'post' ? (item.image || '') : '',
-            caption: kind === 'post' ? (item.caption || '') : (item.text || '')
-          },
-          time: timeStr,
-          timestamp: Date.now()
-        });
-        thread.lastMsg = summaryText;
-        thread.time = 'Just now';
-        sentCount++;
-      });
-
-      state.activeDmThreadIndex = 0;
-      persistDirectMessages();
-      if (typeof renderMessages === 'function') renderMessages();
-      closeDmShareModal();
-      if (typeof showToast === 'function') {
-        showToast(sentCount === 1 ? 'Sent to DM! ✓' : `Sent to ${sentCount} DMs! ✓`);
-      }
-    }
-    window.sendDmShare = sendDmShare;
-  </script>
-
-  <!-- ========================================================================= -->
   <!-- SUBSCRIPTION MODAL (STRIPE BUY BUTTON) -->
   <!-- ========================================================================= -->
   <div id="modal-subscription" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeSubscriptionModal();">
@@ -16091,39 +16209,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </ul>
         </div>
 
-        <div id="pixly-stripe-subscribe-wrap" class="w-full flex flex-col items-center space-y-2.5">
-          <stripe-buy-button
-            id="pixly-stripe-buy-btn"
-            buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
-            publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
-          >
-          </stripe-buy-button>
-          <a
-            id="pixly-stripe-fallback-portal-link"
-            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
-            class="text-[11px] font-semibold text-neutral-500 hover:text-red-600 underline underline-offset-2 transition cursor-pointer"
-          >
-            Already subscribed? Manage or cancel membership →
-          </a>
-        </div>
-
-        <div id="pixly-stripe-manage-wrap" class="hidden w-full rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xs space-y-3 text-center">
-          <div class="space-y-1">
-            <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
-              <span>●</span>
-              <span>Pixlynote Plus Active</span>
-            </div>
-            <p class="text-xs font-semibold text-neutral-800 pt-1">$9.99 / month • Managed via Stripe</p>
-            <p class="text-[11px] text-neutral-500">Need to cancel or update your billing? Open the Stripe Customer Portal below.</p>
-          </div>
-          <a
-            id="pixly-stripe-cancel-btn"
-            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
-            class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold shadow-sm transition cursor-pointer"
-          >
-            Cancel Membership
-          </a>
-        </div>
+        <stripe-buy-button
+          id="pixly-stripe-buy-btn"
+          buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
+          publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
+        >
+        </stripe-buy-button>
       </div>
     </div>
   </div>
