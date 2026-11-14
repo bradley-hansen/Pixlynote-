@@ -1837,7 +1837,7 @@
             </span>
           </div>
           <div class="relative">
-            <input type="email" id="edit-profile-email" value="" placeholder="name@example.com" class="w-full px-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <input type="email" id="edit-profile-email" value="" placeholder="name@example.com" class="w-full pr-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
             <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             </div>
@@ -1853,7 +1853,7 @@
             </span>
           </div>
           <div class="relative">
-            <input type="tel" id="edit-profile-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full px-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 transition">
+            <input type="tel" id="edit-profile-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full pr-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 transition">
             <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
             </div>
@@ -4238,9 +4238,10 @@ function syncLikedStateToPosts() {
           state.currentUser.phone = '';
         } else if (state.currentUser.username === 'digitalassetpro' || state.currentUser.username === 'digital_asset_pro') {
           state.currentUser.avatar = DIGITAL_ASSET_PRO_AVATAR;
-          state.currentUser.fullName = 'Digital AssetPro';
+          if (!state.currentUser.fullName) state.currentUser.fullName = 'Digital AssetPro';
           state.currentUser.accountType = 'business';
-          state.currentUser.link = 'digitalassetpro.com';
+          if (state.currentUser.link === undefined) state.currentUser.link = 'digitalassetpro.com';
+          if (state.currentUser.email === 'contact@digitalassetpro.com') state.currentUser.email = '';
         }
 
         let savedAccType = null;
@@ -4255,6 +4256,7 @@ function syncLikedStateToPosts() {
             const parsed = JSON.parse(savedUser);
             if (parsed && typeof parsed === 'object') {
               Object.assign(state.currentUser, parsed);
+              if (state.currentUser.email === 'contact@digitalassetpro.com') state.currentUser.email = '';
             }
           } catch(e) {}
         }
@@ -13802,22 +13804,20 @@ function syncLikedStateToPosts() {
       }
       state.isLoggedIn = true;
 
-      // Look up account data if available
+      // Look up account data if available (prefer persisted user-saved data over in-memory defaults)
       let accData = null;
-      if (window._pixlyAccounts && window._pixlyAccounts[cleanUsername.toLowerCase()]) {
-        accData = window._pixlyAccounts[cleanUsername.toLowerCase()];
-      }
+      try {
+        const stored = localStorage.getItem('pixly_account_' + cleanUsername.toLowerCase());
+        if (stored) accData = JSON.parse(stored);
+      } catch(e) {}
       if (!accData) {
         try {
           const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
           accData = accts[cleanUsername.toLowerCase()];
         } catch(e) {}
       }
-      if (!accData) {
-        try {
-          const stored = localStorage.getItem('pixly_account_' + cleanUsername.toLowerCase());
-          if (stored) accData = JSON.parse(stored);
-        } catch(e) {}
+      if (!accData && window._pixlyAccounts && window._pixlyAccounts[cleanUsername.toLowerCase()]) {
+        accData = window._pixlyAccounts[cleanUsername.toLowerCase()];
       }
 
       if (cleanUsername.toLowerCase() === 'bradley_hansen') {
@@ -13840,7 +13840,7 @@ function syncLikedStateToPosts() {
         const isBiz = (isPixly || isDAP || accountType === 'business' || (accData && accData.accountType === 'business'));
         
         state.currentUser.username = isPixly ? 'pixlynote' : (isDAP ? 'digitalassetpro' : ((accData && accData.username) ? accData.username : cleanUsername));
-        state.currentUser.fullName = isPixly ? 'Pixlynote' : (isDAP ? 'Digital AssetPro' : ((accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername))));
+        state.currentUser.fullName = isPixly ? 'Pixlynote' : (isDAP ? ((accData && accData.fullName) ? accData.fullName : 'Digital AssetPro') : ((accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername))));
         
         if (isPixly) {
           state.currentUser.email = '';
@@ -13853,11 +13853,12 @@ function syncLikedStateToPosts() {
           state.currentUser.followersCount = "0";
           state.currentUser.followingCount = "0";
         } else if (isDAP) {
-          state.currentUser.email = (accData && accData.email) ? accData.email : 'contact@digitalassetpro.com';
-          state.currentUser.phone = (accData && accData.phone) ? accData.phone : '+1 (609) 289-6702';
-          state.currentUser.bio = (accData && accData.bio && !accData.bio.includes('Fitness')) ? accData.bio : 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth';
-          state.currentUser.link = (accData && accData.link && !accData.link.includes('bradley_hansen')) ? accData.link : 'digitalassetpro.com';
-          state.currentUser.avatar = DIGITAL_ASSET_PRO_AVATAR;
+          const dapEmail = (accData && accData.email && accData.email !== 'contact@digitalassetpro.com') ? accData.email : (email && email !== 'contact@digitalassetpro.com' ? email : '');
+          state.currentUser.email = dapEmail;
+          state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '+1 (609) 289-6702');
+          state.currentUser.bio = (accData && accData.bio !== undefined && !accData.bio.includes('Fitness')) ? accData.bio : 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth';
+          state.currentUser.link = (accData && accData.link !== undefined && !accData.link.includes('bradley_hansen')) ? accData.link : 'digitalassetpro.com';
+          state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : DIGITAL_ASSET_PRO_AVATAR;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
           state.currentUser.followersCount = "18.5K";
@@ -14107,6 +14108,63 @@ function syncLikedStateToPosts() {
             localStorage.setItem('pixly_accounts', JSON.stringify(acctsObj));
           }
         }
+      } catch(e) {}
+
+      // Auto-purge placeholder email from @digitalassetpro cached storage
+      try {
+        ['pixly_account_digitalassetpro', 'pixly_account_digital_asset_pro'].forEach(k => {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const d = JSON.parse(raw);
+            if (d && d.email === 'contact@digitalassetpro.com') {
+              d.email = '';
+              localStorage.setItem(k, JSON.stringify(d));
+            }
+          }
+        });
+        const storedAcctsDap = localStorage.getItem('pixly_accounts');
+        if (storedAcctsDap) {
+          const acctsObjDap = JSON.parse(storedAcctsDap);
+          if (acctsObjDap) {
+            let changedDap = false;
+            if (acctsObjDap['contact@digitalassetpro.com']) {
+              delete acctsObjDap['contact@digitalassetpro.com'];
+              changedDap = true;
+            }
+            ['digitalassetpro', 'digital_asset_pro'].forEach(k => {
+              if (acctsObjDap[k] && acctsObjDap[k].email === 'contact@digitalassetpro.com') {
+                acctsObjDap[k].email = '';
+                changedDap = true;
+              }
+            });
+            if (changedDap) localStorage.setItem('pixly_accounts', JSON.stringify(acctsObjDap));
+          }
+        }
+        const sessRaw = localStorage.getItem('pixly_session_accounts');
+        if (sessRaw) {
+          const sessArr = JSON.parse(sessRaw);
+          if (Array.isArray(sessArr)) {
+            let sessChanged = false;
+            sessArr.forEach(a => {
+              if (a && a.email === 'contact@digitalassetpro.com') {
+                a.email = '';
+                sessChanged = true;
+              }
+            });
+            if (sessChanged) localStorage.setItem('pixly_session_accounts', JSON.stringify(sessArr));
+          }
+        }
+        ['localStorage', 'sessionStorage'].forEach(stName => {
+          const st = window[stName];
+          const uRaw = st && st.getItem('pixlynote_user');
+          if (uRaw) {
+            const uObj = JSON.parse(uRaw);
+            if (uObj && uObj.email === 'contact@digitalassetpro.com') {
+              uObj.email = '';
+              st.setItem('pixlynote_user', JSON.stringify(uObj));
+            }
+          }
+        });
       } catch(e) {}
 
       // Ensure all current posts have comments and tags arrays initialized
@@ -15142,19 +15200,26 @@ function syncLikedStateToPosts() {
 
           // Save into global in-memory account directory
           window._pixlyAccounts = window._pixlyAccounts || {};
-          window._pixlyAccounts['digitalassetpro'] = {
-            username: 'digitalassetpro',
-            fullName: 'Digital AssetPro',
-            email: 'contact@digitalassetpro.com',
-            phone: '+1 (609) 289-6702',
-            accountType: 'business',
-            bio: 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth',
-            link: 'digitalassetpro.com',
-            avatar: DIGITAL_ASSET_PRO_AVATAR,
-            postsCount: 4,
-            followersCount: '18.5K',
-            followingCount: '42'
-          };
+          if (!window._pixlyAccounts['digitalassetpro']) {
+            let savedDap = null;
+            try { savedDap = JSON.parse(localStorage.getItem('pixly_account_digitalassetpro') || 'null'); } catch(e) {}
+            window._pixlyAccounts['digitalassetpro'] = savedDap || {
+              username: 'digitalassetpro',
+              fullName: 'Digital AssetPro',
+              email: '',
+              phone: '+1 (609) 289-6702',
+              accountType: 'business',
+              bio: 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth',
+              link: 'digitalassetpro.com',
+              avatar: DIGITAL_ASSET_PRO_AVATAR,
+              postsCount: 4,
+              followersCount: '18.5K',
+              followingCount: '42'
+            };
+            if (window._pixlyAccounts['digitalassetpro'].email === 'contact@digitalassetpro.com') {
+              window._pixlyAccounts['digitalassetpro'].email = '';
+            }
+          }
           window._pixlyAccounts['digital_asset_pro'] = window._pixlyAccounts['digitalassetpro'];
           window._pixlyAccounts[u.toLowerCase()] = newAccount;
           window._pixlyAccounts[fullName.toLowerCase()] = newAccount;
@@ -15963,7 +16028,7 @@ function syncLikedStateToPosts() {
 
             if (name) state.currentUser.fullName = name;
             if (username) state.currentUser.username = username;
-            if (email) state.currentUser.email = email;
+            state.currentUser.email = email;
             state.currentUser.phone = phone;
             if (window._editingAccountType) state.currentUser.accountType = window._editingAccountType;
             if (bio !== undefined) state.currentUser.bio = bio;
@@ -15971,24 +16036,34 @@ function syncLikedStateToPosts() {
 
             try {
               if (phone) localStorage.setItem('pixly_user_phone', phone);
-              if (email) localStorage.setItem('pixly_user_email', email);
+              localStorage.setItem('pixly_user_email', email || '');
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
               const rec = {
                 username: state.currentUser.username,
                 fullName: state.currentUser.fullName,
                 email: state.currentUser.email,
                 phone: phone,
+                accountType: state.currentUser.accountType || 'personal',
                 password: state.currentUser.password || 'demo1234',
                 bio: state.currentUser.bio,
+                link: state.currentUser.link || '',
                 avatar: state.currentUser.avatar
               };
-              accts[state.currentUser.username.toLowerCase()] = rec;
+              const uKey = state.currentUser.username.toLowerCase();
+              accts[uKey] = rec;
               if (email) accts[email.toLowerCase()] = rec;
               if (phone) {
                 accts[phone] = rec;
                 accts[phone.replace(/\D/g, '')] = rec;
               }
               localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+              localStorage.setItem('pixly_account_' + uKey, JSON.stringify(rec));
+              window._pixlyAccounts = window._pixlyAccounts || {};
+              window._pixlyAccounts[uKey] = rec;
+              if (uKey === 'digitalassetpro' || uKey === 'digital_asset_pro') {
+                window._pixlyAccounts['digitalassetpro'] = rec;
+                window._pixlyAccounts['digital_asset_pro'] = rec;
+              }
             } catch(err) {}
 
             if (typeof registerSessionAccount === 'function') {
