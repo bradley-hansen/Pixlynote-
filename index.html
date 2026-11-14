@@ -457,17 +457,6 @@
           </form>
 
           <div class="pt-2 text-center space-y-2">
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" id="btn-quick-demo-fill" class="py-1.5 px-2 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer" title="Log in as Bradley Hansen">
-                <span>⚡ @bradley_hansen</span>
-              </button>
-              <button type="button" id="btn-quick-pixlynote-fill" class="py-1.5 px-2 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer" title="Log in as Pixlynote">
-                <span>🏢 @pixlynote</span>
-              </button>
-              <button type="button" id="btn-quick-dap-fill" class="py-1.5 px-2 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg transition flex items-center justify-center space-x-1 cursor-pointer" title="Log in as Digital AssetPro">
-                <span>💼 @digitalassetpro</span>
-              </button>
-            </div>
             <div>
               <button type="button" id="btn-forgot-password" class="text-xs text-neutral-500 hover:text-neutral-800 transition">Forgot password?</button>
             </div>
@@ -2452,6 +2441,19 @@
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+
+        <button type="button" id="btn-ac-tab-privacy-safety" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900">Privacy and safety</div>
+              <div class="text-[10px] text-neutral-500">Spam list &amp; content controls</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
 
       <!-- VIEW 3: ACCOUNT INFO -->
@@ -2684,6 +2686,32 @@
         </div>
       </div>
 
+      <!-- VIEW 8: PRIVACY AND SAFETY -->
+      <div id="ac-view-privacy-safety" class="hidden flex-1 overflow-y-auto p-3.5 space-y-2.5">
+        <button type="button" id="btn-ac-tab-spam" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-amber-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+            </div>
+            <div class="text-left min-w-0">
+              <div class="text-xs font-bold text-neutral-900">Spam</div>
+              <div class="text-[10px] text-neutral-500 truncate">Accounts labeled as spam across posts, notes &amp; stories</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
+            <span id="ac-spam-users-count-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">0</span>
+            <svg class="w-4 h-4 text-neutral-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+      </div>
+
+      <!-- VIEW 9: SPAM LIST (EVERYONE LABELED SPAM) -->
+      <div id="ac-view-spam-list" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
+        <div id="ac-spam-users-list" class="space-y-2">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -2855,11 +2883,9 @@
                     const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
                     try {
                       localStorage.setItem('pixly_dms_' + curU, JSON.stringify(data.dms));
-                      localStorage.setItem('pixly_dms', JSON.stringify(data.dms));
                     } catch(e) {}
                     if (window.idbStorage) {
                       idbStorage.set('pixly_dms_' + curU, JSON.stringify(data.dms));
-                      idbStorage.set('pixly_dms', JSON.stringify(data.dms));
                     }
                     if (typeof renderMessages === 'function') renderMessages();
                     if (typeof renderActiveChat === 'function' && typeof state.activeDmThreadIndex === 'number') {
@@ -3068,11 +3094,9 @@
                 state.messages = d.dms;
                 try {
                   localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                  localStorage.setItem('pixly_dms', JSON.stringify(d.dms));
                 } catch(e) {}
                 if (window.idbStorage) {
                   idbStorage.set('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                  idbStorage.set('pixly_dms', JSON.stringify(d.dms));
                 }
                 if (typeof renderMessages === 'function') renderMessages();
                 if (typeof renderActiveChat === 'function' && typeof state.activeDmThreadIndex === 'number') {
@@ -3464,6 +3488,61 @@ function saveAccountLikes(username) {
       }
     }
     window.loadAccountNotifications = loadAccountNotifications;
+
+    function loadAccountDms(username) {
+      const u = normalizeUsername(username || 'bradley_hansen') || 'bradley_hansen';
+      state.messages = [];
+      state.activeDmThreadIndex = 0;
+      let loaded = null;
+      try {
+        const raw = localStorage.getItem('pixly_dms_' + u);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) loaded = parsed;
+        }
+      } catch(e) {}
+      if (Array.isArray(loaded)) {
+        state.messages = loaded;
+      }
+      if (typeof renderMessages === 'function') renderMessages();
+
+      if (window.idbStorage && (!Array.isArray(state.messages) || state.messages.length === 0)) {
+        idbStorage.get('pixly_dms_' + u).then(idbDms => {
+          const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '') || 'bradley_hansen';
+          if (curU !== u) return;
+          if (idbDms) {
+            try {
+              const parsed = JSON.parse(idbDms);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                state.messages = parsed;
+                try { localStorage.setItem('pixly_dms_' + u, idbDms); } catch(e) {}
+                if (typeof renderMessages === 'function') renderMessages();
+              }
+            } catch(e) {}
+          }
+        }).catch(() => {});
+      }
+
+      if (window.firebaseReady && window.firebase && window.firebase.getDoc) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          getDoc(doc(db, 'users', u)).then((snap) => {
+            const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '') || 'bradley_hansen';
+            if (curU !== u) return;
+            if (snap.exists() && Array.isArray(snap.data().dms)) {
+              const incoming = snap.data().dms;
+              if (JSON.stringify(incoming) !== JSON.stringify(state.messages)) {
+                state.messages = incoming;
+                try { localStorage.setItem('pixly_dms_' + u, JSON.stringify(incoming)); } catch(e) {}
+                if (window.idbStorage) idbStorage.set('pixly_dms_' + u, JSON.stringify(incoming));
+                if (typeof renderMessages === 'function') renderMessages();
+              }
+            }
+          }).catch(() => {});
+        } catch(e) {}
+      }
+    }
+    window.loadAccountDms = loadAccountDms;
 
     function addNotificationForUser(targetUsername, notif) {
       if (!targetUsername || !notif) return Promise.resolve();
@@ -4099,6 +4178,7 @@ function syncLikedStateToPosts() {
           const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
           loadAccountLikes(curU);
           loadAccountNotifications(curU);
+          loadAccountDms(curU);
         } catch(e) {}
 // 4. Restore Notes (from 'pixly_notes')
         try {
@@ -6576,6 +6656,10 @@ function syncLikedStateToPosts() {
         const nid = spamKey.slice('modal-note:'.length);
         const note = getNoteById(nid);
         if (note && typeof renderNoteModalComments === 'function') renderNoteModalComments(note);
+      } else if (spamKey.startsWith('story:')) {
+        if (state.activeStory && typeof window.updateStoryCommentsUI === 'function') {
+          window.updateStoryCommentsUI(state.activeStory);
+        }
       }
     }
     window.toggleSpamFolder = toggleSpamFolder;
@@ -11424,7 +11508,9 @@ function syncLikedStateToPosts() {
         changePassword: document.getElementById('ac-view-change-password'),
         securityAccess: document.getElementById('ac-view-security-access'),
         twoFactorAuth: document.getElementById('ac-view-2fa'),
-        sessions: document.getElementById('ac-view-sessions')
+        sessions: document.getElementById('ac-view-sessions'),
+        privacySafety: document.getElementById('ac-view-privacy-safety'),
+        spamList: document.getElementById('ac-view-spam-list')
       };
       Object.entries(views).forEach(([k, el]) => {
         if (!el) return;
@@ -11490,9 +11576,179 @@ function syncLikedStateToPosts() {
         if (confirmBox) confirmBox.classList.add('hidden');
         renderSessionsView();
         fetchCloudSecurityData();
+      } else if (viewName === 'privacySafety') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Privacy and safety';
+        if (subEl) subEl.textContent = '@' + curU;
+        if (typeof renderPrivacyAndSafetyView === 'function') renderPrivacyAndSafetyView();
+      } else if (viewName === 'spamList') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'privacySafety'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Spam';
+        if (subEl) subEl.textContent = '@' + curU;
+        if (typeof renderSpamUsersListView === 'function') renderSpamUsersListView();
       }
     }
     window.setAccountCenterView = setAccountCenterView;
+
+    function collectSpamLabeledUsers() {
+      const map = new Map();
+      const addSpamEntry = (username, avatar, sourceLabel) => {
+        const cleanU = normalizeUsername(username || '');
+        if (!cleanU) return;
+        const existing = map.get(cleanU) || { username: cleanU, avatar: avatar || '', count: 0, sources: new Set() };
+        if (!existing.avatar && avatar) existing.avatar = avatar;
+        existing.count += 1;
+        if (sourceLabel) existing.sources.add(sourceLabel);
+        map.set(cleanU, existing);
+      };
+
+      const scanComments = (comments, sourceLabel) => {
+        if (!Array.isArray(comments)) return;
+        comments.forEach(c => {
+          if (c && c.isSpam && c.user) {
+            addSpamEntry(c.user, c.userAvatar || '', sourceLabel);
+          }
+        });
+      };
+
+      const seenPostIds = new Set();
+      const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach(p => allPosts.push(p));
+      }
+      allPosts.forEach(p => {
+        if (!p || seenPostIds.has(String(p.id))) return;
+        seenPostIds.add(String(p.id));
+        scanComments(p.comments, 'Post');
+      });
+
+      const seenNoteIds = new Set();
+      const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
+      if (state.exploreNotesArchive instanceof Map) {
+        state.exploreNotesArchive.forEach(n => allNotes.push(n));
+      }
+      allNotes.forEach(n => {
+        if (!n || seenNoteIds.has(String(n.id))) return;
+        seenNoteIds.add(String(n.id));
+        scanComments(n.comments, 'Note');
+      });
+
+      const seenStoryIds = new Set();
+      const allStories = [...(state.stories || []), ...(state.highlights || [])];
+      allStories.forEach(s => {
+        if (!s || seenStoryIds.has(String(s.id))) return;
+        seenStoryIds.add(String(s.id));
+        scanComments(s.comments, 'Story');
+      });
+
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
+      const cached = window._remoteUserProfilesCache && window._remoteUserProfilesCache[curU];
+      if (cached && cached.storyComments && typeof cached.storyComments === 'object') {
+        Object.values(cached.storyComments).forEach(arr => scanComments(arr, 'Story'));
+      }
+
+      return Array.from(map.values()).map(item => ({
+        username: item.username,
+        avatar: item.avatar || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: item.username }) : '') || BRADLEY_AVATAR_IMAGE,
+        count: item.count,
+        sources: Array.from(item.sources)
+      }));
+    }
+    window.collectSpamLabeledUsers = collectSpamLabeledUsers;
+
+    function unflagSpamUser(targetUsername) {
+      const cleanTarget = normalizeUsername(targetUsername || '');
+      if (!cleanTarget) return;
+
+      const clearComments = (comments) => {
+        if (!Array.isArray(comments)) return false;
+        let changed = false;
+        comments.forEach(c => {
+          if (c && c.isSpam && normalizeUsername(c.user || '') === cleanTarget) {
+            c.isSpam = false;
+            changed = true;
+          }
+        });
+        return changed;
+      };
+
+      (state.posts || []).forEach(p => clearComments(p.comments));
+      (state.explorePosts || []).forEach(p => clearComments(p.comments));
+      if (state.explorePostsArchive instanceof Map) state.explorePostsArchive.forEach(p => clearComments(p.comments));
+      (state.notes || []).forEach(n => clearComments(n.comments));
+      (state.exploreNotes || []).forEach(n => clearComments(n.comments));
+      if (state.exploreNotesArchive instanceof Map) state.exploreNotesArchive.forEach(n => clearComments(n.comments));
+      (state.stories || []).forEach(s => clearComments(s.comments));
+      (state.highlights || []).forEach(s => clearComments(s.comments));
+
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen');
+      const cached = window._remoteUserProfilesCache && window._remoteUserProfilesCache[curU];
+      if (cached && cached.storyComments && typeof cached.storyComments === 'object') {
+        Object.values(cached.storyComments).forEach(arr => clearComments(arr));
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, setDoc } = window.firebase;
+            setDoc(doc(db, 'users', curU), { storyComments: cached.storyComments }, { merge: true }).catch(() => {});
+          } catch(e) {}
+        }
+      }
+
+      window._lastLocalCommentsWriteTs = Date.now();
+      window._commentsDirty = true;
+      if (typeof persistState === 'function') persistState();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (state.activeStory && typeof window.updateStoryCommentsUI === 'function') window.updateStoryCommentsUI(state.activeStory);
+      renderSpamUsersListView();
+      renderPrivacyAndSafetyView();
+      if (typeof showToast === 'function') showToast(`Removed @${cleanTarget} from Spam ✓`);
+    }
+    window.unflagSpamUser = unflagSpamUser;
+
+    function renderPrivacyAndSafetyView() {
+      const badge = document.getElementById('ac-spam-users-count-badge');
+      if (badge) {
+        const list = collectSpamLabeledUsers();
+        badge.textContent = String(list.length);
+        badge.className = list.length > 0
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200'
+          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
+      }
+    }
+    window.renderPrivacyAndSafetyView = renderPrivacyAndSafetyView;
+
+    function renderSpamUsersListView() {
+      const container = document.getElementById('ac-spam-users-list');
+      if (!container) return;
+      const users = collectSpamLabeledUsers();
+      if (users.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-center rounded-2xl border border-neutral-200 bg-white space-y-1.5">
+            <div class="text-2xl">🚩</div>
+            <div class="text-xs font-bold text-neutral-800">No Accounts Labeled Spam</div>
+            <div class="text-[11px] text-neutral-500">When you flag a comment as spam on a post, note, or story, the account will appear here.</div>
+          </div>
+        `;
+        return;
+      }
+      container.innerHTML = users.map(u => `
+        <div class="flex items-center justify-between p-3 rounded-2xl border border-neutral-200 bg-white gap-2">
+          <div class="flex items-center space-x-3 min-w-0">
+            <img src="${u.avatar}" alt="@${u.username}" class="w-9 h-9 rounded-full object-cover border border-neutral-200 flex-shrink-0">
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-neutral-900 truncate">@${u.username}</div>
+              <div class="text-[10px] text-amber-700 font-medium">${u.count} flagged ${u.count === 1 ? 'comment' : 'comments'} • ${u.sources.join(', ')}</div>
+            </div>
+          </div>
+          <button type="button" onclick="unflagSpamUser('${u.username}')" class="px-2.5 py-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition flex-shrink-0 cursor-pointer">
+            Not Spam
+          </button>
+        </div>
+      `).join('');
+    }
+    window.renderSpamUsersListView = renderSpamUsersListView;
 
     // --- Security & Access: Tabs, Two-Factor Auth, and Active Sessions ---
     function setSecurityAccessTab(tabName) {
@@ -12416,11 +12672,11 @@ function syncLikedStateToPosts() {
         state.messages = [];
       }
 
-      // Restore messages from storage if empty
+      // Restore messages from account-scoped storage if empty
       if (state.messages.length === 0) {
         try {
-          const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
-          const saved = localStorage.getItem('pixly_dms_' + curU) || localStorage.getItem('pixly_dms');
+          const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
+          const saved = localStorage.getItem('pixly_dms_' + curU);
           if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed) && parsed.length > 0) state.messages = parsed;
@@ -13012,11 +13268,9 @@ function syncLikedStateToPosts() {
       const serialized = JSON.stringify(cleanDms);
       try {
         localStorage.setItem('pixly_dms_' + curU, serialized);
-        localStorage.setItem('pixly_dms', serialized);
       } catch(e) {}
       if (window.idbStorage) {
         idbStorage.set('pixly_dms_' + curU, serialized);
-        idbStorage.set('pixly_dms', serialized);
       }
       if (window.firebase && window.firebase.db) {
         try {
@@ -13396,6 +13650,7 @@ function syncLikedStateToPosts() {
         saveAccountLikes(cleanUsername);
       }
       loadAccountNotifications(cleanUsername);
+      loadAccountDms(cleanUsername);
 
       if (typeof window.attachActiveUserDocListener === 'function') {
         window.attachActiveUserDocListener(normLoginU);
@@ -13488,6 +13743,8 @@ function syncLikedStateToPosts() {
 
     function performLogout() {
       state.isLoggedIn = false;
+      state.messages = [];
+      state.activeDmThreadIndex = 0;
       // Populate login inputs with username, but CLEAR password so password is required
       const loginUserInp = document.getElementById('login-username');
       if (loginUserInp) loginUserInp.value = state.currentUser.username;
@@ -13599,8 +13856,8 @@ function syncLikedStateToPosts() {
       try { renderLikes(); } catch(e) {}
       try { renderNotifications(); } catch(e) {}
       try {
-        const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
-        const savedDms = localStorage.getItem('pixly_dms_' + curU) || localStorage.getItem('pixly_dms');
+        const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
+        const savedDms = localStorage.getItem('pixly_dms_' + curU);
         if (savedDms) {
           const parsed = JSON.parse(savedDms);
           if (Array.isArray(parsed) && parsed.length > 0) state.messages = parsed;
@@ -13612,9 +13869,12 @@ function syncLikedStateToPosts() {
       // Asynchronously restore from IndexedDB if available
       try {
         if (window.idbStorage) {
-          // 00. Restore Direct Messages from IndexedDB
-          idbStorage.get('pixly_dms').then(idbDms => {
-            if (idbDms) {
+          // 00. Restore Direct Messages from IndexedDB (scoped to active user)
+          const initDmU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
+          idbStorage.get('pixly_dms_' + initDmU).then(idbDms => {
+            const activeU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '') || 'bradley_hansen';
+            if (activeU !== initDmU) return;
+            if (idbDms && (!Array.isArray(state.messages) || state.messages.length === 0)) {
               try {
                 const parsed = JSON.parse(idbDms);
                 if (Array.isArray(parsed) && parsed.length > 0) {
@@ -13864,6 +14124,8 @@ function syncLikedStateToPosts() {
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
         bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
         bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
+        bind('btn-ac-tab-privacy-safety', 'click', () => setAccountCenterView('privacySafety'));
+        bind('btn-ac-tab-spam', 'click', () => setAccountCenterView('spamList'));
         bind('btn-ac-sa-tab-security', 'click', () => setSecurityAccessTab('security'));
         bind('btn-ac-sa-tab-apps-sessions', 'click', () => setSecurityAccessTab('appsSessions'));
         bind('btn-ac-open-2fa', 'click', () => setAccountCenterView('twoFactorAuth'));
@@ -14846,43 +15108,6 @@ function syncLikedStateToPosts() {
           btnSignupDirect.addEventListener('click', () => handleCompleteSignUp(true));
         }
 
-        // Wire Demo Fill Buttons for Bradley and Pixlynote
-        const btnDemoFill = document.getElementById('btn-quick-demo-fill');
-        if (btnDemoFill) {
-          btnDemoFill.addEventListener('click', () => {
-            const uInp = document.getElementById('login-username');
-            const pwInp = document.getElementById('login-password');
-            const savedBradPw = localStorage.getItem('pixly_user_password_bradley_hansen') || 'demo1234';
-            if (uInp) uInp.value = 'bradley_hansen';
-            if (pwInp) pwInp.value = savedBradPw;
-            showToast('Prefilled @bradley_hansen credentials');
-          });
-        }
-
-        const btnPixlyFill = document.getElementById('btn-quick-pixlynote-fill');
-        if (btnPixlyFill) {
-          btnPixlyFill.addEventListener('click', () => {
-            const uInp = document.getElementById('login-username');
-            const pwInp = document.getElementById('login-password');
-            const savedPixlyPw = localStorage.getItem('pixlynote_password') || localStorage.getItem('pixly_password_pixlynote') || 'demo1234';
-            if (uInp) uInp.value = 'pixlynote';
-            if (pwInp) pwInp.value = savedPixlyPw;
-            showToast('Prefilled @pixlynote business account');
-          });
-        }
-
-        const btnDAPFill = document.getElementById('btn-quick-dap-fill');
-        if (btnDAPFill) {
-          btnDAPFill.addEventListener('click', () => {
-            const uInp = document.getElementById('login-username');
-            const pwInp = document.getElementById('login-password');
-            const savedDapPw = localStorage.getItem('pixly_user_password_digitalassetpro') || 'demo1234';
-            if (uInp) uInp.value = 'digitalassetpro';
-            if (pwInp) pwInp.value = savedDapPw;
-            showToast('Prefilled @digitalassetpro business account');
-          });
-        }
-
         // Wire Uniform Phone Masking
         const signupPhoneInput = document.getElementById('signup-phone');
         if (signupPhoneInput) attachPhoneMask(signupPhoneInput);
@@ -15352,8 +15577,11 @@ function syncLikedStateToPosts() {
 
         window.updateStoryCommentsUI = (story) => {
           if (!story) return;
-          const comments = Array.isArray(story.comments) ? story.comments : [];
-          const countStr = String(comments.length);
+          const allComments = Array.isArray(story.comments) ? story.comments : [];
+          const activeComments = allComments.filter(c => !c.isSpam);
+          const spamComments = allComments.filter(c => c.isSpam);
+          const isOwner = typeof isOwnStoryObj === 'function' ? isOwnStoryObj(story) : false;
+          const countStr = String(activeComments.length);
           const oCount = document.getElementById('story-owner-comments-count');
           const vCount = document.getElementById('story-viewer-comments-count');
           const sCount = document.getElementById('story-comments-sheet-count');
@@ -15362,18 +15590,87 @@ function syncLikedStateToPosts() {
           if (sCount) sCount.textContent = countStr;
           const list = document.getElementById('story-comments-list');
           if (list) {
-            list.innerHTML = comments.map(c => `
-              <div class="flex items-start space-x-2.5 py-1.5 border-b border-white/5 last:border-0">
-                <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="font-bold text-white truncate">@${c.user}</span>
-                    <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+            const commentsHtml = activeComments.map(c => `
+              <div class="flex items-start justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
+                <div class="flex items-start space-x-2.5 min-w-0 flex-1">
+                  <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center space-x-1.5">
+                      <span class="font-bold text-white truncate">@${c.user}</span>
+                      <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                    </div>
+                    <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
                   </div>
-                  <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
                 </div>
+                ${isOwner ? `
+                  <button type="button" onclick="event.stopPropagation(); toggleStoryCommentSpam('${c.id}')" class="p-1 text-white/40 hover:text-amber-400 transition cursor-pointer flex-shrink-0" title="Flag as Spam">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+                  </button>
+                ` : ''}
               </div>
-            `).join('') || '<div class="text-center text-white/50 py-6">No comments yet. Be the first to reply!</div>';
+            `).join('') || '<div class="text-center text-white/50 py-4">No comments yet. Be the first to reply!</div>';
+
+            let spamFolderHtml = '';
+            if (isOwner) {
+              const spamKey = 'story:' + String(story.id);
+              const isSpamOpen = window._expandedSpamFolders && window._expandedSpamFolders.has(spamKey);
+              spamFolderHtml = `
+                <div class="pt-2.5 mt-2 border-t border-white/10">
+                  <button type="button" onclick="event.stopPropagation(); toggleSpamFolder('${spamKey}')" class="inline-flex items-center space-x-1.5 text-[11px] font-semibold ${spamComments.length > 0 ? 'text-amber-300 bg-amber-500/20 border-amber-400/40 hover:bg-amber-500/30' : 'text-white/70 bg-white/10 border-white/15 hover:bg-white/15'} px-2.5 py-1 rounded-lg border transition cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+                    <span>Spam${spamComments.length > 0 ? ' (' + spamComments.length + ')' : ''}</span>
+                  </button>
+                  ${isSpamOpen ? `
+                    <div class="mt-2 p-2.5 rounded-xl bg-amber-950/50 border border-amber-400/30 space-y-2">
+                      ${spamComments.length === 0 ? `
+                        <div class="text-[11px] text-white/60 text-center py-1">No flagged comments in Spam.</div>
+                      ` : spamComments.map(sc => `
+                        <div class="flex items-center justify-between gap-2 text-xs bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/10">
+                          <div class="min-w-0 flex-1">
+                            <span class="font-bold text-white mr-1">@${sc.user}</span>
+                            <span class="text-white/80">${escapeHtml(sc.text || '')}</span>
+                          </div>
+                          <button type="button" onclick="event.stopPropagation(); toggleStoryCommentSpam('${sc.id}')" class="px-2 py-0.5 text-[10px] font-bold text-amber-200 bg-amber-500/30 hover:bg-amber-500/45 rounded-md transition flex items-center space-x-1 flex-shrink-0 cursor-pointer" title="Move out of Spam">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M4 21V4h9l1 2h6l-2.5 5L20 16h-6l-1-2H6v7H4z"/></svg>
+                            <span>Not Spam</span>
+                          </button>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }
+            list.innerHTML = commentsHtml + spamFolderHtml;
+          }
+        };
+
+        window.toggleStoryCommentSpam = async (commentId) => {
+          const storyRef = state.activeStory;
+          if (!storyRef || !Array.isArray(storyRef.comments)) return;
+          const comment = storyRef.comments.find(c => String(c.id) === String(commentId));
+          if (!comment) return;
+          comment.isSpam = !comment.isSpam;
+          window.updateStoryCommentsUI(storyRef);
+
+          const targetU = resolveStoryTargetUser(storyRef);
+          const storyIdStr = String(storyRef.id || ('creator_' + targetU));
+          window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+          window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+          window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
+          window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = [...storyRef.comments];
+
+          if (typeof persistState === 'function') persistState();
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              await setDoc(doc(db, 'users', targetU), {
+                storyComments: { [storyIdStr]: storyRef.comments }
+              }, { merge: true });
+            } catch(e) {}
+          }
+          if (typeof showToast === 'function') {
+            showToast(comment.isSpam ? 'Comment moved to Spam 🚩' : 'Comment moved out of Spam ✓');
           }
         };
 
