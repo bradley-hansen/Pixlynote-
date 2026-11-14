@@ -694,17 +694,9 @@
           </div>
 
           <!-- Direct Messages Button -->
-          <button type="button" id="btn-open-messages" title="Direct Messages" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24">
-              <defs>
-                <linearGradient id="pixly-dm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#9333ea"/>
-                  <stop offset="50%" stop-color="#6366f1"/>
-                  <stop offset="100%" stop-color="#0ea5e9"/>
-                </linearGradient>
-              </defs>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/>
-              <path stroke="url(#pixly-dm-grad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/>
+          <button type="button" id="btn-open-messages" title="Messages" class="p-2 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition relative">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
             </svg>
             <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-sky-500 rounded-full"></span>
           </button>
@@ -1360,33 +1352,29 @@
           <!-- Note body text -->
         </div>
 
-        <!-- Action Bar: Heart, Comment, DM Share, Share, Save -->
+        <!-- Action Bar: Like, Save, Comments Count, Share -->
         <div class="flex items-center justify-between py-2.5 px-3 bg-neutral-50 rounded-2xl border border-neutral-100">
           <div class="flex items-center space-x-4">
             <!-- Like Note Button -->
-            <button type="button" id="btn-note-modal-like" onclick="handleNoteModalLikeToggle()" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-700 hover:text-rose-600 transition cursor-pointer" title="Like">
+            <button type="button" id="btn-note-modal-like" onclick="handleNoteModalLikeToggle()" class="flex items-center space-x-1.5 text-xs font-semibold text-neutral-700 hover:text-rose-600 transition cursor-pointer">
               <svg id="note-modal-like-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               <span id="note-modal-likes-count">0</span>
             </button>
-            <!-- Comments Count / Focus -->
-            <button type="button" onclick="const inp=document.getElementById('note-modal-comment-input'); if(inp) inp.focus();" class="flex items-center space-x-1 text-xs text-neutral-500 hover:text-sky-600 font-medium transition cursor-pointer" title="Comment">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <!-- Save Note Button -->
+            <button type="button" id="btn-note-modal-save" onclick="handleNoteModalSaveToggle()" class="flex items-center space-x-1 text-xs font-semibold text-neutral-700 hover:text-amber-500 transition cursor-pointer">
+              <svg id="note-modal-save-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              <span id="note-modal-save-label">Save</span>
+            </button>
+            <!-- Comments Count Indicator -->
+            <div class="flex items-center space-x-1 text-xs text-neutral-400 font-medium">
+              <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
               <span id="note-modal-comments-count">0 comments</span>
-            </button>
-            <!-- DM Share Note Button -->
-            <button type="button" id="btn-note-modal-dm-share" onclick="if(state.currentModalNoteId) openDmShareModal('note', state.currentModalNoteId)" class="flex items-center space-x-1 text-xs font-semibold text-neutral-700 hover:text-violet-600 transition cursor-pointer" title="Send in DM">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-            </button>
-            <!-- Share Note Link -->
-            <button type="button" onclick="handleNoteModalShare()" class="text-xs font-semibold text-neutral-700 hover:text-violet-600 transition flex items-center space-x-1 cursor-pointer" title="Share">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-              <span>Share</span>
-            </button>
+            </div>
           </div>
-          <!-- Save Note Button -->
-          <button type="button" id="btn-note-modal-save" onclick="handleNoteModalSaveToggle()" class="flex items-center space-x-1 text-xs font-semibold text-neutral-700 hover:text-amber-500 transition cursor-pointer" title="Save">
-            <svg id="note-modal-save-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-            <span id="note-modal-save-label">Save</span>
+          <!-- Share Note Link -->
+          <button type="button" onclick="handleNoteModalShare()" class="text-xs font-semibold text-violet-600 hover:text-violet-800 transition flex items-center space-x-1 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+            <span>Share</span>
           </button>
         </div>
 
@@ -1477,13 +1465,10 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                 </svg>
               </button>
-              <button type="button" id="btn-modal-focus-comment" class="text-neutral-700 hover:text-neutral-900 transition" title="Comment">
+              <button type="button" id="btn-modal-focus-comment" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
               </button>
-              <button type="button" id="btn-modal-dm-share" class="text-neutral-700 hover:text-violet-600 transition cursor-pointer" title="Send in DM">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-              </button>
-              <button type="button" id="btn-modal-share" class="text-neutral-700 hover:text-neutral-900 transition" title="Share">
+              <button type="button" id="btn-modal-share" class="text-neutral-700 hover:text-neutral-900 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
               </button>
             </div>
@@ -2034,56 +2019,6 @@
     </div>
   </div>
 
-  <!-- MODAL 4B: DM SHARE TO FOLLOWING CHAT HEADS (4-ACROSS, UP TO 30) -->
-  <div id="modal-dm-share" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center p-2 sm:p-4" style="display: none;" onclick="if(event.target.id==='modal-dm-share') closeDmShareModal()">
-    <div class="bg-white rounded-3xl max-w-md w-full max-h-[88vh] shadow-2xl border border-neutral-200 flex flex-col overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-neutral-200/80 flex items-center justify-between bg-neutral-50/90 flex-shrink-0">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-sky-500 flex items-center justify-center text-white shadow-xs">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/>
-            </svg>
-          </div>
-          <div>
-            <div class="font-black text-sm text-neutral-900 tracking-tight">Send via DM</div>
-            <div id="dm-share-subtitle" class="text-[10px] text-neutral-500 font-medium">Select people you follow (up to 30)</div>
-          </div>
-        </div>
-        <button type="button" onclick="closeDmShareModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <!-- Shared Content Preview -->
-      <div id="dm-share-preview" class="px-4 py-2.5 bg-neutral-50/70 border-b border-neutral-100 flex items-center space-x-3 flex-shrink-0">
-        <!-- Populated dynamically -->
-      </div>
-
-      <!-- Search Following -->
-      <div class="px-4 pt-3 pb-2 flex-shrink-0">
-        <div class="relative">
-          <svg class="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          <input type="text" id="dm-share-search" placeholder="Search following..." oninput="renderDmShareChatHeads(this.value)" class="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-100 hover:bg-neutral-200/60 focus:bg-white border border-transparent focus:border-violet-400 rounded-xl focus:outline-none transition">
-        </div>
-      </div>
-
-      <!-- 4-Across Chat Heads Grid (up to 30) -->
-      <div id="dm-share-grid" class="flex-1 overflow-y-auto px-4 py-2 grid grid-cols-4 gap-x-2.5 gap-y-3.5 content-start">
-        <!-- Chat heads injected dynamically -->
-      </div>
-
-      <!-- Optional Message + Send Button -->
-      <div class="p-3.5 border-t border-neutral-200/80 bg-white space-y-2.5 flex-shrink-0">
-        <input type="text" id="dm-share-message-input" placeholder="Write a message (optional)..." class="w-full px-3.5 py-2 text-xs bg-neutral-100 focus:bg-white border border-neutral-200 focus:border-violet-500 rounded-xl focus:outline-none transition">
-        <button type="button" id="btn-dm-share-send" onclick="sendSharedContentToDms()" disabled class="w-full py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 hover:brightness-105 active:scale-[0.99] transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm">
-          Message
-        </button>
-      </div>
-    </div>
-  </div>
-
     <!-- MODAL 5: DIRECT MESSAGES DRAWER / MODAL -->
   <div id="modal-messages" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center p-2 sm:p-4" style="display: none;">
     <div class="bg-white rounded-3xl max-w-xl w-full h-[580px] max-h-[92vh] shadow-2xl border border-neutral-200 flex flex-col overflow-hidden relative">
@@ -2091,11 +2026,8 @@
       <!-- Modal Top Header -->
       <div class="px-4 py-3 border-b border-neutral-200/80 flex items-center justify-between bg-neutral-50/90 backdrop-blur-sm flex-shrink-0">
         <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-sky-500 flex items-center justify-center text-white shadow-xs">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/>
-            </svg>
+          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           </div>
           <div>
             <div class="flex items-center space-x-1.5">
@@ -2836,9 +2768,15 @@
                 window.applyNoteLikesFromRemote(d.likedNoteIds);
               }
             }
+            let pendingCancel = null;
             let pendingSid = null;
-            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
-            if (pendingSid && typeof applyStripeSessionVerification === 'function') {
+            try {
+              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
+              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
+            } catch(e) {}
+            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
+              applyStripeSubscriptionCancellation(cleanU);
+            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
               applyStripeSessionVerification(cleanU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
@@ -4953,11 +4891,6 @@ function syncLikedStateToPosts() {
                     </svg>
                   </button>
 
-                  <!-- DM Share Button -->
-                  <button type="button" class="btn-dm-share-post p-0.5 text-neutral-800 hover:text-violet-600 transition cursor-pointer" data-post-id="${post.id}" title="Send in DM">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-                  </button>
-
                   <!-- Share Button -->
                   <button type="button" class="btn-share-post p-0.5 text-neutral-800 hover:text-neutral-600 transition" data-post-id="${post.id}" title="Share">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5168,15 +5101,6 @@ function syncLikedStateToPosts() {
           const card = btn.closest('.post-card');
           const input = card ? card.querySelector('.feed-comment-input') : null;
           if (input) input.focus();
-        });
-      });
-
-      // DM Share post
-      document.querySelectorAll('.btn-dm-share-post').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const pid = btn.dataset.postId;
-          if (pid && typeof openDmShareModal === 'function') openDmShareModal('post', pid);
         });
       });
 
@@ -6150,22 +6074,10 @@ function syncLikedStateToPosts() {
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text)}</p>
               <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
-                <div class="flex items-center space-x-4">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
-                    <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${n.likes || 0}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openNoteDetailModal('${n.id}')" class="flex items-center space-x-1 text-neutral-400 hover:text-sky-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Comment">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>${n.replies || (Array.isArray(n.comments) ? n.comments.length : 0)}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}')" class="flex items-center text-neutral-400 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Send in DM">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); copyToClipboard(window.location.href, 'Note link copied to clipboard!')" class="flex items-center text-neutral-400 hover:text-neutral-800 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Share">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-                  </button>
-                </div>
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1.5 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
+                  <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${n.likes || 0}</span>
+                </button>
                 <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${n.id}')" class="flex items-center space-x-1 ${isSaved ? 'text-amber-500 font-bold' : 'text-neutral-400 hover:text-neutral-700'} cursor-pointer">
                   <span>${isSaved ? '🔖 Saved' : '🔖 Save'}</span>
                 </button>
@@ -6967,27 +6879,22 @@ function syncLikedStateToPosts() {
                 </div>
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${note.text}</p>
-              <div class="flex items-center justify-between text-xs text-neutral-500 pt-1 border-t border-neutral-200/60">
-                <div class="flex items-center space-x-4">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${note.id}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
-                    <svg class="w-4 h-4 ${isNoteLiked ? 'fill-current' : 'none'}" fill="${isNoteLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${note.likes}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openNoteDetailModal('${note.id}');" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Comment">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>${note.replies || 0}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${note.id}');" class="flex items-center hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Send in DM">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); copyToClipboard(window.location.href, 'Note link copied to clipboard!');" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Share">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-                  </button>
-                </div>
+              <div class="flex items-center space-x-6 text-xs text-neutral-500 pt-1 border-t border-neutral-200/60">
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${note.id}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
+                  <svg class="w-4 h-4 ${isNoteLiked ? 'fill-current' : 'none'}" fill="${isNoteLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${note.likes}</span>
+                </button>
                 <!-- Bookmark / Save Note button on Explore Notes -->
                 <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${note.id}');" class="flex items-center space-x-1 btn-save-explore-note ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)) || state.savedNoteIds.has(parseInt(note.id, 10)))) ? 'text-amber-500 font-semibold' : 'text-neutral-500 hover:text-neutral-900'} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Remove from Saved' : 'Save note'}">
                   <svg class="w-4 h-4 ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'fill-current text-amber-500' : ''}" fill="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
                   <span>${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Saved' : 'Save'}</span>
+                </button>
+                <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  <span>${note.replies || 0}</span>
+                </button>
+                <button type="button" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                 </button>
               </div>
             </div>
@@ -10047,25 +9954,10 @@ function syncLikedStateToPosts() {
                 </div>
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text || '')}</p>
-              <div class="flex items-center justify-between pt-1 border-t border-neutral-100 text-xs text-neutral-500">
-                <div class="flex items-center space-x-4">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer">
-                    <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${n.likes || 0}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openNoteDetailModal('${n.id}');" class="flex items-center space-x-1 text-neutral-400 hover:text-sky-600 transition cursor-pointer" title="Comment">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>${n.replies || (Array.isArray(n.comments) ? n.comments.length : 0)}</span>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}');" class="flex items-center text-neutral-400 hover:text-violet-600 transition cursor-pointer" title="Send in DM">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25A8.25 8.25 0 004.5 12c0 1.49.395 2.888 1.087 4.095L4.2 19.8l3.875-1.158A8.214 8.214 0 0012 19.75c3.42 0 6.357-2.08 7.606-5.044"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 12h7m0 0l-2.6-2.6M20 12l-2.6 2.6"/></svg>
-                  </button>
-                  <button type="button" onclick="event.stopPropagation(); copyToClipboard(window.location.href, 'Note link copied to clipboard!');" class="flex items-center text-neutral-400 hover:text-neutral-800 transition cursor-pointer" title="Share">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-                  </button>
-                </div>
-                <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${n.id}');" class="flex items-center space-x-1 ${(state.savedNoteIds && (state.savedNoteIds.has(n.id) || state.savedNoteIds.has(String(n.id)))) ? 'text-amber-500 font-semibold' : 'text-neutral-400 hover:text-neutral-700'} transition cursor-pointer" title="Save note">
-                  <svg class="w-4 h-4 ${(state.savedNoteIds && (state.savedNoteIds.has(n.id) || state.savedNoteIds.has(String(n.id)))) ? 'fill-current text-amber-500' : ''}" fill="${(state.savedNoteIds && (state.savedNoteIds.has(n.id) || state.savedNoteIds.has(String(n.id)))) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              <div class="flex items-center space-x-3 pt-1 border-t border-neutral-100 text-xs">
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer">
+                  <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span class="font-semibold">${n.likes || 0}</span>
                 </button>
               </div>
             </div>
@@ -11807,25 +11699,6 @@ function syncLikedStateToPosts() {
             </div>
           `;
         }
-        if (msg.sharedPost) {
-          contentHtml += `
-            <div onclick="closeMessagesModal(); openPostDetailModal('${msg.sharedPost.id}');" class="mb-1.5 rounded-xl overflow-hidden border ${isMe ? 'border-white/25 bg-white/10' : 'border-neutral-200 bg-neutral-50'} cursor-pointer hover:opacity-95 transition">
-              ${msg.sharedPost.image ? `<img src="${msg.sharedPost.image}" alt="" class="w-full h-28 object-cover">` : ''}
-              <div class="p-2">
-                <div class="text-[10px] font-bold opacity-90">@${escapeHtml(msg.sharedPost.author || 'creator')}</div>
-                ${msg.sharedPost.caption ? `<div class="text-[11px] opacity-85 line-clamp-2 mt-0.5">${escapeHtml(msg.sharedPost.caption)}</div>` : ''}
-              </div>
-            </div>
-          `;
-        }
-        if (msg.sharedNote) {
-          contentHtml += `
-            <div onclick="closeMessagesModal(); openNoteDetailModal('${msg.sharedNote.id}');" class="mb-1.5 p-2.5 rounded-xl border ${isMe ? 'border-white/25 bg-white/10' : 'border-neutral-200 bg-neutral-50'} cursor-pointer hover:opacity-95 transition">
-              <div class="text-[10px] font-bold opacity-90">📝 Note by @${escapeHtml(msg.sharedNote.author || 'creator')}</div>
-              <div class="text-[11px] opacity-90 line-clamp-3 mt-1">${escapeHtml(msg.sharedNote.text || '')}</div>
-            </div>
-          `;
-        }
         if (msg.text) {
           contentHtml += `<div class="whitespace-pre-line leading-relaxed">${escapeHtml(msg.text)}</div>`;
         }
@@ -12117,250 +11990,6 @@ function syncLikedStateToPosts() {
         if (input) input.focus();
       }, 150);
     }
-
-    // --- DM Share Modal Controller (4-across, up to 30 following chat heads) ---
-    let _dmShareContext = { kind: null, id: null, item: null, selectedUsers: new Set() };
-
-    function getDmShareFollowingList() {
-      const seen = new Set();
-      const result = [];
-      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
-
-      const addCandidate = (u) => {
-        if (!u || !u.username) return;
-        const clean = normalizeUsername(u.username);
-        if (!clean || clean === curU || seen.has(clean)) return;
-        seen.add(clean);
-        const info = typeof getCreatorInfo === 'function' ? getCreatorInfo(clean) : null;
-        result.push({
-          username: clean,
-          fullName: u.fullName || u.name || (info && info.fullName) || clean,
-          avatar: u.avatar || (info && info.avatar) || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : '')
-        });
-      };
-
-      (state.following || []).forEach(u => {
-        if (u && u.isFollowing !== false) addCandidate(u);
-      });
-
-      return result.slice(0, 30);
-    }
-
-    function openDmShareModal(kind, itemId) {
-      const item = kind === 'note' ? getNoteById(itemId) : getPostById(itemId);
-      if (!item) {
-        showToast('Unable to load item to share');
-        return;
-      }
-
-      _dmShareContext = {
-        kind: kind,
-        id: item.id,
-        item: item,
-        selectedUsers: new Set()
-      };
-
-      const previewEl = document.getElementById('dm-share-preview');
-      if (previewEl) {
-        if (kind === 'post') {
-          previewEl.innerHTML = `
-            <div class="w-11 h-11 rounded-xl overflow-hidden bg-neutral-200 flex-shrink-0 border border-neutral-200">
-              <img src="${item.image || ''}" alt="" class="w-full h-full object-cover">
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(item.author || 'creator')}</div>
-              <div class="text-[11px] text-neutral-500 truncate">${escapeHtml(item.caption || 'Shared photo post')}</div>
-            </div>
-          `;
-        } else {
-          previewEl.innerHTML = `
-            <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center flex-shrink-0 font-bold text-sm">📝</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-neutral-900 truncate">Note by @${escapeHtml(item.author || 'creator')}</div>
-              <div class="text-[11px] text-neutral-500 truncate">${escapeHtml(item.text || '')}</div>
-            </div>
-          `;
-        }
-      }
-
-      const searchEl = document.getElementById('dm-share-search');
-      if (searchEl) searchEl.value = '';
-      const msgEl = document.getElementById('dm-share-message-input');
-      if (msgEl) msgEl.value = '';
-
-      updateDmShareSendButton();
-      renderDmShareChatHeads('');
-
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-      }
-    }
-    window.openDmShareModal = openDmShareModal;
-
-    function closeDmShareModal() {
-      const modal = document.getElementById('modal-dm-share');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-      }
-    }
-    window.closeDmShareModal = closeDmShareModal;
-
-    function renderDmShareChatHeads(query = '') {
-      const grid = document.getElementById('dm-share-grid');
-      if (!grid) return;
-
-      const q = (query || '').trim().toLowerCase();
-      const followingList = getDmShareFollowingList();
-      const filtered = q
-        ? followingList.filter(u => u.username.toLowerCase().includes(q) || (u.fullName || '').toLowerCase().includes(q))
-        : followingList;
-
-      if (filtered.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-4 py-8 text-center text-xs text-neutral-400">
-            ${followingList.length === 0 ? 'Follow creators to share posts and notes with them in DM.' : 'No matching people you follow.'}
-          </div>
-        `;
-        return;
-      }
-
-      grid.innerHTML = filtered.map(u => {
-        const isSel = _dmShareContext.selectedUsers.has(u.username);
-        return `
-          <button type="button" onclick="toggleDmShareRecipient('${u.username}')" class="flex flex-col items-center space-y-1.5 group cursor-pointer focus:outline-none">
-            <div class="relative w-14 h-14 rounded-full p-0.5 transition-transform active:scale-95 ${isSel ? 'bg-gradient-to-tr from-violet-600 via-indigo-500 to-sky-500 ring-2 ring-violet-500 ring-offset-2' : 'bg-neutral-200 group-hover:bg-neutral-300'}">
-              <img src="${u.avatar}" alt="${escapeHtml(u.username)}" class="w-full h-full rounded-full object-cover bg-white border-2 border-white">
-              ${isSel ? `
-                <span class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-gradient-to-r from-violet-600 to-sky-500 text-white flex items-center justify-center border-2 border-white shadow-xs">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                </span>
-              ` : ''}
-            </div>
-            <span class="text-[11px] font-medium ${isSel ? 'text-violet-700 font-bold' : 'text-neutral-700'} truncate w-full text-center leading-tight">${escapeHtml(u.fullName || u.username)}</span>
-          </button>
-        `;
-      }).join('');
-    }
-    window.renderDmShareChatHeads = renderDmShareChatHeads;
-
-    function toggleDmShareRecipient(username) {
-      if (!username) return;
-      if (_dmShareContext.selectedUsers.has(username)) {
-        _dmShareContext.selectedUsers.delete(username);
-      } else {
-        _dmShareContext.selectedUsers.add(username);
-      }
-      const searchEl = document.getElementById('dm-share-search');
-      renderDmShareChatHeads(searchEl ? searchEl.value : '');
-      updateDmShareSendButton();
-    }
-    window.toggleDmShareRecipient = toggleDmShareRecipient;
-
-    function updateDmShareSendButton() {
-      const btn = document.getElementById('btn-dm-share-send');
-      const sub = document.getElementById('dm-share-subtitle');
-      const count = _dmShareContext.selectedUsers.size;
-      if (btn) {
-        btn.disabled = count === 0;
-        btn.textContent = count > 0 ? `Message (${count})` : 'Message';
-      }
-      if (sub) {
-        sub.textContent = count > 0 ? `${count} selected • Tap Message to send` : 'Select people you follow (up to 30)';
-      }
-    }
-
-    function sendSharedContentToDms() {
-      const recipients = Array.from(_dmShareContext.selectedUsers);
-      if (recipients.length === 0 || !_dmShareContext.item) return;
-
-      const customNote = (document.getElementById('dm-share-message-input')?.value || '').trim();
-      const item = _dmShareContext.item;
-      const kind = _dmShareContext.kind;
-
-      if (!state.messages || !Array.isArray(state.messages)) state.messages = [];
-      const followingList = getDmShareFollowingList();
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-      let lastRecipientUsername = recipients[0];
-
-      recipients.forEach(targetUser => {
-        let idx = state.messages.findIndex(m => m.user.toLowerCase() === targetUser.toLowerCase());
-        let thread;
-        if (idx === -1) {
-          const match = followingList.find(f => f.username === targetUser);
-          thread = {
-            user: targetUser,
-            name: (match && match.fullName) || targetUser,
-            avatar: (match && match.avatar) || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : ''),
-            lastMsg: '',
-            time: 'Just now',
-            unread: 0,
-            chat: []
-          };
-          state.messages.unshift(thread);
-        } else {
-          thread = state.messages[idx];
-          if (idx !== 0) {
-            state.messages.splice(idx, 1);
-            state.messages.unshift(thread);
-          }
-        }
-
-        const newMsg = {
-          sender: 'me',
-          text: customNote || '',
-          time: timeStr,
-          timestamp: Date.now()
-        };
-
-        if (kind === 'post') {
-          newMsg.sharedPost = {
-            id: item.id,
-            author: item.author,
-            caption: item.caption || '',
-            image: item.image || ''
-          };
-          thread.lastMsg = customNote ? customNote : `Shared a post by @${item.author}`;
-        } else {
-          newMsg.sharedNote = {
-            id: item.id,
-            author: item.author,
-            text: item.text || ''
-          };
-          thread.lastMsg = customNote ? customNote : `Shared a note by @${item.author}`;
-        }
-
-        thread.time = 'Just now';
-        if (!thread.chat) thread.chat = [];
-        thread.chat.push(newMsg);
-        lastRecipientUsername = targetUser;
-      });
-
-      persistDirectMessages();
-      closeDmShareModal();
-
-      const targetIdx = state.messages.findIndex(m => m.user.toLowerCase() === lastRecipientUsername.toLowerCase());
-      state.activeDmThreadIndex = targetIdx >= 0 ? targetIdx : 0;
-      openMessagesModal();
-      renderMessages();
-      renderActiveChat(state.activeDmThreadIndex);
-
-      const sidebar = document.getElementById('dm-sidebar');
-      const chatPanel = document.getElementById('dm-chat-panel');
-      if (sidebar && chatPanel && window.innerWidth < 640) {
-        sidebar.classList.add('hidden');
-        sidebar.classList.remove('flex');
-        chatPanel.classList.remove('hidden');
-        chatPanel.classList.add('flex');
-      }
-
-      showToast(recipients.length === 1 ? `Sent to @${recipients[0]} in DM` : `Sent to ${recipients.length} people in DM`);
-    }
-    window.sendSharedContentToDms = sendSharedContentToDms;
     window.openDirectMessageWithUser = openDirectMessageWithUser;
 
     function toggleDmNewChatPicker(show) {
@@ -12720,9 +12349,15 @@ function syncLikedStateToPosts() {
             if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
               window.applyNoteLikesFromRemote(d.likedNoteIds);
             }
+            let pendingCancel = null;
             let pendingSid = null;
-            try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
-            if (pendingSid) {
+            try {
+              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
+              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
+            } catch(e) {}
+            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
+              applyStripeSubscriptionCancellation(normLoginU);
+            } else if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
             } else if (typeof d.isVerified === 'boolean') {
               state.currentUser.isVerified = d.isVerified;
@@ -14419,12 +14054,6 @@ function syncLikedStateToPosts() {
           toggleSavePost(state.currentModalPostId);
         });
 
-        bind('btn-modal-dm-share', 'click', () => {
-          if (state.currentModalPostId && typeof openDmShareModal === 'function') {
-            openDmShareModal('post', state.currentModalPostId);
-          }
-        });
-
         bind('btn-modal-share', 'click', () => {
           const sharedPost = state.currentModalPostId ? getPostById(state.currentModalPostId) : null;
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
@@ -15667,14 +15296,70 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSessionVerification = applyStripeSessionVerification;
 
+    function applyStripeSubscriptionCancellation(username) {
+      if (!username) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+        state.currentUser.isVerified = false;
+        state.currentUser.isPlus = false;
+        state.currentUser.subscriptionStatus = 'canceled';
+      }
+      try {
+        localStorage.removeItem('pixly_pending_stripe_cancel');
+        localStorage.removeItem('pixly_pending_stripe_session');
+      } catch(e) {}
+      if (typeof persistState === 'function') persistState();
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof renderNotes === 'function') renderNotes();
+
+      const writeCancellationToFirestore = () => {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanU), {
+            isVerified: false,
+            isPlus: false,
+            subscriptionStatus: 'canceled',
+            canceledUpdatedAt: Date.now()
+          }, { merge: true }).catch(() => {});
+          return true;
+        }
+        return false;
+      };
+
+      if (!writeCancellationToFirestore()) {
+        const retryTimer = setInterval(() => {
+          if (writeCancellationToFirestore()) clearInterval(retryTimer);
+        }, 400);
+        setTimeout(() => clearInterval(retryTimer), 12000);
+      }
+      if (typeof showToast === 'function') {
+        showToast('Pixlynote Plus membership canceled');
+      }
+    }
+    window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
+
     (function handleStripeRedirectOnLoad() {
       try {
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get('session_id');
         const subscribed = params.get('subscribed');
+        const canceled = params.get('canceled');
         const token = (sessionId && sessionId.trim()) || (subscribed === 'true' ? ('subscribed_' + Date.now()) : '');
-        if (token) {
+        if (canceled === 'true') {
+          localStorage.setItem('pixly_pending_stripe_cancel', 'true');
+          localStorage.removeItem('pixly_pending_stripe_session');
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+          setTimeout(() => {
+            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+              applyStripeSubscriptionCancellation(state.currentUser.username);
+            }
+          }, 300);
+        } else if (token) {
           localStorage.setItem('pixly_pending_stripe_session', token);
+          localStorage.removeItem('pixly_pending_stripe_cancel');
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
           setTimeout(() => {
@@ -15803,6 +15488,31 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
+      const activePill = document.getElementById('sub-active-pill');
+      const subscribeWrap = document.getElementById('pixly-stripe-subscribe-wrap');
+      const manageWrap = document.getElementById('pixly-stripe-manage-wrap');
+      const cancelBtn = document.getElementById('pixly-stripe-cancel-btn');
+      const plusActive = typeof isPlusUser === 'function' && isPlusUser();
+
+      if (activePill) {
+        if (plusActive) activePill.classList.remove('hidden');
+        else activePill.classList.add('hidden');
+      }
+      if (subscribeWrap) {
+        if (plusActive) subscribeWrap.classList.add('hidden');
+        else subscribeWrap.classList.remove('hidden');
+      }
+      if (manageWrap) {
+        if (plusActive) manageWrap.classList.remove('hidden');
+        else manageWrap.classList.add('hidden');
+      }
+      if (cancelBtn) {
+        let portalUrl = 'https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00';
+        if (state.currentUser && state.currentUser.email && state.currentUser.email.includes('@')) {
+          portalUrl += '?prefilled_email=' + encodeURIComponent(state.currentUser.email.trim());
+        }
+        cancelBtn.setAttribute('href', portalUrl);
+      }
       if (buyBtn && state.currentUser && state.currentUser.username) {
         const cleanU = normalizeUsername(state.currentUser.username);
         if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
@@ -15981,12 +15691,32 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </ul>
         </div>
 
-        <stripe-buy-button
-          id="pixly-stripe-buy-btn"
-          buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
-          publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
-        >
-        </stripe-buy-button>
+        <div id="pixly-stripe-subscribe-wrap" class="w-full flex justify-center">
+          <stripe-buy-button
+            id="pixly-stripe-buy-btn"
+            buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
+            publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
+          >
+          </stripe-buy-button>
+        </div>
+
+        <div id="pixly-stripe-manage-wrap" class="hidden w-full rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xs space-y-3 text-center">
+          <div class="space-y-1">
+            <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
+              <span>●</span>
+              <span>Pixlynote Plus Active</span>
+            </div>
+            <p class="text-xs font-semibold text-neutral-800 pt-1">$9.99 / month • Managed via Stripe</p>
+            <p class="text-[11px] text-neutral-500">Need to cancel or update your billing? Open the Stripe Customer Portal below.</p>
+          </div>
+          <a
+            id="pixly-stripe-cancel-btn"
+            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
+            class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold shadow-sm transition cursor-pointer"
+          >
+            Cancel Membership
+          </a>
+        </div>
       </div>
     </div>
   </div>
