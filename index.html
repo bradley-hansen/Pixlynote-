@@ -4352,11 +4352,11 @@ function syncLikedStateToPosts() {
         } else if (state.currentUser.username === 'pixlynote') {
           state.currentUser.phone = '';
         } else if (state.currentUser.username === 'digitalassetpro' || state.currentUser.username === 'digital_asset_pro') {
+          state.currentUser.username = 'digitalassetpro';
           state.currentUser.avatar = DIGITAL_ASSET_PRO_AVATAR;
           if (!state.currentUser.fullName) state.currentUser.fullName = 'Digital AssetPro';
           state.currentUser.accountType = 'business';
-          if (state.currentUser.link === undefined) state.currentUser.link = 'digitalassetpro.com';
-          if (state.currentUser.email === 'contact@digitalassetpro.com') state.currentUser.email = '';
+          if (state.currentUser.link === undefined) state.currentUser.link = '';
         }
 
         let savedAccType = null;
@@ -4371,7 +4371,6 @@ function syncLikedStateToPosts() {
             const parsed = JSON.parse(savedUser);
             if (parsed && typeof parsed === 'object') {
               Object.assign(state.currentUser, parsed);
-              if (state.currentUser.email === 'contact@digitalassetpro.com') state.currentUser.email = '';
             }
           } catch(e) {}
         }
@@ -9976,25 +9975,11 @@ function syncLikedStateToPosts() {
       digitalassetpro: {
         username: "digitalassetpro",
         fullName: "Digital AssetPro",
-        bio: "Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth | digitalassetpro.com",
+        bio: "Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth",
         avatar: DIGITAL_ASSET_PRO_AVATAR,
         category: "Digital Assets & Web3 Finance",
         location: "New York & Global 🌐",
-        link: "digitalassetpro.com",
-        joined: "Joined January 2023",
-        followersCount: "18.5K",
-        followingCount: "42",
-        mutual: "Followed by bradley_hansen and 64 others",
-        isFollowing: false
-      },
-      digital_asset_pro: {
-        username: "digital_asset_pro",
-        fullName: "Digital AssetPro",
-        bio: "Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth | digitalassetpro.com",
-        avatar: DIGITAL_ASSET_PRO_AVATAR,
-        category: "Digital Assets & Web3 Finance",
-        location: "New York & Global 🌐",
-        link: "digitalassetpro.com",
+        link: "",
         joined: "Joined January 2023",
         followersCount: "18.5K",
         followingCount: "42",
@@ -14621,11 +14606,10 @@ function syncLikedStateToPosts() {
           state.currentUser.followersCount = "0";
           state.currentUser.followingCount = "0";
         } else if (isDAP) {
-          const dapEmail = (accData && accData.email && accData.email !== 'contact@digitalassetpro.com') ? accData.email : (email && email !== 'contact@digitalassetpro.com' ? email : '');
-          state.currentUser.email = dapEmail;
+          state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : (email || '');
           state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '+1 (609) 289-6702');
           state.currentUser.bio = (accData && accData.bio !== undefined && !accData.bio.includes('Fitness')) ? accData.bio : 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth';
-          state.currentUser.link = (accData && accData.link !== undefined && !accData.link.includes('bradley_hansen')) ? accData.link : 'digitalassetpro.com';
+          state.currentUser.link = (accData && accData.link !== undefined && !accData.link.includes('bradley_hansen')) ? accData.link : '';
           state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : DIGITAL_ASSET_PRO_AVATAR;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
@@ -14881,63 +14865,6 @@ function syncLikedStateToPosts() {
             localStorage.setItem('pixly_accounts', JSON.stringify(acctsObj));
           }
         }
-      } catch(e) {}
-
-      // Auto-purge placeholder email from @digitalassetpro cached storage
-      try {
-        ['pixly_account_digitalassetpro', 'pixly_account_digital_asset_pro'].forEach(k => {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            const d = JSON.parse(raw);
-            if (d && d.email === 'contact@digitalassetpro.com') {
-              d.email = '';
-              localStorage.setItem(k, JSON.stringify(d));
-            }
-          }
-        });
-        const storedAcctsDap = localStorage.getItem('pixly_accounts');
-        if (storedAcctsDap) {
-          const acctsObjDap = JSON.parse(storedAcctsDap);
-          if (acctsObjDap) {
-            let changedDap = false;
-            if (acctsObjDap['contact@digitalassetpro.com']) {
-              delete acctsObjDap['contact@digitalassetpro.com'];
-              changedDap = true;
-            }
-            ['digitalassetpro', 'digital_asset_pro'].forEach(k => {
-              if (acctsObjDap[k] && acctsObjDap[k].email === 'contact@digitalassetpro.com') {
-                acctsObjDap[k].email = '';
-                changedDap = true;
-              }
-            });
-            if (changedDap) localStorage.setItem('pixly_accounts', JSON.stringify(acctsObjDap));
-          }
-        }
-        const sessRaw = localStorage.getItem('pixly_session_accounts');
-        if (sessRaw) {
-          const sessArr = JSON.parse(sessRaw);
-          if (Array.isArray(sessArr)) {
-            let sessChanged = false;
-            sessArr.forEach(a => {
-              if (a && a.email === 'contact@digitalassetpro.com') {
-                a.email = '';
-                sessChanged = true;
-              }
-            });
-            if (sessChanged) localStorage.setItem('pixly_session_accounts', JSON.stringify(sessArr));
-          }
-        }
-        ['localStorage', 'sessionStorage'].forEach(stName => {
-          const st = window[stName];
-          const uRaw = st && st.getItem('pixlynote_user');
-          if (uRaw) {
-            const uObj = JSON.parse(uRaw);
-            if (uObj && uObj.email === 'contact@digitalassetpro.com') {
-              uObj.email = '';
-              st.setItem('pixlynote_user', JSON.stringify(uObj));
-            }
-          }
-        });
       } catch(e) {}
 
       // Ensure all current posts have comments and tags arrays initialized
@@ -16302,15 +16229,12 @@ function syncLikedStateToPosts() {
               phone: '+1 (609) 289-6702',
               accountType: 'business',
               bio: 'Institutional-grade digital asset infrastructure & wealth management 📊🔐 | Secure custody & intelligent portfolio growth',
-              link: 'digitalassetpro.com',
+              link: '',
               avatar: DIGITAL_ASSET_PRO_AVATAR,
               postsCount: 4,
               followersCount: '18.5K',
               followingCount: '42'
             };
-            if (window._pixlyAccounts['digitalassetpro'].email === 'contact@digitalassetpro.com') {
-              window._pixlyAccounts['digitalassetpro'].email = '';
-            }
           }
           window._pixlyAccounts['digital_asset_pro'] = window._pixlyAccounts['digitalassetpro'];
           window._pixlyAccounts[u.toLowerCase()] = newAccount;
