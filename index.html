@@ -14402,13 +14402,44 @@ function syncLikedStateToPosts() {
     }
     window.closeDeactivateConfirmModal = closeDeactivateConfirmModal;
 
-    function confirmDeactivateAccount() {
+    async function confirmDeactivateAccount() {
       if (!state.currentUser || !state.currentUser.username) return;
       const cleanU = (typeof normalizeUsername === 'function')
         ? normalizeUsername(state.currentUser.username)
         : String(state.currentUser.username).trim().toLowerCase().replace(/^@/, '');
       const now = Date.now();
       const scheduledDeletionAt = now + PIXLY_DEACTIVATION_WINDOW_MS;
+      const deletionDateStr = new Date(scheduledDeletionAt).toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      let userEmail = (state.currentUser.email && state.currentUser.email.includes('@'))
+        ? state.currentUser.email.trim()
+        : '';
+      if (!userEmail && typeof window.resolveUserEmailForSecurity === 'function') {
+        userEmail = window.resolveUserEmailForSecurity(cleanU);
+      }
+      if (!userEmail) {
+        try {
+          if (window._pixlyAccounts && window._pixlyAccounts[cleanU] && window._pixlyAccounts[cleanU].email) {
+            userEmail = window._pixlyAccounts[cleanU].email.trim();
+          } else {
+            const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            if (accts[cleanU] && accts[cleanU].email) {
+              userEmail = accts[cleanU].email.trim();
+            } else {
+              const indivRaw = localStorage.getItem('pixly_account_' + cleanU);
+              if (indivRaw) {
+                const indiv = JSON.parse(indivRaw);
+                if (indiv && indiv.email) userEmail = indiv.email.trim();
+              }
+            }
+          }
+        } catch(e) {}
+        if (!userEmail && cleanU === 'bradley_hansen') userEmail = 'bradley.g.hansen@hotmail.com';
+      }
 
       const map = getDeactivatedAccountsMap();
       map[cleanU] = {
@@ -14476,11 +14507,41 @@ function syncLikedStateToPosts() {
         }, { merge: true }).catch(() => {});
       }
 
+      const confirmBtn = document.getElementById('btn-confirm-deactivate');
+      const origBtnText = confirmBtn ? confirmBtn.textContent : 'Deactivate Account';
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Deactivating...';
+      }
+
+      let emailSent = false;
+      if (userEmail && typeof window.sendPixlynoteEmail === 'function') {
+        try {
+          await window.sendPixlynoteEmail(
+            userEmail,
+            'Pixlynote Account Deactivation Confirmation',
+            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Account Deactivation Request Received</h2><p style="color:#444;font-size:14px;line-height:1.5;">We received your request to deactivate your Pixlynote account <strong>@${cleanU}</strong>. Your account is now deactivated.</p><div style="margin:16px 0;padding:14px 16px;background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;"><p style="margin:0;color:#9f1239;font-size:14px;line-height:1.5;"><strong>Scheduled Permanent Deletion:</strong><br/>Your account will be permanently deleted on <strong>${deletionDateStr}</strong> if you don't log back in.</p></div><p style="color:#444;font-size:14px;line-height:1.5;"><strong>Want to cancel?</strong> To cancel your deactivation request and keep your account, simply log back in to Pixlynote before <strong>${deletionDateStr}</strong>. Logging in will automatically cancel and delete your deactivation request.</p><p style="color:#888;font-size:12px;margin-top:16px;">If you didn't request this deactivation, log back in immediately and update your password from Account Center.</p></div>`
+          );
+          emailSent = true;
+        } catch (err) {
+          console.warn('Deactivation confirmation email failed:', err);
+        }
+      }
+
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = origBtnText;
+      }
+
       closeDeactivateConfirmModal();
       if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal();
       if (typeof closeProfileMenu === 'function') closeProfileMenu();
       performLogout();
-      showToast(`@${cleanU} deactivated. Log back in within 30 days to cancel deletion.`);
+      showToast(
+        emailSent
+          ? `@${cleanU} deactivated & confirmation sent to ${userEmail}. Log back in before ${deletionDateStr} to cancel.`
+          : `@${cleanU} deactivated. Log back in before ${deletionDateStr} to cancel deletion.`
+      );
     }
     window.confirmDeactivateAccount = confirmDeactivateAccount;
 
@@ -15313,6 +15374,7 @@ function syncLikedStateToPosts() {
           }
           return '';
         }
+        window.resolveUserEmailForSecurity = resolveUserEmailForSecurity;
 
         const pwForm = document.getElementById('form-ac-change-password');
         if (pwForm) {
