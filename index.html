@@ -6937,7 +6937,12 @@ function syncLikedStateToPosts() {
                     <button type="button" onclick="event.stopPropagation(); openEditNoteModal('${n.id}')" class="text-neutral-400 hover:text-sky-600 transition p-1 cursor-pointer" title="Edit note (Pixlynote Plus)">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     </button>
-                  ` : ''}
+                  ` : `
+                    <button type="button" onclick="event.stopPropagation(); openEditNoteModal('${n.id}')" class="inline-flex items-center space-x-0.5 text-neutral-400 hover:text-sky-600 transition p-1 cursor-pointer" title="Edit note (Pixlynote Plus required)">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                      <span class="text-[9px] font-bold px-1 rounded bg-sky-50 text-sky-600 border border-sky-200">Plus</span>
+                    </button>
+                  `}
                   <button type="button" onclick="event.stopPropagation(); handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
@@ -7909,8 +7914,17 @@ function syncLikedStateToPosts() {
       const isMyPost = (pAuthor === curU);
       if (isMyPost) {
         if (editBtn) {
-          if (typeof isPlusUser === 'function' && isPlusUser()) editBtn.classList.remove('hidden');
-          else editBtn.classList.add('hidden');
+          const hasPlus = (typeof isPlusUser === 'function' && isPlusUser());
+          editBtn.classList.remove('hidden');
+          if (hasPlus) {
+            editBtn.className = 'px-2.5 py-1 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-sky-200 cursor-pointer shadow-xs';
+            editBtn.title = 'Edit Post (Pixlynote Plus)';
+            editBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg><span>Edit</span>';
+          } else {
+            editBtn.className = 'px-2.5 py-1 bg-neutral-100 hover:bg-sky-50 active:bg-sky-100 text-neutral-600 hover:text-sky-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-neutral-200 hover:border-sky-200 cursor-pointer shadow-xs';
+            editBtn.title = 'Edit Post (Pixlynote Plus required)';
+            editBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>Edit</span><span class="text-[9px] font-bold px-1 rounded bg-sky-100 text-sky-700">Plus</span>';
+          }
         }
         if (delBtn) delBtn.classList.remove('hidden');
         if (followBtn) followBtn.classList.add('hidden');
@@ -19156,6 +19170,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     function openEditPostModal(postId) {
       if (!isPlusUser()) {
         if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit posts');
+        if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
         return;
       }
       const pid = postId || state.currentModalPostId;
@@ -19180,6 +19195,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     function openEditNoteModal(noteId) {
       if (!isPlusUser()) {
         if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit notes');
+        if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
         return;
       }
       const note = getNoteById(noteId);
@@ -19206,6 +19222,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.closeEditContentModal = closeEditContentModal;
 
     function saveEditedContent() {
+      if (!isPlusUser()) {
+        if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit content');
+        if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+        return;
+      }
       if (!_editingContentTarget) return;
       const txtEl = document.getElementById('edit-content-text');
       const locEl = document.getElementById('edit-content-location');
