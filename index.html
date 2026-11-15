@@ -11689,6 +11689,81 @@ function syncLikedStateToPosts() {
     }
     window.normalizePhoneDigits = normalizePhoneDigits;
 
+    function collectKnownAccountCandidates() {
+      const candidates = [];
+      if (window._pixlyAccounts && typeof window._pixlyAccounts === 'object') {
+        Object.values(window._pixlyAccounts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+      }
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && typeof accts === 'object') {
+          Object.values(accts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+        }
+      } catch(e) {}
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('pixly_account_')) {
+            const acc = JSON.parse(localStorage.getItem(k) || 'null');
+            if (acc && typeof acc === 'object') candidates.push(acc);
+          }
+        }
+      } catch(e) {}
+      if (typeof getSessionAccounts === 'function') {
+        getSessionAccounts().forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+      }
+      if (window._remoteUserProfilesCache && typeof window._remoteUserProfilesCache === 'object') {
+        Object.entries(window._remoteUserProfilesCache).forEach(([u, d]) => {
+          if (d && typeof d === 'object') candidates.push({ ...d, username: d.username || u });
+        });
+      }
+      if (window._cloudUserDirectoryCache && Array.isArray(window._cloudUserDirectoryCache)) {
+        window._cloudUserDirectoryCache.forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
+      }
+      if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS && typeof CREATOR_DETAILS === 'object') {
+        Object.entries(CREATOR_DETAILS).forEach(([k, d]) => {
+          if (d && typeof d === 'object') candidates.push({ ...d, username: d.username || k });
+        });
+      }
+      return candidates;
+    }
+
+    function preloadCloudUserDirectoryForSignUp() {
+      const now = Date.now();
+      if (window._cloudUserDirectoryPromise) return window._cloudUserDirectoryPromise;
+      if (window._cloudUserDirectoryLastFetch && (now - window._cloudUserDirectoryLastFetch) < 60000) return null;
+      if (!(window.firebaseReady && window.firebase && window.firebase.db && window.firebase.collection && window.firebase.getDocs)) return null;
+
+      window._cloudUserDirectoryLastFetch = now;
+      const { db, collection, getDocs } = window.firebase;
+      window._cloudUserDirectoryPromise = getDocs(collection(db, 'users')).then((snap) => {
+        const list = [];
+        snap.forEach((docSnap) => {
+          const docId = docSnap.id || '';
+          if (docId.includes('__')) return;
+          const d = docSnap.data() || {};
+          const looksLikeUid = /^[A-Za-z0-9]{20,36}$/.test(docId) && /[A-Z]/.test(docId);
+          if (looksLikeUid && !d.username) return;
+          const resolvedU = (d.username || docId || '').trim().replace(/^@/, '').toLowerCase();
+          if (!resolvedU) return;
+          list.push({
+            username: resolvedU,
+            fullName: d.fullName || '',
+            email: d.email || '',
+            phone: d.phone || ''
+          });
+        });
+        window._cloudUserDirectoryCache = list;
+        if (typeof updateSignUpValidationState === 'function' && state && state.authViewMode === 'signup') {
+          updateSignUpValidationState();
+        }
+      }).catch(() => {}).finally(() => {
+        window._cloudUserDirectoryPromise = null;
+      });
+      return window._cloudUserDirectoryPromise;
+    }
+    window.preloadCloudUserDirectoryForSignUp = preloadCloudUserDirectoryForSignUp;
+
     function findPhoneOwner(phone, excludeUsername = '') {
       const targetDigits = normalizePhoneDigits(phone);
       if (!targetDigits || targetDigits.length < 10) return null;
@@ -11699,21 +11774,10 @@ function syncLikedStateToPosts() {
         return { username: 'bradley_hansen', fullName: 'Bradley Hansen', phone: '+1 (609) 289-6702' };
       }
 
-      const candidates = [];
-      if (window._pixlyAccounts) {
-        Object.values(window._pixlyAccounts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
-      }
-      try {
-        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-        Object.values(accts).forEach(a => { if (a && typeof a === 'object') candidates.push(a); });
-      } catch(e) {}
-      if (typeof getSessionAccounts === 'function') {
-        getSessionAccounts().forEach(a => candidates.push(a));
-      }
-
+      const candidates = collectKnownAccountCandidates();
       for (const acc of candidates) {
         const u = (acc.username || '').toLowerCase().replace(/^@/, '');
-        if (!u || u === excl) continue;
+        if (!u || (excl && u === excl)) continue;
         if (acc.phone && normalizePhoneDigits(acc.phone) === targetDigits) {
           return acc;
         }
@@ -11721,6 +11785,57 @@ function syncLikedStateToPosts() {
       return null;
     }
     window.findPhoneOwner = findPhoneOwner;
+
+    function findEmailOwner(email, excludeUsername = '') {
+      const targetEmail = (email || '').trim().toLowerCase();
+      if (!targetEmail) return null;
+      const excl = (excludeUsername || '').toLowerCase().replace(/^@/, '');
+
+      // Check built-in Bradley Hansen email
+      if (targetEmail === 'bradley.g.hansen@hotmail.com' && excl !== 'bradley_hansen') {
+        return { username: 'bradley_hansen', fullName: 'Bradley Hansen', email: 'bradley.g.hansen@hotmail.com' };
+      }
+
+      const candidates = collectKnownAccountCandidates();
+      for (const acc of candidates) {
+        const u = (acc.username || '').toLowerCase().replace(/^@/, '');
+        if (excl && u === excl) continue;
+        if (acc.email && String(acc.email).trim().toLowerCase() === targetEmail) {
+          return acc;
+        }
+      }
+      return null;
+    }
+    window.findEmailOwner = findEmailOwner;
+
+    function findUsernameOwner(username, excludeUsername = '') {
+      const targetU = (username || '').trim().replace(/^@/, '').toLowerCase();
+      if (!targetU) return null;
+      const excl = (excludeUsername || '').toLowerCase().replace(/^@/, '');
+      if (excl && targetU === excl) return null;
+
+      // Check built-in accounts
+      if (targetU === 'bradley_hansen') {
+        return { username: 'bradley_hansen', fullName: 'Bradley Hansen' };
+      }
+      if (targetU === 'pixlynote') {
+        return { username: 'pixlynote', fullName: 'Pixlynote' };
+      }
+      if (targetU === 'digitalassetpro' || targetU === 'digital_asset_pro') {
+        return { username: 'digitalassetpro', fullName: 'Digital AssetPro' };
+      }
+
+      const candidates = collectKnownAccountCandidates();
+      for (const acc of candidates) {
+        const u = (acc.username || '').trim().replace(/^@/, '').toLowerCase();
+        if (!u || (excl && u === excl)) continue;
+        if (u === targetU) {
+          return acc;
+        }
+      }
+      return null;
+    }
+    window.findUsernameOwner = findUsernameOwner;
 
     function isAccountInAccountCenter(username) {
       if (!username || typeof getSessionAccounts !== 'function') return false;
@@ -15336,6 +15451,12 @@ function syncLikedStateToPosts() {
           if (!validFormat) {
             return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Enter a valid email address (e.g. name@domain.com)' };
           }
+          if (typeof findEmailOwner === 'function') {
+            const existingOwner = findEmailOwner(em);
+            if (existingOwner) {
+              return { status: 'invalid', valid: false, badgeText: '✕ Taken', message: 'This email address is already linked to another account' };
+            }
+          }
           return { status: 'valid', valid: true, badgeText: '✓ Valid', message: '' };
         }
 
@@ -15350,8 +15471,7 @@ function syncLikedStateToPosts() {
             return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Enter a complete 10-digit phone number' };
           }
           if (typeof findPhoneOwner === 'function') {
-            const currentUserInput = (document.getElementById('signup-username')?.value || '').trim().replace(/^@/, '');
-            const existingOwner = findPhoneOwner(raw, currentUserInput);
+            const existingOwner = findPhoneOwner(raw);
             if (existingOwner) {
               return { status: 'invalid', valid: false, badgeText: '✕ Taken', message: 'This phone number is already linked to another account' };
             }
@@ -15373,6 +15493,12 @@ function syncLikedStateToPosts() {
           }
           if (/^\.|\.\.|\.$/.test(u)) {
             return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Username cannot start/end with a period or contain ..' };
+          }
+          if (typeof findUsernameOwner === 'function') {
+            const existingOwner = findUsernameOwner(u);
+            if (existingOwner) {
+              return { status: 'invalid', valid: false, badgeText: '✕ Taken', message: 'This username is already taken' };
+            }
           }
           return { status: 'valid', valid: true, badgeText: '✓ Valid', message: '' };
         }
@@ -15412,6 +15538,9 @@ function syncLikedStateToPosts() {
         }
 
         function updateSignUpValidationState() {
+          if (typeof preloadCloudUserDirectoryForSignUp === 'function') {
+            preloadCloudUserDirectoryForSignUp();
+          }
           const emailInp = document.getElementById('login-email');
           const phoneInp = document.getElementById('signup-phone');
           const userInp = document.getElementById('signup-username');
