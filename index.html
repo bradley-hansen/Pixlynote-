@@ -3682,8 +3682,16 @@ function saveAccountLikes(username) {
     function addNotificationForUser(targetUsername, notif) {
       if (!targetUsername || !notif) return Promise.resolve();
       const cleanTarget = normalizeUsername(targetUsername);
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-      if (cleanTarget === curU) return Promise.resolve();
+      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      if (!cleanTarget || cleanTarget === curU) return Promise.resolve();
+
+      const sanitizedNotif = {};
+      Object.keys(notif).forEach(k => {
+        if (notif[k] !== undefined) sanitizedNotif[k] = notif[k];
+      });
+      if (typeof sanitizedNotif.fromAvatar === 'string' && sanitizedNotif.fromAvatar.length > 60000) {
+        sanitizedNotif.fromAvatar = '';
+      }
 
       window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
         let notifs = [];
@@ -3706,17 +3714,17 @@ function saveAccountLikes(username) {
         if (!Array.isArray(notifs)) notifs = [];
 
         const isDup = notifs.some(n =>
-          n.fromUser === notif.fromUser &&
-          n.type === notif.type &&
-          String(n.postId || '') === String(notif.postId || '') &&
-          String(n.noteId || '') === String(notif.noteId || '') &&
-          String(n.storyId || '') === String(notif.storyId || '') &&
-          String(n.commentId || '') === String(notif.commentId || '') &&
+          n.fromUser === sanitizedNotif.fromUser &&
+          n.type === sanitizedNotif.type &&
+          String(n.postId || '') === String(sanitizedNotif.postId || '') &&
+          String(n.noteId || '') === String(sanitizedNotif.noteId || '') &&
+          String(n.storyId || '') === String(sanitizedNotif.storyId || '') &&
+          String(n.commentId || '') === String(sanitizedNotif.commentId || '') &&
           (Date.now() - (n.timestamp || 0) < 10000)
         );
         if (isDup) return;
 
-        notifs.unshift(notif);
+        notifs.unshift(sanitizedNotif);
         if (notifs.length > 100) notifs = notifs.slice(0, 100);
 
         try {
@@ -3727,10 +3735,12 @@ function saveAccountLikes(username) {
           try {
             const { db, doc, setDoc } = window.firebase;
             await setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true });
-          } catch(e) {}
+          } catch(e) {
+            console.warn('addNotificationForUser Firestore write notice:', e);
+          }
         }
 
-        const activeNow = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+        const activeNow = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
         if (activeNow === cleanTarget) {
           state.notifications = notifs;
           renderNotifications(true);
@@ -16759,9 +16769,9 @@ function syncLikedStateToPosts() {
               id: Date.now() + Math.floor(Math.random() * 1000),
               type: 'story_reply',
               fromUser: curU,
-              fromAvatar: curAv,
+              fromAvatar: safeAv,
               text: `replied to your story: "${replyText.slice(0, 40)}${replyText.length > 40 ? '...' : ''}"`,
-              storyId: storyRef.id,
+              storyId: storyIdStr,
               time: 'Just now',
               timestamp: Date.now(),
               read: false
@@ -16810,15 +16820,16 @@ function syncLikedStateToPosts() {
           }
 
           if (nowLiked) {
-            const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+            const rawAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+            const safeAv = (typeof rawAv === 'string' && rawAv.length > 60000) ? '' : rawAv;
             if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
               addNotificationForUser(targetU, {
                 id: Date.now() + Math.floor(Math.random() * 1000),
                 type: 'story_like',
                 fromUser: curU,
-                fromAvatar: curAv,
+                fromAvatar: safeAv,
                 text: 'liked your story ❤️',
-                storyId: storyRef.id,
+                storyId: storyIdStr,
                 time: 'Just now',
                 timestamp: Date.now(),
                 read: false
