@@ -15423,6 +15423,21 @@ function syncLikedStateToPosts() {
             sessionStorage.setItem('pixly_last_signup_password', pw);
           } catch(err) {}
 
+          if (window.firebaseReady && window.firebase && window.firebase.db) {
+            try {
+              const { db, doc, setDoc } = window.firebase;
+              setDoc(doc(db, 'users', u.toLowerCase()), {
+                username: u.toLowerCase(),
+                fullName: fullName,
+                email: em,
+                phone: phone,
+                accountType: accountType,
+                createdAt: Date.now(),
+                lastUpdated: Date.now()
+              }, { merge: true }).catch(() => {});
+            } catch(e) {}
+          }
+
           showToast(`🎉 Account created! Welcome, @${u}`);
           performLogin(u, fullName, em, pw, phone, accountType);
         }
@@ -17608,6 +17623,21 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         drawerUsername.textContent = state.currentUser ? `@${state.currentUser.username}` : '@bradley_hansen';
       }
 
+      const metricsBox = document.getElementById('drawer-pixlynote-metrics');
+      const activeNormU = (typeof normalizeUsername === 'function' && state.currentUser && state.currentUser.username)
+        ? normalizeUsername(state.currentUser.username)
+        : (state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '');
+      if (metricsBox) {
+        if (activeNormU === 'pixlynote') {
+          metricsBox.classList.remove('hidden');
+          if (typeof refreshDrawerUserMetrics === 'function') {
+            refreshDrawerUserMetrics(false);
+          }
+        } else {
+          metricsBox.classList.add('hidden');
+        }
+      }
+
       if (modal && backdrop && card) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -17619,6 +17649,130 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
     }
     window.openProfileMenu = openProfileMenu;
+
+    function toggleDrawerUserMetricsList() {
+      const listEl = document.getElementById('drawer-metrics-accounts-list');
+      const chevEl = document.getElementById('drawer-metrics-list-chevron');
+      if (!listEl) return;
+      const isHidden = listEl.classList.contains('hidden');
+      if (isHidden) {
+        listEl.classList.remove('hidden');
+        if (chevEl) chevEl.classList.add('rotate-180');
+      } else {
+        listEl.classList.add('hidden');
+        if (chevEl) chevEl.classList.remove('rotate-180');
+      }
+    }
+    window.toggleDrawerUserMetricsList = toggleDrawerUserMetricsList;
+
+    async function refreshDrawerUserMetrics(manualRefresh = false) {
+      const activeNormU = (typeof normalizeUsername === 'function' && state.currentUser && state.currentUser.username)
+        ? normalizeUsername(state.currentUser.username)
+        : (state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '');
+      if (activeNormU !== 'pixlynote') return;
+
+      const totalEl = document.getElementById('metric-total-users');
+      const sourceEl = document.getElementById('metric-users-source');
+      const personalEl = document.getElementById('metric-personal-users');
+      const businessEl = document.getElementById('metric-business-users');
+      const plusEl = document.getElementById('metric-plus-users');
+      const listEl = document.getElementById('drawer-metrics-accounts-list');
+
+      if (sourceEl && manualRefresh) sourceEl.textContent = 'Syncing...';
+
+      const usersMap = new Map();
+      const normU = (val) => (typeof normalizeUsername === 'function' ? normalizeUsername(val) : String(val || '').trim().toLowerCase().replace(/^@/, ''));
+
+      const addUserRecord = (rawUsername, data) => {
+        const u = normU(rawUsername);
+        if (!u || u.includes('__') || u.includes('@')) return;
+        const existing = usersMap.get(u) || { username: u, fullName: '', accountType: 'personal', isPlus: false };
+        const d = data || {};
+        usersMap.set(u, {
+          username: u,
+          fullName: d.fullName || existing.fullName || u,
+          accountType: (d.accountType === 'business' || u === 'pixlynote' || u === 'digitalassetpro') ? 'business' : (existing.accountType || 'personal'),
+          isPlus: Boolean(d.isPlus || d.isVerified || existing.isPlus)
+        });
+      };
+
+      // 1. Collect localStorage & in-memory registered accounts
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && typeof accts === 'object') {
+          Object.values(accts).forEach(acc => {
+            if (acc && acc.username) addUserRecord(acc.username, acc);
+          });
+        }
+      } catch(e) {}
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('pixly_account_')) {
+            const acc = JSON.parse(localStorage.getItem(k) || 'null');
+            if (acc && acc.username) addUserRecord(acc.username, acc);
+          }
+        }
+      } catch(e) {}
+      if (window._pixlyAccounts && typeof window._pixlyAccounts === 'object') {
+        Object.values(window._pixlyAccounts).forEach(acc => {
+          if (acc && acc.username) addUserRecord(acc.username, acc);
+        });
+      }
+
+      // 2. Fetch live signed-up users from Firestore users collection
+      let syncedFromCloud = false;
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.collection && window.firebase.getDocs) {
+        try {
+          const { db, collection, getDocs } = window.firebase;
+          const snap = await getDocs(collection(db, 'users'));
+          snap.forEach((docSnap) => {
+            const docId = docSnap.id || '';
+            if (docId.includes('__')) return;
+            const d = docSnap.data() || {};
+            // Skip anonymous Firebase Auth UID mirror docs (mixed-case 20-36 char IDs without an explicit username field)
+            const looksLikeUid = /^[A-Za-z0-9]{20,36}$/.test(docId) && /[A-Z]/.test(docId);
+            if (looksLikeUid && !d.username) return;
+            const resolvedU = d.username ? normU(d.username) : normU(docId);
+            if (!resolvedU) return;
+            addUserRecord(resolvedU, d);
+          });
+          syncedFromCloud = true;
+        } catch(e) {
+          console.warn("User metrics Firestore read notice:", e);
+        }
+      }
+
+      const allUsers = Array.from(usersMap.values()).sort((a, b) => a.username.localeCompare(b.username));
+      const totalCount = allUsers.length;
+      const businessCount = allUsers.filter(u => u.accountType === 'business').length;
+      const personalCount = totalCount - businessCount;
+      const plusCount = allUsers.filter(u => u.isPlus).length;
+
+      if (totalEl) totalEl.textContent = totalCount.toLocaleString();
+      if (personalEl) personalEl.textContent = personalCount.toLocaleString();
+      if (businessEl) businessEl.textContent = businessCount.toLocaleString();
+      if (plusEl) plusEl.textContent = plusCount.toLocaleString();
+      if (sourceEl) sourceEl.textContent = syncedFromCloud ? 'Live · Cloud' : 'Local Cache';
+
+      if (listEl) {
+        if (allUsers.length === 0) {
+          listEl.innerHTML = '<div class="text-[10px] text-neutral-400 text-center py-2">No signed-up accounts found yet.</div>';
+        } else {
+          const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          listEl.innerHTML = allUsers.map(u => `
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/90 border border-violet-100/70 text-[11px]">
+              <div class="min-w-0 truncate">
+                <span class="font-bold text-neutral-900">@${esc(u.username)}</span>
+                ${u.isPlus ? '<span class="ml-1 text-[9px] font-bold px-1.5 py-0.2 bg-sky-100 text-sky-700 rounded-full">Plus</span>' : ''}
+              </div>
+              <span class="ml-2 flex-shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${u.accountType === 'business' ? 'bg-violet-100 text-violet-700' : 'bg-neutral-100 text-neutral-600'}">${u.accountType === 'business' ? 'Business' : 'Personal'}</span>
+            </div>
+          `).join('');
+        }
+      }
+    }
+    window.refreshDrawerUserMetrics = refreshDrawerUserMetrics;
 
     function closeProfileMenu() {
       const modal = document.getElementById('modal-profile-drawer');
@@ -18132,6 +18286,53 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
       <!-- Sub Menu Options List -->
       <div class="p-3 flex-1 overflow-y-auto space-y-1.5 text-sm">
+
+        <!-- @pixlynote-only User Base Metrics Card -->
+        <div id="drawer-pixlynote-metrics" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-violet-50 via-indigo-50/70 to-sky-50 border border-violet-200/80 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-2xs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <div>
+                <div class="font-extrabold text-xs text-neutral-900 leading-tight">User Base Metrics</div>
+                <div class="text-[10px] font-semibold text-violet-700">@pixlynote Only</div>
+              </div>
+            </div>
+            <button type="button" id="btn-refresh-user-metrics" onclick="refreshDrawerUserMetrics(true)" class="p-1.5 rounded-lg text-violet-600 hover:text-violet-800 hover:bg-white/80 transition cursor-pointer" title="Refresh user metrics">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+
+          <div class="bg-white/90 rounded-xl p-2.5 border border-violet-100/80 flex items-baseline justify-between">
+            <div>
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Total Signed Up</div>
+              <div id="metric-total-users" class="text-2xl font-black text-neutral-900 tracking-tight leading-tight mt-0.5">—</div>
+            </div>
+            <span id="metric-users-source" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Loading...</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5 mt-2">
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-personal-users" class="text-sm font-black text-neutral-900">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Personal</div>
+            </div>
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-business-users" class="text-sm font-black text-neutral-900">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Business</div>
+            </div>
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-plus-users" class="text-sm font-black text-sky-600">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Plus</div>
+            </div>
+          </div>
+
+          <button type="button" onclick="toggleDrawerUserMetricsList()" class="mt-2 w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/70 hover:bg-white text-[11px] font-bold text-violet-700 transition cursor-pointer border border-violet-100/80">
+            <span>View signed-up accounts</span>
+            <svg id="drawer-metrics-list-chevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="drawer-metrics-accounts-list" class="hidden mt-1.5 max-h-36 overflow-y-auto space-y-1 pr-0.5"></div>
+        </div>
 
         <!-- Profile Option -->
         <button type="button" onclick="handleDrawerProfileClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer shadow-2xs">
