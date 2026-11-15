@@ -502,7 +502,11 @@
                   <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider">Email Address</label>
                   <span class="text-[10px] text-neutral-400 font-normal">Email or phone required</span>
                 </div>
-                <input type="email" id="login-email" placeholder="e.g. johndoe@example.com" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                <div class="relative">
+                  <input type="email" id="login-email" placeholder="e.g. johndoe@example.com" class="w-full pl-3 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
+                  <span id="signup-email-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
+                </div>
+                <p id="signup-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
               </div>
 
               <div>
@@ -512,16 +516,20 @@
                 </div>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-xs">📱</span>
-                  <input type="tel" id="signup-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full pl-8 pr-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                  <input type="tel" id="signup-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full pl-8 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
+                  <span id="signup-phone-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
+                <p id="signup-phone-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
               </div>
 
               <div>
                 <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Choose Username</label>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium">@</span>
-                  <input type="text" id="signup-username" placeholder="johndoe_creates" class="w-full pl-7 pr-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                  <input type="text" id="signup-username" placeholder="johndoe_creates" class="w-full pl-7 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
+                  <span id="signup-username-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
+                <p id="signup-username-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
               </div>
 
               <div>
@@ -15261,6 +15269,7 @@ function syncLikedStateToPosts() {
             if (unInp) unInp.value = '';
             const pwInp = document.getElementById('signup-password');
             if (pwInp) pwInp.value = '';
+            if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
           } else {
             state.authViewMode = 'login';
             state.isSignUpMode = false;
@@ -15319,6 +15328,154 @@ function syncLikedStateToPosts() {
           }
         }
 
+        function validateSignUpEmail(val) {
+          const em = (val || '').trim();
+          if (!em) return { status: 'empty', valid: false, message: '' };
+          const localPart = em.split('@')[0] || '';
+          const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em) && !em.includes('..') && !localPart.startsWith('.') && !localPart.endsWith('.');
+          if (!validFormat) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Enter a valid email address (e.g. name@domain.com)' };
+          }
+          return { status: 'valid', valid: true, badgeText: '✓ Valid', message: '' };
+        }
+
+        function validateSignUpPhone(val) {
+          const raw = (val || '').trim();
+          if (!raw) return { status: 'empty', valid: false, message: '' };
+          let digits = raw.replace(/\D/g, '');
+          if (digits.length === 11 && digits.startsWith('1')) {
+            digits = digits.slice(1);
+          }
+          if (digits.length !== 10) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Enter a complete 10-digit phone number' };
+          }
+          if (typeof findPhoneOwner === 'function') {
+            const currentUserInput = (document.getElementById('signup-username')?.value || '').trim().replace(/^@/, '');
+            const existingOwner = findPhoneOwner(raw, currentUserInput);
+            if (existingOwner) {
+              return { status: 'invalid', valid: false, badgeText: '✕ Taken', message: 'This phone number is already linked to another account' };
+            }
+          }
+          return { status: 'valid', valid: true, badgeText: '✓ Valid', message: '' };
+        }
+
+        function validateSignUpUsername(val) {
+          const u = (val || '').trim().replace(/^@/, '');
+          if (!u) return { status: 'empty', valid: false, message: '' };
+          if (u.length < 3) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Username must be at least 3 characters' };
+          }
+          if (u.length > 30) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Username must be 30 characters or less' };
+          }
+          if (!/^[a-zA-Z0-9_.]+$/.test(u)) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Use only letters, numbers, underscores (_), or periods (.)' };
+          }
+          if (/^\.|\.\.|\.$/.test(u)) {
+            return { status: 'invalid', valid: false, badgeText: '✕ Invalid', message: 'Username cannot start/end with a period or contain ..' };
+          }
+          return { status: 'valid', valid: true, badgeText: '✓ Valid', message: '' };
+        }
+
+        function applySignUpFieldIndicator(inputEl, indicatorEl, errorEl, result) {
+          if (inputEl) {
+            inputEl.classList.remove('border-neutral-200', 'border-emerald-400', 'border-rose-400', 'focus:ring-violet-400', 'focus:ring-emerald-400', 'focus:ring-rose-400');
+            if (result.status === 'valid') {
+              inputEl.classList.add('border-emerald-400', 'focus:ring-emerald-400');
+            } else if (result.status === 'invalid') {
+              inputEl.classList.add('border-rose-400', 'focus:ring-rose-400');
+            } else {
+              inputEl.classList.add('border-neutral-200', 'focus:ring-violet-400');
+            }
+          }
+          if (indicatorEl) {
+            if (result.status === 'valid') {
+              indicatorEl.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200/80';
+              indicatorEl.textContent = result.badgeText || '✓ Valid';
+            } else if (result.status === 'invalid') {
+              indicatorEl.className = 'absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-600 border border-rose-200/80';
+              indicatorEl.textContent = result.badgeText || '✕ Invalid';
+            } else {
+              indicatorEl.className = 'hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold';
+              indicatorEl.textContent = '';
+            }
+          }
+          if (errorEl) {
+            if (result.status === 'invalid' && result.message) {
+              errorEl.textContent = result.message;
+              errorEl.classList.remove('hidden');
+            } else {
+              errorEl.textContent = '';
+              errorEl.classList.add('hidden');
+            }
+          }
+        }
+
+        function updateSignUpValidationState() {
+          const emailInp = document.getElementById('login-email');
+          const phoneInp = document.getElementById('signup-phone');
+          const userInp = document.getElementById('signup-username');
+          const nameInp = document.getElementById('login-fullname');
+          const pwInp = document.getElementById('signup-password');
+
+          const emRes = validateSignUpEmail(emailInp ? emailInp.value : '');
+          const phRes = validateSignUpPhone(phoneInp ? phoneInp.value : '');
+          const unRes = validateSignUpUsername(userInp ? userInp.value : '');
+
+          applySignUpFieldIndicator(
+            emailInp,
+            document.getElementById('signup-email-indicator'),
+            document.getElementById('signup-email-error'),
+            emRes
+          );
+          applySignUpFieldIndicator(
+            phoneInp,
+            document.getElementById('signup-phone-indicator'),
+            document.getElementById('signup-phone-error'),
+            phRes
+          );
+          applySignUpFieldIndicator(
+            userInp,
+            document.getElementById('signup-username-indicator'),
+            document.getElementById('signup-username-error'),
+            unRes
+          );
+
+          const hasValidEmailOrPhone = (emRes.status === 'valid' || phRes.status === 'valid');
+          const noInvalidContact = (emRes.status !== 'invalid' && phRes.status !== 'invalid');
+          const validUsername = (unRes.status === 'valid');
+          const hasFullName = ((nameInp ? nameInp.value : '').trim().length > 0);
+          const validPassword = ((pwInp ? pwInp.value : '').trim().length >= 4);
+
+          const canSubmit = hasValidEmailOrPhone && noInvalidContact && validUsername && hasFullName && validPassword;
+
+          const btnStep2 = document.getElementById('btn-signup-to-step2');
+          if (btnStep2) {
+            btnStep2.disabled = !canSubmit;
+            if (canSubmit) {
+              btnStep2.classList.remove('opacity-50', 'cursor-not-allowed');
+              btnStep2.classList.add('hover:opacity-95', 'active:scale-98', 'cursor-pointer');
+            } else {
+              btnStep2.classList.add('opacity-50', 'cursor-not-allowed');
+              btnStep2.classList.remove('hover:opacity-95', 'active:scale-98', 'cursor-pointer');
+            }
+          }
+
+          const btnDirect = document.getElementById('btn-signup-direct-submit');
+          if (btnDirect) {
+            btnDirect.disabled = !canSubmit;
+            if (canSubmit) {
+              btnDirect.classList.remove('opacity-50', 'cursor-not-allowed');
+              btnDirect.classList.add('hover:text-neutral-800', 'cursor-pointer');
+            } else {
+              btnDirect.classList.add('opacity-50', 'cursor-not-allowed');
+              btnDirect.classList.remove('hover:text-neutral-800', 'cursor-pointer');
+            }
+          }
+
+          return { canSubmit, emRes, phRes, unRes, hasValidEmailOrPhone, noInvalidContact, validUsername };
+        }
+
         function goToSignUpStep(step) {
           const step1 = document.getElementById('signup-step-1');
           const step2 = document.getElementById('signup-step-2');
@@ -15332,12 +15489,7 @@ function syncLikedStateToPosts() {
             let u = (document.getElementById('signup-username').value || '').trim().replace(/^@/, '');
             const pw = (document.getElementById('signup-password').value || '').trim();
 
-            // Auto-fill username from business name if left blank
-            if (isBiz && !u && n) {
-              u = n.toLowerCase().replace(/[^a-z0-9_]/g, '');
-              const uEl = document.getElementById('signup-username');
-              if (uEl) uEl.value = u;
-            }
+            const v = updateSignUpValidationState();
 
             if (!n) {
               showToast(isBiz ? 'Business Name is required' : 'Full Name is required');
@@ -15346,8 +15498,28 @@ function syncLikedStateToPosts() {
               return;
             }
 
-            if (!u || u.length < 3) {
-              showToast('Username is required (at least 3 characters)');
+            if (v.emRes.status === 'invalid') {
+              showToast(v.emRes.message || 'Please enter a valid email address');
+              const el = document.getElementById('login-email');
+              if (el) el.focus();
+              return;
+            }
+
+            if (v.phRes.status === 'invalid') {
+              showToast(v.phRes.message || 'Please enter a complete 10-digit phone number');
+              if (phoneInp) phoneInp.focus();
+              return;
+            }
+
+            if (!v.hasValidEmailOrPhone) {
+              showToast('Please enter a valid email address or 10-digit phone number');
+              const el = document.getElementById('login-email');
+              if (el) el.focus();
+              return;
+            }
+
+            if (v.unRes.status !== 'valid') {
+              showToast(v.unRes.message || 'Username is required (at least 3 valid characters)');
               const el = document.getElementById('signup-username');
               if (el) el.focus();
               return;
@@ -15357,19 +15529,6 @@ function syncLikedStateToPosts() {
               showToast('Password is required (at least 4 characters)');
               const el = document.getElementById('signup-password');
               if (el) el.focus();
-              return;
-            }
-
-            if (em && (!em.includes('@') || !em.includes('.'))) {
-              showToast('Please enter a valid email address (e.g. name@domain.com)');
-              const el = document.getElementById('login-email');
-              if (el) el.focus();
-              return;
-            }
-
-            if (phone && phone.replace(/\D/g, '').length < 10) {
-              showToast('Please enter a complete 10-digit phone number');
-              if (phoneInp) phoneInp.focus();
               return;
             }
 
@@ -15397,9 +15556,7 @@ function syncLikedStateToPosts() {
           const bio = skipStep2 ? '' : ((bioInp ? bioInp.value : '').trim());
           const avatar = state.selectedSignUpAvatar || ((PRESET_IMAGES && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '');
 
-          if (isBiz && !u && n) {
-            u = n.toLowerCase().replace(/[^a-z0-9_]/g, '');
-          }
+          const v = updateSignUpValidationState();
 
           if (!n) {
             showToast(isBiz ? 'Business Name is required' : 'Full Name is required');
@@ -15409,8 +15566,31 @@ function syncLikedStateToPosts() {
             return;
           }
 
-          if (!u || u.length < 3) {
-            showToast('Username is required (at least 3 characters)');
+          if (v.emRes.status === 'invalid') {
+            showToast(v.emRes.message || 'Please enter a valid email address');
+            goToSignUpStep(1);
+            const el = document.getElementById('login-email');
+            if (el) el.focus();
+            return;
+          }
+
+          if (v.phRes.status === 'invalid') {
+            showToast(v.phRes.message || 'Please enter a complete 10-digit phone number');
+            goToSignUpStep(1);
+            if (phoneInp) phoneInp.focus();
+            return;
+          }
+
+          if (!v.hasValidEmailOrPhone) {
+            showToast('Please enter a valid email address or 10-digit phone number');
+            goToSignUpStep(1);
+            const el = document.getElementById('login-email');
+            if (el) el.focus();
+            return;
+          }
+
+          if (v.unRes.status !== 'valid') {
+            showToast(v.unRes.message || 'Username is required (at least 3 valid characters)');
             goToSignUpStep(1);
             const el = document.getElementById('signup-username');
             if (el) el.focus();
@@ -15423,31 +15603,6 @@ function syncLikedStateToPosts() {
             const el = document.getElementById('signup-password');
             if (el) el.focus();
             return;
-          }
-
-          if (em && (!em.includes('@') || !em.includes('.'))) {
-            showToast('Please enter a valid email address');
-            goToSignUpStep(1);
-            const el = document.getElementById('login-email');
-            if (el) el.focus();
-            return;
-          }
-
-          if (phone && phone.replace(/\D/g, '').length < 10) {
-            showToast('Please enter a complete 10-digit phone number');
-            goToSignUpStep(1);
-            if (phoneInp) phoneInp.focus();
-            return;
-          }
-
-          if (phone && typeof findPhoneOwner === 'function') {
-            const existingPhoneOwner = findPhoneOwner(phone, u);
-            if (existingPhoneOwner) {
-              showToast('This phone number is already linked to another account. Use a different number or authenticate it in Account Center.');
-              goToSignUpStep(1);
-              if (phoneInp) phoneInp.focus();
-              return;
-            }
           }
 
           const fullName = n;
@@ -15852,9 +16007,32 @@ function syncLikedStateToPosts() {
           btnSignupDirect.addEventListener('click', () => handleCompleteSignUp(true));
         }
 
-        // Wire Uniform Phone Masking
+        // Wire Uniform Phone Masking & Real-Time Sign-Up Validation
         const signupPhoneInput = document.getElementById('signup-phone');
-        if (signupPhoneInput) attachPhoneMask(signupPhoneInput);
+        if (signupPhoneInput) {
+          attachPhoneMask(signupPhoneInput);
+          signupPhoneInput.addEventListener('input', updateSignUpValidationState);
+          signupPhoneInput.addEventListener('blur', updateSignUpValidationState);
+        }
+        const signupEmailInput = document.getElementById('login-email');
+        if (signupEmailInput) {
+          signupEmailInput.addEventListener('input', updateSignUpValidationState);
+          signupEmailInput.addEventListener('blur', updateSignUpValidationState);
+        }
+        const signupUsernameInput = document.getElementById('signup-username');
+        if (signupUsernameInput) {
+          signupUsernameInput.addEventListener('input', updateSignUpValidationState);
+          signupUsernameInput.addEventListener('blur', updateSignUpValidationState);
+        }
+        const signupFullnameInput = document.getElementById('login-fullname');
+        if (signupFullnameInput) {
+          signupFullnameInput.addEventListener('input', updateSignUpValidationState);
+        }
+        const signupPasswordField = document.getElementById('signup-password');
+        if (signupPasswordField) {
+          signupPasswordField.addEventListener('input', updateSignUpValidationState);
+        }
+        updateSignUpValidationState();
 
         const editProfilePhoneInput = document.getElementById('edit-profile-phone');
         if (editProfilePhoneInput) attachPhoneMask(editProfilePhoneInput);
