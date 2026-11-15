@@ -3200,6 +3200,93 @@
             if (!d || !cleanU) return;
             const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
             if (curU !== cleanU) return;
+            const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
+            if (!hasPendingWrites && !recentlyMutatedProfile) {
+              let profileChanged = false;
+              if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
+                state.currentUser.bio = d.bio;
+                profileChanged = true;
+              }
+              if (typeof d.fullName === 'string' && d.fullName.trim() && d.fullName !== state.currentUser.fullName) {
+                state.currentUser.fullName = d.fullName;
+                profileChanged = true;
+              }
+              if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
+                state.currentUser.email = d.email;
+                profileChanged = true;
+              }
+              if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
+                state.currentUser.phone = d.phone;
+                profileChanged = true;
+              }
+              if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
+                state.currentUser.link = d.link;
+                profileChanged = true;
+              }
+              if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
+                state.currentUser.accountType = d.accountType;
+                profileChanged = true;
+              }
+              const remoteAv = d.photoURL || d.avatar;
+              if (typeof remoteAv === 'string' && remoteAv && remoteAv !== state.currentUser.avatar) {
+                state.currentUser.avatar = remoteAv;
+                profileChanged = true;
+              }
+              if (profileChanged) {
+                try {
+                  if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[cleanU]) {
+                    CREATOR_DETAILS[cleanU].bio = state.currentUser.bio;
+                    CREATOR_DETAILS[cleanU].fullName = state.currentUser.fullName;
+                    if (state.currentUser.avatar) CREATOR_DETAILS[cleanU].avatar = state.currentUser.avatar;
+                  }
+                } catch(e) {}
+                try {
+                  const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+                  const existingRec = accts[cleanU] || {};
+                  const updatedRec = {
+                    ...existingRec,
+                    username: state.currentUser.username,
+                    fullName: state.currentUser.fullName,
+                    email: state.currentUser.email || '',
+                    phone: state.currentUser.phone || '',
+                    accountType: state.currentUser.accountType || 'personal',
+                    bio: state.currentUser.bio || '',
+                    link: state.currentUser.link || '',
+                    avatar: state.currentUser.avatar
+                  };
+                  accts[cleanU] = updatedRec;
+                  localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+                  localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(updatedRec));
+                  localStorage.setItem('pixlynote_user', JSON.stringify(state.currentUser));
+                  window._pixlyAccounts = window._pixlyAccounts || {};
+                  window._pixlyAccounts[cleanU] = updatedRec;
+                } catch(e) {}
+                try {
+                  const hAv = document.getElementById('header-avatar');
+                  const nAv = document.getElementById('nav-avatar');
+                  if (hAv && state.currentUser.avatar) hAv.src = state.currentUser.avatar;
+                  if (nAv && state.currentUser.avatar) nAv.src = state.currentUser.avatar;
+                } catch(e) {}
+                if (typeof renderProfile === 'function') renderProfile();
+                if (typeof renderFeed === 'function') renderFeed();
+                if (typeof renderNotes === 'function') renderNotes();
+                try {
+                  const editModal = document.getElementById('modal-edit-profile');
+                  if (editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none') {
+                    const bioInp = document.getElementById('edit-profile-bio');
+                    const nameInp = document.getElementById('edit-profile-name');
+                    const emailInp = document.getElementById('edit-profile-email');
+                    const phoneInp = document.getElementById('edit-profile-phone');
+                    const linkInp = document.getElementById('edit-profile-link');
+                    if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
+                    if (nameInp && document.activeElement !== nameInp) nameInp.value = state.currentUser.fullName || '';
+                    if (emailInp && document.activeElement !== emailInp) emailInp.value = state.currentUser.email || '';
+                    if (phoneInp && document.activeElement !== phoneInp) phoneInp.value = state.currentUser.phone || '';
+                    if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
+                  }
+                } catch(e) {}
+              }
+            }
             if (Array.isArray(d.notes) && d.notes.length > 0) {
               state.notes = d.notes;
               if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
@@ -3946,10 +4033,15 @@ function syncLikedStateToPosts() {
           likedNoteIds: likedNotesArr,
           likedStoryIds: Array.from(new Set(Array.from(state.likedStoryIds || []).map(String))),
           highlights: state.highlights || [],
+          username: state.currentUser.username,
           photoURL: state.currentUser.avatar,
           avatar: state.currentUser.avatar,
           fullName: state.currentUser.fullName,
-          bio: state.currentUser.bio,
+          email: state.currentUser.email || '',
+          phone: state.currentUser.phone || '',
+          link: state.currentUser.link || '',
+          accountType: state.currentUser.accountType || 'personal',
+          bio: state.currentUser.bio || '',
           lastUpdated: Date.now()
         };
 
@@ -7959,6 +8051,10 @@ function syncLikedStateToPosts() {
       
       const linkInp = document.getElementById('edit-profile-link');
       if (linkInp) linkInp.value = isPixly ? '' : (state.currentUser.link || '');
+
+      if (typeof window.hydrateActiveAccountFromFirestore === 'function' && state.currentUser && state.currentUser.username) {
+        window.hydrateActiveAccountFromFirestore(state.currentUser.username);
+      }
     }
 
     function closeEditProfileModal() {
@@ -14722,6 +14818,9 @@ function syncLikedStateToPosts() {
             if (!snap.exists()) return;
             const d = snap.data();
             if (!d) return;
+            if (typeof window.applyActiveUserDocData === 'function') {
+              window.applyActiveUserDocData(normLoginU, d, false);
+            }
             if (Array.isArray(d.notes) && d.notes.length > 0) {
               state.notes = d.notes;
               if (typeof renderNotes === 'function') renderNotes();
@@ -17140,6 +17239,30 @@ function syncLikedStateToPosts() {
                 accountType: state.currentUser.accountType || 'personal'
               });
             }
+            window._lastLocalProfileWriteTs = Date.now();
+            try {
+              const normUKey = normalizeUsername(state.currentUser.username);
+              if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[normUKey]) {
+                CREATOR_DETAILS[normUKey].bio = state.currentUser.bio;
+                CREATOR_DETAILS[normUKey].fullName = state.currentUser.fullName;
+                if (state.currentUser.avatar) CREATOR_DETAILS[normUKey].avatar = state.currentUser.avatar;
+              }
+              if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'users', normUKey), {
+                  username: state.currentUser.username,
+                  fullName: state.currentUser.fullName,
+                  email: state.currentUser.email || '',
+                  phone: state.currentUser.phone || '',
+                  accountType: state.currentUser.accountType || 'personal',
+                  bio: state.currentUser.bio || '',
+                  link: state.currentUser.link || '',
+                  photoURL: state.currentUser.avatar,
+                  avatar: state.currentUser.avatar,
+                  lastUpdated: Date.now()
+                }, { merge: true }).catch(() => {});
+              }
+            } catch(fbErr) {}
             saveUserProfile();
             renderProfile();
             closeEditProfileModal();
