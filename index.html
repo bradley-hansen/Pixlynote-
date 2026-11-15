@@ -2474,6 +2474,21 @@
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+
+        <div class="pt-2 border-t border-neutral-100">
+          <button type="button" id="btn-ac-deactivate-account" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-rose-200 bg-rose-50/70 hover:bg-rose-50 hover:border-rose-300 transition cursor-pointer group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+              </div>
+              <div class="text-left">
+                <div class="text-xs font-bold text-rose-600 group-hover:text-rose-700 transition">Deactivate Account</div>
+                <div class="text-[10px] text-rose-500">Your account will be permanently deleted after 30 days of inactivity</div>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-rose-400 group-hover:text-rose-600 transition flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
       </div>
 
       <!-- VIEW 3: ACCOUNT INFO -->
@@ -2768,6 +2783,29 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Deactivate Account Confirmation Modal -->
+  <div id="modal-deactivate-confirm" class="hidden fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm items-center justify-center p-4" style="display: none;">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-rose-100 overflow-hidden animate-fade-in">
+      <div class="p-5 text-center space-y-3">
+        <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <h3 class="text-base font-extrabold text-neutral-900">Deactivate <span id="deactivate-confirm-handle" class="text-rose-600">@account</span>?</h3>
+        <p class="text-xs text-neutral-600 leading-relaxed">
+          You will be logged out immediately. Your account will be permanently deleted after <span class="font-bold text-neutral-800">30 days</span> of inactivity. If you log back in within 30 days, the deletion process will be halted and canceled.
+        </p>
+      </div>
+      <div class="px-5 pb-5 flex items-center space-x-2.5">
+        <button type="button" id="btn-cancel-deactivate" class="flex-1 py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold transition cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="btn-confirm-deactivate" class="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition cursor-pointer">
+          Deactivate Account
+        </button>
+      </div>
     </div>
   </div>
 
@@ -10768,6 +10806,16 @@ function syncLikedStateToPosts() {
             if (!snap.exists()) return;
             const d = snap.data();
             if (!d) return;
+            if (d.deactivated === true) {
+              if (d.scheduledDeletionAt && Date.now() >= d.scheduledDeletionAt) {
+                permanentlyDeleteAccount(normLoginU);
+                performLogout();
+                showToast(`@${normLoginU} was permanently deleted after 30 days of inactivity.`);
+                return;
+              }
+              cancelAccountDeactivation(normLoginU);
+              showToast(`Welcome back, @${normLoginU}! Account deletion has been canceled. ✓`);
+            }
             window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
             window._remoteUserProfilesCache[cleanU] = d;
             if (Array.isArray(d.customPosts)) {
@@ -14187,8 +14235,267 @@ function syncLikedStateToPosts() {
 
 
 // --- Login & Auth Handler ---
+    const PIXLY_DEACTIVATION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+    function getDeactivatedAccountsMap() {
+      try {
+        const raw = localStorage.getItem('pixly_deactivated_accounts');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+      } catch(e) {
+        return {};
+      }
+    }
+
+    function saveDeactivatedAccountsMap(mapObj) {
+      try {
+        localStorage.setItem('pixly_deactivated_accounts', JSON.stringify(mapObj || {}));
+      } catch(e) {}
+    }
+
+    function getDeactivationRecord(username) {
+      const normU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username)
+        : String(username || '').trim().toLowerCase().replace(/^@/, '');
+      if (!normU) return null;
+      const map = getDeactivatedAccountsMap();
+      if (map[normU] && map[normU].deactivated) return map[normU];
+      try {
+        const stored = localStorage.getItem('pixly_account_' + normU);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.deactivated) return parsed;
+        }
+      } catch(e) {}
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts[normU] && accts[normU].deactivated) return accts[normU];
+      } catch(e) {}
+      if (window._pixlyAccounts && window._pixlyAccounts[normU] && window._pixlyAccounts[normU].deactivated) {
+        return window._pixlyAccounts[normU];
+      }
+      return null;
+    }
+    window.getDeactivationRecord = getDeactivationRecord;
+
+    function permanentlyDeleteAccount(username) {
+      const normU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username)
+        : String(username || '').trim().toLowerCase().replace(/^@/, '');
+      if (!normU) return;
+
+      const map = getDeactivatedAccountsMap();
+      if (map[normU]) {
+        delete map[normU];
+        saveDeactivatedAccountsMap(map);
+      }
+
+      try { localStorage.removeItem('pixly_account_' + normU); } catch(e) {}
+      try { localStorage.removeItem('pixly_user_password_' + normU); } catch(e) {}
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && accts[normU]) {
+          delete accts[normU];
+          localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+        }
+      } catch(e) {}
+      try {
+        const sessRaw = localStorage.getItem('pixly_session_accounts');
+        if (sessRaw) {
+          const sess = JSON.parse(sessRaw);
+          if (Array.isArray(sess)) {
+            const filtered = sess.filter(a => ((a && a.username) ? a.username.toLowerCase().replace(/^@/, '') : '') !== normU);
+            localStorage.setItem('pixly_session_accounts', JSON.stringify(filtered));
+          }
+        }
+      } catch(e) {}
+      if (window._pixlyAccounts && window._pixlyAccounts[normU]) {
+        delete window._pixlyAccounts[normU];
+      }
+
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.deleteDoc && window.firebase.doc) {
+        const { db, doc, deleteDoc } = window.firebase;
+        deleteDoc(doc(db, 'users', normU)).catch(() => {});
+      }
+    }
+    window.permanentlyDeleteAccount = permanentlyDeleteAccount;
+
+    function cancelAccountDeactivation(username) {
+      const normU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username)
+        : String(username || '').trim().toLowerCase().replace(/^@/, '');
+      if (!normU) return false;
+
+      let wasDeactivated = false;
+      const map = getDeactivatedAccountsMap();
+      if (map[normU]) {
+        wasDeactivated = true;
+        delete map[normU];
+        saveDeactivatedAccountsMap(map);
+      }
+
+      try {
+        const stored = localStorage.getItem('pixly_account_' + normU);
+        if (stored) {
+          const acc = JSON.parse(stored);
+          if (acc && acc.deactivated) wasDeactivated = true;
+          if (acc) {
+            acc.deactivated = false;
+            acc.deactivatedAt = null;
+            acc.scheduledDeletionAt = null;
+            localStorage.setItem('pixly_account_' + normU, JSON.stringify(acc));
+          }
+        }
+      } catch(e) {}
+
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && accts[normU]) {
+          if (accts[normU].deactivated) wasDeactivated = true;
+          accts[normU].deactivated = false;
+          accts[normU].deactivatedAt = null;
+          accts[normU].scheduledDeletionAt = null;
+          localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+        }
+      } catch(e) {}
+
+      if (window._pixlyAccounts && window._pixlyAccounts[normU]) {
+        if (window._pixlyAccounts[normU].deactivated) wasDeactivated = true;
+        window._pixlyAccounts[normU].deactivated = false;
+        window._pixlyAccounts[normU].deactivatedAt = null;
+        window._pixlyAccounts[normU].scheduledDeletionAt = null;
+      }
+
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.setDoc && window.firebase.doc) {
+        const { db, doc, setDoc } = window.firebase;
+        setDoc(doc(db, 'users', normU), {
+          deactivated: false,
+          deactivatedAt: null,
+          scheduledDeletionAt: null,
+          lastUpdated: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+
+      return wasDeactivated;
+    }
+    window.cancelAccountDeactivation = cancelAccountDeactivation;
+
+    function openDeactivateConfirmModal() {
+      const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
+      if (!curU) return;
+      const handleEl = document.getElementById('deactivate-confirm-handle');
+      if (handleEl) handleEl.textContent = '@' + curU;
+      const modal = document.getElementById('modal-deactivate-confirm');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+      }
+    }
+    window.openDeactivateConfirmModal = openDeactivateConfirmModal;
+
+    function closeDeactivateConfirmModal() {
+      const modal = document.getElementById('modal-deactivate-confirm');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+    }
+    window.closeDeactivateConfirmModal = closeDeactivateConfirmModal;
+
+    function confirmDeactivateAccount() {
+      if (!state.currentUser || !state.currentUser.username) return;
+      const cleanU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(state.currentUser.username)
+        : String(state.currentUser.username).trim().toLowerCase().replace(/^@/, '');
+      const now = Date.now();
+      const scheduledDeletionAt = now + PIXLY_DEACTIVATION_WINDOW_MS;
+
+      const map = getDeactivatedAccountsMap();
+      map[cleanU] = {
+        username: cleanU,
+        fullName: state.currentUser.fullName || cleanU,
+        accountType: state.currentUser.accountType || 'personal',
+        deactivated: true,
+        deactivatedAt: now,
+        scheduledDeletionAt
+      };
+      saveDeactivatedAccountsMap(map);
+
+      try {
+        const storedRaw = localStorage.getItem('pixly_account_' + cleanU);
+        const acc = storedRaw ? JSON.parse(storedRaw) : {
+          username: state.currentUser.username,
+          fullName: state.currentUser.fullName || cleanU,
+          email: state.currentUser.email || '',
+          phone: state.currentUser.phone || '',
+          accountType: state.currentUser.accountType || 'personal'
+        };
+        acc.deactivated = true;
+        acc.deactivatedAt = now;
+        acc.scheduledDeletionAt = scheduledDeletionAt;
+        localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(acc));
+      } catch(e) {}
+
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && accts[cleanU]) {
+          accts[cleanU].deactivated = true;
+          accts[cleanU].deactivatedAt = now;
+          accts[cleanU].scheduledDeletionAt = scheduledDeletionAt;
+          localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+        }
+      } catch(e) {}
+
+      if (window._pixlyAccounts && window._pixlyAccounts[cleanU]) {
+        window._pixlyAccounts[cleanU].deactivated = true;
+        window._pixlyAccounts[cleanU].deactivatedAt = now;
+        window._pixlyAccounts[cleanU].scheduledDeletionAt = scheduledDeletionAt;
+      }
+
+      try {
+        const sessRaw = localStorage.getItem('pixly_session_accounts');
+        if (sessRaw) {
+          const sess = JSON.parse(sessRaw);
+          if (Array.isArray(sess)) {
+            const filtered = sess.filter(a => ((a && a.username) ? a.username.toLowerCase().replace(/^@/, '') : '') !== cleanU);
+            localStorage.setItem('pixly_session_accounts', JSON.stringify(filtered));
+          }
+        }
+      } catch(e) {}
+
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.setDoc && window.firebase.doc) {
+        const { db, doc, setDoc } = window.firebase;
+        setDoc(doc(db, 'users', cleanU), {
+          username: cleanU,
+          fullName: state.currentUser.fullName || cleanU,
+          accountType: state.currentUser.accountType || 'personal',
+          deactivated: true,
+          deactivatedAt: now,
+          scheduledDeletionAt,
+          lastUpdated: now
+        }, { merge: true }).catch(() => {});
+      }
+
+      closeDeactivateConfirmModal();
+      if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal();
+      if (typeof closeProfileMenu === 'function') closeProfileMenu();
+      performLogout();
+      showToast(`@${cleanU} deactivated. Log back in within 30 days to cancel deletion.`);
+    }
+    window.confirmDeactivateAccount = confirmDeactivateAccount;
+
     function performLogin(username, fullName, email, password = null, phone = null, accountType = null) {
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
+      const localDeact = getDeactivationRecord(cleanUsername);
+      if (localDeact && localDeact.deactivated) {
+        if (localDeact.scheduledDeletionAt && Date.now() >= localDeact.scheduledDeletionAt) {
+          permanentlyDeleteAccount(cleanUsername);
+          showToast(`@${cleanUsername} was permanently deleted after 30 days of inactivity.`);
+          return;
+        }
+        cancelAccountDeactivation(cleanUsername);
+        window._justReactivatedAccount = cleanUsername.toLowerCase();
+      }
       const oldUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : null;
       if (oldUsername) {
         saveAccountLikes(oldUsername);
@@ -14437,7 +14744,12 @@ function syncLikedStateToPosts() {
       const retWrap = document.getElementById('auth-return-session-wrap');
       if (retWrap) retWrap.classList.add('hidden');
       window._pixlyReturningSessionUser = null;
-      showToast(`Welcome back, @${state.currentUser.username}!`);
+      if (window._justReactivatedAccount && window._justReactivatedAccount === state.currentUser.username.toLowerCase()) {
+        window._justReactivatedAccount = null;
+        showToast(`Welcome back, @${state.currentUser.username}! Account deletion has been canceled. ✓`);
+      } else {
+        showToast(`Welcome back, @${state.currentUser.username}!`);
+      }
     }
 
     function performLogout() {
@@ -14883,6 +15195,9 @@ function syncLikedStateToPosts() {
         bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
         bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
         bind('btn-ac-tab-privacy-safety', 'click', () => setAccountCenterView('privacySafety'));
+        bind('btn-ac-deactivate-account', 'click', openDeactivateConfirmModal);
+        bind('btn-cancel-deactivate', 'click', closeDeactivateConfirmModal);
+        bind('btn-confirm-deactivate', 'click', confirmDeactivateAccount);
         bind('btn-ac-tab-spam', 'click', () => setAccountCenterView('spamList'));
         bind('btn-ac-sa-tab-security', 'click', () => setSecurityAccessTab('security'));
         bind('btn-ac-sa-tab-apps-sessions', 'click', () => setSecurityAccessTab('appsSessions'));
@@ -15962,6 +16277,16 @@ function syncLikedStateToPosts() {
 
           // Authenticated successfully!
           const targetUsername = isBradley ? 'bradley_hansen' : (isPixlynote ? 'pixlynote' : (matchedAccount ? matchedAccount.username : u));
+          const pendingDeactRec = getDeactivationRecord(targetUsername);
+          if (pendingDeactRec && pendingDeactRec.deactivated) {
+            if (pendingDeactRec.scheduledDeletionAt && Date.now() >= pendingDeactRec.scheduledDeletionAt) {
+              permanentlyDeleteAccount(targetUsername);
+              showToast(`@${targetUsername} was permanently deleted after 30 days of inactivity.`);
+              return;
+            }
+            cancelAccountDeactivation(targetUsername);
+            window._justReactivatedAccount = targetUsername.toLowerCase();
+          }
           const targetFullName = isBradley ? 'Bradley Hansen' : (isPixlynote ? 'Pixlynote' : (matchedAccount ? matchedAccount.fullName : u));
           const targetEmail = isBradley ? 'bradley.g.hansen@hotmail.com' : (matchedAccount ? (matchedAccount.email || '') : '');
           const targetPhone = matchedAccount ? (matchedAccount.phone || '') : '';
@@ -18046,6 +18371,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
 
       const metricsBox = document.getElementById('drawer-pixlynote-metrics');
+      const deactBox = document.getElementById('drawer-pixlynote-deactivations');
       const activeNormU = (typeof normalizeUsername === 'function' && state.currentUser && state.currentUser.username)
         ? normalizeUsername(state.currentUser.username)
         : (state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '');
@@ -18057,6 +18383,16 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           }
         } else {
           metricsBox.classList.add('hidden');
+        }
+      }
+      if (deactBox) {
+        if (activeNormU === 'pixlynote') {
+          deactBox.classList.remove('hidden');
+          if (typeof refreshPendingDeactivations === 'function') {
+            refreshPendingDeactivations(false);
+          }
+        } else {
+          deactBox.classList.add('hidden');
         }
       }
 
@@ -18195,6 +18531,108 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
     }
     window.refreshDrawerUserMetrics = refreshDrawerUserMetrics;
+
+    async function refreshPendingDeactivations(manualRefresh = false) {
+      const activeNormU = (typeof normalizeUsername === 'function' && state.currentUser && state.currentUser.username)
+        ? normalizeUsername(state.currentUser.username)
+        : (state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '');
+      if (activeNormU !== 'pixlynote') return;
+
+      const countEl = document.getElementById('pending-deactivations-count');
+      const listEl = document.getElementById('drawer-pending-deactivations-list');
+      if (listEl && manualRefresh) {
+        listEl.innerHTML = '<div class="text-[10px] text-rose-600 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">Syncing...</div>';
+      }
+
+      const pendingMap = new Map();
+      const normU = (val) => (typeof normalizeUsername === 'function' ? normalizeUsername(val) : String(val || '').trim().toLowerCase().replace(/^@/, ''));
+      const now = Date.now();
+
+      const considerRecord = (rawU, data) => {
+        const u = normU(rawU);
+        if (!u || u.includes('__') || u.includes('@')) return;
+        const d = data || {};
+        if (!d.deactivated) return;
+        const deactivatedAt = Number(d.deactivatedAt) || now;
+        const scheduledDeletionAt = Number(d.scheduledDeletionAt) || (deactivatedAt + PIXLY_DEACTIVATION_WINDOW_MS);
+        if (now >= scheduledDeletionAt) {
+          permanentlyDeleteAccount(u);
+          return;
+        }
+        pendingMap.set(u, {
+          username: u,
+          fullName: d.fullName || u,
+          accountType: (d.accountType === 'business' || u === 'pixlynote' || u === 'digitalassetpro') ? 'business' : 'personal',
+          deactivatedAt,
+          scheduledDeletionAt
+        });
+      };
+
+      // 1. Local cache
+      const localMap = getDeactivatedAccountsMap();
+      Object.entries(localMap).forEach(([k, v]) => considerRecord(k, v));
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        Object.entries(accts).forEach(([k, v]) => considerRecord((v && v.username) || k, v));
+      } catch(e) {}
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('pixly_account_')) {
+            const v = JSON.parse(localStorage.getItem(k) || 'null');
+            if (v) considerRecord(v.username || k.replace('pixly_account_', ''), v);
+          }
+        }
+      } catch(e) {}
+
+      // 2. Live Firestore check
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.collection && window.firebase.getDocs) {
+        try {
+          const { db, collection, getDocs } = window.firebase;
+          const snap = await getDocs(collection(db, 'users'));
+          snap.forEach((docSnap) => {
+            const docId = docSnap.id || '';
+            if (docId.includes('__')) return;
+            const d = docSnap.data() || {};
+            const resolvedU = d.username ? normU(d.username) : normU(docId);
+            if (!resolvedU) return;
+            if (d.deactivated === true) {
+              considerRecord(resolvedU, d);
+            } else if (d.deactivated === false && pendingMap.has(resolvedU)) {
+              pendingMap.delete(resolvedU);
+            }
+          });
+        } catch(e) {
+          console.warn("Pending deactivations Firestore read notice:", e);
+        }
+      }
+
+      const items = Array.from(pendingMap.values()).sort((a, b) => a.scheduledDeletionAt - b.scheduledDeletionAt);
+      if (countEl) countEl.textContent = String(items.length);
+
+      if (listEl) {
+        if (items.length === 0) {
+          listEl.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">No pending deactivations</div>';
+        } else {
+          const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          listEl.innerHTML = items.map(item => {
+            const msLeft = Math.max(0, item.scheduledDeletionAt - now);
+            const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+            const reqDate = new Date(item.deactivatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return `
+              <div class="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/90 border border-rose-100/80 text-[11px]">
+                <div class="min-w-0 truncate">
+                  <div class="font-bold text-neutral-900 truncate">@${esc(item.username)}</div>
+                  <div class="text-[9px] text-neutral-500">Requested ${esc(reqDate)} · ${item.accountType === 'business' ? 'Business' : 'Personal'}</div>
+                </div>
+                <span class="ml-2 flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">${daysLeft}d left</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    }
+    window.refreshPendingDeactivations = refreshPendingDeactivations;
 
     function closeProfileMenu() {
       const modal = document.getElementById('modal-profile-drawer');
@@ -18754,6 +19192,30 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <svg id="drawer-metrics-list-chevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
           <div id="drawer-metrics-accounts-list" class="hidden mt-1.5 max-h-36 overflow-y-auto space-y-1 pr-0.5"></div>
+        </div>
+
+        <!-- @pixlynote-only Pending Deactivations Admin Card -->
+        <div id="drawer-pixlynote-deactivations" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 via-amber-50/60 to-orange-50 border border-rose-200/80 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-2xs flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-extrabold text-xs text-neutral-900 leading-tight">Pending Deactivations</span>
+                  <span id="pending-deactivations-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">0</span>
+                </div>
+                <div class="text-[10px] font-medium text-rose-700/90 leading-tight">Accounts requesting deletion (30-day window)</div>
+              </div>
+            </div>
+            <button type="button" id="btn-refresh-pending-deactivations" onclick="refreshPendingDeactivations(true)" class="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh pending deactivations">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+          <div id="drawer-pending-deactivations-list" class="max-h-40 overflow-y-auto space-y-1.5 pr-0.5">
+            <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">No pending deactivations</div>
+          </div>
         </div>
 
         <!-- Profile Option -->
