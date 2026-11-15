@@ -3119,12 +3119,16 @@
                   applyStripeSubscriptionCancellation('bradley_hansen');
                 } else if (pendingSidBH && typeof applyStripeSessionVerification === 'function') {
                   applyStripeSessionVerification('bradley_hansen', pendingSidBH);
-                } else if (typeof data.isVerified === 'boolean') {
-                  state.currentUser.isVerified = data.isVerified;
-                  state.currentUser.isPlus = Boolean(data.isPlus && data.isVerified);
-                  state.currentUser.subscriptionStatus = data.subscriptionStatus || (data.isVerified ? 'active' : 'inactive');
+                } else {
+                  const isVer = data.isVerified === true;
+                  const isPl = Boolean(isVer && data.isPlus === true);
+                  state.currentUser.isVerified = isVer && isPl;
+                  state.currentUser.isPlus = isVer && isPl;
+                  state.currentUser.subscriptionStatus = (isVer && isPl) ? (data.subscriptionStatus || 'active') : (data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
                   if (typeof renderProfile === 'function') renderProfile();
                   if (typeof renderNotes === 'function') renderNotes();
+                  if (typeof renderFeed === 'function') renderFeed();
+                  if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
                 }
 
                 // 6. Heart Notifications from Cloud Firestore
@@ -3366,12 +3370,16 @@
               applyStripeSubscriptionCancellation(cleanU);
             } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
               applyStripeSessionVerification(cleanU, pendingSid);
-            } else if (typeof d.isVerified === 'boolean') {
-              state.currentUser.isVerified = d.isVerified;
-              state.currentUser.isPlus = Boolean(d.isPlus && d.isVerified);
-              state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
+            } else {
+              const isVer = d.isVerified === true;
+              const isPl = Boolean(isVer && d.isPlus === true);
+              state.currentUser.isVerified = isVer && isPl;
+              state.currentUser.isPlus = isVer && isPl;
+              state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
               if (typeof renderNotes === 'function') renderNotes();
+              if (typeof renderFeed === 'function') renderFeed();
+              if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
             }
             if (Array.isArray(d.dms) && d.dms.length > 0) {
               const recentlyWroteDm = (Date.now() - (window._lastLocalDmWriteTs || 0)) < 3500;
@@ -4524,6 +4532,10 @@ function syncLikedStateToPosts() {
             const parsed = JSON.parse(savedUser);
             if (parsed && typeof parsed === 'object') {
               Object.assign(state.currentUser, parsed);
+              const hasActivePlus = (parsed.isVerified === true && parsed.isPlus === true && parsed.subscriptionStatus === 'active');
+              state.currentUser.isVerified = hasActivePlus;
+              state.currentUser.isPlus = hasActivePlus;
+              if (!hasActivePlus) state.currentUser.subscriptionStatus = 'inactive';
             }
           } catch(e) {}
         }
@@ -4710,6 +4722,9 @@ function syncLikedStateToPosts() {
         bio: "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
         link: "t.me/bradley_hansen",
         avatar: BRADLEY_AVATAR_IMAGE,
+        isVerified: false,
+        isPlus: false,
+        subscriptionStatus: "inactive",
         postsCount: 0,
         followersCount: "4,820",
         followingCount: "342"
@@ -14747,6 +14762,10 @@ function syncLikedStateToPosts() {
         accData = window._pixlyAccounts[cleanUsername.toLowerCase()];
       }
 
+      state.currentUser.isVerified = false;
+      state.currentUser.isPlus = false;
+      state.currentUser.subscriptionStatus = 'inactive';
+
       if (cleanUsername.toLowerCase() === 'bradley_hansen') {
         // Load Bradley Hansen personal account with guaranteed high-res avatar
         state.currentUser.username = 'bradley_hansen';
@@ -14936,13 +14955,16 @@ function syncLikedStateToPosts() {
             try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
             if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
-            } else if (typeof d.isVerified === 'boolean') {
-              state.currentUser.isVerified = d.isVerified;
-              state.currentUser.isPlus = Boolean(d.isPlus || d.isVerified);
-              state.currentUser.subscriptionStatus = d.subscriptionStatus || (d.isVerified ? 'active' : 'inactive');
-              if (typeof renderProfile === 'function') renderProfile();
             } else {
-              state.currentUser.isVerified = false;
+              const isVer = d.isVerified === true;
+              const isPl = Boolean(isVer && d.isPlus === true);
+              state.currentUser.isVerified = isVer && isPl;
+              state.currentUser.isPlus = isVer && isPl;
+              state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
+              if (typeof renderProfile === 'function') renderProfile();
+              if (typeof renderNotes === 'function') renderNotes();
+              if (typeof renderFeed === 'function') renderFeed();
+              if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
             }
             if (d.commentsMap && typeof applyCommentsMap === 'function') {
               window._commentsHydratedFromCloud = true;
@@ -16486,6 +16508,9 @@ function syncLikedStateToPosts() {
                 email: em,
                 phone: phone,
                 accountType: accountType,
+                isVerified: false,
+                isPlus: false,
+                subscriptionStatus: 'inactive',
                 createdAt: Date.now(),
                 lastUpdated: Date.now()
               }, { merge: true }).catch(() => {});
@@ -19057,6 +19082,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
       try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
       if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
 
       const writeVerificationToFirestore = () => {
         if (window.firebaseReady && window.firebase && window.firebase.db) {
@@ -19162,7 +19190,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     })();
 
     function isPlusUser() {
-      return Boolean(state.currentUser && (state.currentUser.isVerified === true || state.currentUser.isPlus === true));
+      return Boolean(state.currentUser && state.currentUser.isVerified === true && state.currentUser.isPlus === true);
     }
     window.isPlusUser = isPlusUser;
 
