@@ -2099,7 +2099,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               </button>
               <div class="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-                <img id="dm-active-avatar" src="" alt="" class="w-full h-full object-cover">
+                <img id="dm-active-avatar" src="" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
                 <span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
               </div>
               <div class="min-w-0">
@@ -5069,6 +5069,56 @@ function syncLikedStateToPosts() {
     }
     window.formatStoryRelativeTime = formatStoryRelativeTime;
 
+    function formatPixlyTimestamp(itemOrTs, fallbackText = 'Just now') {
+      let ts = null;
+      const extractMs = (val) => {
+        if (typeof val === 'number' && isFinite(val) && val > 1600000000000 && val <= Date.now() + 86400000) return val;
+        if (val && typeof val === 'object') {
+          if (typeof val.toMillis === 'function') {
+            const ms = val.toMillis();
+            if (isFinite(ms) && ms > 1600000000000) return ms;
+          }
+          if (typeof val.seconds === 'number' && isFinite(val.seconds)) {
+            const ms = val.seconds * 1000;
+            if (ms > 1600000000000) return ms;
+          }
+        }
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+          const parsed = Date.parse(val);
+          if (!isNaN(parsed) && parsed > 1600000000000) return parsed;
+        }
+        return null;
+      };
+
+      if (typeof itemOrTs === 'number') {
+        ts = extractMs(itemOrTs);
+      } else if (itemOrTs && typeof itemOrTs === 'object') {
+        ts = extractMs(itemOrTs.createdAtMs)
+          || extractMs(itemOrTs.timestamp)
+          || extractMs(itemOrTs.createdAt)
+          || extractMs(itemOrTs.id);
+      }
+
+      if (!ts) {
+        return fallbackText || 'Just now';
+      }
+
+      const diffMs = Math.max(0, Date.now() - ts);
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(diffMs / 3600000);
+      if (hrs < 24) return `${hrs}h ago`;
+
+      const d = new Date(ts);
+      const now = new Date();
+      if (d.getFullYear() === now.getFullYear()) {
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    window.formatPixlyTimestamp = formatPixlyTimestamp;
+
     function pruneExpiredUserStories(saveIfChanged = true) {
       const now = Date.now();
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
@@ -5458,7 +5508,7 @@ function syncLikedStateToPosts() {
 
               <!-- Timestamp -->
               <div class="text-[10px] text-neutral-400 uppercase tracking-wider pt-0.5">
-                ${post.timestamp || 'RECENT'}
+                ${formatPixlyTimestamp(post, post.timestamp || 'RECENT')}
               </div>
             </div>
 
@@ -5662,6 +5712,7 @@ function syncLikedStateToPosts() {
               user: state.currentUser.username,
               text: text,
               timestamp: 'Just now',
+              createdAtMs: Date.now(),
               likedBy: [],
               replies: []
             };
@@ -6111,7 +6162,7 @@ function syncLikedStateToPosts() {
       if (authorNameEl) authorNameEl.textContent = note.authorName || creator.fullName || note.author;
       if (authorHandleEl) authorHandleEl.textContent = `@${note.author}`;
       if (authorAvatarEl) authorAvatarEl.src = avatarSrc;
-      if (timeEl) timeEl.textContent = note.time || 'Just now';
+      if (timeEl) timeEl.textContent = formatPixlyTimestamp(note, note.time || 'Just now');
       if (textEl) textEl.textContent = note.text;
       if (myAvatarEl) myAvatarEl.src = state.currentUser ? (state.currentUser.avatar || BRADLEY_AVATAR_IMAGE) : BRADLEY_AVATAR_IMAGE;
 
@@ -6298,7 +6349,7 @@ function syncLikedStateToPosts() {
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-1.5 min-w-0">
                     <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
-                    <span class="text-[10px] text-neutral-400">@${c.user} · ${c.timestamp || 'Just now'}</span>
+                    <span class="text-[10px] text-neutral-400">@${c.user} · ${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                   </div>
                   <div class="flex items-center space-x-1 flex-shrink-0">
                     <button type="button" onclick="toggleCommentSpam('note', '${note.id}', '${c.id}')" class="text-neutral-300 hover:text-amber-600 p-0.5 cursor-pointer transition" title="Flag as Spam">
@@ -6342,7 +6393,7 @@ function syncLikedStateToPosts() {
         const parentComment = note.comments.find(c => String(c.id) === String(replyTarget.commentId));
         if (parentComment) {
           if (!Array.isArray(parentComment.replies)) parentComment.replies = [];
-          const newReply = { id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', likedBy: [] };
+          const newReply = { id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', createdAtMs: Date.now(), likedBy: [] };
           parentComment.replies.push(newReply);
           if (normalizeUsername(parentComment.user) !== normalizeUsername(curU)) {
             addNotificationForUser(parentComment.user, {
@@ -6369,6 +6420,7 @@ function syncLikedStateToPosts() {
           userAvatar: curAvatar,
           text: text,
           timestamp: 'Just now',
+          createdAtMs: Date.now(),
           likedBy: [],
           replies: []
         };
@@ -6610,7 +6662,7 @@ function syncLikedStateToPosts() {
                   </div>
                   <div>
                     <div class="font-bold text-xs text-neutral-900">${n.authorName || state.currentUser.fullName}</div>
-                    <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${n.time || 'Just now'}</div>
+                    <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                   </div>
                 </div>
                 <div class="flex items-center space-x-1">
@@ -6820,8 +6872,8 @@ function syncLikedStateToPosts() {
               targetImage: p.image || '',
               targetSnippet: p.caption || '',
               text: c.text || '',
-              time: c.timestamp || 'Just now',
-              sortTs: c.id || 0,
+              time: formatPixlyTimestamp(c, c.timestamp || 'Just now'),
+              sortTs: c.createdAtMs || c.id || 0,
               contextLabel: `Commented on @${p.author || 'creator'}'s post`
             });
           }
@@ -6836,8 +6888,8 @@ function syncLikedStateToPosts() {
                 targetImage: p.image || '',
                 targetSnippet: p.caption || '',
                 text: r.text || '',
-                time: r.timestamp || 'Just now',
-                sortTs: r.id || 0,
+                time: formatPixlyTimestamp(r, r.timestamp || 'Just now'),
+                sortTs: r.createdAtMs || r.id || 0,
                 contextLabel: `Replied to @${c.user || 'creator'} on @${p.author || 'creator'}'s post`
               });
             }
@@ -6865,8 +6917,8 @@ function syncLikedStateToPosts() {
               targetImage: '',
               targetSnippet: n.text || '',
               text: c.text || '',
-              time: c.timestamp || 'Just now',
-              sortTs: c.id || 0,
+              time: formatPixlyTimestamp(c, c.timestamp || 'Just now'),
+              sortTs: c.createdAtMs || c.id || 0,
               contextLabel: `Commented on @${n.author || 'creator'}'s note`
             });
           }
@@ -6881,8 +6933,8 @@ function syncLikedStateToPosts() {
                 targetImage: '',
                 targetSnippet: n.text || '',
                 text: r.text || '',
-                time: r.timestamp || 'Just now',
-                sortTs: r.id || 0,
+                time: formatPixlyTimestamp(r, r.timestamp || 'Just now'),
+                sortTs: r.createdAtMs || r.id || 0,
                 contextLabel: `Replied to @${c.user || 'creator'} on @${n.author || 'creator'}'s note`
               });
             }
@@ -7449,7 +7501,7 @@ function syncLikedStateToPosts() {
 
               <!-- Bottom Info Gradient with Author & Likes Count -->
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6 flex items-end justify-between text-white text-[10px] sm:text-xs font-semibold z-10 pointer-events-none">
-                <span class="truncate max-w-[70%] drop-shadow-sm">@${post.author}</span>
+                <span class="truncate max-w-[70%] drop-shadow-sm pointer-events-auto cursor-pointer hover:underline hover:text-violet-300 transition" onclick="event.stopPropagation(); viewUserProfile('${post.author}')" title="View @${post.author}'s profile">@${post.author}</span>
                 <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
                   <span>${isLiked ? '❤️' : '🤍'}</span>
                   <span>${post.likes}</span>
@@ -7485,13 +7537,13 @@ function syncLikedStateToPosts() {
             return `
             <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/90 rounded-xl p-3.5 transition space-y-2.5 explore-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${note.id}" onclick="openNoteDetailModal('${note.id}')">
               <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 cursor-pointer group/author" onclick="event.stopPropagation(); viewUserProfile('${note.author}')">
                   <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200">
                     <img src="${getNoteAuthorAvatar(note)}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
                   </div>
                   <div>
-                    <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
-                    <div class="text-[10px] text-neutral-400">@${note.author} · ${note.time}</div>
+                    <div class="font-bold text-xs text-neutral-900 group-hover/author:underline">${note.authorName || note.author}</div>
+                    <div class="text-[10px] text-neutral-400">@${note.author} · ${formatPixlyTimestamp(note, note.time || 'Just now')}</div>
                   </div>
                 </div>
               </div>
@@ -7549,7 +7601,7 @@ function syncLikedStateToPosts() {
       document.getElementById('modal-post-location').textContent = post.location || '';
       document.getElementById('modal-post-author-avatar').src = authorAvatarSrc;
       document.getElementById('modal-likes-count').textContent = `${post.likes.toLocaleString()} likes`;
-      document.getElementById('modal-timestamp').textContent = post.timestamp;
+      document.getElementById('modal-timestamp').textContent = formatPixlyTimestamp(post, post.timestamp || 'RECENT');
 
       // Update Like Icon in modal
       const likeIcon = document.getElementById('modal-like-icon');
@@ -7621,6 +7673,7 @@ function syncLikedStateToPosts() {
               <div class="mt-1.5 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
                 <div class="text-[11px] min-w-0">
                   <span class="font-bold text-neutral-900 mr-1">${r.user}</span>
+                  <span class="text-[10px] text-neutral-400 mr-1">${formatPixlyTimestamp(r, r.timestamp || 'Just now')}</span>
                   <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                 </div>
                 <button type="button" onclick="toggleLikePostComment('${post.id}', '${c.id}', '${r.id}')" class="flex items-center space-x-1 ${rLiked ? 'text-rose-500' : 'text-neutral-300 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
@@ -7640,6 +7693,7 @@ function syncLikedStateToPosts() {
                 <div>
                   <span class="font-bold text-neutral-900 mr-1">${c.user}</span>
                   <span>${escapeHtml(c.text)}</span>
+                  <span class="text-[10px] text-neutral-400 ml-1.5">${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                 </div>
                 <div class="mt-0.5">
                   <button type="button" onclick="startReplyToPostComment('${post.id}', '${c.id}', '${c.user}')" class="text-[10px] font-semibold text-neutral-400 hover:text-violet-600 cursor-pointer">Reply</button>
@@ -8861,7 +8915,7 @@ function syncLikedStateToPosts() {
                     </div>
                     <div>
                       <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
-                      <div class="text-[10px] text-neutral-400">@${note.author} · ${note.time || 'Saved'}</div>
+                      <div class="text-[10px] text-neutral-400">@${note.author} · ${formatPixlyTimestamp(note, note.time || 'Saved')}</div>
                     </div>
                   </div>
                   <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${note.id}');" class="p-1 text-amber-500 hover:text-rose-500 transition cursor-pointer" title="Remove note from Saved">
@@ -9292,6 +9346,7 @@ function syncLikedStateToPosts() {
           likes: 0,
           isLiked: false,
           timestamp: 'JUST NOW',
+          createdAtMs: now,
           comments: []
         };
 
@@ -10608,7 +10663,7 @@ function syncLikedStateToPosts() {
                 <img src="${creator.avatar}" alt="${creator.username}" class="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0">
                 <div>
                   <div class="font-bold text-xs text-neutral-900">${n.authorName || creator.fullName}</div>
-                  <div class="text-[10px] text-neutral-400">@${creator.username} · ${n.time || 'Just now'}</div>
+                  <div class="text-[10px] text-neutral-400">@${creator.username} · ${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                 </div>
               </div>
               <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(n.text || '')}</p>
@@ -12917,7 +12972,7 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
                   <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
                 </div>
-                <div class="text-[10px] text-neutral-400 font-medium">${n.time || 'Just now'}</div>
+                <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -12972,6 +13027,30 @@ function syncLikedStateToPosts() {
     window.markAllNotificationsRead = markAllNotificationsRead;
 
     // --- Direct Messages Controller & Chat Manager ---
+    function resolveDmAvatar(username, rawAvatar) {
+      const clean = (username || '').toString().trim().toLowerCase().replace(/^@/, '');
+      if (clean === 'pixai' || clean === 'pixlynote') return PIXLYNOTE_SHUTTER_ICON;
+      if (clean === 'digitalassetpro' || clean === 'digital_asset_pro') return DIGITAL_ASSET_PRO_AVATAR;
+      if (clean === 'bradley_hansen') {
+        const bradSaved = localStorage.getItem('pixly_avatar');
+        if (bradSaved && bradSaved.startsWith('data:image/')) return bradSaved;
+        return BRADLEY_AVATAR_IMAGE;
+      }
+      if (typeof rawAvatar === 'string' && rawAvatar.startsWith('data:image/')) {
+        return rawAvatar;
+      }
+      if (typeof getPostAuthorAvatar === 'function' && clean) {
+        const resolved = getPostAuthorAvatar({ author: clean, authorAvatar: rawAvatar });
+        if (resolved && typeof resolved === 'string' && resolved.startsWith('data:image/')) return resolved;
+      }
+      if (typeof getCreatorInfo === 'function' && clean) {
+        const info = getCreatorInfo(clean);
+        if (info && info.avatar) return info.avatar;
+      }
+      return (Array.isArray(COMMUNITY_IMAGES) && COMMUNITY_IMAGES[0]) ? COMMUNITY_IMAGES[0] : BRADLEY_AVATAR_IMAGE;
+    }
+    window.resolveDmAvatar = resolveDmAvatar;
+
     function renderMessages() {
       const threadList = document.getElementById('dm-thread-list');
       if (!threadList) return;
@@ -13037,11 +13116,13 @@ function syncLikedStateToPosts() {
         const lastSenderPrefix = (m.chat && m.chat.length > 0 && m.chat[m.chat.length - 1].sender === 'me') ? 'You: ' : '';
         const lastText = m.lastMsg || (m.chat && m.chat.length > 0 ? m.chat[m.chat.length - 1].text : 'No messages yet');
         const timeDisp = m.time || m.lastTime || '';
+        const threadAvatar = resolveDmAvatar(m.user, m.avatar);
+        m.avatar = threadAvatar;
 
         return `
           <div class="p-3 flex items-center space-x-2.5 cursor-pointer dm-thread-item transition ${activeClass}" data-idx="${idx}">
             <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 shadow-2xs">
-              <img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover">
+              <img src="${threadAvatar}" alt="${m.name}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
               <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
             </div>
             <div class="flex-1 min-w-0">
@@ -13096,8 +13177,13 @@ function syncLikedStateToPosts() {
         statusEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>@${thread.user} • Active now</span>`;
       }
 
+      const resolvedThreadAvatar = resolveDmAvatar(thread.user, thread.avatar);
+      thread.avatar = resolvedThreadAvatar;
       const avatarEl = document.getElementById('dm-active-avatar');
-      if (avatarEl) avatarEl.src = thread.avatar;
+      if (avatarEl) {
+        avatarEl.onerror = function() { this.onerror = null; this.src = COMMUNITY_IMAGES[0]; };
+        avatarEl.src = resolvedThreadAvatar;
+      }
 
       const container = document.getElementById('dm-messages-container');
       if (!container) return;
@@ -13106,7 +13192,7 @@ function syncLikedStateToPosts() {
         container.innerHTML = `
           <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-neutral-400">
             <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
-              <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+              <img src="${resolvedThreadAvatar}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
             </div>
             <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
             <div class="text-[11px] text-neutral-400">@${thread.user}</div>
@@ -13159,7 +13245,7 @@ function syncLikedStateToPosts() {
           <div class="flex ${alignClass} items-end space-x-1.5 mb-1 group">
             ${!isMe ? `
               <div class="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1 border border-neutral-200 shadow-2xs">
-                <img src="${thread.avatar}" alt="" class="w-full h-full object-cover">
+                <img src="${resolvedThreadAvatar}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
               </div>
             ` : ''}
             <div class="max-w-[78%] sm:max-w-[70%]">
@@ -13495,11 +13581,13 @@ function syncLikedStateToPosts() {
         return;
       }
 
-      list.innerHTML = filtered.map(c => `
-        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '${c.avatar}')">
+      list.innerHTML = filtered.map(c => {
+        const av = resolveDmAvatar(c.username, c.avatar);
+        return `
+        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '')">
           <div class="flex items-center space-x-2.5 min-w-0">
             <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">
-              <img src="${c.avatar}" alt="${c.fullName}" class="w-full h-full object-cover">
+              <img src="${av}" alt="${c.fullName}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
             </div>
             <div class="min-w-0">
               <div class="font-bold text-xs text-neutral-900 truncate leading-tight">${c.fullName}</div>
@@ -13508,7 +13596,8 @@ function syncLikedStateToPosts() {
           </div>
           <button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function selectCreatorForDm(username, fullName, avatar) {
