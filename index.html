@@ -2520,7 +2520,7 @@
 
       <!-- VIEW 4: CHANGE YOUR PASSWORD -->
       <div id="ac-view-change-password" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3.5">
-        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 leading-relaxed">
+        <div id="ac-pw-delivery-banner" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 leading-relaxed">
           Email delivery is connected via Resend. Updating your password will save immediately and send a security confirmation to your email on file.
         </div>
 
@@ -2542,6 +2542,7 @@
             Update password
           </button>
         </form>
+        <div id="ac-pw-recaptcha-container"></div>
       </div>
 
       <!-- VIEW 5: SECURITY AND ACCESS -->
@@ -2893,7 +2894,9 @@
           signInWithEmailAndPassword, 
           signInAnonymously, 
           signOut, 
-          onAuthStateChanged 
+          onAuthStateChanged,
+          RecaptchaVerifier,
+          signInWithPhoneNumber
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js");
         
         const { 
@@ -2931,6 +2934,8 @@
           signInAnonymously,
           signOut,
           onAuthStateChanged,
+          RecaptchaVerifier,
+          signInWithPhoneNumber,
           collection, doc, setDoc, getDoc, getDocs,
           query, where, orderBy, onSnapshot, deleteDoc, serverTimestamp
         };
@@ -11947,6 +11952,9 @@ function syncLikedStateToPosts() {
         if (subEl) subEl.textContent = '@' + curU;
         const st = document.getElementById('ac-pw-status');
         if (st) st.classList.add('hidden');
+        if (typeof window.updateChangePasswordDeliveryBanner === 'function') {
+          window.updateChangePasswordDeliveryBanner(curU);
+        }
       } else if (viewName === 'securityAccess') {
         if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
         if (iconEl) iconEl.classList.add('hidden');
@@ -15352,22 +15360,33 @@ function syncLikedStateToPosts() {
           closeAccountCenterModal();
           if (typeof performLogout === 'function') performLogout();
         });
+        function isValidActiveEmail(val) {
+          const s = String(val || '').trim();
+          return Boolean(s && s.includes('@') && s.includes('.') && !/\s/.test(s));
+        }
+
         function resolveUserEmailForSecurity(username) {
           const uKey = (username || '').toLowerCase().replace(/^@/, '').trim();
-          if (state && state.currentUser && state.currentUser.email && state.currentUser.email.includes('@')) {
+          const curName = (state && state.currentUser && state.currentUser.username)
+            ? state.currentUser.username.toLowerCase().replace(/^@/, '').trim()
+            : '';
+          if (state && state.currentUser && (!uKey || curName === uKey) && isValidActiveEmail(state.currentUser.email)) {
             return state.currentUser.email.trim();
           }
           if (uKey) {
             try {
-              if (window._pixlyAccounts && window._pixlyAccounts[uKey] && window._pixlyAccounts[uKey].email) {
+              if (window._pixlyAccounts && window._pixlyAccounts[uKey] && isValidActiveEmail(window._pixlyAccounts[uKey].email)) {
                 return window._pixlyAccounts[uKey].email.trim();
               }
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-              if (accts[uKey] && accts[uKey].email) return accts[uKey].email.trim();
+              if (accts[uKey] && isValidActiveEmail(accts[uKey].email)) return accts[uKey].email.trim();
               const indivRaw = localStorage.getItem('pixly_account_' + uKey);
               if (indivRaw) {
                 const indiv = JSON.parse(indivRaw);
-                if (indiv && indiv.email) return indiv.email.trim();
+                if (indiv && isValidActiveEmail(indiv.email)) return indiv.email.trim();
+              }
+              if (window._remoteUserProfilesCache && window._remoteUserProfilesCache[uKey] && isValidActiveEmail(window._remoteUserProfilesCache[uKey].email)) {
+                return window._remoteUserProfilesCache[uKey].email.trim();
               }
             } catch(e) {}
             if (uKey === 'bradley_hansen') return 'bradley.g.hansen@hotmail.com';
@@ -15375,6 +15394,118 @@ function syncLikedStateToPosts() {
           return '';
         }
         window.resolveUserEmailForSecurity = resolveUserEmailForSecurity;
+
+        function formatPhoneE164(rawPhone) {
+          const trimmed = String(rawPhone || '').trim();
+          if (!trimmed) return '';
+          const digitsOnly = trimmed.replace(/\D/g, '');
+          if (trimmed.startsWith('+')) {
+            return (digitsOnly.length >= 10 && digitsOnly.length <= 15) ? ('+' + digitsOnly) : '';
+          }
+          if (digitsOnly.length === 10) return '+1' + digitsOnly;
+          if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) return '+' + digitsOnly;
+          if (digitsOnly.length > 10 && digitsOnly.length <= 15) return '+' + digitsOnly;
+          return '';
+        }
+
+        function resolveUserPhoneSyncForSecurity(username) {
+          const uKey = (username || '').toLowerCase().replace(/^@/, '').trim();
+          const curName = (state && state.currentUser && state.currentUser.username)
+            ? state.currentUser.username.toLowerCase().replace(/^@/, '').trim()
+            : '';
+          if (state && state.currentUser && (!uKey || curName === uKey) && state.currentUser.phone && formatPhoneE164(state.currentUser.phone)) {
+            return String(state.currentUser.phone).trim();
+          }
+          if (uKey) {
+            try {
+              if (window._pixlyAccounts && window._pixlyAccounts[uKey] && formatPhoneE164(window._pixlyAccounts[uKey].phone)) {
+                return String(window._pixlyAccounts[uKey].phone).trim();
+              }
+              const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+              if (accts[uKey] && formatPhoneE164(accts[uKey].phone)) return String(accts[uKey].phone).trim();
+              const indivRaw = localStorage.getItem('pixly_account_' + uKey);
+              if (indivRaw) {
+                const indiv = JSON.parse(indivRaw);
+                if (indiv && formatPhoneE164(indiv.phone)) return String(indiv.phone).trim();
+              }
+              if (window._remoteUserProfilesCache && window._remoteUserProfilesCache[uKey] && formatPhoneE164(window._remoteUserProfilesCache[uKey].phone)) {
+                return String(window._remoteUserProfilesCache[uKey].phone).trim();
+              }
+            } catch(e) {}
+          }
+          return '';
+        }
+
+        async function resolveUserPhoneForSecurity(username) {
+          const localPhone = resolveUserPhoneSyncForSecurity(username);
+          if (localPhone) return localPhone;
+          const uKey = (username || '').toLowerCase().replace(/^@/, '').trim();
+          if (uKey && window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.getDoc) {
+            try {
+              const { db, doc, getDoc } = window.firebase;
+              const snap = await getDoc(doc(db, 'users', uKey));
+              if (snap && snap.exists && snap.exists()) {
+                const data = snap.data() || {};
+                if (data.phone && formatPhoneE164(data.phone)) return String(data.phone).trim();
+              }
+            } catch(e) {}
+          }
+          return '';
+        }
+        window.resolveUserPhoneForSecurity = resolveUserPhoneForSecurity;
+
+        function updateChangePasswordDeliveryBanner(username) {
+          const banner = document.getElementById('ac-pw-delivery-banner');
+          if (!banner) return;
+          const email = resolveUserEmailForSecurity(username);
+          const phone = resolveUserPhoneSyncForSecurity(username);
+          banner.className = 'p-3 rounded-xl border text-[11px] leading-relaxed';
+          if (email) {
+            banner.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+            banner.textContent = 'Email delivery is connected via Resend. Updating your password will save immediately and send a security confirmation to your email on file.';
+          } else if (phone) {
+            const masked = (typeof maskPhoneNumber === 'function') ? maskPhoneNumber(phone) : phone;
+            banner.classList.add('bg-violet-50', 'border-violet-200', 'text-violet-800');
+            banner.textContent = 'No active email is set on this account. Updating your password will save immediately and send a security text message via Firebase Phone Auth to ' + masked + '.';
+          } else {
+            banner.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+            banner.textContent = 'No active email or phone number is on file. Updating your password will save immediately and record the change in your Login activity log.';
+          }
+        }
+        window.updateChangePasswordDeliveryBanner = updateChangePasswordDeliveryBanner;
+
+        async function sendPasswordResetSmsViaFirebase(rawPhone) {
+          const phoneE164 = formatPhoneE164(rawPhone);
+          if (!phoneE164) {
+            throw new Error('No valid phone number on file for Firebase Phone Auth SMS.');
+          }
+          if (!window.firebaseReady || !window.firebase || !window.firebase.auth || !window.firebase.RecaptchaVerifier || !window.firebase.signInWithPhoneNumber) {
+            throw new Error('Firebase Phone Auth is still initializing. Please try again.');
+          }
+          const { auth, RecaptchaVerifier, signInWithPhoneNumber } = window.firebase;
+          const containerId = 'ac-pw-recaptcha-container';
+          const containerEl = document.getElementById(containerId);
+          if (!containerEl) {
+            throw new Error('SMS verification container not found.');
+          }
+          if (window._acPwRecaptchaVerifier) {
+            try { window._acPwRecaptchaVerifier.clear(); } catch(e) {}
+            window._acPwRecaptchaVerifier = null;
+          }
+          containerEl.innerHTML = '';
+          const verifier = new RecaptchaVerifier(auth, containerId, { size: 'invisible' });
+          window._acPwRecaptchaVerifier = verifier;
+          try {
+            const confirmationResult = await signInWithPhoneNumber(auth, phoneE164, verifier);
+            const maskedPhone = (typeof maskPhoneNumber === 'function') ? maskPhoneNumber(rawPhone) : phoneE164;
+            return { phoneE164, maskedPhone, confirmationResult };
+          } catch (err) {
+            try { verifier.clear(); } catch(e) {}
+            window._acPwRecaptchaVerifier = null;
+            throw err;
+          }
+        }
+        window.sendPasswordResetSmsViaFirebase = sendPasswordResetSmsViaFirebase;
 
         const pwForm = document.getElementById('form-ac-change-password');
         if (pwForm) {
@@ -15457,19 +15588,48 @@ function syncLikedStateToPosts() {
               }
             }
 
+            let smsSent = false;
+            let smsMaskedPhone = '';
+            let smsError = '';
+            const userPhone = !emailSent ? await resolveUserPhoneForSecurity(activeUser) : '';
+            if (!emailSent && userPhone) {
+              try {
+                const smsRes = await sendPasswordResetSmsViaFirebase(userPhone);
+                smsSent = true;
+                smsMaskedPhone = smsRes.maskedPhone || userPhone;
+                if (activeUser) {
+                  recordLoginActivityEvent('password_sms_notified', 'Password reset text sent via Firebase Phone Auth to ' + smsMaskedPhone, activeUser);
+                }
+              } catch (err) {
+                smsError = (err && err.message) ? err.message : 'Firebase Phone Auth SMS failed';
+              }
+            }
+
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origBtnText; }
             if (emailSent) {
               st.classList.add('bg-emerald-50', 'text-emerald-700');
               st.textContent = 'Password updated, logged in activity, and confirmation sent to ' + userEmail;
+            } else if (smsSent) {
+              st.classList.add('bg-emerald-50', 'text-emerald-700');
+              st.textContent = (userEmail && emailError)
+                ? 'Password updated and logged in activity. Resend email failed (' + emailError + '), so a security text message was sent via Firebase Phone Auth to ' + smsMaskedPhone + '.'
+                : 'Password updated and logged in activity. No active email on file — security text message sent via Firebase Phone Auth to ' + smsMaskedPhone + '.';
+            } else if (userPhone && smsError) {
+              st.classList.add('bg-amber-50', 'text-amber-800');
+              st.textContent = (userEmail && emailError)
+                ? 'Password updated and logged in activity, but Resend (' + emailError + ') and Firebase Phone Auth SMS (' + smsError + ') both failed.'
+                : 'Password updated and logged in activity. No email on file, and Firebase Phone Auth SMS failed: ' + smsError;
             } else if (userEmail && emailError) {
               st.classList.add('bg-amber-50', 'text-amber-800');
               st.textContent = 'Password updated and logged in activity, but Resend confirmation failed: ' + emailError;
             } else {
               st.classList.add('bg-amber-50', 'text-amber-800');
-              st.textContent = 'Password updated and logged in activity. No email on file for Resend confirmation.';
+              st.textContent = 'Password updated and logged in activity. No active email or phone number on file for confirmation.';
             }
             pwForm.reset();
-            if (typeof showToast === 'function') showToast(emailSent ? 'Password updated & confirmation sent!' : 'Password updated!');
+            if (typeof showToast === 'function') {
+              showToast(emailSent ? 'Password updated & email confirmation sent!' : (smsSent ? 'Password updated & SMS notification sent!' : 'Password updated!'));
+            }
           });
         }
         const modalAccountCenter = document.getElementById('modal-account-center');
