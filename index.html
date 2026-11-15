@@ -2943,7 +2943,33 @@
                   renderFeed();
                 }
 
-                // 3c. Stories (24h TTL) from Cloud Firestore
+                // 3c. Stories (24h TTL) & Story Comments from Cloud Firestore
+                if (data.storyComments && typeof data.storyComments === 'object') {
+                  window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+                  window._remoteUserProfilesCache['bradley_hansen'] = window._remoteUserProfilesCache['bradley_hansen'] || {};
+                  const prevMap = window._remoteUserProfilesCache['bradley_hansen'].storyComments || {};
+                  const mergedMap = { ...prevMap };
+                  Object.keys(data.storyComments).forEach(sid => {
+                    const remoteArr = Array.isArray(data.storyComments[sid]) ? data.storyComments[sid] : [];
+                    const localArr = Array.isArray(prevMap[sid]) ? prevMap[sid] : [];
+                    const byId = new Map();
+                    remoteArr.forEach(c => byId.set(String(c.id), c));
+                    localArr.forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+                    mergedMap[sid] = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                  });
+                  window._remoteUserProfilesCache['bradley_hansen'].storyComments = mergedMap;
+                  try { localStorage.setItem('pixly_story_comments_bradley_hansen', JSON.stringify(mergedMap)); } catch(e) {}
+                  if (state.activeStory && typeof window.updateStoryCommentsUI === 'function') {
+                    const activeSid = String(state.activeStory.id || 'creator_bradley_hansen');
+                    if (Array.isArray(mergedMap[activeSid])) {
+                      const byId = new Map();
+                      (state.activeStory.comments || []).forEach(c => byId.set(String(c.id), c));
+                      mergedMap[activeSid].forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+                      state.activeStory.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                      window.updateStoryCommentsUI(state.activeStory);
+                    }
+                  }
+                }
                 if (Array.isArray(data.userStories)) {
                   state.userStories = data.userStories;
                   pruneExpiredUserStories(true);
@@ -3122,6 +3148,22 @@
               if ((!hasPendingWrites && !recentlyMutated) || window.pendingLikesSync) {
                 if (typeof window.applyLikesFromRemote === 'function') window.applyLikesFromRemote(d.likedPostIds);
               }
+            }
+            if (d.storyComments && typeof d.storyComments === 'object') {
+              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+              window._remoteUserProfilesCache[cleanU] = window._remoteUserProfilesCache[cleanU] || {};
+              const prevMap = window._remoteUserProfilesCache[cleanU].storyComments || {};
+              const mergedMap = { ...prevMap };
+              Object.keys(d.storyComments).forEach(sid => {
+                const remoteArr = Array.isArray(d.storyComments[sid]) ? d.storyComments[sid] : [];
+                const localArr = Array.isArray(prevMap[sid]) ? prevMap[sid] : [];
+                const byId = new Map();
+                remoteArr.forEach(c => byId.set(String(c.id), c));
+                localArr.forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+                mergedMap[sid] = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+              });
+              window._remoteUserProfilesCache[cleanU].storyComments = mergedMap;
+              try { localStorage.setItem('pixly_story_comments_' + cleanU, JSON.stringify(mergedMap)); } catch(e) {}
             }
             if (Array.isArray(d.userStories)) {
               state.userStories = d.userStories;
@@ -12744,8 +12786,19 @@ function syncLikedStateToPosts() {
           const { db, doc, getDoc } = window.firebase;
           const snap = await getDoc(doc(db, 'users', targetU));
           if (snap.exists()) {
-            remoteCache = snap.data();
+            const freshData = snap.data() || {};
             window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            const prevCache = window._remoteUserProfilesCache[targetU] || {};
+            const mergedSc = { ...(prevCache.storyComments || {}), ...(freshData.storyComments || {}) };
+            Object.keys(mergedSc).forEach(k => {
+              const a = Array.isArray(prevCache.storyComments && prevCache.storyComments[k]) ? prevCache.storyComments[k] : [];
+              const b = Array.isArray(freshData.storyComments && freshData.storyComments[k]) ? freshData.storyComments[k] : [];
+              const byId = new Map();
+              b.forEach(c => byId.set(String(c.id), c));
+              a.forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+              mergedSc[k] = Array.from(byId.values()).sort((a1, b1) => (a1.timestamp || 0) - (b1.timestamp || 0));
+            });
+            remoteCache = { ...freshData, storyComments: mergedSc };
             window._remoteUserProfilesCache[targetU] = remoteCache;
           }
         } catch(e) {}
@@ -12870,11 +12923,27 @@ function syncLikedStateToPosts() {
           return;
         }
         state.activeStoryIndex = 0;
-        openStoryQueue(activeUserStories.map(s => ({
-          ...s,
-          isUser: true,
-          username: s.username || ((state.currentUser && state.currentUser.username) || 'Your Story')
-        })));
+        const curOwnerU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+        let localScMap = {};
+        try {
+          const rawSc = localStorage.getItem('pixly_story_comments_' + curOwnerU);
+          if (rawSc) localScMap = JSON.parse(rawSc) || {};
+        } catch(e) {}
+        const cacheScMap = (window._remoteUserProfilesCache && window._remoteUserProfilesCache[curOwnerU] && window._remoteUserProfilesCache[curOwnerU].storyComments) || {};
+        openStoryQueue(activeUserStories.map(s => {
+          const sid = String(s.id || ('creator_' + curOwnerU));
+          const byId = new Map();
+          (Array.isArray(s.comments) ? s.comments : []).forEach(c => byId.set(String(c.id), c));
+          (Array.isArray(localScMap[sid]) ? localScMap[sid] : []).forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+          (Array.isArray(cacheScMap[sid]) ? cacheScMap[sid] : []).forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+          return {
+            ...s,
+            id: s.id || sid,
+            isUser: true,
+            comments: Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)),
+            username: s.username || ((state.currentUser && state.currentUser.username) || 'Your Story')
+          };
+        }));
         return;
       }
 
@@ -16346,10 +16415,25 @@ function syncLikedStateToPosts() {
 
         bind('btn-close-story', 'click', closeStoryViewer);
         const resolveStoryTargetUser = (story) => {
-          if (!story) return 'bradley_hansen';
+          const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
+          if (!story) return curU;
+          if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) return curU;
           const raw = (story.username || '').trim();
-          if (!raw || raw.toLowerCase() === 'your story') return 'bradley_hansen';
+          if (!raw || raw.toLowerCase() === 'your story') return curU;
           return normalizeUsername(raw);
+        };
+        const getLocalStoryCommentsMap = (targetU) => {
+          try {
+            const raw = localStorage.getItem('pixly_story_comments_' + targetU);
+            return raw ? (JSON.parse(raw) || {}) : {};
+          } catch(e) { return {}; }
+        };
+        const saveLocalStoryComments = (targetU, storyIdStr, commentsArr) => {
+          try {
+            const map = getLocalStoryCommentsMap(targetU);
+            map[storyIdStr] = commentsArr;
+            localStorage.setItem('pixly_story_comments_' + targetU, JSON.stringify(map));
+          } catch(e) {}
         };
 
         window.updateStoryCommentsUI = (story) => {
@@ -16438,12 +16522,21 @@ function syncLikedStateToPosts() {
           window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = [...storyRef.comments];
 
           if (typeof persistState === 'function') persistState();
+          saveLocalStoryComments(targetU, storyIdStr, storyRef.comments);
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             try {
               const { db, doc, setDoc } = window.firebase;
-              await setDoc(doc(db, 'users', targetU), {
-                storyComments: { [storyIdStr]: storyRef.comments }
-              }, { merge: true });
+              await Promise.all([
+                setDoc(doc(db, 'story_comments', `${targetU}__${storyIdStr}`), {
+                  targetUser: targetU,
+                  storyId: storyIdStr,
+                  comments: storyRef.comments,
+                  updatedAt: Date.now()
+                }, { merge: true }).catch(() => {}),
+                setDoc(doc(db, 'users', targetU), {
+                  storyComments: { [storyIdStr]: storyRef.comments }
+                }, { merge: true }).catch(() => {})
+              ]);
             } catch(e) {}
           }
           if (typeof showToast === 'function') {
@@ -16459,21 +16552,38 @@ function syncLikedStateToPosts() {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
           const skey = getStoryLikeKey(story);
 
+          const mergeAndRenderComments = (incomingArr) => {
+            if (!Array.isArray(incomingArr) || incomingArr.length === 0) return;
+            const byId = new Map();
+            (story.comments || []).forEach(c => byId.set(String(c.id), c));
+            incomingArr.forEach(rc => {
+              const k = String(rc.id);
+              if (!byId.has(k)) byId.set(k, rc);
+            });
+            story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+            window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
+            window._remoteUserProfilesCache[targetU].storyComments[sid] = [...story.comments];
+            saveLocalStoryComments(targetU, sid, story.comments);
+            if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
+              window.updateStoryCommentsUI(story);
+            }
+          };
+
+          const localScMap = getLocalStoryCommentsMap(targetU);
+          if (Array.isArray(localScMap[sid])) {
+            mergeAndRenderComments(localScMap[sid]);
+          }
           const cachedProfile = window._remoteUserProfilesCache && window._remoteUserProfilesCache[targetU];
           const cachedMap = cachedProfile && cachedProfile.storyComments;
           if (cachedMap && Array.isArray(cachedMap[sid])) {
-            const byId = new Map();
-            (story.comments || []).forEach(c => byId.set(String(c.id), c));
-            cachedMap[sid].forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-            story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
-              window.updateStoryCommentsUI(story);
-            }
+            mergeAndRenderComments(cachedMap[sid]);
           }
           if (!window.firebaseReady || !window.firebase || !window.firebase.getDoc) {
             if (retryCount < 6) {
               setTimeout(() => {
-                if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
+                if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === sid) {
                   window.fetchStoryCommentsFromFirestore(story, retryCount + 1);
                 }
               }, 350);
@@ -16482,23 +16592,24 @@ function syncLikedStateToPosts() {
           }
           try {
             const { db, doc, getDoc } = window.firebase;
-            const snap = await getDoc(doc(db, 'users', targetU));
-            if (!snap.exists()) return;
-            const d = snap.data();
-            if (!d) return;
-            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
-            window._remoteUserProfilesCache[targetU] = d;
-
-            if (d.storyComments && Array.isArray(d.storyComments[sid])) {
-              const remoteComments = d.storyComments[sid];
-              const byId = new Map();
-              (story.comments || []).forEach(c => byId.set(String(c.id), c));
-              remoteComments.forEach(rc => { if (!byId.has(String(rc.id))) byId.set(String(rc.id), rc); });
-              story.comments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-              if (state.activeStory && String(state.activeStory.id) === String(story.id)) {
-                window.updateStoryCommentsUI(story);
-              }
+            const [userSnap, dedicatedSnap] = await Promise.all([
+              getDoc(doc(db, 'users', targetU)).catch(() => null),
+              getDoc(doc(db, 'story_comments', `${targetU}__${sid}`)).catch(() => null)
+            ]);
+            const d = (userSnap && userSnap.exists()) ? userSnap.data() : null;
+            if (d) {
+              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+              const prevCache = window._remoteUserProfilesCache[targetU] || {};
+              const mergedSc = { ...(prevCache.storyComments || {}), ...(d.storyComments || {}) };
+              window._remoteUserProfilesCache[targetU] = { ...d, storyComments: mergedSc };
             }
+            if (d && d.storyComments && Array.isArray(d.storyComments[sid])) {
+              mergeAndRenderComments(d.storyComments[sid]);
+            }
+            if (dedicatedSnap && dedicatedSnap.exists() && Array.isArray(dedicatedSnap.data().comments)) {
+              mergeAndRenderComments(dedicatedSnap.data().comments);
+            }
+            if (!d) return;
 
             // Also sync story like state from DB (users/<targetU>.storyLikes[sid] & users/<curU>.likedStoryIds)
             const recentlyLikedLocal = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
@@ -16563,16 +16674,17 @@ function syncLikedStateToPosts() {
           const storyRef = state.activeStory;
           if (!inp || !inp.value.trim() || !storyRef) return;
           const replyText = inp.value.trim();
-          const storyIdStr = String(storyRef.id);
           const targetU = resolveStoryTargetUser(storyRef);
+          const storyIdStr = String(storyRef.id || ('creator_' + targetU));
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
-          const curAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+          const rawAv = (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
+          const safeAv = (typeof rawAv === 'string' && rawAv.length > 60000) ? BRADLEY_AVATAR_IMAGE : rawAv;
 
           if (!Array.isArray(storyRef.comments)) storyRef.comments = [];
           const newComment = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             user: curU,
-            userAvatar: curAv,
+            userAvatar: safeAv,
             text: replyText,
             time: 'Just now',
             timestamp: Date.now()
@@ -16580,35 +16692,66 @@ function syncLikedStateToPosts() {
           storyRef.comments.push(newComment);
           window.updateStoryCommentsUI(storyRef);
 
-          // Update in-memory remote cache immediately
+          // Update in-memory remote cache & localStorage immediately
           window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
           window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
           window._remoteUserProfilesCache[targetU].storyComments = window._remoteUserProfilesCache[targetU].storyComments || {};
           window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = [...storyRef.comments];
+          saveLocalStoryComments(targetU, storyIdStr, storyRef.comments);
+
+          // Also sync into state.userStories / state.stories if present in memory
+          if (Array.isArray(state.userStories)) {
+            const ownMatch = state.userStories.find(s => String(s.id || ('creator_' + targetU)) === storyIdStr);
+            if (ownMatch) ownMatch.comments = [...storyRef.comments];
+          }
+          if (Array.isArray(state.stories)) {
+            const feedMatch = state.stories.find(s => String(s.id || '') === storyIdStr);
+            if (feedMatch) feedMatch.comments = [...storyRef.comments];
+          }
 
           inp.value = '';
           inp.blur();
           state.storyPaused = false;
           showToast(`Reply sent to @${targetU}!`);
 
-          // Merge & persist story comment to Firestore users/<targetU>.storyComments.<storyId>
+          // Merge & persist story comment to Firestore (dedicated story_comments doc + users/<targetU>.storyComments)
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             try {
               const { db, doc, getDoc, setDoc } = window.firebase;
               const userRef = doc(db, 'users', targetU);
-              const snap = await getDoc(userRef);
-              const existingMap = (snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
-              const remoteArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
+              const dedicatedRef = doc(db, 'story_comments', `${targetU}__${storyIdStr}`);
+              const [snap, dedicatedSnap] = await Promise.all([
+                getDoc(userRef).catch(() => null),
+                getDoc(dedicatedRef).catch(() => null)
+              ]);
+              const existingMap = (snap && snap.exists() && snap.data() && snap.data().storyComments) ? snap.data().storyComments : {};
+              const remoteUserArr = Array.isArray(existingMap[storyIdStr]) ? existingMap[storyIdStr] : [];
+              const remoteDedicatedArr = (dedicatedSnap && dedicatedSnap.exists() && Array.isArray(dedicatedSnap.data().comments)) ? dedicatedSnap.data().comments : [];
               const byId = new Map();
-              remoteArr.forEach(c => byId.set(String(c.id), c));
+              remoteUserArr.forEach(c => byId.set(String(c.id), c));
+              remoteDedicatedArr.forEach(c => byId.set(String(c.id), c));
               storyRef.comments.forEach(c => byId.set(String(c.id), c));
-              const mergedComments = Array.from(byId.values());
+              const mergedComments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
               storyRef.comments = mergedComments;
               window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
-              await setDoc(userRef, {
-                storyComments: { [storyIdStr]: mergedComments }
-              }, { merge: true });
-            } catch(e) {}
+              saveLocalStoryComments(targetU, storyIdStr, mergedComments);
+              if (state.activeStory && String(state.activeStory.id || ('creator_' + targetU)) === storyIdStr) {
+                window.updateStoryCommentsUI(storyRef);
+              }
+              await Promise.all([
+                setDoc(dedicatedRef, {
+                  targetUser: targetU,
+                  storyId: storyIdStr,
+                  comments: mergedComments,
+                  updatedAt: Date.now()
+                }, { merge: true }).catch(err => console.warn('story_comments write failed:', err)),
+                setDoc(userRef, {
+                  storyComments: { [storyIdStr]: mergedComments }
+                }, { merge: true }).catch(err => console.warn('users.storyComments write failed:', err))
+              ]);
+            } catch(e) {
+              console.warn('submitStoryReply Firestore sync error:', e);
+            }
           }
 
           if (targetU && targetU !== curU && typeof addNotificationForUser === 'function') {
