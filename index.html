@@ -3900,6 +3900,67 @@ function saveAccountLikes(username) {
     }
     window.addNotificationForUser = addNotificationForUser;
 
+    async function pushInAppSecurityNotification(targetUsername, notif) {
+      if (!targetUsername || !notif) return false;
+      const cleanU = normalizeUsername(targetUsername);
+      if (!cleanU) return false;
+
+      const sanitized = {};
+      Object.keys(notif).forEach(k => {
+        if (notif[k] !== undefined) sanitized[k] = notif[k];
+      });
+      if (typeof sanitized.fromAvatar === "string" && sanitized.fromAvatar.length > 60000) {
+        sanitized.fromAvatar = "";
+      }
+
+      let notifs = [];
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          const snap = await getDoc(doc(db, "users", cleanU));
+          if (snap.exists() && Array.isArray(snap.data().notifications)) {
+            notifs = snap.data().notifications;
+          }
+        } catch(e) {}
+      }
+
+      if (!Array.isArray(notifs) || notifs.length === 0) {
+        try {
+          const raw = localStorage.getItem("pixly_notifications_" + cleanU);
+          if (raw) notifs = JSON.parse(raw);
+        } catch(e) {}
+      }
+      if (!Array.isArray(notifs) || notifs.length === 0) {
+        notifs = Array.isArray(state.notifications) ? [...state.notifications] : [];
+      }
+
+      notifs.unshift(sanitized);
+      if (notifs.length > 100) notifs = notifs.slice(0, 100);
+
+      try {
+        localStorage.setItem("pixly_notifications_" + cleanU, JSON.stringify(notifs));
+      } catch(e) {}
+
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          await setDoc(doc(db, "users", cleanU), { notifications: notifs, lastUpdated: Date.now() }, { merge: true });
+        } catch(e) {
+          console.warn("pushInAppSecurityNotification Firestore write notice:", e);
+        }
+      }
+
+      const activeNow = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : "");
+      if (activeNow === cleanU) {
+        state.notifications = notifs;
+        window._notificationsHydrated = window._notificationsHydrated || {};
+        window._notificationsHydrated[cleanU] = true;
+        if (typeof renderNotifications === "function") renderNotifications(true);
+      }
+      return true;
+    }
+    window.pushInAppSecurityNotification = pushInAppSecurityNotification;
+
     async function removeNotificationForUser(targetUsername, type, fromUser, postId) {
       if (!targetUsername) return;
       const cleanTarget = normalizeUsername(targetUsername);
@@ -13364,7 +13425,10 @@ function syncLikedStateToPosts() {
           }
 
           // Open target content
-          if (notif.postId) {
+          if (notif.type === "password_updated") {
+            if (typeof openAccountCenterModal === "function") openAccountCenterModal();
+            if (typeof setAccountCenterView === "function") setAccountCenterView("loginActivity");
+          } else if (notif.postId) {
             openPostDetailModal(notif.postId);
           } else if (notif.noteId) {
             openNoteDetailModal(notif.noteId);
@@ -15492,10 +15556,10 @@ function syncLikedStateToPosts() {
           } else if (phone) {
             const masked = (typeof maskPhoneNumber === 'function') ? maskPhoneNumber(phone) : phone;
             banner.classList.add('bg-violet-50', 'border-violet-200', 'text-violet-800');
-            banner.textContent = 'No active email is set on this account. Updating your password will save immediately and send a security text message via Firebase Phone Auth to ' + masked + '.';
+            banner.textContent = 'No active email is set on this account. Updating your password will save immediately and attempt a security text message to ' + masked + ' (or send an in-app notification if SMS is unavailable).';
           } else {
-            banner.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
-            banner.textContent = 'No active email or phone number is on file. Updating your password will save immediately and record the change in your Login activity log.';
+            banner.classList.add('bg-violet-50', 'border-violet-200', 'text-violet-800');
+            banner.textContent = 'No active email or phone number is on file. Updating your password will save immediately, log it in your Login activity, and send an in-app security notification.';
           }
         }
         window.updateChangePasswordDeliveryBanner = updateChangePasswordDeliveryBanner;
@@ -15631,6 +15695,24 @@ function syncLikedStateToPosts() {
               }
             }
 
+            let inAppNotifSent = false;
+            if (!emailSent && !smsSent && activeUser && typeof pushInAppSecurityNotification === 'function') {
+              try {
+                inAppNotifSent = await pushInAppSecurityNotification(activeUser, {
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  type: 'password_updated',
+                  fromUser: 'pixlynote',
+                  fromAvatar: (typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined') ? PIXLYNOTE_SHUTTER_ICON : '',
+                  text: 'Security update: Your password was updated successfully. Tap to review your Login activity log.',
+                  time: 'Just now',
+                  timestamp: Date.now(),
+                  read: false
+                });
+              } catch (err) {
+                console.warn('In-app notification fallback notice:', err);
+              }
+            }
+
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origBtnText; }
             if (emailSent) {
               st.classList.add('bg-emerald-50', 'text-emerald-700');
@@ -15640,6 +15722,17 @@ function syncLikedStateToPosts() {
               st.textContent = (userEmail && emailError)
                 ? 'Password updated and logged in activity. Resend email failed (' + emailError + '), so a security text message was sent via Firebase Phone Auth to ' + smsMaskedPhone + '.'
                 : 'Password updated and logged in activity. No active email on file — security text message sent via Firebase Phone Auth to ' + smsMaskedPhone + '.';
+            } else if (inAppNotifSent) {
+              st.classList.add('bg-emerald-50', 'text-emerald-700');
+              if (userPhone && smsError) {
+                st.textContent = (userEmail && emailError)
+                  ? 'Password updated and logged in activity. Email and SMS delivery were unavailable, so an in-app security notification was sent to your activity feed.'
+                  : 'Password updated and logged in activity. No email on file and SMS was unavailable, so an in-app security notification was sent to your activity feed.';
+              } else if (userEmail && emailError) {
+                st.textContent = 'Password updated and logged in activity. Email delivery failed, so an in-app security notification was sent to your activity feed.';
+              } else {
+                st.textContent = 'Password updated, logged in activity, and an in-app security notification was sent to your activity feed.';
+              }
             } else if (userPhone && smsError) {
               st.classList.add('bg-amber-50', 'text-amber-800');
               st.textContent = (userEmail && emailError)
@@ -15654,7 +15747,7 @@ function syncLikedStateToPosts() {
             }
             pwForm.reset();
             if (typeof showToast === 'function') {
-              showToast(emailSent ? 'Password updated & email confirmation sent!' : (smsSent ? 'Password updated & SMS notification sent!' : 'Password updated!'));
+              showToast(emailSent ? 'Password updated & email confirmation sent!' : (smsSent ? 'Password updated & SMS notification sent!' : (inAppNotifSent ? 'Password updated & in-app notification sent!' : 'Password updated!')));
             }
           });
         }
