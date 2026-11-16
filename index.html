@@ -823,7 +823,7 @@
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Posts</div>
                 </div>
                 <div id="stat-followers-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view and explore your followers">
-                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-followers-count">4,820</div>
+                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-followers-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5">Followers</div>
                 </div>
                 <div id="stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view all following accounts">
@@ -3888,20 +3888,53 @@ function saveAccountLikes(username) {
 
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
-    function mergeNotificationLists(localList, remoteList) {
+    function makeNotificationKey(n) {
+      if (!n) return '';
+      if (n.id !== undefined && n.id !== null) return 'id:' + String(n.id);
+      return [n.type || '', n.fromUser || '', n.postId || '', n.noteId || '', n.timestamp || ''].join('|');
+    }
+    window.makeNotificationKey = makeNotificationKey;
+
+    function getDeletedNotificationIds(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      const set = new Set(Array.from(state.deletedNotificationIds || []).map(String));
+      try {
+        const raw = localStorage.getItem('pixly_deleted_notifications_' + u);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) arr.forEach(k => set.add(String(k)));
+        }
+      } catch(e) {}
+      return set;
+    }
+    window.getDeletedNotificationIds = getDeletedNotificationIds;
+
+    function recordDeletedNotifications(notifsOrKeys, username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      if (!state.deletedNotificationIds) state.deletedNotificationIds = new Set();
+      (Array.isArray(notifsOrKeys) ? notifsOrKeys : [notifsOrKeys]).forEach(item => {
+        if (!item) return;
+        const k = typeof item === 'string' ? item : makeNotificationKey(item);
+        if (k) state.deletedNotificationIds.add(k);
+      });
+      const merged = getDeletedNotificationIds(u);
+      state.deletedNotificationIds = merged;
+      try {
+        safeLocalStorageSet('pixly_deleted_notifications_' + u, JSON.stringify(Array.from(merged).slice(-500)));
+      } catch(e) {}
+    }
+    window.recordDeletedNotifications = recordDeletedNotifications;
+
+    function mergeNotificationLists(localList, remoteList, deletedSet) {
+      const delSet = deletedSet || getDeletedNotificationIds();
       const byKey = new Map();
-      const makeKey = (n) => {
-        if (!n) return '';
-        if (n.id !== undefined && n.id !== null) return 'id:' + String(n.id);
-        return [n.type || '', n.fromUser || '', n.postId || '', n.noteId || '', n.timestamp || ''].join('|');
-      };
       (Array.isArray(remoteList) ? remoteList : []).forEach(n => {
-        const k = makeKey(n);
-        if (k) byKey.set(k, { ...n });
+        const k = makeNotificationKey(n);
+        if (k && !delSet.has(k)) byKey.set(k, { ...n });
       });
       (Array.isArray(localList) ? localList : []).forEach(n => {
-        const k = makeKey(n);
-        if (!k) return;
+        const k = makeNotificationKey(n);
+        if (!k || delSet.has(k)) return;
         const prev = byKey.get(k);
         if (prev) {
           byKey.set(k, {
@@ -3920,22 +3953,38 @@ function saveAccountLikes(username) {
 
     function saveAccountNotifications(username, forceDbWrite = false) {
       const u = normalizeUsername(username || 'bradley_hansen');
-      const list = Array.isArray(state.notifications) ? state.notifications : [];
+      const delSet = getDeletedNotificationIds(u);
+      const list = (Array.isArray(state.notifications) ? state.notifications : []).filter(n => {
+        const k = makeNotificationKey(n);
+        return k && !delSet.has(k);
+      });
+      state.notifications = list;
       try {
         safeLocalStorageSet('pixly_notifications_' + u, JSON.stringify(list));
+        safeLocalStorageSet('pixly_deleted_notifications_' + u, JSON.stringify(Array.from(delSet).slice(-500)));
       } catch(e) {}
-      if (window.firebaseReady && window.firebase && (forceDbWrite || window._notificationsHydrated[u] || list.length > 0)) {
+      if (window.firebaseReady && window.firebase && (forceDbWrite || window._notificationsHydrated[u] || list.length > 0 || delSet.size > 0)) {
         try {
           const { db, doc, getDoc, setDoc } = window.firebase;
           window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
             let merged = list;
+            let mergedDel = new Set(delSet);
             try {
               const snap = await getDoc(doc(db, 'users', u));
-              if (snap.exists() && Array.isArray(snap.data().notifications)) {
-                merged = mergeNotificationLists(list, snap.data().notifications);
+              if (snap.exists()) {
+                const sd = snap.data() || {};
+                if (Array.isArray(sd.deletedNotificationIds)) {
+                  sd.deletedNotificationIds.forEach(id => mergedDel.add(String(id)));
+                }
+                if (Array.isArray(sd.notifications)) {
+                  merged = mergeNotificationLists(list, sd.notifications, mergedDel);
+                }
               }
             } catch(e) {}
-            await setDoc(doc(db, 'users', u), { notifications: merged }, { merge: true }).catch(() => {});
+            await setDoc(doc(db, 'users', u), {
+              notifications: merged,
+              deletedNotificationIds: Array.from(mergedDel).slice(-500)
+            }, { merge: true }).catch(() => {});
           }).catch(() => {});
         } catch(e) {}
       }
@@ -3944,6 +3993,7 @@ function saveAccountLikes(username) {
 
     function loadAccountNotifications(username) {
       const u = normalizeUsername(username || 'bradley_hansen');
+      state.deletedNotificationIds = getDeletedNotificationIds(u);
       let notifs = null;
       try {
         const raw = localStorage.getItem('pixly_notifications_' + u);
@@ -3955,7 +4005,10 @@ function saveAccountLikes(username) {
       if (!Array.isArray(notifs)) {
         notifs = [];
       }
-      state.notifications = notifs;
+      state.notifications = notifs.filter(n => {
+        const k = makeNotificationKey(n);
+        return k && !state.deletedNotificationIds.has(k);
+      });
 
       // Always hydrate & listen from Cloud Firestore so clearing localStorage or switching phones never loses activity
       if (window.firebaseReady && window.firebase) {
@@ -3963,17 +4016,22 @@ function saveAccountLikes(username) {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', u)).then((snap) => {
             window._notificationsHydrated[u] = true;
-            const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
             if (curU !== u) return;
-            if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              const incoming = snap.data().notifications;
-              const merged = typeof mergeNotificationLists === 'function'
-                ? mergeNotificationLists(state.notifications, incoming)
-                : incoming;
-              if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
-                state.notifications = merged;
-                safeLocalStorageSet('pixly_notifications_' + u, JSON.stringify(state.notifications));
-                if (typeof renderNotifications === 'function') renderNotifications();
+            if (snap.exists()) {
+              const sd = snap.data() || {};
+              if (Array.isArray(sd.deletedNotificationIds)) {
+                sd.deletedNotificationIds.forEach(k => state.deletedNotificationIds.add(String(k)));
+                try { safeLocalStorageSet('pixly_deleted_notifications_' + u, JSON.stringify(Array.from(state.deletedNotificationIds).slice(-500))); } catch(e) {}
+              }
+              if (Array.isArray(sd.notifications)) {
+                const incoming = sd.notifications;
+                const merged = mergeNotificationLists(state.notifications, incoming, state.deletedNotificationIds);
+                if (JSON.stringify(merged) !== JSON.stringify(state.notifications)) {
+                  state.notifications = merged;
+                  safeLocalStorageSet('pixly_notifications_' + u, JSON.stringify(state.notifications));
+                  if (typeof renderNotifications === 'function') renderNotifications();
+                }
               }
             }
           }).catch(() => {});
@@ -4193,6 +4251,10 @@ function saveAccountLikes(username) {
       }
       if (!Array.isArray(notifs)) return;
 
+      const removedNotifs = notifs.filter(n => (n.type === type && n.fromUser === fromUser && String(n.postId || n.noteId || '') === String(postId || '')));
+      if (removedNotifs.length > 0 && typeof recordDeletedNotifications === 'function') {
+        recordDeletedNotifications(removedNotifs, cleanTarget);
+      }
       notifs = notifs.filter(n => !(n.type === type && n.fromUser === fromUser && String(n.postId || n.noteId || '') === String(postId || '')));
       try {
         localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
@@ -4201,7 +4263,8 @@ function saveAccountLikes(username) {
       if (window.firebaseReady && window.firebase) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true }).catch(() => {});
+          const delArr = typeof getDeletedNotificationIds === 'function' ? Array.from(getDeletedNotificationIds(cleanTarget)).slice(-500) : [];
+          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs, deletedNotificationIds: delArr }, { merge: true }).catch(() => {});
         } catch(e) {}
       }
 
@@ -4291,12 +4354,17 @@ function syncLikedStateToPosts() {
 
     function getActiveFirestoreUsername() {
       const u = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
-      return String(u).toLowerCase().replace(/^@/, '').trim();
+      return (typeof normalizeUsername === 'function')
+        ? normalizeUsername(u)
+        : String(u).toLowerCase().replace(/^@/, '').trim();
     }
     window.getActiveFirestoreUsername = getActiveFirestoreUsername;
 
     function getAccountStorageKey(baseKey, username) {
-      const u = String(username || getActiveFirestoreUsername() || 'guest').toLowerCase().replace(/^@/, '').trim();
+      const rawU = username || getActiveFirestoreUsername() || 'guest';
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(rawU)
+        : String(rawU).toLowerCase().replace(/^@/, '').trim();
       return `${baseKey}_${u || 'guest'}`;
     }
 
@@ -5059,7 +5127,7 @@ function syncLikedStateToPosts() {
         isPlus: false,
         subscriptionStatus: "inactive",
         postsCount: 0,
-        followersCount: "4,820",
+        followersCount: "0",
         followingCount: "342"
       },
       activeTab: "feed", // "feed", "profile", "explore"
@@ -7336,17 +7404,26 @@ function syncLikedStateToPosts() {
     window.renderNotes = renderNotes;
 
     function buildCommentsMap() {
-      const map = Object.assign({}, window._lastRemoteCommentsMap || {});
+      const delSet = state.deletedReplyIds || new Set();
+      const isDel = (id) => delSet.has(String(id)) || (!isNaN(Number(id)) && delSet.has(Number(id)));
+      const filterComments = (arr) => (arr || []).filter(c => c && !isDel(c.id)).map(c => {
+        if (!Array.isArray(c.replies)) return c;
+        return { ...c, replies: c.replies.filter(r => r && !isDel(r.id)) };
+      });
+      const map = {};
+      Object.keys(window._lastRemoteCommentsMap || {}).forEach(k => {
+        const filtered = filterComments(window._lastRemoteCommentsMap[k]);
+        if (filtered.length > 0) map[k] = filtered;
+      });
       const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
       if (state.explorePostsArchive instanceof Map) {
         state.explorePostsArchive.forEach(p => allPosts.push(p));
       }
-      if (state.explorePostsArchive instanceof Map) {
-        state.explorePostsArchive.forEach(p => allPosts.push(p));
-      }
       allPosts.forEach(p => {
-        if (p && Array.isArray(p.comments) && p.comments.length > 0) {
-          map['post:' + String(p.id)] = p.comments;
+        if (p && Array.isArray(p.comments)) {
+          const filtered = filterComments(p.comments);
+          if (filtered.length > 0) map['post:' + String(p.id)] = filtered;
+          else delete map['post:' + String(p.id)];
         }
       });
       const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
@@ -7354,8 +7431,10 @@ function syncLikedStateToPosts() {
         state.exploreNotesArchive.forEach(n => allNotes.push(n));
       }
       allNotes.forEach(n => {
-        if (n && Array.isArray(n.comments) && n.comments.length > 0) {
-          map['note:' + String(n.id)] = n.comments;
+        if (n && Array.isArray(n.comments)) {
+          const filtered = filterComments(n.comments);
+          if (filtered.length > 0) map['note:' + String(n.id)] = filtered;
+          else delete map['note:' + String(n.id)];
         }
       });
       return map;
@@ -7623,6 +7702,27 @@ function syncLikedStateToPosts() {
 
     function deleteProfileReplyItem(kind, targetId, commentId, replyId) {
       let deleted = false;
+      if (!state.deletedReplyIds) state.deletedReplyIds = new Set();
+      const delTargetId = replyId ? String(replyId) : String(commentId);
+      if (delTargetId) {
+        state.deletedReplyIds.add(delTargetId);
+        if (!isNaN(Number(delTargetId))) state.deletedReplyIds.add(Number(delTargetId));
+      }
+      if (window._lastRemoteCommentsMap) {
+        const mapKey = (kind === 'post' ? 'post:' : 'note:') + String(targetId);
+        if (Array.isArray(window._lastRemoteCommentsMap[mapKey])) {
+          if (replyId) {
+            window._lastRemoteCommentsMap[mapKey].forEach(c => {
+              if (String(c.id) === String(commentId) && Array.isArray(c.replies)) {
+                c.replies = c.replies.filter(r => String(r.id) !== String(replyId));
+              }
+            });
+          } else {
+            window._lastRemoteCommentsMap[mapKey] = window._lastRemoteCommentsMap[mapKey].filter(c => String(c.id) !== String(commentId));
+          }
+        }
+      }
+      window._lastLocalCommentsWriteTs = Date.now();
       const removeFromList = (items) => {
         (items || []).forEach(obj => {
           if (String(obj.id) !== String(targetId) || !Array.isArray(obj.comments)) return;
@@ -7946,7 +8046,7 @@ function syncLikedStateToPosts() {
             avatar: BRADLEY_AVATAR_IMAGE,
             category: "Personal & Fitness",
             location: "Banff, Canada & NJ 📍",
-            followersCount: "4,820",
+            followersCount: "0",
             followingCount: "342",
             isFollowing: true
           }
@@ -9340,9 +9440,16 @@ function syncLikedStateToPosts() {
         if (isTargetPost && Array.isArray(p.comments)) {
           p.comments = p.comments.filter(c => {
             const matchesText = c.text && replyText && (c.text.trim() === replyText.trim() || c.text.includes(replyText) || replyText.includes(c.text));
-            const isFromUser = (c.user === state.currentUser.username || c.user === 'bradley_hansen');
+            const isFromUser = (normalizeUsername(c.user) === normalizeUsername(state.currentUser.username) || normalizeUsername(c.user) === 'bradley_hansen');
+            if (matchesText && isFromUser && c.id !== undefined) {
+              state.deletedReplyIds.add(String(c.id));
+              if (!isNaN(Number(c.id))) state.deletedReplyIds.add(Number(c.id));
+            }
             return !(matchesText && isFromUser);
           });
+          if (window._lastRemoteCommentsMap && Array.isArray(window._lastRemoteCommentsMap['post:' + String(p.id)])) {
+            window._lastRemoteCommentsMap['post:' + String(p.id)] = p.comments.slice();
+          }
         }
       });
 
@@ -9766,14 +9873,19 @@ function syncLikedStateToPosts() {
 
         // 8. Remove from Notifications if matching (safe against notifications with no text)
         if (state.notifications) {
+          const droppedNotifs = [];
           state.notifications = state.notifications.filter(n => {
             if (!n) return false;
-            if (n.postId !== undefined && String(n.postId) === strId) return false;
             const nText = typeof n.text === 'string' ? n.text : '';
-            if (nText.includes(strId)) return false;
-            if (post && post.caption && nText.includes(post.caption.slice(0, 15))) return false;
+            const match = (n.postId !== undefined && String(n.postId) === strId) ||
+                          nText.includes(strId) ||
+                          (post && post.caption && nText.includes(post.caption.slice(0, 15)));
+            if (match) { droppedNotifs.push(n); return false; }
             return true;
           });
+          if (droppedNotifs.length > 0 && typeof recordDeletedNotifications === 'function') {
+            recordDeletedNotifications(droppedNotifs);
+          }
         }
 
         // 9. Update Profile Post Count
@@ -10535,7 +10647,7 @@ function syncLikedStateToPosts() {
         location: "Galloway, New Jersey 📍",
         link: "t.me/bradley_hansen",
         joined: "Joined 2022",
-        followersCount: "4,820",
+        followersCount: "0",
         followingCount: "342",
         mutual: "Your Profile",
         isFollowing: false
@@ -11144,8 +11256,12 @@ function syncLikedStateToPosts() {
         updateCreatorFollowButton(state.viewedCreator);
         const followersEl = document.getElementById('user-profile-followers-count');
         if (followersEl) {
-          const baseNum = parseInt(String(state.viewedCreator.followersCount || '0').replace(/\D/g, ''), 10) || 1200;
-          followersEl.textContent = nowFollowing ? `${(baseNum + 1).toLocaleString()}` : `${baseNum.toLocaleString()}`;
+          let realCount = 0;
+          try {
+            const targetFollowers = JSON.parse(localStorage.getItem('pixly_followers_' + cleanU) || '[]');
+            if (Array.isArray(targetFollowers)) realCount = targetFollowers.length;
+          } catch(e) {}
+          followersEl.textContent = realCount.toLocaleString();
         }
       }
 
@@ -11375,13 +11491,14 @@ function syncLikedStateToPosts() {
             if (!d) return;
             if (d.deactivated === true) {
               if (d.scheduledDeletionAt && Date.now() >= d.scheduledDeletionAt) {
-                permanentlyDeleteAccount(normLoginU);
-                performLogout();
-                showToast(`@${normLoginU} was permanently deleted after 30 days of inactivity.`);
+                permanentlyDeleteAccount(cleanU);
+                showToast(`@${cleanU} has been permanently deleted.`);
+                if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
                 return;
               }
-              cancelAccountDeactivation(normLoginU);
-              showToast(`Welcome back, @${normLoginU}! Account deletion has been canceled. ✓`);
+              showToast(`@${cleanU}'s account is currently deactivated.`);
+              if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
+              return;
             }
             window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
             window._remoteUserProfilesCache[cleanU] = d;
@@ -11604,37 +11721,12 @@ function syncLikedStateToPosts() {
 
     // --- Followers Modal Controller (Displays Account Followers & Explore Actions) ---
     function getDefaultFollowersForUser(username) {
-      const cleanU = (username || '').toLowerCase().replace(/^@/, '');
-      if (cleanU === 'bradley_hansen') {
-        return [
-          { id: 101, username: "elena_eats", fullName: "Elena Rostova", bio: "Paris foodie & specialty coffee lover 🥐☕", avatar: COMMUNITY_IMAGES[0] },
-          { id: 102, username: "marcus_pups", fullName: "Marcus Vance", bio: "Backcountry mountain trails with Leo 🐾🌲", avatar: COMMUNITY_IMAGES[1] },
-          { id: 103, username: "arch_digest", fullName: "Architecture Daily", bio: "Brutalist & minimalist geometry 🏛️📐", avatar: COMMUNITY_IMAGES[2] },
-          { id: 104, username: "city_vibe", fullName: "Maya Lin", bio: "Tokyo neon & rainy alley reflections 🏮🌧️", avatar: COMMUNITY_IMAGES[3] },
-          { id: 105, username: "nordic_trails", fullName: "Freja Hansen", bio: "Lofoten arctic adventures & fjords 🏔️🌅", avatar: COMMUNITY_IMAGES[5] },
-          { id: 106, username: "coastal_nomad", fullName: "Julian Vance", bio: "Dawn patrol barrels in Byron Bay 🌊🏄‍♂️", avatar: COMMUNITY_IMAGES[9] },
-          { id: 107, username: "tokyo_wanderer", fullName: "Ren Tanaka", bio: "35mm film street photography in Shinjuku 🎞️🎌", avatar: COMMUNITY_IMAGES[3] },
-          { id: 108, username: "dolomites_hiker", fullName: "Matteo Bianchi", bio: "Seceda ridges & Italian alpine summits ⛰️☁️", avatar: COMMUNITY_IMAGES[10] },
-          { id: 109, username: "patisserie_chef", fullName: "Camille Dupont", bio: "Artisan sourdough & layered escargot 🥖✨", avatar: COMMUNITY_IMAGES[0] },
-          { id: 110, username: "desert_mirage", fullName: "Tariq Mansoor", bio: "Dark skies & star tracks in Wadi Rum 🌌🐪", avatar: COMMUNITY_IMAGES[6] },
-          { id: 111, username: "kyoto_moments", fullName: "Hanae Mori", bio: "Bamboo forest serenity & zen tea 🎋🍃", avatar: COMMUNITY_IMAGES[2] },
-          { id: 112, username: "golden_paws", fullName: "Samira Cole", bio: "Summit trails with rescue goldens 🐕🏕️", avatar: COMMUNITY_IMAGES[1] },
-          { id: 113, username: "bali_sol", fullName: "Wayan Surya", bio: "Uluwatu reef breaks & golden sunsets 🌅🌴", avatar: COMMUNITY_IMAGES[4] },
-          { id: 114, username: "scandi_living", fullName: "Lars Nilsson", bio: "Stockholm hygge & morning fika ☕🕯️", avatar: COMMUNITY_IMAGES[7] },
-          { id: 115, username: "swiss_peaks", fullName: "Noah Keller", bio: "Matterhorn alpine mountaineering 🏔️🇨🇭", avatar: COMMUNITY_IMAGES[5] },
-          { id: 116, username: "sushi_artisan", fullName: "Jiro Takahashi", bio: "Edomae bluefin nigiri craft, Ginza 🍣🥢", avatar: COMMUNITY_IMAGES[0] },
-          { id: 117, username: "pacific_northwest", fullName: "Sierra Brooks", bio: "Coastal sea caves & temperate rainforests 🌲🌊", avatar: COMMUNITY_IMAGES[9] },
-          { id: 118, username: "barcelona_light", fullName: "Mateo Gomez", bio: "Gothic Quarter sketchbooks & plazas 🇪🇸✨", avatar: COMMUNITY_IMAGES[2] },
-          { id: 119, username: "wander_tropics", fullName: "Maya Patel", bio: "Coral reef conservation in Baa Atoll 🐠🤿", avatar: COMMUNITY_IMAGES[4] },
-          { id: 120, username: "aurora_hunter", fullName: "Astrid Lindgren", bio: "Tromsø northern lights chaser 🌌❄️", avatar: COMMUNITY_IMAGES[6] }
-        ];
-      }
       return [];
     }
     window.getDefaultFollowersForUser = getDefaultFollowersForUser;
 
     function getAccountFollowersList() {
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'user');
       try {
         const stored = JSON.parse(localStorage.getItem('pixly_followers_' + curU) || 'null');
         if (Array.isArray(stored)) {
@@ -11646,19 +11738,8 @@ function syncLikedStateToPosts() {
     window.getAccountFollowersList = getAccountFollowersList;
 
     function getFollowersDisplayCount() {
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
       const list = getAccountFollowersList();
-      if (curU === 'bradley_hansen') {
-        const delta = list.length - 20;
-        return Math.max(0, 4820 + delta);
-      }
-      if (curU === 'pixlynote') {
-        return list.length;
-      }
-      const baseStr = String((state.currentUser && state.currentUser.followersCount) || '0');
-      if (/[a-zA-Z]/.test(baseStr)) return baseStr;
-      const baseNum = parseInt(baseStr.replace(/\D/g, ''), 10) || 0;
-      return Math.max(baseNum, list.length);
+      return list.length;
     }
     window.getFollowersDisplayCount = getFollowersDisplayCount;
 
@@ -12025,28 +12106,44 @@ function syncLikedStateToPosts() {
 
     function getSessionAccounts() {
       let list = [];
-      const acKey = 'pixly_session_accounts_' + getAccountCenterOwner();
       try {
-        const raw = localStorage.getItem(acKey);
+        const raw = sessionStorage.getItem('pixly_current_session_accounts');
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) list = parsed;
         }
       } catch(e) {}
+      list = list.filter(a => {
+        if (!a || !a.username) return false;
+        const norm = normalizeUsername(a.username);
+        if (typeof getDeactivationRecord === 'function' && getDeactivationRecord(norm)) return false;
+        if (window._pixlyDeletedUsernames && window._pixlyDeletedUsernames.has(norm)) return false;
+        return true;
+      }).map(a => {
+        const norm = normalizeUsername(a.username);
+        const liveAcc = (window._pixlyAccounts && window._pixlyAccounts[norm]) ? window._pixlyAccounts[norm] : null;
+        return {
+          ...a,
+          avatar: (liveAcc && liveAcc.avatar) ? liveAcc.avatar : a.avatar
+        };
+      });
       if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-        const curNorm = state.currentUser.username.toLowerCase();
-        const idx = list.findIndex(a => (a.username || '').toLowerCase() === curNorm);
+        const curNorm = normalizeUsername(state.currentUser.username);
+        const idx = list.findIndex(a => normalizeUsername(a.username) === curNorm);
         const curEntry = {
           username: state.currentUser.username,
           fullName: state.currentUser.fullName || state.currentUser.username,
           email: state.currentUser.email || '',
           phone: state.currentUser.phone || '',
-          avatar: state.currentUser.avatar || (normalizeUsername(state.currentUser.username) === 'bradley_hansen' ? BRADLEY_AVATAR_IMAGE : (normalizeUsername(state.currentUser.username) === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : NEUTRAL_BLANK_AVATAR)),
+          avatar: state.currentUser.avatar || (curNorm === 'bradley_hansen' ? BRADLEY_AVATAR_IMAGE : (curNorm === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : NEUTRAL_BLANK_AVATAR)),
           accountType: state.currentUser.accountType || 'personal'
         };
         if (idx === -1) list.unshift(curEntry);
         else list[idx] = { ...list[idx], ...curEntry };
       }
+      try {
+        sessionStorage.setItem('pixly_current_session_accounts', JSON.stringify(list));
+      } catch(e) {}
       return list;
     }
 
@@ -12116,48 +12213,18 @@ function syncLikedStateToPosts() {
     window.syncAccountCenterToFirestore = syncAccountCenterToFirestore;
 
     function mergeAccountCenterFromCloud(cloudAccounts, removedUsernames = []) {
-      if (!Array.isArray(cloudAccounts)) return;
-      const removedSet = new Set((Array.isArray(removedUsernames) ? removedUsernames : []).map(u => String(u).toLowerCase().replace(/^@/, '')));
-      const localList = getSessionAccounts();
-      const mergedMap = new Map();
+      // Do NOT re-insert signed-out, deleted, or stale accounts from cloud/local persistence into the current session switcher.
+      const removedSet = new Set((Array.isArray(removedUsernames) ? removedUsernames : []).map(u => normalizeUsername(u)));
+      window._pixlyDeletedUsernames = window._pixlyDeletedUsernames || new Set();
+      removedSet.forEach(u => { if (u) window._pixlyDeletedUsernames.add(u); });
 
-      localList.forEach(a => {
-        if (!a || !a.username) return;
-        const k = a.username.toLowerCase();
-        if (!removedSet.has(k)) mergedMap.set(k, a);
+      const currentSession = getSessionAccounts().filter(a => {
+        const norm = normalizeUsername(a.username);
+        return !removedSet.has(norm);
       });
-
-      cloudAccounts.forEach(a => {
-        if (!a || !a.username) return;
-        const k = a.username.toLowerCase();
-        if (removedSet.has(k)) return;
-        const prev = mergedMap.get(k);
-        if (!prev) {
-          mergedMap.set(k, a);
-        } else {
-          mergedMap.set(k, {
-            ...prev,
-            ...a,
-            avatar: a.avatar || prev.avatar || ''
-          });
-        }
-      });
-
-      const merged = Array.from(mergedMap.values());
-      const acKey = 'pixly_session_accounts_' + getAccountCenterOwner();
-      safeLocalStorageSet(acKey, JSON.stringify(stripHeavyImagesForLocalStorage(merged)));
-      if (window.idbStorage) {
-        try { idbStorage.set(acKey, JSON.stringify(merged)); } catch(e) {}
-      }
-
-      // Ensure _pixlyAccounts has entries so 1-tap switching works on a new phone
-      window._pixlyAccounts = window._pixlyAccounts || {};
-      merged.forEach(acc => {
-        const k = (acc.username || '').toLowerCase();
-        if (k && !window._pixlyAccounts[k]) {
-          window._pixlyAccounts[k] = acc;
-        }
-      });
+      try {
+        sessionStorage.setItem('pixly_current_session_accounts', JSON.stringify(currentSession));
+      } catch(e) {}
 
       updateChatHeadBadge();
       const switcherModal = document.getElementById('modal-account-switcher');
@@ -12233,11 +12300,15 @@ function syncLikedStateToPosts() {
 
     function registerSessionAccount(acc) {
       if (!acc || !acc.username) return;
+      const norm = normalizeUsername(acc.username);
+      if (window._pixlyDeletedUsernames) window._pixlyDeletedUsernames.delete(norm);
       const list = getSessionAccounts();
-      const norm = acc.username.toLowerCase();
-      const idx = list.findIndex(a => (a.username || '').toLowerCase() === norm);
+      const idx = list.findIndex(a => normalizeUsername(a.username) === norm);
       if (idx === -1) list.push(acc);
       else list[idx] = { ...list[idx], ...acc };
+      try {
+        sessionStorage.setItem('pixly_current_session_accounts', JSON.stringify(list));
+      } catch(e) {}
       syncAccountCenterToFirestore(list);
     }
     window.registerSessionAccount = registerSessionAccount;
@@ -14959,23 +15030,95 @@ function syncLikedStateToPosts() {
           localStorage.setItem('pixly_accounts', JSON.stringify(accts));
         }
       } catch(e) {}
+      window._pixlyDeletedUsernames = window._pixlyDeletedUsernames || new Set();
+      window._pixlyDeletedUsernames.add(normU);
+
+      // Remove from sessionStorage & all localStorage account switcher/center keys
       try {
-        const sessRaw = localStorage.getItem('pixly_session_accounts');
-        if (sessRaw) {
-          const sess = JSON.parse(sessRaw);
-          if (Array.isArray(sess)) {
-            const filtered = sess.filter(a => ((a && a.username) ? a.username.toLowerCase().replace(/^@/, '') : '') !== normU);
-            localStorage.setItem('pixly_session_accounts', JSON.stringify(filtered));
+        const curSessRaw = sessionStorage.getItem('pixly_current_session_accounts');
+        if (curSessRaw) {
+          const curSess = JSON.parse(curSessRaw);
+          if (Array.isArray(curSess)) {
+            sessionStorage.setItem('pixly_current_session_accounts', JSON.stringify(curSess.filter(a => normalizeUsername(a && a.username) !== normU)));
           }
         }
+      } catch(e) {}
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.endsWith('_' + normU) && k.startsWith('pixly')) {
+            keysToRemove.push(k);
+          } else if (k.startsWith('pixly_session_accounts')) {
+            try {
+              const arr = JSON.parse(localStorage.getItem(k) || '[]');
+              if (Array.isArray(arr)) {
+                localStorage.setItem(k, JSON.stringify(arr.filter(a => normalizeUsername(a && a.username) !== normU)));
+              }
+            } catch(err) {}
+          }
+        }
+        keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch(err) {} });
       } catch(e) {}
       if (window._pixlyAccounts && window._pixlyAccounts[normU]) {
         delete window._pixlyAccounts[normU];
       }
 
+      // Clean up posts, notes, comments, likes, saves, follows in memory
+      const isTargetUser = (u) => normalizeUsername(u) === normU;
+      if (Array.isArray(state.posts)) state.posts = state.posts.filter(p => !p || !isTargetUser(p.author));
+      if (Array.isArray(state.explorePosts)) state.explorePosts = state.explorePosts.filter(p => !p || !isTargetUser(p.author));
+      if (state.explorePostsArchive instanceof Map) {
+        state.explorePostsArchive.forEach((p, pid) => { if (p && isTargetUser(p.author)) state.explorePostsArchive.delete(pid); });
+      }
+      if (Array.isArray(state.notes)) state.notes = state.notes.filter(n => !n || !isTargetUser(n.author));
+      if (Array.isArray(state.exploreNotes)) state.exploreNotes = state.exploreNotes.filter(n => !n || !isTargetUser(n.author));
+      if (state.exploreNotesArchive instanceof Map) {
+        state.exploreNotesArchive.forEach((n, nid) => { if (n && isTargetUser(n.author)) state.exploreNotesArchive.delete(nid); });
+      }
+      const stripUserComments = (arr) => (arr || []).forEach(obj => {
+        if (!obj || !Array.isArray(obj.comments)) return;
+        obj.comments = obj.comments.filter(c => c && !isTargetUser(c.user)).map(c => ({
+          ...c,
+          replies: Array.isArray(c.replies) ? c.replies.filter(r => r && !isTargetUser(r.user)) : c.replies
+        }));
+      });
+      stripUserComments(state.posts);
+      stripUserComments(state.explorePosts);
+      stripUserComments(state.notes);
+      stripUserComments(state.exploreNotes);
+      if (Array.isArray(state.following)) {
+        state.following = state.following.filter(f => f && !isTargetUser(f.username));
+      }
+
       if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.deleteDoc && window.firebase.doc) {
-        const { db, doc, deleteDoc } = window.firebase;
+        const { db, doc, deleteDoc, collection, getDocs, setDoc } = window.firebase;
         deleteDoc(doc(db, 'users', normU)).catch(() => {});
+        deleteDoc(doc(db, 'accountCenters', normU)).catch(() => {});
+        // Remove from posts collection & active user's accountCenter
+        if (typeof getDocs === 'function' && typeof collection === 'function') {
+          getDocs(collection(db, 'posts')).then(snap => {
+            snap.forEach(pDoc => {
+              const pd = pDoc.data();
+              if (pd && isTargetUser(pd.author || pd.username)) {
+                deleteDoc(doc(db, 'posts', pDoc.id)).catch(() => {});
+              }
+            });
+          }).catch(() => {});
+        }
+        const ownerU = (typeof getAccountCenterOwner === 'function') ? getAccountCenterOwner() : '';
+        if (ownerU && ownerU !== 'guest' && ownerU !== normU && typeof setDoc === 'function') {
+          const acRef = doc(db, 'accountCenters', ownerU);
+          window.firebase.getDoc(acRef).then(snap => {
+            if (!snap.exists()) return;
+            const d = snap.data() || {};
+            const accts = Array.isArray(d.accounts) ? d.accounts.filter(a => normalizeUsername(a && a.username) !== normU) : [];
+            const removed = Array.isArray(d.removedUsernames) ? [...d.removedUsernames] : [];
+            if (!removed.includes(normU)) removed.push(normU);
+            setDoc(acRef, { accounts: accts, removedUsernames: removed, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+          }).catch(() => {});
+        }
       }
     }
     window.permanentlyDeleteAccount = permanentlyDeleteAccount;
@@ -15523,6 +15666,7 @@ function syncLikedStateToPosts() {
       try {
         localStorage.removeItem('pixly_is_logged_in');
         localStorage.removeItem('pixly_active_username');
+        sessionStorage.removeItem('pixly_current_session_accounts');
       } catch(e) {}
       state.messages = [];
       state.notes = [];
@@ -17173,6 +17317,11 @@ function syncLikedStateToPosts() {
             } catch(e) {}
           }
 
+          // Ensure Firebase Auth session is active (fixes permission errors after same-page logout & re-login)
+          if (window.firebase && window.firebase.auth && !window.firebase.auth.currentUser && window.firebase.signInAnonymously) {
+            try { await window.firebase.signInAnonymously(window.firebase.auth); } catch(e) {}
+          }
+
           // PASSWORD VERIFICATION LOGIC:
           let expectedPassword = null;
           let isPasswordValid = false;
@@ -17200,13 +17349,8 @@ function syncLikedStateToPosts() {
             }
             if (savedBradPw) {
               isPasswordValid = await verifyPassword(pw, savedBradPw);
-            } else if (pw.length >= 4) {
-              isPasswordValid = true;
-              try {
-                const initHash = await hashPassword(pw);
-                localStorage.setItem('pixly_user_password_bradley_hansen', initHash);
-                localStorage.setItem('pixly_user_password', initHash);
-              } catch(e) {}
+            } else {
+              isPasswordValid = false;
             }
           } else {
             const lookupU = isPixlynote ? 'pixlynote' : (matchedAccount ? matchedAccount.username.toLowerCase() : cleanInput);
@@ -18689,6 +18833,10 @@ function syncLikedStateToPosts() {
               return false;
             };
             if (Array.isArray(state.notifications)) {
+              const droppedStoryNotifs = state.notifications.filter(n => shouldDropNotif(n));
+              if (droppedStoryNotifs.length > 0 && typeof recordDeletedNotifications === 'function') {
+                recordDeletedNotifications(droppedStoryNotifs, curU);
+              }
               state.notifications = state.notifications.filter(n => !shouldDropNotif(n));
               try { localStorage.setItem('pixly_notifications_' + curU, JSON.stringify(state.notifications)); } catch(e) {}
               if (typeof renderNotifications === 'function') renderNotifications(true);
@@ -19663,7 +19811,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
     // --- Stripe After-Payment Redirect (?session_id=...) Handler (Spark Free Tier) ---
     function applyStripeSessionVerification(username, sessionId) {
-      if (!username || !sessionId) return;
+      if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return;
       const cleanU = normalizeUsername(username);
       if (!cleanU) return;
       if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
@@ -20163,19 +20311,31 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               applyStripeSubscriptionCancellation(state.currentUser.username);
             }
           }, 300);
-        } else if ((isValidStripeToken && hasRecentCheckout) || (subscribed === 'true' && hasRecentCheckout)) {
-          const verifiedToken = isValidStripeToken ? token : ('sub_' + checkoutTs);
-          localStorage.setItem('pixly_pending_stripe_session', verifiedToken);
+        } else if (isValidStripeToken && hasRecentCheckout) {
           localStorage.removeItem('pixly_pending_stripe_cancel');
           localStorage.removeItem('pixly_stripe_checkout_initiated');
           try { sessionStorage.removeItem('pixly_stripe_checkout_initiated'); } catch(e) {}
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
-          setTimeout(() => {
-            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-              applyStripeSessionVerification(state.currentUser.username, verifiedToken);
+          (async () => {
+            try {
+              const res = await fetch('https://misty-frog-0c99.brad-g-hansen.workers.dev/verify-stripe-session?session_id=' + encodeURIComponent(token));
+              if (!res.ok) throw new Error('Stripe verification endpoint returned ' + res.status);
+              const data = await res.json();
+              if (data && data.verified === true && (data.payment_status === 'paid' || data.status === 'complete')) {
+                localStorage.setItem('pixly_pending_stripe_session', token);
+                if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+                  applyStripeSessionVerification(state.currentUser.username, token);
+                }
+              } else if (typeof showToast === 'function') {
+                showToast('Stripe payment could not be verified.');
+              }
+            } catch(err) {
+              if (typeof showToast === 'function') {
+                showToast('Unable to verify Stripe session with server.');
+              }
             }
-          }, 300);
+          })();
         } else if (token || subscribed !== null) {
           // Arbitrary URL parameter without legitimate checkout initiation: strip URL and do nothing
           const cleanUrl = window.location.pathname + window.location.hash;
