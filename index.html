@@ -2978,9 +2978,8 @@
                 if (data.username) state.currentUser.username = data.username;
                 if (data.fullName) state.currentUser.fullName = data.fullName;
                 if (data.bio) state.currentUser.bio = data.bio;
-                if (data.password) {
-                  state.currentUser.password = data.password;
-                  try { localStorage.setItem('pixly_user_password', data.password); } catch(e) {}
+                if (data.passwordHash) {
+                  try { localStorage.setItem('pixly_user_password_bradley_hansen', data.passwordHash); } catch(e) {}
                 }
 
                 // 3. Likes on Pictures
@@ -2994,16 +2993,37 @@
                   }
                 }
 
-                // 3b. Saved Post IDs from Cloud Firestore
-                if (Array.isArray(data.savedPostIds)) {
-                  if (!state.savedPostIds) state.savedPostIds = new Set();
-                  data.savedPostIds.forEach(id => {
-                    state.savedPostIds.add(String(id));
-                    const num = parseInt(id, 10);
-                    if (!isNaN(num)) state.savedPostIds.add(num);
-                  });
-                  renderSaved();
-                  renderFeed();
+                // 3b. Saved Post IDs, Saved Note IDs & Deleted IDs from Cloud Firestore (replace so unsaves/deletes sync)
+                const recentlyMutatedLikes = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+                if (!snap.metadata.hasPendingWrites && !recentlyMutatedLikes) {
+                  if (Array.isArray(data.savedPostIds)) {
+                    state.savedPostIds = new Set();
+                    data.savedPostIds.forEach(id => {
+                      state.savedPostIds.add(String(id));
+                      const num = parseInt(id, 10);
+                      if (!isNaN(num)) state.savedPostIds.add(num);
+                    });
+                    renderSaved();
+                    renderFeed();
+                  }
+                  if (Array.isArray(data.savedNoteIds)) {
+                    state.savedNoteIds = new Set();
+                    data.savedNoteIds.forEach(id => {
+                      state.savedNoteIds.add(String(id));
+                      const num = parseInt(id, 10);
+                      if (!isNaN(num)) state.savedNoteIds.add(num);
+                    });
+                    renderSaved();
+                    renderNotes();
+                  }
+                  if (Array.isArray(data.deletedPostIds)) {
+                    state.deletedPostIds = new Set(data.deletedPostIds.map(String));
+                    state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
+                  }
+                  if (Array.isArray(data.deletedNoteIds)) {
+                    state.deletedNoteIds = new Set(data.deletedNoteIds.map(String));
+                    state.notes = state.notes.filter(n => !state.deletedNoteIds.has(String(n.id)));
+                  }
                 }
 
                 // 3c. Stories (24h TTL) & Story Comments from Cloud Firestore
@@ -3453,47 +3473,25 @@
           } catch(e) {}
         }
 
-        // On cold start, wait for authStateChanged before fetching user data
-        // Auto-authenticate so request.auth is NEVER null in Firestore rules
+        // On cold start, ensure anonymous Firebase session if not already authenticated (no hardcoded email/password attempts)
         try {
-          const defaultEmail = 'bradley.g.hansen@hotmail.com';
-          const defaultPw = state.currentUser.password || 'demo1234';
-          let savedEm = null;
-          let savedPw = null;
-          try {
-            savedEm = localStorage.getItem('pixly_user_email');
-            savedPw = localStorage.getItem('pixly_user_password');
-          } catch(e) {}
-          const loginEmail = savedEm || defaultEmail;
-          const loginPw = savedPw || defaultPw;
-
-          try {
-            await signInWithEmailAndPassword(auth, loginEmail, loginPw);
-            console.log("Authenticated as:", loginEmail);
-          } catch(err) {
-            try {
-              await createUserWithEmailAndPassword(auth, loginEmail, loginPw);
-              console.log("Created & authenticated as:", loginEmail);
-            } catch(e2) {
-              try {
-                await signInAnonymously(auth);
-                console.log("Authenticated anonymously");
-              } catch(e3) {
-                console.warn("Auth fallback notice:", e3);
-              }
-            }
+          if (!auth.currentUser) {
+            await signInAnonymously(auth);
           }
-        } catch(e) {}
+        } catch(e) {
+          console.warn("Auth fallback notice:", e);
+        }
 
-        // Listen for Auth changes and attach live listeners
+        // Listen for Auth changes and attach live listeners only for the active logged-in user
         onAuthStateChanged(auth, async (user) => {
           if (user) {
             console.log("Firebase Auth verified. UID:", user.uid);
-            attachFirestoreListeners();
           }
-          // Always listen to stable bradley_hansen document
-          attachFirestoreListeners();
           if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+            const activeNorm = String(state.currentUser.username).toLowerCase().replace(/^@/, '').trim();
+            if (activeNorm === 'bradley_hansen') {
+              attachFirestoreListeners();
+            }
             if (typeof window.hydrateActiveAccountFromFirestore === 'function') {
               window.hydrateActiveAccountFromFirestore(state.currentUser.username);
             }
@@ -4086,18 +4084,99 @@ function syncLikedStateToPosts() {
     // Pending queue for likes clicked before Firebase finishes loading
     window.pendingLikesSync = false;
 
+    function getActiveFirestoreUsername() {
+      const u = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
+      return String(u).toLowerCase().replace(/^@/, '').trim();
+    }
+    window.getActiveFirestoreUsername = getActiveFirestoreUsername;
+
+    function getAccountStorageKey(baseKey, username) {
+      const u = String(username || getActiveFirestoreUsername() || 'guest').toLowerCase().replace(/^@/, '').trim();
+      return `${baseKey}_${u || 'guest'}`;
+    }
+
+    function stripHeavyImagesForLocalStorage(obj) {
+      try {
+        if (!obj) return obj;
+        if (Array.isArray(obj)) {
+          return obj.map(item => stripHeavyImagesForLocalStorage(item));
+        }
+        if (typeof obj === 'object') {
+          const copy = { ...obj };
+          ['image', 'avatar', 'authorAvatar', 'coverImage'].forEach(k => {
+            if (typeof copy[k] === 'string' && copy[k].startsWith('data:image/') && copy[k].length > 30000) {
+              copy[k] = '';
+            }
+          });
+          return copy;
+        }
+      } catch(e) {}
+      return obj;
+    }
+
+    async function hashPassword(pw) {
+      const str = String(pw || '');
+      if (!str) return '';
+      try {
+        if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+          const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode('pixlynote_v1:' + str));
+          const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+          return 'sha256:' + hex;
+        }
+      } catch(e) {}
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return 'h:' + (h >>> 0).toString(16);
+    }
+    window.hashPassword = hashPassword;
+
+    async function verifyPassword(pw, stored) {
+      if (!stored || !pw) return false;
+      const s = String(stored);
+      if (s.startsWith('sha256:')) {
+        const computed = await hashPassword(pw);
+        return computed === s;
+      }
+      if (s.startsWith('h:')) {
+        let h = 2166136261;
+        for (let i = 0; i < pw.length; i++) {
+          h ^= pw.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return ('h:' + (h >>> 0).toString(16)) === s;
+      }
+      return pw === s;
+    }
+    window.verifyPassword = verifyPassword;
+
     async function syncAllLikesToFirestore() {
-      if (!window.firebaseReady || !window.firebase) return;
+      if (!window.firebaseReady || !window.firebase || !state.isLoggedIn) {
+        window.pendingLikesSync = true;
+        return;
+      }
+      if (!window._likesHydratedFromCloud) {
+        window.pendingLikesSync = true;
+        return;
+      }
       try {
         const { db, doc, setDoc } = window.firebase;
+        const activeU = getActiveFirestoreUsername();
+        if (!activeU) return;
         const likedArray = Array.from(state.likedOrder || state.likedPostIds || []);
         const likedNotesArr = Array.from(new Set(Array.from(state.likedNoteOrder || state.likedNoteIds || []).map(String)));
-        const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+        const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
         
-        // Lightweight user document: stores likes, notes, bio, and avatar (NO heavy posts array to stay well under 1MB)
+        // Lightweight user document: stores likes, saves, deletes, notes, bio, and avatar (NO heavy posts array)
         const payload = {
           likedPostIds: likedArray,
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
+          savedNoteIds: Array.from(new Set(Array.from(state.savedNoteIds || []).map(String))),
+          deletedPostIds: Array.from(new Set(Array.from(state.deletedPostIds || []).map(String))),
+          deletedNoteIds: Array.from(new Set(Array.from(state.deletedNoteIds || []).map(String))),
+          deletedReplyIds: Array.from(new Set(Array.from(state.deletedReplyIds || []).map(String))),
           notes: state.notes || [],
           likedNoteIds: likedNotesArr,
           likedStoryIds: Array.from(new Set(Array.from(state.likedStoryIds || []).map(String))),
@@ -4114,7 +4193,6 @@ function syncLikedStateToPosts() {
           lastUpdated: Date.now()
         };
 
-        const activeU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
         await setDoc(doc(db, 'users', activeU), payload, { merge: true });
         if (activeU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
           await setDoc(doc(db, 'users', uid), payload, { merge: true });
@@ -4126,22 +4204,20 @@ function syncLikedStateToPosts() {
       }
     }
 
-    // Helper: Save avatar directly to Cloud Firestore (100% Free Spark Plan - No Storage required)
+    // Helper: Save avatar directly to Cloud Firestore for the active user only
     async function persistAvatarToFirebase(dataUrl) {
       if (window.firebase && window.firebase.db) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : 'bradley_hansen';
+          const activeU = getActiveFirestoreUsername();
+          if (!activeU) return dataUrl;
           const avPayload = { 
             photoURL: dataUrl, 
             avatar: dataUrl, 
             lastUpdated: Date.now() 
           };
-          await setDoc(doc(db, 'users', 'bradley_hansen'), avPayload, { merge: true });
-          if (uid && uid !== 'bradley_hansen') {
-            await setDoc(doc(db, 'users', uid), avPayload, { merge: true });
-          }
-          console.log("Saved avatar directly to Firestore users/" + uid);
+          await setDoc(doc(db, 'users', activeU), avPayload, { merge: true });
+          console.log("Saved avatar directly to Firestore users/" + activeU);
         } catch(e) {
           console.warn("Firestore avatar save notice:", e);
         }
@@ -4348,67 +4424,73 @@ function syncLikedStateToPosts() {
 // --- Comprehensive Persistent Storage Controller (Likes, Notes, Saved, Profile) ---
     function persistState() {
       try {
+        const curU = getActiveFirestoreUsername() || 'guest';
+        const k = (base) => getAccountStorageKey(base, curU);
+
         // 0. Save Deleted Post IDs
         if (state.deletedPostIds) {
           const deletedJson = JSON.stringify(Array.from(state.deletedPostIds).map(String));
-          try { localStorage.setItem('pixly_deleted_posts', deletedJson); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_deleted_posts', deletedJson);
+          try { localStorage.setItem(k('pixly_deleted_posts'), deletedJson); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_deleted_posts'), deletedJson);
         }
 
         // Save Replies & Deleted Replies
         if (state.replies) {
-          try { localStorage.setItem('pixly_replies', JSON.stringify(state.replies)); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_replies', JSON.stringify(state.replies));
+          try { localStorage.setItem(k('pixly_replies'), JSON.stringify(state.replies)); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_replies'), JSON.stringify(state.replies));
         }
         if (state.deletedReplyIds) {
           const delRepJson = JSON.stringify(Array.from(state.deletedReplyIds).map(String));
-          try { localStorage.setItem('pixly_deleted_replies', delRepJson); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_deleted_replies', delRepJson);
+          try { localStorage.setItem(k('pixly_deleted_replies'), delRepJson); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_deleted_replies'), delRepJson);
         }
 
         // Save Deleted Note IDs
         if (state.deletedNoteIds) {
           const delNoteJson = JSON.stringify(Array.from(state.deletedNoteIds).map(String));
-          try { localStorage.setItem('pixly_deleted_notes', delNoteJson); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_deleted_notes', delNoteJson);
+          try { localStorage.setItem(k('pixly_deleted_notes'), delNoteJson); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_deleted_notes'), delNoteJson);
         }
 
-        // Save Highlights (ensures empty array [] is persisted if deleted)
+        // Save Highlights (strip heavy base64 images from localStorage, keep full in idbStorage)
         if (state.highlights !== undefined) {
-          try { localStorage.setItem('pixly_highlights', JSON.stringify(state.highlights)); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_highlights', JSON.stringify(state.highlights));
+          const lightHighlights = stripHeavyImagesForLocalStorage(state.highlights);
+          try { localStorage.setItem(k('pixly_highlights'), JSON.stringify(lightHighlights)); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_highlights'), JSON.stringify(state.highlights));
         }
 
-        // 1. Save Liked post IDs and chronological order (localStorage, sessionStorage, IndexedDB)
+        // 1. Save Liked post IDs and chronological order
         if (!state.likedPostIds) state.likedPostIds = new Set();
-        const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
         saveAccountLikes(curU);
         saveAccountNotifications(curU);
-// 2. Save Custom User Posts
+
+        // 2. Save Custom User Posts (lightweight in localStorage to avoid 5MB quota errors, full in idbStorage)
         const customPosts = state.posts.filter(p => typeof p.id === "number" && p.id > 1000);
-        try { localStorage.setItem('pixly_custom_posts', JSON.stringify(customPosts)); } catch(e) {}
-        idbStorage.set('pixly_custom_posts', JSON.stringify(customPosts));
+        const lightPosts = stripHeavyImagesForLocalStorage(customPosts);
+        try { localStorage.setItem(k('pixly_custom_posts'), JSON.stringify(lightPosts)); } catch(e) {}
+        if (window.idbStorage) idbStorage.set(k('pixly_custom_posts'), JSON.stringify(customPosts));
 
         // 3. Save Saved Notes IDs
         if (state.savedNoteIds) {
           const savedNoteJson = JSON.stringify(Array.from(state.savedNoteIds).map(String));
-          try { localStorage.setItem('pixly_saved_notes', savedNoteJson); } catch(e) {}
-          if (window.idbStorage) idbStorage.set('pixly_saved_notes', savedNoteJson);
+          try { localStorage.setItem(k('pixly_saved_notes'), savedNoteJson); } catch(e) {}
+          if (window.idbStorage) idbStorage.set(k('pixly_saved_notes'), savedNoteJson);
         }
 
-        // 3. Save Notes (using 'pixly_notes')
-        try { localStorage.setItem('pixly_notes', JSON.stringify(state.notes)); } catch(e) {}
-        idbStorage.set('pixly_notes', JSON.stringify(state.notes));
+        // 3. Save Notes
+        const lightNotes = stripHeavyImagesForLocalStorage(state.notes);
+        try { localStorage.setItem(k('pixly_notes'), JSON.stringify(lightNotes)); } catch(e) {}
+        if (window.idbStorage) idbStorage.set(k('pixly_notes'), JSON.stringify(state.notes));
         
         // 4. Save Bookmarked post IDs
         const savedPostsJson = JSON.stringify(Array.from(state.savedPostIds).map(String));
-        try { localStorage.setItem('pixly_saved', savedPostsJson); } catch(e) {}
-        idbStorage.set('pixly_saved', savedPostsJson);
+        try { localStorage.setItem(k('pixly_saved'), savedPostsJson); } catch(e) {}
+        if (window.idbStorage) idbStorage.set(k('pixly_saved'), savedPostsJson);
 
         // 5. Save Comments & Replies Overlay for all posts & notes
         if (typeof buildCommentsMap === 'function') {
           const cmap = buildCommentsMap();
-          try { localStorage.setItem('pixly_comments_map', JSON.stringify(cmap)); } catch(e) {}
+          try { localStorage.setItem(k('pixly_comments_map'), JSON.stringify(cmap)); } catch(e) {}
           if (Object.keys(cmap).length > 0 || window._commentsDirty) {
             if (window.firebaseReady && window.firebase) {
               try {
@@ -4422,13 +4504,13 @@ function syncLikedStateToPosts() {
           }
         }
         
-        // 5. Save Profile data safely without bloating storage
+        // 5. Save Profile data safely without plain-text password or >30KB base64 avatar in localStorage
+        const lightAvatar = (typeof state.currentUser.avatar === 'string' && state.currentUser.avatar.startsWith('data:image/') && state.currentUser.avatar.length > 30000) ? '' : state.currentUser.avatar;
         const cleanUser = {
           username: state.currentUser.username,
           fullName: state.currentUser.fullName,
           email: state.currentUser.email,
-          password: state.currentUser.password || 'demo1234',
-          avatar: state.currentUser.avatar,
+          avatar: lightAvatar,
           bio: state.currentUser.bio,
           link: state.currentUser.link,
           postsCount: state.currentUser.postsCount,
@@ -4436,12 +4518,13 @@ function syncLikedStateToPosts() {
           followingCount: state.currentUser.followingCount
         };
         const userStr = JSON.stringify(cleanUser);
-        try { localStorage.setItem('pixlynote_user', userStr); } catch(e) {}
-        try { localStorage.setItem('pixly_avatar', state.currentUser.avatar); } catch(e) {}
-        try { sessionStorage.setItem('pixlynote_user', userStr); } catch(e) {}
+        try { localStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
+        try { if (lightAvatar) localStorage.setItem(k('pixly_avatar'), lightAvatar); } catch(e) {}
+        try { sessionStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
         if (window.idbStorage) {
-          idbStorage.set('pixlynote_user', userStr);
-          idbStorage.set('pixly_avatar', state.currentUser.avatar);
+          const fullUserStr = JSON.stringify({ ...cleanUser, avatar: state.currentUser.avatar });
+          idbStorage.set(k('pixlynote_user'), fullUserStr);
+          idbStorage.set(k('pixly_avatar'), state.currentUser.avatar);
         }
 } catch (err) {
         console.warn('persistState error:', err);
@@ -4685,7 +4768,6 @@ function syncLikedStateToPosts() {
 
     // --- Application State ---
     const PRESET_IMAGES = [
-  { id: "img1", path: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGEAAABhCAIAAABJZFj0AAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAABFDUlEQVR4nIX9aZBtWXYehq1h732GO+XwMt/86r2qrqquoauru6vnRhMEAoQBEgAtmqIJMWRbPxz6oR+OsByUbcm2rAiHLNmSKNmhsMwgLRqGSJqkRNOEABhAd3WjB1ZVV3dVdc3Dm4ec8+Ydzjl777WWf5ybr6oB0zzvxY3Mmydv3rPv2mt9a33fWgdVFQ2A0AAwCjQK79y8+73X+WAeolZUaM7oXavSesxrVb29UW5Oho9dg7NrwAAewAGYAQEwGhqcHoZgigCAoGiAiKsnzQBW3z784uMnP34BALP+jJ/59vTFV7/+8DlUQzUwBTAABEZlBgABiAAJQAGmcOft5eJYdu5NLRWQGbMDY18Wjc1zMb/w6fUnXhi4MZgHZCAC1YwmCqCQBchDhO5bP7770hsTK6jLDkli8uzmmOPmYPMzn9LN4fDTj0GJgNDNmtliRoGIWUCAkAABtb9mROwv++NLQCQiQkREZiYiVUVEPL3K/gRERmBDOn1ytSafWDmFnzno44VC00/8lAEtGwgRIzQAEaAGEACFe+8u0zHceHtXZsMCR23boqNEqcP59rX1x58fbV4D8AAMoglNFERADDrc/fYPm9duTBrjjKqaCbVwncnmk49ULzwNlzchQJZ47+Aw5hxjRILCsWgSkeC4Xx1Ce2gX/RfIZEAESETEQER8ehARAQIBASGTIybHYO5PWNnPHj+zRob0sVF9bFcKAKBGRGCmKce2Y0BfFDlmoOC8gwSzG3Dzre7uBwcMFYgzdE1qwcv4HD75hfXzT5MaUAC0LCAKHTTffvXuKz8dt1RlDuQSWuP5pNSrP/9FfuoaVAyk199/31fF0jIgEiIzokGWiIgusOjH754Q0QCRAVQRBMwh9UdvR8yMyETESEBGwEDo2ZFjoodG9KcXqDecnzk+sb9/5msAEE1m1r9bQxWR1MXS17v3D86fPQ8AEOHuO/Dj71+nNJKmLELdprn6RbXZfeZLj1x4Gg0ArRPoZP7D13a+98ZG9D4CG0SwruTlOFz9q38RNhwUcOvWzS53BICIgoCIqiop95tLRGJKQKgIiMiAzOyIGR0yGaoiEJFzjogQzRM754hcb1OrSyfqLcs5+tkF+hOL8jPfoq2sBu1Prh0AqCqQmZmBqJloJkCLgsgpWkq6NpmgAizgn/69G/lkhLlEROOccLZ+kb/4zXOj84C2NHjn9q3f/2N/3K1hoATJdFEiXdna+u/+ElQIknaOdvdnU3BgiGoZ1UCtv4acNcaYUlKwrutUFaG3EWRm5wIzCxgRec9VKELhQnCFD+ydc673R4hIiES9P0IiRvjYmgCod0v/P42qP+xP/lT/1BliZqqqKmgCQCm7LOacK7wnAWjgxf/3wfGOaVcAEHlr0t6Tnz33ua9XDlrb/+Eb5SzXFGIXVUAHRXF1e+3PvgAD3D94cDg9zpqYKIt0mhERREFXNi0G2kc1MzCSLAAKQMAYY4qzZYzR+wLRCu+qqqjKUJZlXZdVVfU7rrcaMEPsFwN7m/pkvPv/f9gnHlfG9adPQkQAIiIDQ8sKzhF76tK8XaSSi6oef+UXN3/4raPdW8vA49hl7zfef3OnHFzGB3/32/mN2+MOiCiCauXh3Nrmn/sKnJ88uHH9YHHcaHbBeySR1OWEDCqgqqfvnh5eRsradZ0qOOeccwAQY2xi1yxbVXWEVVXUVVFV1Xg8HI1GZVkWReGLQATYxzXAVfgjgn/uXvvTxz/vhD9pTWYGZqgWJUs2YEGKqmqdt+yHw4Ecwnd/f7p3PyGUimCWoZzRyfu36wQFsokmh0eFbf65n4Pzk7u3b9w9eDBdzjtJs2a5WMxyTKim2U6DNFq/0x/GdSIiMrMYY9u2KSXn3HgwnEwmg8HAew8AqqqqOee2bdu2bZqmbWOMOafVotvpcWojf9qO6Gcf/4Ur+PFrmpmaRclE5DwBCKAE75wj0Tg7OuYJfPPPTVzdRmizYMoMMHCjhZXgc0yZLIfi6je/AOfqZja9s/sgaY45iUUwS0qBuMc25BAIgRgAJZuq9u+D0aERaFaRrMk556rKeTfwwXufY4doIfgQAgB1XRKDZdvRrAmFq4qyrsuyKHoDNFsZASIB0J/aPJ9cpn/hNvtTa0wAIIjgGNVIYgKEqvLdMpkCrcOzXz7/o+/tayIAbpro1sxDhsysg1Be2nDPfUol3d570OSYJGZVBDIzySJkBEikljI7JHS9F8w556yqaqI5ZxHpl0xERASZgag/IzgOIQAyAIlCN29SSjkrEdRVNRoNJqPxYFgVRYFoACvABaj9jv7nQIF/sRGtHlHN0EAQQTSrqkMgQBFTyYiAzhK0gcvHP8t3bw9ufDBzNGSsHMUswDiuDnx6/M9+FRhu3bh9b+dBNk0GMWVrVVXB+dIHUtMuAgE6JJKHb0LURBRUsyr0OxHAzLqUtE2dZhExs+A4iUbRKhToeLXjmk40e8LBsNraPLOR1s5srjMTc28VCAaA/AkjIQA1oFVw+ESu8onjE54ItXdDpmoGqiKp6XGaiKoqKoBAsuicny+nITfD4foXvjbc2TtICydSODQUhuPUfOqbX4K1CgCu37oZQRNalNx1iQwRUZKm2DpBRMwWrY9Bp2jQDFWFyAEpA6NDBgYAVU1s2FpWk9ilKF3K82VThiKURc45xphzNNE+95hMEiLGnLxx7+NWq0CKwD97/Q8f/7n+6NR2DFTNTC2DqKlSb9ciAOB7B0IGojl3PtCiOxmO10dn4Mlnz7320oFZcMpO2KAOuD2BAXznD751dHKspe80K5hIj1TRkEDNZQCAjDlbZsQeBwEAk2eHjsF5BnSGhuydcyKSuw7II5mhSzknlZghdhmWTQ9EiYARmDlUZVnX7B0AkHPknIh4YjNDYM0GAMQMCA/3nZgSghogghkg9hgC+xP6TBABAFRNUcVMEUxVGR0TqSqoAKIZAGZVSV32vnzv/Tef+NQzZ86GosRlVhdBo6PzTzwKl7Yk5lsP7nERFscLLkNOKmIiogqmYIashGRAqqgJAFEc9qhPOXNr8WEW5lzqP64Yc5dyEpWUzfrMHI2IwfqAI6JCwMzIxOxDCN57752ZMTMSmEDbNN57dg5ATRWJRDIzM4IBEJ5iyFU0VEQUTYxoICCqmsHsNBCYKfaFg9XiMKAqiLF3YiqSRuNaJV264i9d3vrgvZlLwTXBeHMAAX740ssLy06RyKVlVMOkghlMLQMCEKKhoZ1+PGaQ0BABTUFUVXtk068UAPTuPAuogIEgIvepAYIaiIjzzOwYoUcGbdvO53PCWiUWoWLnNMXjo+l8Ph8Oh1VVlWWJzgEo08PtJipAzCs/ZSaSiYgRQRVMNYuBkgGY9CGAvBdNqv3Hr2gIKGaQOmEOBDkU/ujoaHN9e2Pb6QeNE2a3XsKVC2Bw58H9aJKTOWNUy2pgCKogpogAkNAYDADY0UOT7jFRjwD09Mg5n2J/SFnMsP94AcmM+kQ9hBAKT0QE4pwzxa7r2taDdqO6spxCCPPZ7Mb1W/P5vCiKixcvbm5u1oNBSq2vBpq6Hjkje1ABEBNBRwAGKqL5NKgJIhoqAJGBIiEYIxOBAuVkqkpsAEDkidjATI0ZAeDCRRite5fBYFTB9vBgf6+TDAJgkFWZ2RGhGRoJWjbJoChmaN6IjLivaqzApIj1+177SAIoCICmiMSOzAz6YhECEhACIZgZEXnuszbMOS8WC4bYcD7Yjevr6ycnJ6++/MpoNHHOFUWhaTk73kOmtl2ORpO1tXE1GHnvzahfjpSS9x4QHXMWWdVqVmkNq6r1e8EM0RQsq3ZisROwDKhkqSiKMhQqQk6Xy7i2FcoBOAAUTwDw0d1b865xxL3LjCl5X4AhIaCZR0QVQyPDh8nUaUolve08BMdIK5/abzmyfokMwE53BImIKaSUGCE4InIIYFnaVtrcWu5u37h9dHC4t7v/x9/+49FojIhlWeacRXJd1977q49ee+SRR7a2ts6ePeu9d86ZqaIGXwAoAiCArmy5B3EZgIjAe79cLg+nx/NFJ8opSkxLlcRI6+PJ9taZEFyMbcSTanDGcOkYabR1BjwsY1cURRsbh2Rm6LiDRIhsQISu/wQcoAEREgGiARgC9ikWgmpf0yI8raJh75X65esfzVBVTVHAzLRrWmnb1mFwfjQowTEIMxa7uwc//OGPTk5OTHRcn0HFlJIgrk3OhBCapplP53dv7e3eP5xOj86dXb98+eKTTz1z7dq1oihETSV7H1JKqpBzblNeLBZN05giOwzsprPFg53D43mDDGaWY8doG5O1wG4x8OyG3odQVMCwsT1xaji8eA4YmMkhDapCsnHwyRSZFIwNGRENzMRWkXUF2voEzTMiIoD1PtsIEc17XxSF97734qfZEopIzpqTqGrMKefcg6NAygRkKkmPDw9//OPXl/NOM66PNwAgtqkuSkduOYvJW5eyd/X04MQ518X44P7enTt3bnx08+s/941nn322HI8xJzQ1U1Fp2+5ksTw6OprPllnFOTJVFZwvuuWiAQJAZaTBsPbeF2VAtBi7QJi0KWFw6ZE1J4HhzNgsbZ5ZXzTLruv6/NQQkT8uHTokIu6N9tQuBBGZMXh2jvo67MrjYG9KK4TJ6E4xQW9WIKpmliSn1OWUck4eaT6fm+T333nv1ke3bt++W/pSksxmC1ATsbqu+1fXlPtUlkMRU0oCnF3hw4P7B9/+w++kLn75q19SRjNFZokx5wySc9f2SK/rkmMmcnXlRcqUEqKr63p9Ml4bjwYDj2zIoCgImQjW18AJAQw9FlDX9WQyEhn2HtQIAfRhFHfoiAgAVRURsqllUc1IxoyOkYic69MHNQAEBUJeoSeHiL1/p1ViTIgQY/R+QIgpdbFpTw4PTo6nH73//s7d3WbRTNvjuq4ZXdd1IQQRcWICggDsHHsGIkLnXXEyO8aqHNTjw73D11597eTk+HNf+eJ4MkmWUooIGrwfDoeqGkWdo97G19StNV2z7HLOw1F95syZtdHQB2AWICMidgCQi9I5MAIFNUg5C6CirRyxmvMEhP3GypbJCJGRURWQGF3vplYoVrJlyYhIPTADAARCAwQiMUJaYd98mppqWRXLtiFAMNvd3X9wf/f1n7w2nU5j14HJZ555qizL6fHM+42UEiKGELqcyMB5Ds4DraiX0eD8fH7Stt3xbK63bt/f20Uffu7P/pmyCGgUMQLE9bXxcFSnKIg4HNUhBCavqjG1TdM44uFwMKgKAAVEEVEgBgSDwoEDQmAwBMVVtOpDFDGIWE/vmAkBExGR9JzPw9ozoiE6Au2B4WmxtbcXIGLqr4T6+hn16UvvvwDAMzHz0eHht/7w22+98dO18dr9O/fOnzn32c9+1kRPTuZrk5EZalE0TQMmpAIAqEwGqgZmQFhV1WQyOTzcv3XnNiIm0Vdf/ckTn37y8iNX6jLUg1JEwKiPumaGq0CDSGYWUudTSowZIYskRAQ1QkDDHrg7RIbTCgwSEaoZEKBzlHNewXfU0/AFxBpYifr/xKcei4h9jxuIkIyAiYDIIRpaNjMAQwRCYCZ0DMiqysG3bXzjJ6/duXMnhOLu3ftlUb/wwgsqqW07zclUAcgRTUbDtm2BSVVNs2REJjATsa7xVVU99tjjTexufPRBrVYczV556UdXrzxiqKbZO+53PwCpKoACiKqKZLNMKN4ZmmlOkjMiiikgMhoYKoJTQDBAAO+5rAJjaaiMxH5V3zATAHBI6NghEaN3QLBCQLjCRHaaQgIiIBKvPisFUKIVdYpofeKnWRVSCEElMdgrL72cuzibnrRt+7kXnjPNy/kixgiaJSVmH1yRRetQZHY552xqor01EoDElKMowlNPPXNwcDSdHmnKb77+029+42vbF7ZMNauYAQGDUUrJUO10jcASQJ8FAgrlrIogpgauHHA9JhBwiAi4IqKZ1CEYmUNDAs897YIAwAjI6HoSEZAIHBEAqEpfGzIz04ynBwA+LIkhSZ8y9DHPetgJ1rSJ0DVN6wiaxbJdNo9efuTK5cvNdAoiIBK8yymmrnVgLpSaMpgiKKMZUs+P939lsVgo4cXLlyZrG7PZDAAf3Nv53d/5p7/2F39lvD4Wla5LYEQCAhZzFFuBXtOsqpJUoxAFFVDUDJoV1sBvnCEDcA/rLzl23XKREBCtA2DmuSaAHjR+nKkyM5qektLWw20+PQERGIDYVttXzRAQScwMxcQQFVb1byTDrmsJ7NNPPD49mB7u7l195HJslqrSe46YkmWZjEaq5ggykVNAh72SIPfXiQAK6FhEZrPZxsaZ+3fvDQcD5/KNjz5YzI+LEtFxcD7nnGJEJsltVunxf44ppQQCppBjMgRFFdOoVtWjfmXcaQKRqtKvr41UEoASkYECOAAg+5jAQTQCYTTViD0xBmAEoH2+wUgERKa2ylfQFEykLzNZ76lXEApQRerKx5g/9djVH3z3j9cmA89kKsvZvCpL733XdQDQNE1wXgHU1MBEzBBUIJu64L1zBhRj5NS2bTubz/t4NxqNuu4odQ3ThnOYU2IEKllEykBJDcEDkLG3oH39R0M2wiRtFCjIlYU3ywB97DdAAGJwjMZEBj0NxeQ/WQVdkYWg7lTOAABq2QCYHgo/DCADIIKC9f8QTBEdqhlqHx+IiIC8o5wiGpzd2kyx297eHg7r2XQ+GAyWi8XR0dFisQjs6romQCDsd3WMOebUdElMy7Isy5JdULAQgkhaLhZmuL+/P5lcLKvgiECyJFMxBCJUJCNEEgQzMwUyIATvzEwDGGq2IKZdxsIDkpmAg9OoRqYECmBEQKRmwASodhovEQwQFcBUxExWmFoNEEzQDFYlLzBVhdwDpz6iEVBCZjj160poiIYOzJgCABRFsbW1hYhVVU2PprsPdubzeV3XRV2hYz2lPnqgn1LKOSfJqtC0cTgchip0y0U1KJlxsZgFwhij9yYiKonJyBhARVKWiKZ9ybAnCgEVTrGLqIpmY5YMpgksE3iHyJ/gWz4WezzMQkFAwMhAUQEUzQgQjRDBsK+jAxECoCWDU3fTI2xEZ2CqimAouqpDgiKiIphZCCWAHh8fh6Lof3HRLN99/z1Gqgd1XdXEzjnni4KYJWUxFVNDJMcImkVSijHGwXgwmgzRoC6rQVXPFycHh8fDwVrOuWk6jhmMkAlA1TIDgikaMRGuKCoQU80CCIjmiMSB83Tqj1bsFWaDNiZAIdA+fTVDUzQBBQM1BVnxMIKmDABiKiKKcAq4P5ZarWATgKwWRkyyqjKCY2RGR4AI3icTSyqqPcerH7z/YUxSeDagLqcoGbHyAdBATLuc2hizSlbLCoDEjoloOp0lic+uPTeZTNbW1tpueZp+g2YzEVNBJqNkJgoIooZshgrS23tWAUVkUoVsKuBUVlIwtyJnAGKStm0Ncl8PAgAQEEBUkJXaSldISNEsi6GqZhVEQtI+p+9FNfgJIldVBaQv7IOqgTACIwCod+S9giggu6KoBvXB0ZSZ19Y2uq5rmk7Ve3YLaMysqKts2qW4aJaGBOS096NgnrmqKiK4/sGHZ89edM6FENq2S/2lx0xEKpCgy9aaiQmY9NEIDIEIBDDnnKICgC+cEYgquwzIBqf4yIBELfaKBjSzVeJAgEi0ogJXdTUzFTI1YlUU7eMXZ4OuXe3QLJJjjjF2XScxhdBTHlXwzOw8I69SFOmLKznacDQZTdYXJ8vt8xfu3L7HvgDRLqUYo0sOAIBJssUuxyzk0DGpiKSkqrlLdV1pjM88+9ThwUlZlo888sjO7h1TjF1eLlowU0Mjy5wBFIRUTUUFsA8g2SxF2HlwlHOebIwBsUsmMLqCLAquT1kNMGdNGRBslXIRqyoiATIh2qriAYTm2JGB9VdpPR2IMavlhNgz0U7ERU8FY3TkfVFVVV1W7BDRnKPg2DlyzCklhy4nI8fOF1eunHnrp28zc9e1sW0RMTg2kKYxZhbry+QC4ERS1yVVBSBiF2MkSifHs/X19aSys7vb/wjRGxbskJENFagTMANW06S5TbFLMSVpu9Qs4927O8fHx+O1NbUck7SJPvt5MALXyzoJcG/v4ObNWyl1PjjvfdsuQwhFUfR7RySpaggheI8GmqMhEmPTtlm1KApCJzlPRkMRqYoCci6ZQuEioSpIjl3Cdr6sqsJ7P12kuiwD8WK2sCy+rA7m8/MXHah2zVwtr2+u7e/tLRazohgbmpi44EiVGGJsR3VlZlXhe7MNwWnOqNi1KctBl9rd/Z3JeDCfLhxXx4uEDKASc2pyG5Msl3F2Mm+abt4su65bNl0PhNu2deyni4aZnfPITARmpzhbRPb29q5fv6mamTmlbjabAYDzq+S+J/JDCI4YAUREJIlpTAkR63ronEM171liCt57whBCWZYcivsP9sl5cpRVqqrqYc76ZAJZLeW+fpCi3L179/Lm9ub6RllURGRrk6pwknKKqRp6x9hGCc5VZZnbJhQVmnZJiCF2TVmWnvxsOh2dGY9Gg6qqHLnjo8N33/ngwfGxIUiOSdIyRgNyrkwp9X+Xw2BSjogopTRZ31BVJNeLFVRWYX6V9zOzpNwuG0RTZkMcDEbOuR5zs6OUkogUPhCRiBBRzjGJBhEmVxQVEWnKiEiu6Lo2oSFzxVVOhlY6rnIWVVGrsiQASJ0rQzEYlWwwm03Xx2sgcO/ePRbzRBKTNyiJLHhXV3Vdk4EjMEejslosFg5BEdAxEbngY4wZtGW8ODyvCAhahgChMsPBYLJoG2AIoSpHXgH79++c6wVAAMDsU5KDgyNVLauqKIpPxOgeQyoAwGAw2NzcVM39S/gi9IxCXypq2zbnXBUlMRBhCCGrpJgBiJm9L0CNyKUuLhaLnDUEVw+GVT3wvlCsmjYZZu/D2mTNFGOMRNS0bdvOttbXyrLeufPg6U8/HmfTtmlKLrq2CYRFNei6zhdFVZSqCmqapSwKBFADFS2cy6Y5dQjGzhFBUXhmDsSL2Ty37d7uwdqFC5lJGxIwHwaxado2VmWv7+mapinLsigq733Pg1ZVVRRFznlVplBwYAgEAFpXxfrauC9XO+eIWRX69SIiz0FEyrJ0jkLpfXA5SUqJyHlfFL4EgBTFe980zXIxG0/q7e0zZVmUdf3gwfT23QdmVpZ1KKq27VI2di5nIQRyYa0MmNPWeHgQF4vjNnZRc1uUJQCa58l4WJWDxWKxTNmydCZ96TaniGAMIGaOWUVyikeH+4PBoHSuWTTT/cM3Xvvpp8itnT8X0BkCuZIEKsSqKpwLRdexCz39a8tlWVWIWBQFnYp/VxUORQAFFYkxNk3TdR0RhRDMDIlW5NjK6rhXwjrnCJkZzFYcSc/rhcIdHR6Hsjh/6fLG5vjs2a0s3cl8cbJcCMKwHgHQyXyxWDQiNqkHa8MRSjw6Pu7IBqGUmHJKnimnrqpKIo4pDQYDEbl//z46jpKXXTw4OBiORuPxmJ0TVeecaEw5q2pZF7FdprabTU/mR9O6KLtlI2I+lMmgrgZZwLtsCCEU/RbrFQZ9ltObUgihTzDoVLTqepUYEU+Gg62N9X5zuSL0jpzIwalo3xRDWTBzn5r2KU5fafbem9mDnb2333738tVHrn3qsc2treP58QcfvvPh9Zt37x0EX69P1swwppyzDurJ2rorynp/b7qYzta3NwsuKBobmVlZlojY676WbXPrzp3793cuXrpSVdXxfH40m0VVYHLOmZkiEBMRxCzLZs4zG1QD74gQvXOj0ejs2bPMnigTO2eIyM4XzheqSo4ZidkTUVnWs9n0EzXonqNHQThV1NtKOXwqtVuJ8pi5L6EBQE/omwExi6yEiivaDFdl/vOXLl66fDWb2z+e37hx6733bx4eHzVRjXQ6mzv2oaxQhZnJMXunhgY4GIwsmwk0y2UIpWdMXfTedzF1MY4ma2rsitCmlFVGk7Fzro0xgBERqKCZY3TOiSQz896tjcYVht3799a3cG1t4yQn7wKoMTtP3FPwqkroesl4H7UeLtBDHQMAIJziI0Db29u7fv06MVZVdfHixTJUiOycEzMRWW0pRGbOCULhewbbs1NVYiTnz128tCHQtHL3/qGA3bi5e3/3xIB9VdX1ILfdslkMAbNqbZkIBIQYutgi2mg4ZCJPLJINyflisVgCkzPkLKPRaN40sctghABZhJizKKoBIYjkDFVVKWrbtja2zc31Oye3e6fhnMOUCMwzm2QmMCQj5n5ZVQMXTNCjP2Z2zqmqiD2s9LtPlIfw5OTk4HC/ruvBoArBEVHbWk+I9MXI/lVSjCkpKDKz9wFQ1SwD+BCWi27n4Hi+iDnp3v7e8XGrKtvnR76oJGlK85gzMyNZlmhWhbIIZdmlWA8G09lx/zb6/Q5MuclZDYwQrYcwPdw3QxEzS6oq4qu6NMk5ZzGFpDFGLjw6Zu9w1VBAIopmRGim2BdRV+wqEvf0O/XSp15aBmAPFWjutMMHh5PxhcuXqrpk5h7pKYKIkBERpaxEFHNS1ePDYzNz5Huq2lDVLKpN1s86X1T1SCDnpJMMCDw9OfI+SFREnozXi9LHGHv5mveMaFmigLpBcGzanQiIiKFSThpjlL7KmzIqgqoBIDkAlZQz9lBWeh1TG5NzVPtQVFVVDn0o17e2N89ttykCoQNEMgIsQlAzTwykvRv13jOSmYh87IkeioUB0a10hoh1PTx79mxdlG3XELle6gFGYJTFVE1NUS2lNJ1Nq6IaTEZFUZiqWO4ko4EhDscT8pO2AxFtFvPDw+GtmzKfnpQbmyvVnkHq4pKXKYnmrAopK7jAg8FiduSrarY/J+Sua5fLZbvsmH2xOqreOWaFlFKSKDnHFLvOXJHGftw1bVE65Gq+bEV9NRkfHxw++sSTPpQe43LZOUeAzkycC845RAshGEgIgREQi67rPuYpTtkEBXC66j6ArusWi0WU3KV8Ml/UWgFEs57rQTNUMBXIlhdNKwbEC1wsUxdjTsu2jWaXsHJhjbBiNlB1bIGVMDm1UVXF2HYSGb1nZxkQPGEAc1k5GmdXDTaKg7s3s7KZNTFN54vFySz4cjQaoWEvjok5ZQURySqrmqRK6bjpWgIQsZOT+frG9tqZM7du3dm6eHEw3ujMwPmyrMvCI5phLQrMTGiO2QwcMVEvquuJwlXIfyghWnHZAJRz7rrE7KsKzHC57MxMzcww5tQ2uctJxZKk+eKYiAp/0teSutwt2yUw+7Dmy/VhXRJA27Xt4iSnRRWoQEjtNKfOMwUCN6yy4sHeLpMj5MFwIugefeqZ5dFe7Jr9gz0zy6ZN286Wi0FNG96XZdV1XbtsxNQQkInNiamCaYpdTj55yEmUXDFoU94+f+EzX/hyO1tkIkFix8ExWk4pqVmvDQKD03CsZtgDooeVLzglEAE+Uc/2oST2BIiuZ4DACAhIss1OTnZ3DlwRiqI6mS0WbWT2g9KYHAG3XWo7Go6HTacn08ZkoarLk6Pp8Z7JbG3kyhBCcFGQyVehckW5fzS/d/8eAI0na2vr6xw8lWFy9szB/dvk3P7hAaJhcOP1tWE9oEBdjtP5SWzaZdcCIDlG6nW8DMaSUpdTRS6nlMVSztFs0UU1aNq2WN8QUzDwzqMp5Nz7av0T3Tofk1ofw+aepXYA1DNsPThiJMTQn9fL93Lqdnf3Pvroxta5s1tbYbFY7B8dO/ZdpT36ijkXVbF99mJRDVWgbZeERpgDKyIMBvX5c2eqqprNlyGUw3p8eDR9cH8neKrKgGDzrjm5O50s6u1xHara2DNzX4pxRXDBi6oj34vYOLN8TGQhMztzXYopJecxplibDUajwWhigAkB2MWYicBUidkMgR1+3Ii6EgM+fHwIiwCM+io9nNbYAKAMRVWUPYbsvZdliTk17WI8Hj3+xKNFXZWlvxC219fXVfvtSsGXSeXM1lkMoY1dlw5yjqWjQeXqiuswWhtXo9qXpevmFIAxq6W8nB7VRVWXrhyWrXQ5y/Rgf//WYqOsJKMZ5CjBl23bWoltTI6s6boupb5H1TnnA4oIMAV2HYdQ+rZZFkVwRdjc3ByNRl1WNVbUmslyAhM0RgUwVEQkh9ATmIjsGCnn3Aeo0wZe6RuOgdxDfwQ9NOhjXg83ex6sqqqtrS1RJSJ0nLM2bVou2lMBJBmSqDXLJbFzDgndfH5sCc6sDT35XucVu5yzzmcne3vXU0pbG5vFYJRT23WuKBmUm3lazk+waeu6XswZcZXl5JwBoF22/SdcFEUIAVYQSSxlYyrL0gdWiSE4Zj537lyffC3bbGpkaqsOqT5bUANVDKu2KRAz65OGU5ridPOdGpoDWLHZqxYYRO99HzJ8L1BznpnVjIgErIdjzJxS6huqouje7o6vhlevPaqqhODZCtSiKNvY+jaxd13XfXD93r27O13TPPb44xevXHmws/veRx9ubJ+dbKzHrgkOz5/bKon89tpiftB1bVmWMcY2JmZe1bp8oRYdsyKkKGJqBlVRKXGMbfCFc357e/vSpUsRkJjLsmzbFhEFLOeMRKqaJTkFtASogBlEwRIQI5mBINGqNUX6Qj4CwGpz9l79IXbqsWlP9UFW9q6vrViWGKOJ9FII57mua/aVD9VkbSNUdReTYwpMrDG1i2bRas5dlsW8uXtv5/7OfhHcdDbf2d3b3d+bTqfsQpK4nM/Ob29eeeTypKoKJtH43W+/2NtRX1Yvi0JERPKibR4WerKKmXHw3aJlpqqoFK0vj4kkV5S9rDBbXqWkp0ppQDHrlcna9wP35DqAEa3yc5VT1fDDXASxT2IACZFMc0wpLRZNzNl7PwhDAFgul/P5vE2xLwYUoSSipmk462g0cM4xc3CABOD9crZ4cP9BauZFYEPNYp1oNRx47/ePj5pu6V2xMVlDg+ZkCQaenAmklBy4q1evvj75ybEcxRi7ru0/P1XtaTgVUIdZc5tiiuLCElA9+6ZpfBmIwDkODomgrksFcexEsyH00kVPTIzMjAaOvNGqQNYffb5mZpJPxUMrn40f7zUAiDG2i2XTNCJWFEVZlowUY+zaVlUL540YEdWka1skj6yYZf9kJ2XIps658aDuuu7o6Agl5+zFEjq/trE+Bip9cJ4IrHAFIi+X7WyxMIDlcrmzs7M2HIzrAnI+s7mOBicnJ7PZzMxms1nOeUXhWYo5xRhjTgicJZY+aMpmymCqevfuXS6KYjD2oQZTJPDsyVYlDVXHzI4LBPU+m8lqzACx96FXtT5ERqd2dOqzeweZu6iqItKvTlVVQG65XJ7MZ13XITIxE7sQQkoppeSD6wve4/F4sWxzzs654DkziwiZKVhdD42wqAehLFZSXZXAoa/zVlVlJkzA7A21bdtB4R2CIxgNquCobdvFogGVtulEcoyxl+UG7+vRaDwYloXf3981Uw2u9CGnbtm1RyfTohyqYVVVIQQmQueIKHiPwI6CmTpWtYzgCNkxMCV82LNEBtj3En0CH/WUIRk458qyrOuamVV12bZd151Sw2aqpQ9JRFXBsGmatoldlpjyYtG44IPzB0Rdu2jadjIe1nXF3rvgkfsOAh5UNZpoFlQkCGVJAMCkG+vj8TCwZqfqHQXPKbZMUJfV+mRtsVgsFk3TtYv5MpsiovPFeFAPh3Vqlh6RmEd1NR4NnnnyiUUXO9H5YjlbNtPjw65LZjYcDsfjYQhlEfrCIRER2MfEMjP30p9+x/Uxzla8iAGY9cWBXijiPff1qsVi0cTOPgFJe2IeAFVNVU+OTw6Pj07my5x1uVyy84xkoOvj0XgyHI/GIbjSlxy8GnLw7F2vjCMikRSKss9UveMsbcpaVwW0UpUFmjKCIXBwwbOfjMqiaNp2UNVJckopq5lmyx2IIGgRwnBQkYrm5EB8GcbDM8Dh6GQ2PZ4dHh6fHE/3d3eqqqqHo82NreB976EIkJEM0TH31LGqgpHj0EshTutHH+NLAIC+8t80nfaaD7OUJOeMyIi4WCypF7kjVlW1ATAaTgRWDbR9vXsyGpRlOahKRCSjnDNXAYhy1iRaOh9TW5dl37IcCqc5N007qtlUGIABHYAjBIAcOwXzIQzKQjWbZsqOwDBGyDl1LYgEJjL1jk1lfnx87bFH/94//Aejycannnx6OF4bjza2ts7GGHcf3Ds5Obl/986DB/eG9WA4HNaDcjAY9MyoSHpoPmD0cR2y14yCkcO+iomfJB2ZmR2LCIk55wDZzDwxETF5AAihHAwG2mtGEXPOjgM7LHwIwVVVZWbtcgmdlkUQ08L7lFIIIbBT1RA4ihI6IENFTTkMBjt790ClLkOMrYJ6x56IEGKKDiwQAoKoqKQ+XmtOTECIVShAdHfn/nw2/TNf++qLf/yD//Jv/e3Pv/DlK48+vn5mqyiqR65ci6lt4mJvb3e5XB5P9/b2U1VVg8GgF7lXVXUKJh2jAyNFcGb4UH/0MAQiWs8U9QCsB9lACEb9iIO+aQaMGP1Kfk20ctjO02kjRL83Cx8K7xWsrgY5SVWU3bIpy7LX/49C6Zk1tYNyfXu9aqYHH737fuqaEEJwTlLqg4ym7JCAHbDmnNGAAVFFU8yShlUNjIUPwbHFvMzTO8vmiUcfe+31d/7oD7515tx7l69du3bt2oVzZweDyhVU15Wqzufzk5OTpmkWi8V0Ou1XYDgcra2thVC2bWuqxPRxrRagZwjgYUbHvGoZWmXDCoB9RW8FQYl7Ae3K7fV9IaAZkR2WBJRUEDnljpmcJ00RjRhxPF5zzjH7mHPX5bs7d9rZ9OzGMMjmzQ/eOdzfR9PBYDSoakZq21alp56dMRGRJ8YyhML1u7sKhZmOhmtmlnMmAFCTlLPGJx/71O99+/tcDA6mP/3Ja28+9eknLl0+f+nShfX1iS/Q+3IyWWvbNjZtjHE2m52cnBzs7h3s7nlfFM73ye9KD9n77L4613dQ9n9PwACRyAGKWTaCU2buoWJ/tUCI6JkQ0U7n0wBAn/oCclYpfQUA3pVVNfAcrt+4+eOfvPrh9Ruf//wLNz/8YHaw/9xTj1XY7N170LZLE+2rhT3blWNCwBgjAPSSY+ecR4ySU0oM0I93IeL5dI7n0cQAtWuWVVFNRmuSbf/4oB4OfvSjH7/88suPPPLI1atXzp49e+Hi+a2tzbIYS92p5slkPaW0XM6Pj49ns0VKCUTU/Ywd9USQppREUs65iREA2IVTB71C7IiGaEYriRQS+r46BdgnjmiQUhoMRmUdRCRyAAAXqC7q3d39rpHNja3t7XNf+fJXi6r+wQ++VzDfv/7+9tidqdPJ0V7XtCLm3JJoNXaEyOWcoZcxmhFgNjUzMgjszKwoyqocTKfTyXAIakwUkzSLJnYZAI+PT6az+bmLl2/fum5mr7/27gfv3y7LsLGxfvnKxcuXLz5y+eK5c2fLYtjFxrObjNZE05kzZ4CRPsbZiCvDkdR1Xd95v2KVMBEET+wKNgBFLUMgIqB+TgQQcm9N3hXe+7IsEXg6m6vC3s7uRx99pArPP/+cKf+jf/TfnExn589eOHv2/P/nD3//S1964ebNm7v3H4yG1bJr33zrrWFhdXBmqDlLynraTInIQEhGKcWUMgB4dkCIfcOv5P60vf3jxWK+tb05Hg6apssZi+CGVXXSxOFwuFzOz507t3N/JwudTJeLebO/f3jjxu21tfHGxvqZrY1nn37iypXLg8FILYuQ6wekADghBQTV1CsOlk0rIiYA5pgRyZjZI9S+zppyYQLimUMoTVHEsklZ1FU1qOvhrZu369rN5yfT6ezk5OTVV1/90pe+hIq3rl///nf/+Nd+7c9XZf2ZZ5//8MMPl+1iPp+/8sorX/7ylwvmN3/6uvPF7tH8px/d//S1y54L9hDbth4OZ7OFmVWD2nkvkC1ayrHPHAiREMWUwMoixOWCDJLEBwc7STdSm4owrIvBI1cu3N3bAaQvvvC5xXw+Pzo5ji0RqXVd13YxppynJ/O9g4OdB3tr6+PPfOapJ558bDAcGGGPjVwvoybmnGNKXT+NSFSrqhIQ9lQWng2cGgAiMwD5ovLOLRctAJ3dPq8KL7743RRzXQ/v3LnzyCPXfvSjl5966pnd3d3vfOc7fZp+//7dP/iDP6jr4euv/3Q2mz377LPe+/fff99Uv/TCC1tnNr777W+JyPXb9z2Hpy+fBQTnXNvGniWOsfWeicA5YgTJ0mUholAW3vtFt6isEjFJWUTaJsIaDerR+mSzGq0dLZaO+WTZbJ87W/rLzXzx/R/+KKdYVh5JnA+z+bQoirZb7uw8GA7rD6+/96nHr/3yn/uF5557boWPoB/RpZQ1GUnwPgSXszoX0GHWBGAKomBGBlAGX6ZkRLR97mII5Y9eevmll14hci+/9MrXv/71V155pSrK/b2df/TmW59+6onXfvLq9vbW3t4eANy9c3t7++xP33yTiNbXJznHZrl8//33F7PZX/i1X3300Uc/+uij2Wx2+979ccnXLl0AlcCcRZvlzCeLS/DsKGeTJEnEDIiN0ACoJzVzBkUQaqed2/bnzp4vyzKpLZdt20Xn6+1zF99849Wf+4Vv3Nu599FHH/3ab/zGl7/8pStXrpRlmfNKi0KExIBozOi9l5zBO2eGMAeooCiqwWCQcwTAyheKBIiMykyETEplKLiYZNXJ+iYz/xf/xd98+eWXv/D850TszTff2N3d/eEPf3h0fPiHf/T7g8EgS/eTn/w4pTQYVHt7ioj3798dDAbbZ7fu3rn3wQcf9BKWPt1/8cUXf/WX/zu/9Eu/9I//8T9+/7233/rw+qJtnnv66dg1YaCi2TGAiSOnBKAWY5vEjBEQFWFQlGVRW4pu4vou98IVnvndd98dTtb2Dw+XbSzGo7aNSW1r+9zf/a2/XxZ9dnGa2n884AXgtNel/7Zc9YssARRStEXT5pyYuXCgSEVZZxU1UAVflPVojd3Ah/L3/+CPXnzxO9/4xjfefuu9//Z3fn9tfXL16lVEXM4Xj1595M0333z66afns2kPDu7cvtk2CxEBVNV8/uz2/u5e2zRFCCtCOKXbt29/61vf+vSnn/gr//2//O6777z80g/f//DDxbK9fOFsYBiEIsXWgXWWiDiEEHMSy31PDQC2TRoPXPBUBhwMCl/4Ls4/uD4V0AcHOx9e/4AYUkqfeuyJb37jq1cvnYEOprdhtg/eQc6rNUEHveTfERBBzqAGbgCTS+BM6XAnb1x0AKzG7IEAu2QAtmxPXBFM0tnt8+Px+ocfXP/w/ZdDUS5nTYz5j/7o21/5ytdyF2/duvXy3stf+9pX9nf35osTA3n3vbc9uxBc13Wz2RQR+x6IO3dvMfPa2ni5bNu2LYoi5yQiTdPcvn3z6rVLt27dSin9mZ//+e8S3L1548HOvauXLp0ZD9dHwy52Jlh450LhsgRK2LemmhGxmTEzOwSCbDku87xZcvAf3bm7s39Qjc788p//C1974UkQuPk6fPjG7I1/dvPO9WNNfVKmCqaoiOjQpU4ROIQi6WK0ic99+VFnhnv3Djee267L9bIa59x554pQhxDQu8FoOKiG771//f0P32/b9vU33rpz585nP/u5xx59/Hd/93djjBcvXjSzW7dvfv/733/qyU+vra3VZQWgdV3N5/PCe1XwRdG0SxIDNcl5Mh7HNtVlWVXV0fFBlhSznH3ysRD8gwd3J2uje3dvX7v2yPntrdd+8pM33n57fbK2vbFx8cK5CKZKiowuOCQkxw69I+9dF+cIgRSarMhk5FvV6cHeOzduZKXf/M1/9d/41//H0MGL/3X60Xdu7FxfWgwlX1RV7HNXwpwzEUm2gryZWQaytfauvvL/muKr/9tD/2h89jfO7hwsD7sDguyck0hH02Mjm82XJ9PF4fH8xe/8oAju2U8/8dZPX3/5Rz96/vnn67r++//Pv/vVL31xNB6+/fab169fLwv/9NNPe6a33nprOBy2bWsiRITMPb2RkgyH40uXLu3tHmSJzFwU/nBv/9LlCxcunJ9MRhcunuua5f7+fmq7uq4B4MMPPnj37XcK5x3j2TNb58+dnYyHhfNoGlPLgN47JjBDQg+ERsZFEODjpvnRT358Mm/+ld/81/7n/9P/VQjwt/73r3/4kyiL9SAjTQhsRKRJiOjjiaSG5FhE+s5rMgeg+Oq/O/WX07O/sQkj+Hf/d//hzTu3n//s5+/f2X30U5/iAMcn8/Fos4vQxfzySz98782f/Ppf+JXbd+/+4Ac/+PO/8ivvv//uO++89cIXv3D/7p07d28d7h+Mx+PHHnvs5s2bElOvpRQRV4TlctnXrlDx2rVrbdvu7e2p5lC4zc2NRx65PDs5nkxG6xuT5XJZ+Wo6nfaTJzc2Nqqq+if/5J8wQZ/Kjqry6Sc/vbmx7hirUHh25DBnXS7a8fr6bNmA493Do7c/+GDeNp/73Bd+62/9llP87f/k3uvf3eU4YanQyAAFDMmJSHA+NvOqKEFUGbts7J2qovW9nupEME3j9EOYPAPzk9mPX/nx3Tu7zzz5mbt37589f4bIpQxtlxDtC1/43IXt9W/90YsXLl/47POf+e53X/zqV7/84UfvHR0drK+vzxcns+nJcrl88OBBr2/u52shwqrGwpxzDhwePHhw7tw556jtclHUTzzxqcX8pKoKdiiSr1y89M7b7w2qYdfNVPVwehya5dd+7ht7ezv7O/ttu5zNFz/56ZveuXNb2+e2zyJZFuu6ThFo92hnd/9oNksgGJwa/dIv/gXn8a3vwLs/OqbmLAsTcD+EiX1IYoacVYqyVBNFAAP2ZIQGKCl6Dl3O+Or/pln46cXn1q79YnHr7r1f+bW/eDJbfvlLXx+MR89//rNNl4hLcgyQEQySHh7s/+B7L25tbQ4Gg7v37pzZ2Hz11VeeeeaZo6OjnQf3Dg8P67re2Ng43Dvs1VbMbIQiYll6wbeZ1XVtILFtP/+F5yeT0fTwoCgKA5lMxoPB8O6dnb7a6b3vO+AUgRjGo7WD3b3FYpGjHO4ftW3LiEkE2TVNU4QSkZm9WM6Wy7p87nPP/73f/u2Tm/Db//l7t14DXq454pyzsQPivrzXt2f0XTL4iVmXiIzYNwSZEwC28uD+7JGD4srFC8889fQPXnrp7Xfe3DpztqjCp59+dnfvsKqL+ez4/PZWlzIAfP3rX//jP/7Oma3NZ5555rUfv5pS2tvbyznXdd00zXK57JWqcNoc2POX6LBtl2VZOk/H08OyLB577OqVK5dmx0fee2IIoRLRpmnOnDlz69adqip7CULbts5T28WDdqcoi+3txwCgu5oI3Ww2Pzg4eLC3w6DILue8Nlnf2toarY3q4eCv/bW/BgLvvQH3PlpaNwJFZAYyQ0pZ61CIiGEWTIpLxUREZJ6s1LRaLenH7KoAop/vL5YHMNyEv/Ef/Sff/MVv7u3ee+7ZZ25ev/H0Z57d3btbFh5yevXGR5cvX0spHew/OH/u7EsvvZRjmkzWR6Pjmzdu/Pqv//p3v/vdzc2t4+PjpunqIuScRdRMkNjM2tS6Ioim1EoZwvra+OrlS7lbkdQmkKOgp2pYHxwe5xz7tAzI6qpIKRXOm2jTNKbHRVGUZU0ubFbV+SsXn4htE5vCMzObQG7VOc+++MWf/7MgsDyCZioBOITQdmIcDMx7iLFVzRyQXJPdA/WLrOptCO0285iRVU16cgHZoah3gx9//9bPnbuyvb72l/6lX//t3/77H3z4XpdhdjxNcVn6WmO8/sGHj117IqVub29vfX1tc3Pzgw8+ePzxx0UEgX/nd36nLMueQVHNACHn3AN8ROyHBKjm4BhRfeDPf/75wNRPG0VEFenLmG3brq+Nx6PB22+/vb6+nlIigpxzCCV7djkjcc45SgTJqhqzd55ybLtGhsMajWLqUvLUJWCY3YU3X7tZ8Don37atKweClHMLqMaLcoBRFxeurv0b/87XwAMgAMPv/W34o997PYt3NDAhEe8EzIFPXWwPce86bH0O/kf/g3/1pR/+8J13b/ylf/k3m8Vyf/f+sqq8urXR2u/97u987gvPM9Ltm7fLUB7uH374/ofra2ux7ZqmuXbt/M7OTtc1iJhUBISA2tSWfNrtxZhSKgr/cz/39RCcJ065886JiBhVZQA1zaaU2qY5s7EuYsxclmVKqW2iC6gKBCoizBhC6Fmg0oVyfGa+bLtlYkxEEAL2jONyAbt359KtQybvWUC6uCg8dXJYjtqNS9X2xeGf//XzD27Bj14BItjahl/+KzCTrZNDvffR1LeT5lhcxEahYAwFrf2zF9/9hXNPPvnEE3/93/xf/Fv/9r9z46PrVx69dnI805gGbhicPzk6fPvNt/qm7LZtvfcppa7rnCdOuLNzn5n7GU6Ixsw5a1nWDKgIRJAlAerVa1fquiQDlYSr4ZZKjF3XlWUZSg+gk/WJL8JsNgPFXvVSlmXPLLi+9ZAMUB1j18X5Sdrc3CqqwXQ6JciqmYkcIRiowsl06WQ7eC+qObfek2r2AX71X/rsZ78E9Ta8/Qr83/7mtyQ7VUWKN249+9/7q+dB4L03L/7uPzrQmKitT8S1CiIdBVt79cWb0MIvfPMX/uW/9Jdv3rpz9uz52Um7mEcj2zvcqUp/tLcXm7icLVGt9AHApidH5NAXlCQaKhEQAQh48mSkSdGI7DRaeLe5tYXaz8BxBQUC7BUzyJAkJolAGHMeb2yOJ+uoZlmIgT0VhQdLYAlNTVSzaDYPRJba7oQ414MAAKPBWl2MQBmgHxppxtaIKXli7IdnG8JXfxn+8Fv7/+V/vP8Pf+utnE1hMRgRCL707Vv/l/9477d/+2hyBj793GarUxfd3HPFGpA8ajXb7V7+vf0v/uqZv/5v/k/2DqZr42HquiVBHA/btseB2MUlOdeXK8XyqhcCNbYpJUmiIkYmRIS26rNFtODcbNlubmyVISyXy8COT0dlA2KMrUoidH2pL6UERmuTSTdbIOKya8m7lLuyrmLbOu/66aoMqLgSOKSUiipUoTABSLa+uXHK9zCDA+acs0MjQlFg8hDhlZd/nI62cyf/2r/+C888D6Dw4bvwD/7OnZvv7dm96eNPfBUAyAt99oufTg461FYzUSnd2t4te/t7kQT+o//D/3p9EtYmdcrtnTu3e9lN13XRmiafKEdXkgu+Ho7Onrt0/sI17weAHsEzeyQDFCQFTIzGiCY6Kuszo0nlQumDiGRTDM4VoZ/DVTpfKObZUpquDgVndQqXr16bbJ4py9Ix+7IAx64qkmRDSCkt2kZEmHzbxiSKyDlHlSQ5Hx1NwcAEMHnOvlQrVQIw5l48lUGAcq0xX7t68Zkvwj/+Jw/+/f/glfEIHnv0UorLggIbEIIp04VrMNjG5FssIYqSldIW7712752XG1D4V/7yX/m3/vr/7JErF5aL2Wg0ms0W4/F45UFWzX6OkL/8pa888sijAKSnI5O0ZxD6yZqaVTOqjgbVsK5U0oo3Z8oibYrJkol6oIp9RTzk4DrBZXuyd1iWYTQeBOICseaAKXvDYShZdFhWiOYYS4Rx8BBjXCwqorHjUoVTBu3HQAMBYFYG7O/KoQJoBAiOCsl47dpZcPAH3/6d+7s33ngbHn8cBnUtyfqbWeSsLgd49msb7/zk+N6Hcw8jzwzqtRt88Pp+lzY/+/X6N37tly9ePPt3/vbfeeONNwl5MW+9C4iYkmgyVxKYvfzSS/PFIsW215z0TAaAggGQAJOoqGlRFBsbG977rOI9J7UsOaMMQ5WiyLIFYDIl4JTSmcn6PMWd+3cvXbmCJ4vlycmyaYdFSG3HzIlc7NJoNMjdgprIgMK+GIxDEmy7fDzthMHACMyJieZOEVEAlAMiAjJkEEnerX90/Rjy2l/+q3/R1D3zGPzBP+hbnPvRRoAOievoxvnCY8PhFkVYRu2QnKdBasr339j77u/uH9yGF55//t/+X/57f+Nv/GfPPvssAOQojE47KbyHnFHk9s2bh3t7mjOokgqqMSAjohIALNslOXaeLl48D6g55xCc9aNmvauqyjlXBh/YYdbDvX3H5thAsiObHh3FttmejF0b15DKLm+WhU+xOTh0mrJEkaTLeZrPLWZQbdtlyl3w7MiAIClk6LJ1yIBMGdAQcs6AGQpA30SYvXf9rf/8//zGtasbX/3q+J+9dPze9bfANegjeIgRHJITaNyw2rgUPqVnXvv+zbxgVWZwhAOTcO9G8+DB7We/cPmpLwzObD7x//iv/u/vvfvu//E/+A9ff/310rvUdSGEdrkgopySAyGiJKaW2TyYqQmaFUUhIqNh3SOdqigZaXYydVXRD2mJsXVi3rkSvYjM45IYM+csiSA/uH3j+YtXHzt/7sb1jy6cP3/vwX0CKxjN8jItJnVVqx+U9b0YT2KrwXvPCFAMK0BgB6Ohk7ZFqhAcIaqJ82ougkGkPRy0JPzee7v/p//0Bqqk1iR6ChgqKUdQ1qDZHDAoRAi2fbl4+oVL7766k5eaOnJc5uzNfF7kV75398234i/96rVQwrPPPfm3f+tvAsIf/s73fuu/+q0HO/cBlAjUsqqwwxhjzrkKBQCkKAJmCNnyN7/+ja5d5q6tynIwqM5ePD9vllnEOcdElDTNFgNykWTj0rZq3hxvPjjY21ifbG+e8aE+Opxee+apO3fuPPH8c/f3dkNstfSb44HGvL1REPAZzVIE74gJvYIYAUE9gLNnJzvHIjGbAruyZ6AlqyX49/79v6IL+Pj+PwrOARqkDFwA1fD2D4HRYxfnKpgjsgXpeOdm+vCt3cMdczo2DUmQHEeJXGrC2WiDn31+ezCArXNQlGAISKtph/3ox48HoBsB0Omct0+O2X84g2b15OkpCgarW3KsVBAECMArgT0YgPWCu765EAEBiMCgn7EL/eTjlSA/myq6ACfw3/5fF9/7p7dQ1iy54HySqGjqllCf/Ob/8LNl1d/0A8wADRwCGKQEvoT334YXf/ddSjV2qQVFERExEGcxHO/BjXemNz84Jhl5HuVEMRs4UheVlsLzwQi2z06Gowq9TNbKM1s4GEMofvZ+A/YzXyh+4qZEeHqZBoog+PBpIAAE6GfgU/9TAPkEYfGQxaBTLuOTf3A1H/v0PwOMEvz4v4b/5m++kufrJa1rFkREJnMSYZ6pNUhAmZ0aJEYXOy1c3Q8PJCyldQ4KjDn1t8MQkZwU0VnyJwd6uCNv/vhutwggo+BHUaXTlnxWjKqKDg1EQXwZiiq4gMCIiP1te/qPGU5vrmMGhiBkp/MHV4uJiIogSELaD/l6eA8tA0IAAxLs5zLCar4UrQbBEiAqKoIiKJuQno4XJ0QziC53taXf/PlH4V34h//Ze7vvhHZW+aIkdClGIlVYGJrjIoEqRoFERozkjNFI1aCvRiVzBIxsZoIMBCY5KqfBZhhM/OVHrv7opf37Nw+bdsrFkAREFNk7KmLKZogM3YKWy/72ZP1NflYm07fmrQzEwBAym1I/x3ql/TBDIVCyTNAvk/UjlhABRIEMexyB/WuaiRHa6pf7WXAU0cSDkClqj7yRzExZrUzdV5bw3KOwdi3cfv/QV+e63Fp2dShQJWVflWWzVBcK40SW0aBwPjYNAZZFlSRnyUz+/wsG0MC2Rd5sjAAAAABJRU5ErkJggg==", title: "Bradley Hansen" },
   { id: "img_lake", path: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfbW9yYWluZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZWE1ZTkiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMzY5YTEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNncmFkX21vcmFpbmUpIi8+PGNpcmNsZSBjeD0iMjgwIiBjeT0iMTQwIiByPSI0NSIgZmlsbD0iI2ZlZjA4YSIgb3BhY2l0eT0iMC44NSIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjE0MCIgcj0iNjUiIGZpbGw9IiNmZWYwOGEiIG9wYWNpdHk9IjAuMjUiLz48cG9seWdvbiBwb2ludHM9IjAsMjYwIDExMCwxNzAgMjMwLDIyMCAzNDAsMTYwIDQwMCwyMTAgNDAwLDQwMCAwLDQwMCIgZmlsbD0iIzAyODRjNyIgb3BhY2l0eT0iMC42Ii8+PHBvbHlnb24gcG9pbnRzPSIwLDMxMCAxNTAsMjMwIDI4MCwyODAgNDAwLDI0MCA0MDAsNDAwIDAsNDAwIiBmaWxsPSIjMDM2OWExIiBvcGFjaXR5PSIwLjk1Ii8+PC9zdmc+", title: "Lake Moraine, Banff" },
   { id: "img2", path: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfY2FmZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNmNTllMGIiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3ODM1MGYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNncmFkX2NhZmUpIi8+PGNpcmNsZSBjeD0iMjgwIiBjeT0iMTQwIiByPSI0NSIgZmlsbD0iI2ZkZTY4YSIgb3BhY2l0eT0iMC44NSIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjE0MCIgcj0iNjUiIGZpbGw9IiNmZGU2OGEiIG9wYWNpdHk9IjAuMjUiLz48cmVjdCB4PSItMTAiIHk9IjI4MCIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjEyMCIgZmlsbD0iI2I0NTMwOSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9Ii0yIiB5PSIyOTUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEwIiB5PSIyOTUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIyIiB5PSIyOTUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ii0yIiB5PSIzMTciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEwIiB5PSIzMTciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIyIiB5PSIzMTciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ii0yIiB5PSIzMzkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEwIiB5PSIzMzkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIyIiB5PSIzMzkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ii0yIiB5PSIzNjEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEwIiB5PSIzNjEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIyIiB5PSIzNjEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjQyIiB5PSIyNDMiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxNTciIGZpbGw9IiNiNDUzMDkiIG9wYWNpdHk9IjAuODUiLz48cmVjdCB4PSI1MCIgeT0iMjU4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMjU4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMjU4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI1MCIgeT0iMjgwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMjgwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMjgwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI1MCIgeT0iMzAyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMzAyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMzAyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI1MCIgeT0iMzI0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMzI0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMzI0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI1MCIgeT0iMzQ2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMzQ2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMzQ2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI1MCIgeT0iMzY4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI2MiIgeT0iMzY4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI3NCIgeT0iMzY4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSI5NCIgeT0iMjA2IiB3aWR0aD0iNDQiIGhlaWdodD0iMTk0IiBmaWxsPSIjYjQ1MzA5IiBvcGFjaXR5PSIwLjg1Ii8+PHJlY3QgeD0iMTAyIiB5PSIyMjEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMjIxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjIyMSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIyNDMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMjQzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjI0MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIyNjUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMjY1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjI2NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIyODciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMjg3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjI4NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIzMDkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMzA5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjMwOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIzMzEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMzMxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjMzMSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIzNTMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMzUzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjM1MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAyIiB5PSIzNzUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjExNCIgeT0iMzc1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMjYiIHk9IjM3NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTQ2IiB5PSIyNTkiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxNDEiIGZpbGw9IiNiNDUzMDkiIG9wYWNpdHk9IjAuODUiLz48cmVjdCB4PSIxNTQiIHk9IjI3NCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTY2IiB5PSIyNzQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE3OCIgeT0iMjc0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNTQiIHk9IjI5NiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTY2IiB5PSIyOTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE3OCIgeT0iMjk2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNTQiIHk9IjMxOCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTY2IiB5PSIzMTgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE3OCIgeT0iMzE4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNTQiIHk9IjM0MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTY2IiB5PSIzNDAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE3OCIgeT0iMzQwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNTQiIHk9IjM2MiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTY2IiB5PSIzNjIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE3OCIgeT0iMzYyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxOTgiIHk9IjIyMiIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjE3OCIgZmlsbD0iI2I0NTMwOSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9IjIwNiIgeT0iMjM3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjIzNyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIyMzciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMjU5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjI1OSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIyNTkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMjgxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjI4MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIyODEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMzAzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjMwMyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIzMDMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMzI1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjMyNSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIzMjUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMzQ3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjM0NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIzNDciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIwNiIgeT0iMzY5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMTgiIHk9IjM2OSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjMwIiB5PSIzNjkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI1MCIgeT0iMjc1IiB3aWR0aD0iNDQiIGhlaWdodD0iMTI1IiBmaWxsPSIjYjQ1MzA5IiBvcGFjaXR5PSIwLjg1Ii8+PHJlY3QgeD0iMjU4IiB5PSIyOTAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI3MCIgeT0iMjkwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyODIiIHk9IjI5MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjU4IiB5PSIzMTIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI3MCIgeT0iMzEyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyODIiIHk9IjMxMiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjU4IiB5PSIzMzQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI3MCIgeT0iMzM0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyODIiIHk9IjMzNCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjU4IiB5PSIzNTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI3MCIgeT0iMzU2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyODIiIHk9IjM1NiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjU4IiB5PSIzNzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI3MCIgeT0iMzc4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyODIiIHk9IjM3OCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzAyIiB5PSIyMzgiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxNjIiIGZpbGw9IiNiNDUzMDkiIG9wYWNpdHk9IjAuODUiLz48cmVjdCB4PSIzMTAiIHk9IjI1MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIyNTMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMjUzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMTAiIHk9IjI3NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIyNzUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMjc1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMTAiIHk9IjI5NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIyOTciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMjk3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMTAiIHk9IjMxOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIzMTkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMzE5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMTAiIHk9IjM0MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIzNDEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMzQxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMTAiIHk9IjM2MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzIyIiB5PSIzNjMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMzNCIgeT0iMzYzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNTQiIHk9IjIwMSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjE5OSIgZmlsbD0iI2I0NTMwOSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9IjM2MiIgeT0iMjE2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjIxNiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIyMTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMjM4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjIzOCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIyMzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMjYwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjI2MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIyNjAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMjgyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjI4MiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIyODIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMzA0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjMwNCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIzMDQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMzI2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjMyNiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIzMjYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMzQ4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjM0OCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIzNDgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM2MiIgeT0iMzcwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzNzQiIHk9IjM3MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzg2IiB5PSIzNzAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjwvc3ZnPg==", title: "Cafe Belleville, Paris" },
   { id: "img3", path: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWRfa3lvdG8iIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjQ3NDhiIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMWUyOTNiIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9InVybCgjZ3JhZF9reW90bykiLz48Y2lyY2xlIGN4PSIyODAiIGN5PSIxNDAiIHI9IjQ1IiBmaWxsPSIjOTRhM2I4IiBvcGFjaXR5PSIwLjg1Ii8+PGNpcmNsZSBjeD0iMjgwIiBjeT0iMTQwIiByPSI2NSIgZmlsbD0iIzk0YTNiOCIgb3BhY2l0eT0iMC4yNSIvPjxyZWN0IHg9Ii0xMCIgeT0iMjgwIiB3aWR0aD0iNDQiIGhlaWdodD0iMTIwIiBmaWxsPSIjMzM0MTU1IiBvcGFjaXR5PSIwLjg1Ii8+PHJlY3QgeD0iLTIiIHk9IjI5NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAiIHk9IjI5NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjIiIHk9IjI5NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iLTIiIHk9IjMxNyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAiIHk9IjMxNyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjIiIHk9IjMxNyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iLTIiIHk9IjMzOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAiIHk9IjMzOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjIiIHk9IjMzOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iLTIiIHk9IjM2MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTAiIHk9IjM2MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjIiIHk9IjM2MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iNDIiIHk9IjI0MyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjE1NyIgZmlsbD0iIzMzNDE1NSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9IjUwIiB5PSIyNTgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIyNTgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIyNTgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjUwIiB5PSIyODAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIyODAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIyODAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjUwIiB5PSIzMDIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIzMDIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIzMDIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjUwIiB5PSIzMjQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIzMjQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIzMjQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjUwIiB5PSIzNDYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIzNDYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIzNDYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjUwIiB5PSIzNjgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjYyIiB5PSIzNjgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijc0IiB5PSIzNjgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9Ijk0IiB5PSIyMDYiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxOTQiIGZpbGw9IiMzMzQxNTUiIG9wYWNpdHk9IjAuODUiLz48cmVjdCB4PSIxMDIiIHk9IjIyMSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIyMjEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMjIxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjI0MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIyNDMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMjQzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjI2NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIyNjUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMjY1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjI4NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIyODciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMjg3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjMwOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIzMDkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMzA5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjMzMSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIzMzEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMzMxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjM1MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIzNTMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMzUzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxMDIiIHk9IjM3NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTE0IiB5PSIzNzUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjEyNiIgeT0iMzc1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNDYiIHk9IjI1OSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjE0MSIgZmlsbD0iIzMzNDE1NSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9IjE1NCIgeT0iMjc0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNjYiIHk9IjI3NCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTc4IiB5PSIyNzQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE1NCIgeT0iMjk2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNjYiIHk9IjI5NiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTc4IiB5PSIyOTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE1NCIgeT0iMzE4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNjYiIHk9IjMxOCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTc4IiB5PSIzMTgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE1NCIgeT0iMzQwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNjYiIHk9IjM0MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTc4IiB5PSIzNDAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE1NCIgeT0iMzYyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNjYiIHk9IjM2MiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMTc4IiB5PSIzNjIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjE5OCIgeT0iMjIyIiB3aWR0aD0iNDQiIGhlaWdodD0iMTc4IiBmaWxsPSIjMzM0MTU1IiBvcGFjaXR5PSIwLjg1Ii8+PHJlY3QgeD0iMjA2IiB5PSIyMzciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMjM3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjIzNyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIyNTkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMjU5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjI1OSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIyODEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMjgxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjI4MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIzMDMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMzAzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjMwMyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIzMjUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMzI1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjMyNSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIzNDciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMzQ3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjM0NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjA2IiB5PSIzNjkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjIxOCIgeT0iMzY5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyMzAiIHk9IjM2OSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjUwIiB5PSIyNzUiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxMjUiIGZpbGw9IiMzMzQxNTUiIG9wYWNpdHk9IjAuODUiLz48cmVjdCB4PSIyNTgiIHk9IjI5MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjcwIiB5PSIyOTAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI4MiIgeT0iMjkwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyNTgiIHk9IjMxMiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjcwIiB5PSIzMTIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI4MiIgeT0iMzEyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyNTgiIHk9IjMzNCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjcwIiB5PSIzMzQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI4MiIgeT0iMzM0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyNTgiIHk9IjM1NiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjcwIiB5PSIzNTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI4MiIgeT0iMzU2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIyNTgiIHk9IjM3OCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMjcwIiB5PSIzNzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjI4MiIgeT0iMzc4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMDIiIHk9IjIzOCIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjE2MiIgZmlsbD0iIzMzNDE1NSIgb3BhY2l0eT0iMC44NSIvPjxyZWN0IHg9IjMxMCIgeT0iMjUzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjI1MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIyNTMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMxMCIgeT0iMjc1IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjI3NSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIyNzUiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMxMCIgeT0iMjk3IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjI5NyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIyOTciIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMxMCIgeT0iMzE5IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjMxOSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIzMTkiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMxMCIgeT0iMzQxIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjM0MSIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIzNDEiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjMxMCIgeT0iMzYzIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzMjIiIHk9IjM2MyIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzM0IiB5PSIzNjMiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM1NCIgeT0iMjAxIiB3aWR0aD0iNDQiIGhlaWdodD0iMTk5IiBmaWxsPSIjMzM0MTU1IiBvcGFjaXR5PSIwLjg1Ii8+PHJlY3QgeD0iMzYyIiB5PSIyMTYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMjE2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjIxNiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIyMzgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMjM4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjIzOCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIyNjAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMjYwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjI2MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIyODIiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMjgyIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjI4MiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIzMDQiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMzA0IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjMwNCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIzMjYiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMzI2IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjMyNiIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIzNDgiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMzQ4IiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjM0OCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PHJlY3QgeD0iMzYyIiB5PSIzNzAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmVhOWYiIG9wYWNpdHk9IjAuOSIvPjxyZWN0IHg9IjM3NCIgeT0iMzcwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZlYTlmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIzODYiIHk9IjM3MCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgZmlsbD0iI2ZmZWE5ZiIgb3BhY2l0eT0iMC45Ii8+PC9zdmc+", title: "Kyoto Pavilion" },
@@ -9011,7 +9093,8 @@ function syncLikedStateToPosts() {
       if (window.firebaseReady && window.firebase && window.firebase.db) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', 'bradley_hansen'), { 
+          const activeU = getActiveFirestoreUsername();
+          if (activeU) setDoc(doc(db, 'users', activeU), { 
             replies: state.replies, 
             deletedReplyIds: Array.from(state.deletedReplyIds), 
             lastUpdated: Date.now() 
@@ -9104,10 +9187,8 @@ function syncLikedStateToPosts() {
             deletedNoteIds: Array.from(state.deletedNoteIds || []).map(String),
             lastUpdated: Date.now()
           };
-          setDoc(doc(db, 'users', 'bradley_hansen'), payload, { merge: true }).catch(() => {});
-          if (uid && uid !== 'bradley_hansen') {
-            setDoc(doc(db, 'users', uid), payload, { merge: true }).catch(() => {});
-          }
+          const activeU = getActiveFirestoreUsername();
+          if (activeU) setDoc(doc(db, 'users', activeU), payload, { merge: true }).catch(() => {});
         } catch(e) {
           console.warn("Firestore note delete sync notice:", e);
         }
@@ -9333,7 +9414,9 @@ function syncLikedStateToPosts() {
         }
       }
 
+      window._lastLocalLikesWriteTs = Date.now();
       persistState();
+      syncAllLikesToFirestore();
       renderNotes();
       renderSaved();
       renderExplore(document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '');
@@ -9415,7 +9498,8 @@ function syncLikedStateToPosts() {
           try {
             const { db, doc, deleteDoc, setDoc } = window.firebase;
             deleteDoc(doc(db, 'posts', strId)).catch(() => {});
-            setDoc(doc(db, 'users', 'bradley_hansen'), {
+            const activeU = getActiveFirestoreUsername();
+            if (activeU) setDoc(doc(db, 'users', activeU), {
               deletedPostIds: Array.from(state.deletedPostIds),
               lastUpdated: Date.now()
             }, { merge: true }).catch(() => {});
@@ -10007,7 +10091,8 @@ function syncLikedStateToPosts() {
       if (window.firebase && window.firebase.db) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', 'bradley_hansen'), {
+          const activeU = getActiveFirestoreUsername();
+          if (activeU) setDoc(doc(db, 'users', activeU), {
             highlights: state.highlights,
             lastUpdated: Date.now()
           }, { merge: true }).catch(() => {});
@@ -10105,7 +10190,8 @@ function syncLikedStateToPosts() {
       if (window.firebase && window.firebase.db) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', 'bradley_hansen'), {
+          const activeU = getActiveFirestoreUsername();
+          if (activeU) setDoc(doc(db, 'users', activeU), {
             highlights: state.highlights,
             lastUpdated: Date.now()
           }, { merge: true }).catch(() => {});
@@ -11623,10 +11709,20 @@ function syncLikedStateToPosts() {
     window.renderDiscoverCreatorsList = renderDiscoverCreatorsList;
 
     // --- Bottom-Sheet Account Switcher Controller ---
+    function getAccountCenterOwner() {
+      let owner = '';
+      try { owner = localStorage.getItem('pixly_active_username') || ''; } catch(e) {}
+      if (!owner && state && state.currentUser && state.currentUser.username) {
+        owner = state.currentUser.username;
+      }
+      return String(owner || 'guest').toLowerCase().replace(/^@/, '').trim() || 'guest';
+    }
+
     function getSessionAccounts() {
       let list = [];
+      const acKey = 'pixly_session_accounts_' + getAccountCenterOwner();
       try {
-        const raw = localStorage.getItem('pixly_session_accounts');
+        const raw = localStorage.getItem(acKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) list = parsed;
@@ -11677,19 +11773,22 @@ function syncLikedStateToPosts() {
     }
 
     function syncAccountCenterToFirestore(list, removedUsername = null) {
+      const ownerU = getAccountCenterOwner();
+      const acKey = 'pixly_session_accounts_' + ownerU;
       const cleanList = sanitizeAccountsForCloud(list);
+      const lightList = stripHeavyImagesForLocalStorage(list);
       try {
-        localStorage.setItem('pixly_session_accounts', JSON.stringify(list));
+        localStorage.setItem(acKey, JSON.stringify(lightList));
       } catch(e) {}
       if (window.idbStorage) {
-        try { idbStorage.set('pixly_session_accounts', JSON.stringify(list)); } catch(e) {}
+        try { idbStorage.set(acKey, JSON.stringify(list)); } catch(e) {}
       }
       updateChatHeadBadge();
 
-      if (window.firebaseReady && window.firebase && window.firebase.db) {
+      if (window.firebaseReady && window.firebase && window.firebase.db && ownerU !== 'guest') {
         try {
           const { db, doc, getDoc, setDoc } = window.firebase;
-          const acRef = doc(db, 'accountCenters', 'default');
+          const acRef = doc(db, 'accountCenters', ownerU);
           getDoc(acRef).then(snap => {
             const existing = snap.exists() ? (snap.data() || {}) : {};
             let removed = Array.isArray(existing.removedUsernames) ? [...existing.removedUsernames] : [];
@@ -11697,7 +11796,6 @@ function syncLikedStateToPosts() {
               const rNorm = String(removedUsername).toLowerCase().replace(/^@/, '');
               if (rNorm && !removed.includes(rNorm)) removed.push(rNorm);
             } else {
-              // If re-adding an account, remove it from removedUsernames
               const activeNorms = new Set(cleanList.map(a => a.username.toLowerCase()));
               removed = removed.filter(u => !activeNorms.has(String(u).toLowerCase()));
             }
@@ -11705,13 +11803,6 @@ function syncLikedStateToPosts() {
               accounts: cleanList,
               removedUsernames: removed,
               updatedAt: Date.now()
-            }, { merge: true }).catch(() => {});
-
-            // Also mirror to primary bradley_hansen doc as redundant backup
-            setDoc(doc(db, 'users', 'bradley_hansen'), {
-              accountCenterAccounts: cleanList,
-              removedAccountCenterUsernames: removed,
-              accountCenterUpdatedAt: Date.now()
             }, { merge: true }).catch(() => {});
           }).catch(() => {});
         } catch(e) {}
@@ -14745,6 +14836,10 @@ function syncLikedStateToPosts() {
         saveAccountNotifications(oldUsername);
       }
       state.isLoggedIn = true;
+      try {
+        localStorage.setItem('pixly_is_logged_in', '1');
+        localStorage.setItem('pixly_active_username', cleanUsername.toLowerCase());
+      } catch(e) {}
 
       // Look up account data if available (prefer persisted user-saved data over in-memory defaults)
       let accData = null;
@@ -15006,6 +15101,10 @@ function syncLikedStateToPosts() {
 
     function performLogout() {
       state.isLoggedIn = false;
+      try {
+        localStorage.removeItem('pixly_is_logged_in');
+        localStorage.removeItem('pixly_active_username');
+      } catch(e) {}
       state.messages = [];
       state.activeDmThreadIndex = 0;
       // Populate login inputs with username, but CLEAR password so password is required
@@ -15230,6 +15329,14 @@ function syncLikedStateToPosts() {
           }).catch(() => {});
         }
         if (typeof updateChatHeadBadge === 'function') updateChatHeadBadge();
+        try {
+          if (localStorage.getItem('pixly_is_logged_in') === '1') {
+            const savedU = localStorage.getItem('pixly_active_username');
+            if (savedU && typeof performLogin === 'function') {
+              performLogin(savedU);
+            }
+          }
+        } catch(e) {}
       } catch(e) {}
 
       // Wire up all UI click events with safe guards
@@ -16364,7 +16471,7 @@ function syncLikedStateToPosts() {
           }
         }
 
-        function handleCompleteSignUp(skipStep2 = false) {
+        async function handleCompleteSignUp(skipStep2 = false) {
           const isBiz = (state.signUpAccountType === 'business');
           const n = (document.getElementById('login-fullname').value || '').trim();
           const em = (document.getElementById('login-email').value || '').trim();
@@ -16483,46 +16590,62 @@ function syncLikedStateToPosts() {
               accts[phone] = newAccount;
               accts[phone.replace(/\D/g, '')] = newAccount;
             }
-            localStorage.setItem('pixly_accounts', JSON.stringify(accts));
-            localStorage.setItem('pixly_account_' + u.toLowerCase(), JSON.stringify(newAccount));
-            localStorage.setItem('pixly_account_' + fullName.toLowerCase(), JSON.stringify(newAccount));
-            if (phone) localStorage.setItem('pixly_account_' + phone.replace(/\D/g, ''), JSON.stringify(newAccount));
-            if (em) localStorage.setItem('pixly_account_' + em.toLowerCase(), JSON.stringify(newAccount));
-            localStorage.setItem('pixly_user_password', pw);
-            localStorage.setItem('pixly_last_signup_password', pw);
-            localStorage.setItem('pixlynote_password', pw);
-            localStorage.setItem('pixly_password_pixlynote', pw);
-            localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pw);
-            localStorage.setItem('pixlynote_user', JSON.stringify(newAccount));
-            sessionStorage.setItem('pixly_accounts', JSON.stringify(accts));
-            sessionStorage.setItem('pixly_account_' + u.toLowerCase(), JSON.stringify(newAccount));
-            sessionStorage.setItem('pixly_last_signup_password', pw);
+            const pwHash = await hashPassword(pw);
+            newAccount.passwordHash = pwHash;
+            delete newAccount.password;
+            accts[u.toLowerCase()] = { ...(accts[u.toLowerCase()] || {}), ...newAccount };
+            accts[fullName.toLowerCase()] = { ...(accts[fullName.toLowerCase()] || {}), ...newAccount };
+            if (em) accts[em.toLowerCase()] = { ...(accts[em.toLowerCase()] || {}), ...newAccount };
+            if (phone) {
+              accts[phone] = { ...(accts[phone] || {}), ...newAccount };
+              accts[phone.replace(/\D/g, '')] = { ...(accts[phone.replace(/\D/g, '')] || {}), ...newAccount };
+            }
+            const lightAccts = stripHeavyImagesForLocalStorage(accts);
+            const lightNewAcc = stripHeavyImagesForLocalStorage(newAccount);
+            localStorage.setItem('pixly_accounts', JSON.stringify(lightAccts));
+            localStorage.setItem('pixly_account_' + u.toLowerCase(), JSON.stringify(lightNewAcc));
+            localStorage.setItem('pixly_account_' + fullName.toLowerCase(), JSON.stringify(lightNewAcc));
+            if (phone) localStorage.setItem('pixly_account_' + phone.replace(/\D/g, ''), JSON.stringify(lightNewAcc));
+            if (em) localStorage.setItem('pixly_account_' + em.toLowerCase(), JSON.stringify(lightNewAcc));
+            localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pwHash);
+            localStorage.setItem('pixlynote_user_' + u.toLowerCase(), JSON.stringify(lightNewAcc));
+            sessionStorage.setItem('pixly_accounts', JSON.stringify(lightAccts));
+            sessionStorage.setItem('pixly_account_' + u.toLowerCase(), JSON.stringify(lightNewAcc));
+
+            if (window.firebaseReady && window.firebase && window.firebase.db) {
+              try {
+                const { db, doc, setDoc } = window.firebase;
+                setDoc(doc(db, 'users', u.toLowerCase()), {
+                  username: u.toLowerCase(),
+                  fullName: fullName,
+                  email: em,
+                  phone: phone,
+                  accountType: accountType,
+                  avatar: newAccount.avatar || '',
+                  photoURL: newAccount.avatar || '',
+                  passwordHash: pwHash,
+                  isVerified: false,
+                  isPlus: false,
+                  subscriptionStatus: 'inactive',
+                  createdAt: Date.now(),
+                  lastUpdated: Date.now()
+                }, { merge: true }).catch(() => {});
+              } catch(e) {}
+            }
+
+            if (em && typeof window.sendPixlynoteEmail === 'function') {
+              const safeName = (fullName || u).replace(/[<>&]/g, '');
+              const welcomeHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111827;"><h2 style="margin:0 0 12px;font-size:22px;">Welcome to Pixlynote, ${safeName}!</h2><p style="margin:0 0 12px;line-height:1.5;color:#374151;">Your account <strong>@${u}</strong> is ready. Share photos, write notes, and connect with creators on Pixlynote.</p><p style="margin:18px 0 0;font-size:13px;color:#6b7280;">— The Pixlynote Team</p></div>`;
+              window.sendPixlynoteEmail(em, `Welcome to Pixlynote, @${u}!`, welcomeHtml).catch(() => {});
+            }
           } catch(err) {}
 
-          if (window.firebaseReady && window.firebase && window.firebase.db) {
-            try {
-              const { db, doc, setDoc } = window.firebase;
-              setDoc(doc(db, 'users', u.toLowerCase()), {
-                username: u.toLowerCase(),
-                fullName: fullName,
-                email: em,
-                phone: phone,
-                accountType: accountType,
-                isVerified: false,
-                isPlus: false,
-                subscriptionStatus: 'inactive',
-                createdAt: Date.now(),
-                lastUpdated: Date.now()
-              }, { merge: true }).catch(() => {});
-            } catch(e) {}
-          }
-
           showToast(`🎉 Account created! Welcome, @${u}`);
-          performLogin(u, fullName, em, pw, phone, accountType);
+          performLogin(u, fullName, em, null, phone, accountType);
         }
 
         // Direct Login Action Handler (Supports Phone, Username, Business Name, or Email)
-        function handleLoginAction() {
+        async function handleLoginAction() {
           const uInp = document.getElementById('login-username');
           const rawInput = (uInp ? uInp.value : '').trim();
           const u = rawInput.replace(/^@/, '');
@@ -16619,32 +16742,34 @@ function syncLikedStateToPosts() {
                 localStorage.setItem('pixly_user_password', pw);
               } catch(e) {}
             }
-          } else if (isPixlynote) {
-            // Business account @pixlynote:
-            // Once a password is saved/updated, ONLY that latest password works; old passwords are rejected.
-            const savedPixlyPw = getActiveAccountPassword('pixlynote') || (matchedAccount && matchedAccount.password) || null;
-            if (savedPixlyPw) {
-              isPasswordValid = (pw === savedPixlyPw);
-            } else if (pw.length >= 4) {
-              isPasswordValid = true;
+          } else {
+            const lookupU = isPixlynote ? 'pixlynote' : (matchedAccount ? matchedAccount.username.toLowerCase() : cleanInput);
+            let storedPw = getActiveAccountPassword(lookupU) || (matchedAccount && (matchedAccount.passwordHash || matchedAccount.password)) || null;
+            let remoteDocData = null;
+            if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
               try {
-                localStorage.setItem('pixlynote_password', pw);
-                localStorage.setItem('pixly_password_pixlynote', pw);
-                localStorage.setItem('pixly_user_password_pixlynote', pw);
-                localStorage.setItem('pixly_user_password_' + cleanInput, pw);
+                const { db, doc, getDoc } = window.firebase;
+                const snap = await getDoc(doc(db, 'users', lookupU));
+                if (snap.exists()) {
+                  remoteDocData = snap.data() || null;
+                  if (remoteDocData && (remoteDocData.passwordHash || remoteDocData.password)) {
+                    storedPw = remoteDocData.passwordHash || remoteDocData.password;
+                  }
+                  if (!matchedAccount && remoteDocData) {
+                    matchedAccount = remoteDocData;
+                  }
+                }
               } catch(e) {}
             }
-          } else {
-            const activeOtherPw = getActiveAccountPassword(matchedAccount ? matchedAccount.username : cleanInput) || (matchedAccount && matchedAccount.password) || null;
-            if (activeOtherPw) {
-              isPasswordValid = (pw === activeOtherPw);
+            if (storedPw) {
+              isPasswordValid = await verifyPassword(pw, storedPw);
             } else {
-              isPasswordValid = (pw.length >= 4);
+              isPasswordValid = false;
             }
           }
 
           if (!isPasswordValid) {
-            showToast('Incorrect password. Please enter the correct password for @' + u);
+            showToast('Incorrect username or password for @' + u);
             if (pwInp) {
               pwInp.value = '';
               pwInp.focus();
@@ -16669,14 +16794,15 @@ function syncLikedStateToPosts() {
           const targetPhone = matchedAccount ? (matchedAccount.phone || '') : '';
           const targetType = isPixlynote ? 'business' : (isBradley ? 'personal' : (matchedAccount ? (matchedAccount.accountType || 'personal') : 'personal'));
 
-          // Persist account record with strict identity isolation
+          const pwHash = await hashPassword(pw);
+          // Persist account record with strict identity isolation (hashed password only, no plain text)
           const accRec = {
             username: targetUsername,
             fullName: isPixlynote ? 'Pixlynote' : targetFullName,
             email: isPixlynote ? (matchedAccount && matchedAccount.email && matchedAccount.email !== 'bradley.g.hansen@hotmail.com' ? matchedAccount.email : '') : targetEmail,
             phone: isPixlynote ? (matchedAccount && matchedAccount.phone && !matchedAccount.phone.includes('609') ? matchedAccount.phone : '') : targetPhone,
             accountType: targetType,
-            password: pw,
+            passwordHash: pwHash,
             bio: isBradley ? (state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (isPixlynote ? (matchedAccount && matchedAccount.bio && !matchedAccount.bio.includes('Fitness') ? matchedAccount.bio : '') : (matchedAccount ? (matchedAccount.bio || '') : '')),
             link: isBradley ? 't.me/bradley_hansen' : (isPixlynote ? (matchedAccount && matchedAccount.link && !matchedAccount.link.includes('bradley_hansen') ? matchedAccount.link : '') : (matchedAccount ? (matchedAccount.link || '') : '')),
             avatar: isBradley ? (state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '')) : (isPixlynote ? PIXLYNOTE_SHUTTER_ICON : (matchedAccount ? matchedAccount.avatar : PIXLYNOTE_SHUTTER_ICON)),
@@ -16690,24 +16816,19 @@ function syncLikedStateToPosts() {
           window._pixlyAccounts[targetFullName.toLowerCase()] = accRec;
 
           try {
-            localStorage.setItem('pixly_account_' + targetUsername.toLowerCase(), JSON.stringify(accRec));
-            localStorage.setItem('pixly_user_password_' + targetUsername.toLowerCase(), pw);
-            if (isBradley) localStorage.setItem('pixly_user_password_bradley_hansen', pw);
-            if (isPixlynote) {
-              localStorage.setItem('pixlynote_password', pw);
-              localStorage.setItem('pixly_password_pixlynote', pw);
-            }
-            localStorage.setItem('pixly_user_password_' + u.toLowerCase(), pw);
-            localStorage.setItem('pixlynote_user', JSON.stringify(accRec));
+            const lightAccRec = stripHeavyImagesForLocalStorage(accRec);
+            localStorage.setItem('pixly_account_' + targetUsername.toLowerCase(), JSON.stringify(lightAccRec));
+            localStorage.setItem('pixly_user_password_' + targetUsername.toLowerCase(), pwHash);
+            localStorage.setItem('pixlynote_user_' + targetUsername.toLowerCase(), JSON.stringify(lightAccRec));
           } catch(e) {}
 
           showToast(`Welcome back, @${targetUsername}!`);
-          performLogin(targetUsername, targetFullName, targetEmail, pw, targetPhone, targetType);
+          performLogin(targetUsername, targetFullName, targetEmail, null, targetPhone, targetType);
           recordLoginActivityEvent('login', 'Signed in with active password', targetUsername);
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             const { db, doc, setDoc } = window.firebase;
-            setDoc(doc(db, 'users', targetUsername), { password: pw, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            setDoc(doc(db, 'users', targetUsername), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
           }
         }
         const loginForm = document.getElementById('login-form');
@@ -18170,7 +18291,8 @@ function syncLikedStateToPosts() {
             if (window.firebase && window.firebase.db) {
               try {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', 'bradley_hansen'), { notes: state.notes, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+                const activeU = getActiveFirestoreUsername();
+                if (activeU) setDoc(doc(db, 'users', activeU), { notes: state.notes, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
               } catch(e) {}
             }
             renderNotes();
