@@ -2971,6 +2971,8 @@
           query, 
           where, 
           orderBy, 
+          limit, 
+          startAfter, 
           onSnapshot, 
           deleteDoc,
           serverTimestamp 
@@ -2999,7 +3001,7 @@
           RecaptchaVerifier,
           signInWithPhoneNumber,
           collection, doc, setDoc, getDoc, getDocs,
-          query, where, orderBy, onSnapshot, deleteDoc, serverTimestamp
+          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp
         };
         window.firebaseReady = true;
 
@@ -3036,6 +3038,7 @@
               if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
                 window.applyCustomPostsFromRemote(cloudPosts);
               }
+              if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
             }, (err) => console.log("Posts collection query notice:", err));
           } catch(e) {}
         };
@@ -8214,305 +8217,656 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Explore (Posts Grid & Notes) ---
-    function renderExplore(filterQuery = '') {
-      const q = filterQuery.toLowerCase().trim();
-      const grid = document.getElementById('explore-grid');
-      const notesList = document.getElementById('explore-notes-list');
-      const creatorsContainer = document.getElementById('explore-creators-container');
+    // ===== Real Explore: public posts & notes from Firestore (free Spark plan: no Functions, no Storage) =====
+    // Posts come from the posts-collection listener the feed already runs (no extra reads); if that listener is
+    // not attached, Explore fetches posts in pages (orderBy createdAt desc + limit). Accounts, notes, follower
+    // counts and like counts come from one users-collection read, cached for 5 minutes.
+    var EXPLORE_PAGE_SIZE = 24;
+    var EXPLORE_MIN_REAL = 12;
+    var EXPLORE_DIR_TTL_MS = 5 * 60 * 1000;
+    var EXPLORE_DIR_RETRY_MS = 30 * 1000;
+    window._exploreCloudPosts = window._exploreCloudPosts || new Map();
+    window._explorePaged = window._explorePaged || { posts: [], cursor: null, hasMore: true, loading: false, used: false };
+    window._exploreVisible = window._exploreVisible || { posts: EXPLORE_PAGE_SIZE, notes: EXPLORE_PAGE_SIZE };
+    if (window._exploreLastQuery === undefined) window._exploreLastQuery = '';
 
-      // 0. Render Searchable Creators (Search by Handle or Name)
-      if (creatorsContainer) {
-        const creatorList = [
-          CREATOR_DETAILS.digitalassetpro,
-          CREATOR_DETAILS.pixlynote,
-          CREATOR_DETAILS.elena_eats,
-          CREATOR_DETAILS.marcus_pups,
-          CREATOR_DETAILS.city_vibe,
-          CREATOR_DETAILS.arch_digest,
-          CREATOR_DETAILS.nordic_trails,
-          CREATOR_DETAILS.coastal_nomad,
-          {
-            username: "bradley_hansen",
-            fullName: "Bradley Hansen",
-            bio: "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
-            avatar: BRADLEY_AVATAR_IMAGE,
-            category: "Personal & Fitness",
-            location: "Banff, Canada & NJ 📍",
-            followersCount: "0",
-            followingCount: "342",
-            isFollowing: true
-          }
-        ];
+    function exploreNorm(u) { return String(u == null ? '' : u).trim().toLowerCase().replace(/^@/, ''); }
+    function exploreSafeUser(u) { return exploreNorm(u).replace(/[^a-z0-9_.]/g, ''); }
+    function exploreEsc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function exploreSafeSrc(src, fallback) {
+      const s = String(src || '').trim();
+      if (!s || /^javascript:/i.test(s)) return fallback || '';
+      return s.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
+    }
+    function exploreFmtCount(n) {
+      n = Math.max(0, Number(n) || 0);
+      if (n < 1000) return String(n);
+      if (n < 1000000) return (n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, '') + 'K';
+      return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    function exploreFollowersWord(n) { return (Math.max(0, Number(n) || 0) === 1) ? 'follower' : 'followers'; }
+    function exploreViewer() { return exploreNorm(state.currentUser && state.currentUser.username); }
+    function exploreTerms(q) {
+      const t = [q];
+      if (/^[#@]/.test(q) && q.length > 1) t.push(q.slice(1));
+      return t;
+    }
+    function exploreUsingListener() { return !!window._postsCollectionUnsub; }
 
-        const knownMap = new Map();
-        creatorList.forEach(c => {
-          if (c && c.username && !knownMap.has(c.username.toLowerCase())) {
-            knownMap.set(c.username.toLowerCase(), c);
-          }
+    var _exploreRenderTimer = null;
+    function scheduleExploreRender() {
+      if (_exploreRenderTimer) return;
+      _exploreRenderTimer = setTimeout(() => {
+        _exploreRenderTimer = null;
+        try {
+          const inp = document.getElementById('explore-search-input');
+          renderExplore(inp ? inp.value : '');
+        } catch (e) { console.warn('Explore render notice:', e); }
+      }, 0);
+    }
+    window.scheduleExploreRender = scheduleExploreRender;
+
+    // Called by the posts-collection listener with the full current set of cloud posts.
+    window.recordExploreCloudPosts = function(cloudPosts) {
+      const m = new Map();
+      (cloudPosts || []).forEach(p => { if (p && p.id !== undefined && p.id !== null) m.set(String(p.id), p); });
+      window._exploreCloudPosts = m;
+      loadExploreUserDirectory(false);
+      scheduleExploreRender();
+    };
+
+    function exploreTimeMs(item) {
+      if (!item) return 0;
+      const c = item.createdAt;
+      if (c && typeof c.toMillis === 'function') { try { return c.toMillis(); } catch (e) {} }
+      if (c && typeof c.seconds === 'number') return c.seconds * 1000;
+      const cn = Number(c); if (cn > 1e12) return cn;
+      const idn = Number(item.id); if (idn > 1e12 && idn < 1e13) return idn;
+      const tn = Number(item.timestamp); if (tn > 1e12) return tn;
+      return 0;
+    }
+    function exploreCommentCount(item) {
+      const arr = Array.isArray(item && item.comments) ? item.comments : [];
+      let n = 0;
+      arr.forEach(c => { if (!c) return; n++; if (Array.isArray(c.replies)) n += c.replies.filter(Boolean).length; });
+      if (!arr.length && item && typeof item.replies === 'number') n = item.replies;
+      return n;
+    }
+    // Simple "hot" score: engagement over age (hours), so new posts surface and liked/commented posts rise.
+    function exploreScore(item, likes, now) {
+      const ageH = Math.max(0, (now - exploreTimeMs(item)) / 3600000);
+      return (1 + (Number(likes) || 0) + 2 * exploreCommentCount(item)) / Math.pow(ageH + 2, 1.5);
+    }
+    window.exploreScore = exploreScore;
+
+    function loadExploreUserDirectory(force) {
+      const dir = window._exploreUserDir;
+      const now = Date.now();
+      if (!force && dir && (now - dir.at) < EXPLORE_DIR_TTL_MS) return Promise.resolve(dir);
+      if (window._exploreUserDirPromise) return window._exploreUserDirPromise;
+      if (!force && window._exploreUserDirLastFail && (now - window._exploreUserDirLastFail) < EXPLORE_DIR_RETRY_MS) return Promise.resolve(dir || null);
+      if (!(window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDocs && window.firebase.collection)) return Promise.resolve(dir || null);
+      const { db, collection, getDocs } = window.firebase;
+      window._exploreUserDirPromise = getDocs(collection(db, 'users')).then(snap => {
+        const users = new Map();
+        const notes = new Map();
+        snap.forEach(ds => {
+          const id = ds.id || '';
+          if (!id || id.includes('__')) return;                                     // DM stores
+          if (/^[A-Za-z0-9]{20,36}$/.test(id) && /[A-Z]/.test(id)) return;          // anonymous-session mirror docs
+          const d = ds.data() || {};
+          const u = exploreNorm(id);
+          if (d.username && exploreNorm(d.username) !== u) return;
+          const following = Array.isArray(d.following)
+            ? Array.from(new Set(d.following.filter(f => f && f.username && f.isFollowing !== false).map(f => exploreNorm(f.username)).filter(x => x && x !== u)))
+            : [];
+          users.set(u, {
+            username: u,
+            fullName: String(d.fullName || u),
+            bio: String(d.bio || ''),
+            avatar: d.avatar || d.photoURL || '',
+            category: String(d.category || ''),
+            accountType: d.accountType === 'business' ? 'business' : 'personal',
+            isVerified: d.isVerified === true,
+            deactivated: d.deactivated === true,
+            following,
+            likedPostIds: Array.isArray(d.likedPostIds) ? d.likedPostIds.map(String) : [],
+            likedNoteIds: Array.isArray(d.likedNoteIds) ? d.likedNoteIds.map(String) : [],
+            deletedNoteIds: new Set(Array.isArray(d.deletedNoteIds) ? d.deletedNoteIds.map(String) : []),
+            lastUpdated: Number(d.lastUpdated) || 0,
+            followersCount: 0,
+            followingCount: following.length
+          });
+          (Array.isArray(d.notes) ? d.notes : []).forEach(n => {
+            if (!n || n.id === undefined || n.id === null || !n.text) return;
+            if (exploreNorm(n.author || u) !== u) return;                            // only notes the doc owner wrote
+            notes.set(String(n.id), { ...n, author: u, authorName: n.authorName || d.fullName || u, authorAvatar: d.avatar || d.photoURL || n.authorAvatar || '' });
+          });
         });
-
-        (state.following || []).forEach(f => {
-          if (f && f.username && !knownMap.has(f.username.toLowerCase())) {
-            knownMap.set(f.username.toLowerCase(), {
-              username: f.username,
-              fullName: f.fullName || f.username,
-              bio: f.bio || "Creator on Pixlynote 📷✨",
-              avatar: f.avatar || COMMUNITY_IMAGES[0],
-              category: "Community Creator",
-              location: "Global 🌐",
-              followersCount: "12.4K",
-              followingCount: "280",
-              isFollowing: f.isFollowing !== false
-            });
-          }
+        const likesByPost = new Map(), likesByNote = new Map();
+        const addLike = (m, id, u) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(u); };
+        users.forEach(x => {
+          if (x.deactivated) return;
+          x.following.forEach(t => { const tr = users.get(t); if (tr) tr.followersCount++; });
+          x.likedPostIds.forEach(id => addLike(likesByPost, id, x.username));
+          x.likedNoteIds.forEach(id => addLike(likesByNote, id, x.username));
         });
+        const noteList = Array.from(notes.values()).filter(n => {
+          const owner = users.get(n.author);
+          return owner && !owner.deactivated && !owner.deletedNoteIds.has(String(n.id));
+        });
+        const fresh = { at: Date.now(), users, notes: noteList, likesByPost, likesByNote };
+        window._exploreUserDir = fresh;
+        window._exploreUserDirLastFail = 0;
+        scheduleExploreRender();
+        return fresh;
+      }).catch(e => {
+        window._exploreUserDirLastFail = Date.now();
+        console.warn('Explore directory read notice:', e);
+        return window._exploreUserDir || null;
+      }).finally(() => { window._exploreUserDirPromise = null; });
+      return window._exploreUserDirPromise;
+    }
+    window.loadExploreUserDirectory = loadExploreUserDirectory;
 
-        const allDistinctCreators = Array.from(knownMap.values());
-
-        if (q) {
-          const cleanQ = q.replace(/^@/, '');
-          const matchedCreators = allDistinctCreators.filter(c =>
-            c.username.toLowerCase().includes(cleanQ) ||
-            c.fullName.toLowerCase().includes(q) ||
-            (c.category && c.category.toLowerCase().includes(q)) ||
-            (c.bio && c.bio.toLowerCase().includes(q))
-          );
-
-          if (matchedCreators.length > 0) {
-            creatorsContainer.innerHTML = `
-              <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs space-y-3">
-                <div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
-                  <div class="flex items-center space-x-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-violet-600 animate-pulse"></span>
-                    <h3 class="font-extrabold text-xs uppercase tracking-wider text-neutral-900">Creators & Accounts</h3>
-                  </div>
-                  <span class="text-[11px] font-semibold text-violet-600 bg-violet-50 px-2.5 py-0.5 rounded-full">${matchedCreators.length} found</span>
-                </div>
-                <div class="divide-y divide-neutral-100">
-                  ${matchedCreators.map(c => {
-                    const isF = isUserFollowingCreator(c.username);
-                    const isSelf = state.currentUser && state.currentUser.username.toLowerCase() === c.username.toLowerCase();
-                    const followBtn = isSelf ? '' : `
-                      <button type="button" onclick="event.stopPropagation(); window.toggleFollowCreator('${c.username}', this)" class="flex-shrink-0 transition-all duration-200 cursor-pointer ${
-                        isF 
-                          ? 'px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-violet-50 hover:bg-rose-50 border border-violet-200 hover:border-rose-200 text-violet-700 hover:text-rose-600'
-                          : 'px-4 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white shadow-sm hover:shadow-md active:scale-95'
-                      }">
-                        ${isF ? 'Connected ✓' : '+ Connect'}
-                      </button>
-                    `;
-                    return `
-                      <div class="flex items-center justify-between py-3 px-2 hover:bg-neutral-50/90 rounded-xl transition cursor-pointer group" onclick="viewUserProfile('${c.username}')">
-                        <div class="flex items-center space-x-3 min-w-0 pr-2">
-                          <div class="w-12 h-12 rounded-2xl p-0.5 story-gradient shadow-xs flex-shrink-0">
-                            <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
-                              <img src="${c.avatar}" alt="${c.fullName}" class="w-full h-full object-cover">
-                            </div>
-                          </div>
-                          <div class="min-w-0 flex-1">
-                            <div class="flex items-center space-x-1.5">
-                              <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${c.fullName}</span>
-                              <svg class="w-3.5 h-3.5 text-violet-600 fill-current flex-shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                              <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${(c.category || 'Creator').split('&')[0].trim()}</span>
-                            </div>
-                            <div class="text-[11px] font-medium text-neutral-500 truncate">@${c.username}</div>
-                            <div class="text-[10px] text-neutral-400 truncate mt-0.5">${c.bio ? c.bio.split('|')[0] : ''}</div>
-                          </div>
-                        </div>
-                        ${followBtn}
-                      </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            `;
-            creatorsContainer.classList.remove('hidden');
-          } else {
-            creatorsContainer.innerHTML = `
-              <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs text-center text-xs text-neutral-400 space-y-1">
-                <p class="font-semibold text-neutral-700">No creators found matching "${filterQuery}"</p>
-                <p class="text-[11px]">Try searching by handle like <span class="font-bold text-violet-600">@digitalassetpro</span>, <span class="font-bold text-violet-600">@pixlynote</span>, or <span class="font-bold text-violet-600">@elena_eats</span></p>
-              </div>
-            `;
-            creatorsContainer.classList.remove('hidden');
-          }
-        } else {
-          // DISCOVER CAROUSEL: Featured Creators to Vibe With
-          creatorsContainer.innerHTML = `
-            <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs space-y-3">
-              <div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
-                <div class="flex items-center space-x-2">
-                  <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                  <h3 class="font-extrabold text-xs uppercase tracking-wider text-neutral-900">Featured Creators to Vibe With</h3>
-                </div>
-                <span class="text-[11px] text-neutral-400 font-medium">Discover</span>
-              </div>
-              <div class="flex space-x-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-neutral-200">
-                ${allDistinctCreators.slice(0, 7).map(c => {
-                  const isF = isUserFollowingCreator(c.username);
-                  const isSelf = state.currentUser && state.currentUser.username.toLowerCase() === c.username.toLowerCase();
-                  return `
-                    <div class="flex-shrink-0 w-36 bg-neutral-50/90 hover:bg-neutral-100/80 border border-neutral-100 rounded-2xl p-3 text-center flex flex-col items-center justify-between transition cursor-pointer group shadow-2xs" onclick="viewUserProfile('${c.username}')">
-                      <div class="w-14 h-14 rounded-2xl p-0.5 story-gradient shadow-xs mb-2">
-                        <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
-                          <img src="${c.avatar}" alt="${c.fullName}" class="w-full h-full object-cover">
-                        </div>
-                      </div>
-                      <div class="w-full min-w-0">
-                        <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${c.fullName}</div>
-                        <div class="text-[10px] text-neutral-500 font-medium truncate">@${c.username}</div>
-                      </div>
-                      <div class="w-full mt-2.5">
-                        ${isSelf ? '<span class="text-[10px] font-bold text-neutral-400">You</span>' : `
-                          <button type="button" onclick="event.stopPropagation(); window.toggleFollowCreator('${c.username}', this)" class="w-full transition-all duration-200 cursor-pointer ${
-                            isF 
-                              ? 'py-1 text-[11px] font-semibold rounded-lg bg-violet-50 hover:bg-rose-50 border border-violet-200 text-violet-700 hover:text-rose-600'
-                              : 'py-1 text-[11px] font-bold rounded-lg bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white shadow-xs hover:shadow-sm active:scale-95'
-                          }">
-                            ${isF ? 'Connected ✓' : '+ Connect'}
-                          </button>
-                        `}
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-          `;
-          creatorsContainer.classList.remove('hidden');
-        }
+    async function fetchExplorePostsPage(reset) {
+      const pg = window._explorePaged;
+      if (pg.loading) return;
+      const fb = window.firebase;
+      if (!(window.firebaseReady && fb && fb.db && fb.query && fb.orderBy && fb.limit && fb.getDocs)) return;
+      if (reset) { pg.posts = []; pg.cursor = null; pg.hasMore = true; }
+      if (!pg.hasMore) return;
+      pg.loading = true; pg.used = true;
+      try {
+        const parts = [fb.collection(fb.db, 'posts'), fb.orderBy('createdAt', 'desc')];
+        if (pg.cursor && fb.startAfter) parts.push(fb.startAfter(pg.cursor));
+        parts.push(fb.limit(EXPLORE_PAGE_SIZE));
+        const snap = await fb.getDocs(fb.query(...parts));
+        snap.forEach(ds => { const d = ds.data(); if (d && d.id !== undefined && d.id !== null) pg.posts.push(d); });
+        if (snap.docs.length) pg.cursor = snap.docs[snap.docs.length - 1];
+        pg.hasMore = snap.docs.length === EXPLORE_PAGE_SIZE;
+      } catch (e) {
+        console.warn('Explore page fetch notice:', e);
+        pg.hasMore = false;
+      } finally {
+        pg.loading = false;
+        scheduleExploreRender();
       }
+    }
 
-      // 1. Render Posts (3x3 Picture Grid: 12 distinct community photos)
-      if (grid) {
-        let matchingPosts = [...state.explorePosts];
+    function isExploreAuthorHidden(author) {
+      const a = exploreNorm(author);
+      if (!a) return true;
+      const dir = window._exploreUserDir;
+      if (dir && dir.users.has(a) && dir.users.get(a).deactivated) return true;
+      if (typeof isAuthorHiddenFromFeed === 'function' && isAuthorHiddenFromFeed(a)) return true;
+      return false;
+    }
 
-        if (q) {
-          matchingPosts = matchingPosts.filter(p => 
-            p.author.toLowerCase().includes(q) ||
-            p.authorName.toLowerCase().includes(q) ||
-            p.caption.toLowerCase().includes(q) ||
-            (p.location && p.location.toLowerCase().includes(q)) ||
-            (p.tags && p.tags.some(t => t.toLowerCase().includes(q)))
-          );
+    // Real like count = other (non-deactivated) users whose likedPostIds/likedNoteIds include it + my current like.
+    function exploreRealLikeCount(kind, id) {
+      const dir = window._exploreUserDir;
+      const sid = String(id);
+      const viewer = exploreViewer();
+      const set = dir ? (kind === 'note' ? dir.likesByNote : dir.likesByPost).get(sid) : null;
+      let n = 0;
+      if (set) set.forEach(u => { if (u !== viewer) n++; });
+      const mine = kind === 'note'
+        ? !!(state.likedNoteIds && (state.likedNoteIds.has(sid) || state.likedNoteIds.has(Number(sid))))
+        : !!(state.likedPostIds && state.likedPostIds.has(sid));
+      return n + (mine ? 1 : 0);
+    }
+
+    function getRealExplorePosts() {
+      const viewer = exploreViewer();
+      const now = Date.now();
+      const live = new Map();
+      (state.posts || []).forEach(p => { if (p && p.id !== undefined) live.set(String(p.id), p); });
+      const src = new Map(window._exploreCloudPosts || []);
+      (window._explorePaged.posts || []).forEach(p => { if (p && p.id !== undefined && !src.has(String(p.id))) src.set(String(p.id), p); });
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      const out = [];
+      src.forEach((cp, sid) => {
+        if (!cp || !cp.image) return;
+        if (state.deletedPostIds && state.deletedPostIds.has(sid)) return;
+        const author = exploreNorm(cp.author || cp.username);
+        if (!author || author === viewer || isExploreAuthorHidden(author)) return;
+        let p = live.get(sid);
+        if (!p) {
+          p = state.explorePostsArchive.get(sid);
+          if (!p) {
+            p = { ...cp, comments: Array.isArray(cp.comments) ? cp.comments : [], tags: Array.isArray(cp.tags) ? cp.tags : [] };
+            state.explorePostsArchive.set(sid, p);
+          } else {
+            ['caption', 'image', 'location', 'authorName', 'authorAvatar'].forEach(k => { if (cp[k] !== undefined) p[k] = cp[k]; });
+            if (Array.isArray(cp.comments)) p.comments = cp.comments;
+          }
         }
+        p.isLiked = !!(state.likedPostIds && state.likedPostIds.has(sid));
+        if (window._exploreUserDir) p.likes = exploreRealLikeCount('post', sid);
+        out.push({ item: p, score: exploreScore(p, p.likes, now), t: exploreTimeMs(p) });
+      });
+      out.sort((a, b) => (b.score - a.score) || (b.t - a.t));
+      return out.map(x => x.item);
+    }
+    window.getRealExplorePosts = getRealExplorePosts;
 
-        if (matchingPosts.length === 0) {
-          grid.innerHTML = `
-            <div class="col-span-3 py-12 text-center text-xs text-neutral-400">
-              No photo posts matched "${filterQuery}". Try searching for Paris, Tokyo, Alps, or Sunset!
-            </div>
-          `;
+    function getRealExploreNotes() {
+      const dir = window._exploreUserDir;
+      if (!dir) return [];
+      const viewer = exploreViewer();
+      const now = Date.now();
+      if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
+      const out = [];
+      dir.notes.forEach(n => {
+        const sid = String(n.id);
+        if (n.author === viewer || isExploreAuthorHidden(n.author)) return;
+        if (state.deletedNoteIds && (state.deletedNoteIds.has(sid) || state.deletedNoteIds.has(Number(sid)))) return;
+        let obj = state.exploreNotesArchive.get(sid);
+        if (!obj) {
+          obj = { ...n, comments: Array.isArray(n.comments) ? n.comments : [] };
+          state.exploreNotesArchive.set(sid, obj);
         } else {
-          grid.innerHTML = matchingPosts.map(post => {
-            const isLiked = state.likedPostIds ? state.likedPostIds.has(String(post.id)) : false;
-            const btnBg = isLiked ? 'bg-rose-500 text-white shadow-rose-500/50 scale-105 ring-2 ring-white/80' : 'bg-black/60 hover:bg-black/80 text-white';
-            const heartSvg = isLiked 
-              ? `<svg class="w-4 h-4 fill-white text-white drop-shadow" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
-              : `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
+          ['text', 'authorName', 'authorAvatar', 'time', 'edited'].forEach(k => { if (n[k] !== undefined) obj[k] = n[k]; });
+          if (Array.isArray(n.comments) && n.comments.length >= (obj.comments || []).length) obj.comments = n.comments;
+        }
+        obj.author = n.author;
+        obj.isLiked = !!(state.likedNoteIds && (state.likedNoteIds.has(sid) || state.likedNoteIds.has(Number(sid))));
+        obj.likes = exploreRealLikeCount('note', sid);
+        out.push({ item: obj, score: exploreScore(obj, obj.likes, now), t: exploreTimeMs(obj) });
+      });
+      out.sort((a, b) => (b.score - a.score) || (b.t - a.t));
+      return out.map(x => x.item);
+    }
+    window.getRealExploreNotes = getRealExploreNotes;
 
-            return `
-            <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer explore-grid-item transition shadow-xs hover:shadow-md" data-post-id="${post.id}">
-              <img src="${post.image}" alt="Explore picture" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
-              
-              <!-- Floating Save Bookmark Button on Explore Photo -->
-              <button type="button" class="btn-save-explore-card absolute top-2 left-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full ${isPostSaved(post.id) ? 'bg-amber-400 text-neutral-900 shadow-amber-400/50 scale-105 ring-2 ring-white/80' : 'bg-black/60 hover:bg-black/80 text-white'} flex items-center justify-center transition-all duration-200 active:scale-125 z-20 shadow-md cursor-pointer" data-post-id="${post.id}" title="${isPostSaved(post.id) ? 'Remove from Saved' : 'Save photo'}">
-                <svg class="w-4 h-4 ${isPostSaved(post.id) ? 'fill-current' : ''}" fill="${isPostSaved(post.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    function exploreMatchesPost(p, q) {
+      if (!q) return true;
+      const hay = [p.author, p.authorName, p.caption, p.location].concat(Array.isArray(p.tags) ? p.tags.map(t => '#' + String(t).replace(/^#/, '') + ' ' + t) : [])
+        .map(x => String(x || '').toLowerCase()).join(' \u0001 ');
+      return exploreTerms(q).some(t => hay.includes(t));
+    }
+    function exploreMatchesNote(n, q) {
+      if (!q) return true;
+      const hay = [n.author, n.authorName, n.text].map(x => String(x || '').toLowerCase()).join(' \u0001 ');
+      return exploreTerms(q).some(t => hay.includes(t));
+    }
+
+    function exploreAdjustedFollowers(c) {
+      const dir = window._exploreUserDir;
+      const viewer = exploreViewer();
+      let n = c.followersCount || 0;
+      if (!viewer || viewer === 'guest' || viewer === c.username) return n;
+      const vrec = dir && dir.users.get(viewer);
+      const had = !!(vrec && !vrec.deactivated && vrec.following.includes(c.username));
+      const now = typeof isUserFollowingCreator === 'function' ? !!isUserFollowingCreator(c.username) : had;
+      return Math.max(0, n + (now && !had ? 1 : 0) - (!now && had ? 1 : 0));
+    }
+
+    function getExploreAccounts(q) {
+      const dir = window._exploreUserDir;
+      if (!dir) return null;
+      const viewer = exploreViewer();
+      const terms = q ? exploreTerms(q) : [];
+      let list = Array.from(dir.users.values()).filter(c => !c.deactivated);
+      if (q) list = list.filter(c => [c.username, c.fullName, c.bio, c.category].some(f => terms.some(t => String(f || '').toLowerCase().includes(t))));
+      else list = list.filter(c => c.username !== viewer);
+      list = list.map(c => {
+        const isSelf = c.username === viewer;
+        const followingCount = isSelf ? (state.following || []).filter(f => f && f.isFollowing !== false).length : c.followingCount;
+        const avatar = isSelf && state.currentUser && state.currentUser.avatar ? state.currentUser.avatar : c.avatar;
+        return { ...c, avatar, followingCount, followersCount: exploreAdjustedFollowers(c) };
+      });
+      const qq = q ? q.replace(/^@/, '') : '';
+      list.sort((a, b) => {
+        if (q) {
+          const ra = a.username === qq ? 0 : a.username.startsWith(qq) ? 1 : 2;
+          const rb = b.username === qq ? 0 : b.username.startsWith(qq) ? 1 : 2;
+          if (ra !== rb) return ra - rb;
+        }
+        return (b.followersCount - a.followersCount) || (b.lastUpdated - a.lastUpdated) || a.username.localeCompare(b.username);
+      });
+      return list;
+    }
+    window.getExploreAccounts = getExploreAccounts;
+
+    window.exploreToggleFollow = function(username, btnEl) {
+      const u = exploreSafeUser(username);
+      if (!u || typeof window.toggleFollowCreator !== 'function') return;
+      window.toggleFollowCreator(u, btnEl);
+      const rec = window._exploreUserDir && window._exploreUserDir.users.get(u);
+      const entry = (state.following || []).find(f => f && exploreNorm(f.username) === u);
+      if (rec && entry) {
+        entry.fullName = rec.fullName; entry.bio = rec.bio;
+        if (rec.avatar) entry.avatar = rec.avatar;
+      }
+      scheduleExploreRender();
+    };
+
+    window.exploreLoadMore = function(kind) {
+      const k = kind === 'notes' ? 'notes' : 'posts';
+      window._exploreVisible[k] += EXPLORE_PAGE_SIZE;
+      if (k === 'posts' && !exploreUsingListener() && window._explorePaged.hasMore) fetchExplorePostsPage(false);
+      scheduleExploreRender();
+    };
+
+    window.refreshExploreRealData = function() {
+      window._exploreVisible = { posts: EXPLORE_PAGE_SIZE, notes: EXPLORE_PAGE_SIZE };
+      if (!exploreUsingListener()) fetchExplorePostsPage(true);
+      return loadExploreUserDirectory(true);
+    };
+
+    var _exploreMoreObserver = null;
+    function observeExploreLoadMore(root) {
+      if (!root || typeof IntersectionObserver !== 'function') return;
+      if (!_exploreMoreObserver) {
+        _exploreMoreObserver = new IntersectionObserver(entries => {
+          entries.forEach(en => {
+            const scrolled = (window.pageYOffset || document.documentElement.scrollTop || 0) > 50;
+            if (en.isIntersecting && scrolled && en.target.dataset.kind && !en.target.dataset.fired) {
+              en.target.dataset.fired = '1';
+              window.exploreLoadMore(en.target.dataset.kind);
+            }
+          });
+        }, { rootMargin: '300px' });
+      }
+      root.querySelectorAll('.explore-load-more').forEach(el => _exploreMoreObserver.observe(el));
+    }
+
+    function exploreSectionLabel(text, sub, gridSpan) {
+      return `<div class="${gridSpan ? 'col-span-3 ' : ''}explore-suggested-label flex items-center space-x-2 pt-3 pb-1 px-1">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-violet-600 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">${exploreEsc(text)}</span>
+          <span class="text-[10px] text-neutral-400">${exploreEsc(sub)}</span>
+        </div>`;
+    }
+    function exploreLoadMoreHtml(kind, gridSpan) {
+      return `<div class="${gridSpan ? 'col-span-3 ' : ''}flex justify-center py-3">
+          <button type="button" class="explore-load-more px-4 py-1.5 text-xs font-semibold rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition cursor-pointer" data-kind="${kind}" onclick="event.stopPropagation(); window.exploreLoadMore('${kind}')">Load more</button>
+        </div>`;
+    }
+
+    function exploreTileHtml(post, isFiller) {
+      const sid = String(post.id);
+      const idA = exploreEsc(sid);
+      const author = exploreSafeUser(post.author);
+      const isLiked = state.likedPostIds ? state.likedPostIds.has(sid) : false;
+      const saved = isPostSaved(post.id);
+      const btnBg = isLiked ? 'bg-rose-500 text-white shadow-rose-500/50 scale-105 ring-2 ring-white/80' : 'bg-black/60 hover:bg-black/80 text-white';
+      const heartSvg = isLiked
+        ? `<svg class="w-4 h-4 fill-white text-white drop-shadow" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+        : `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
+      return `
+            <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer explore-grid-item transition shadow-xs hover:shadow-md" data-post-id="${idA}" ${isFiller ? 'data-explore-filler="1"' : 'data-explore-real="1"'}>
+              <img src="${exploreSafeSrc(post.image)}" alt="${isFiller ? 'Suggested picture' : 'Explore picture'}" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+              <button type="button" class="btn-save-explore-card absolute top-2 left-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full ${saved ? 'bg-amber-400 text-neutral-900 shadow-amber-400/50 scale-105 ring-2 ring-white/80' : 'bg-black/60 hover:bg-black/80 text-white'} flex items-center justify-center transition-all duration-200 active:scale-125 z-20 shadow-md cursor-pointer" data-post-id="${idA}" title="${saved ? 'Remove from Saved' : 'Save photo'}">
+                <svg class="w-4 h-4 ${saved ? 'fill-current' : ''}" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
                 </svg>
               </button>
-
-              <!-- Floating Like Button: Highly Visible, Tap-Friendly, Instant Visual Toggle -->
-              <button type="button" class="btn-like-explore-card absolute top-2 right-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full ${btnBg} flex items-center justify-center transition-all duration-200 active:scale-125 z-20 shadow-md" data-post-id="${post.id}" title="${isLiked ? 'Unlike photo' : 'Like photo'}">
+              <button type="button" class="btn-like-explore-card absolute top-2 right-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full ${btnBg} flex items-center justify-center transition-all duration-200 active:scale-125 z-20 shadow-md" data-post-id="${idA}" title="${isLiked ? 'Unlike photo' : 'Like photo'}">
                 ${heartSvg}
               </button>
-
-              <!-- Bottom Info Gradient with Author & Likes Count -->
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6 flex items-end justify-between text-white text-[10px] sm:text-xs font-semibold z-10 pointer-events-none">
-                <span class="btn-explore-post-author truncate max-w-[70%] drop-shadow-sm pointer-events-auto cursor-pointer hover:underline hover:text-violet-300 transition" data-author="${post.author}" onclick="event.stopPropagation(); viewUserProfile('${post.author}', 'explore')" title="View @${post.author}'s profile">@${post.author}</span>
+                <span class="btn-explore-post-author truncate max-w-[70%] drop-shadow-sm pointer-events-auto cursor-pointer hover:underline hover:text-violet-300 transition" data-author="${author}" onclick="event.stopPropagation(); viewUserProfile('${author}', 'explore')" title="View @${author}'s profile">@${author}</span>
                 <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
                   <span>${isLiked ? '❤️' : '🤍'}</span>
-                  <span>${post.likes}</span>
+                  <span class="explore-like-count">${Number(post.likes) || 0}</span>
                 </span>
               </div>
-            </div>
-          `;
-          }).join('');
-        }
-      }
+            </div>`;
+    }
 
-      // 2. Render Notes (Tweet-style community discovery)
-      if (notesList) {
-        let allNotes = [...(state.exploreNotes || []), ...(state.notes || [])];
-        if (q) {
-          allNotes = allNotes.filter(n =>
-            n.author.toLowerCase().includes(q) ||
-            n.authorName.toLowerCase().includes(q) ||
-            n.text.toLowerCase().includes(q)
-          );
-        }
-
-        if (allNotes.length === 0) {
-          notesList.innerHTML = `
-            <div class="py-12 text-center text-xs text-neutral-400">
-              No notes matched "${filterQuery}". Try another keyword!
-            </div>
-          `;
-        } else {
-          notesList.innerHTML = allNotes.map(note => {
-            const isNoteLiked = note.isLiked || (state.likedNoteIds && (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))));
-            const heartFill = isNoteLiked ? 'fill-rose-500 text-rose-500' : 'text-neutral-400 hover:text-rose-500';
-            return `
-            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/90 rounded-xl p-3.5 transition space-y-2.5 explore-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${note.id}" onclick="openNoteDetailModal('${note.id}')">
+    function exploreNoteCardHtml(note, isFiller) {
+      const sid = String(note.id);
+      const idA = exploreEsc(sid);
+      const idJs = sid.replace(/[^A-Za-z0-9_.-]/g, '');
+      const author = exploreSafeUser(note.author);
+      const isNoteLiked = note.isLiked || (state.likedNoteIds && (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(sid)));
+      const heartFill = isNoteLiked ? 'fill-rose-500 text-rose-500' : 'text-neutral-400 hover:text-rose-500';
+      const isSaved = !!(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(sid) || state.savedNoteIds.has(parseInt(sid, 10))));
+      const replies = exploreCommentCount(note) || Number(note.replies) || 0;
+      return `
+            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/90 rounded-xl p-3.5 transition space-y-2.5 explore-note-card cursor-pointer shadow-2xs hover:shadow-xs group" data-note-id="${idA}" ${isFiller ? 'data-explore-filler="1"' : 'data-explore-real="1"'} onclick="openNoteDetailModal('${idJs}')">
               <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2 cursor-pointer group/author" onclick="event.stopPropagation(); viewUserProfile('${note.author}')">
+                <div class="flex items-center space-x-2 cursor-pointer group/author" onclick="event.stopPropagation(); viewUserProfile('${author}')">
                   <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200">
-                    <img src="${getNoteAuthorAvatar(note)}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
+                    <img src="${exploreSafeSrc(getNoteAuthorAvatar(note))}" alt="${exploreEsc(note.authorName || author)}" class="w-full h-full object-cover" onerror="this.onerror=null;if(typeof COMMUNITY_IMAGES!=='undefined')this.src=COMMUNITY_IMAGES[0]">
                   </div>
                   <div>
-                    <div class="font-bold text-xs text-neutral-900 group-hover/author:underline">${note.authorName || note.author}</div>
-                    <div class="text-[10px] text-neutral-400">@${note.author} · ${formatPixlyTimestamp(note, note.time || 'Just now')}</div>
+                    <div class="font-bold text-xs text-neutral-900 group-hover/author:underline">${exploreEsc(note.authorName || author)}</div>
+                    <div class="text-[10px] text-neutral-400">@${author} · ${exploreEsc(formatPixlyTimestamp(note, note.time || 'Just now'))}</div>
                   </div>
                 </div>
               </div>
-              <p class="text-xs text-neutral-800 leading-relaxed">${note.text}</p>
+              <p class="text-xs text-neutral-800 leading-relaxed">${exploreEsc(note.text)}</p>
               <div class="flex items-center justify-between text-xs text-neutral-500 pt-1 border-t border-neutral-200/60">
                 <div class="flex items-center space-x-4">
-                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${note.id}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
+                  <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${idJs}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
                     <svg class="w-4 h-4 ${isNoteLiked ? 'fill-current' : 'none'}" fill="${isNoteLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${note.likes}</span>
+                    <span class="font-semibold">${Number(note.likes) || 0}</span>
                   </button>
-                  <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Comment">
+                  <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="Comment">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>${note.replies || 0}</span>
+                    <span>${replies}</span>
                   </button>
-                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${note.id}');" class="flex items-center hover:text-violet-600 transition btn-dm-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="Send via DM">
+                  <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${idJs}');" class="flex items-center hover:text-violet-600 transition btn-dm-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="Send via DM">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.6 8.2C17.2 5.4 14.3 3.7 11 3.7 6.3 3.7 2.8 7.2 2.8 11.7c0 1.8.6 3.5 1.7 4.9L3.3 20.4l4.1-1.4c1.1.5 2.3.7 3.6.7 3.3 0 6.2-1.7 7.6-4.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.5 12h9m0 0l-3.3-3.3M21.5 12l-3.3 3.3"/></svg>
                   </button>
                   <button type="button" onclick="event.stopPropagation();" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Share">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                   </button>
                 </div>
-                <!-- Bookmark / Save Note button on Explore Notes -->
-                <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${note.id}');" class="flex items-center space-x-1 btn-save-explore-note ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)) || state.savedNoteIds.has(parseInt(note.id, 10)))) ? 'text-amber-500 font-semibold' : 'text-neutral-500 hover:text-neutral-900'} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${note.id}" title="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Remove from Saved' : 'Save note'}">
-                  <svg class="w-4 h-4 ${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'fill-current text-amber-500' : ''}" fill="${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-                  <span>${(state.savedNoteIds && (state.savedNoteIds.has(note.id) || state.savedNoteIds.has(String(note.id)))) ? 'Saved' : 'Save'}</span>
+                <button type="button" onclick="event.stopPropagation(); window.toggleSaveNote('${idJs}');" class="flex items-center space-x-1 btn-save-explore-note ${isSaved ? 'text-amber-500 font-semibold' : 'text-neutral-500 hover:text-neutral-900'} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="${isSaved ? 'Remove from Saved' : 'Save note'}">
+                  <svg class="w-4 h-4 ${isSaved ? 'fill-current text-amber-500' : ''}" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                  <span>${isSaved ? 'Saved' : 'Save'}</span>
                 </button>
               </div>
-            </div>
-            `;
-          }).join('');
+            </div>`;
+    }
 
-          // Direct inline event handling on explore notes (handled cleanly by inline onclick on .btn-save-explore-note to eliminate double toggle)
+    function exploreFollowBtnHtml(c, compact) {
+      const u = exploreSafeUser(c.username);
+      const isF = isUserFollowingCreator(u);
+      if (compact) {
+        return `<button type="button" onclick="event.stopPropagation(); window.exploreToggleFollow('${u}', this)" class="w-full transition-all duration-200 cursor-pointer ${isF
+            ? 'py-1 text-[11px] font-semibold rounded-lg bg-violet-50 hover:bg-rose-50 border border-violet-200 text-violet-700 hover:text-rose-600'
+            : 'py-1 text-[11px] font-bold rounded-lg bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white shadow-xs hover:shadow-sm active:scale-95'}">${isF ? 'Connected ✓' : '+ Connect'}</button>`;
+      }
+      return `<button type="button" onclick="event.stopPropagation(); window.exploreToggleFollow('${u}', this)" class="explore-account-follow flex-shrink-0 transition-all duration-200 cursor-pointer ${isF
+          ? 'px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-violet-50 hover:bg-rose-50 border border-violet-200 hover:border-rose-200 text-violet-700 hover:text-rose-600'
+          : 'px-4 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white shadow-sm hover:shadow-md active:scale-95'}">${isF ? 'Connected ✓' : '+ Connect'}</button>`;
+    }
 
-          notesList.querySelectorAll('.btn-reply-explore-note').forEach(btn => {
-            btn.addEventListener('click', () => showToast('Reply to note opened'));
-          });
+    function exploreAccountAvatar(c) {
+      return exploreSafeSrc(c.avatar, typeof NEUTRAL_BLANK_AVATAR !== 'undefined' ? NEUTRAL_BLANK_AVATAR : '');
+    }
+    var EXPLORE_VERIFIED_SVG = `<svg class="w-3.5 h-3.5 text-violet-600 fill-current flex-shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
-          notesList.querySelectorAll('.btn-share-explore-note').forEach(btn => {
-            btn.addEventListener('click', () => copyToClipboard(window.location.href, 'Note link copied to clipboard!'));
-          });
+    function renderExploreAccounts(q, filterQuery, container) {
+      const viewer = exploreViewer();
+      const list = getExploreAccounts(q);
+      if (list === null) {
+        loadExploreUserDirectory(false);
+        container.innerHTML = q ? `<div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs text-center text-xs text-neutral-400">Searching accounts…</div>` : '';
+        container.classList.toggle('hidden', !q);
+        return;
+      }
+      if (q) {
+        if (!list.length) {
+          container.innerHTML = `
+              <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs text-center text-xs text-neutral-400 space-y-1">
+                <p class="font-semibold text-neutral-700">No accounts found matching "${exploreEsc(filterQuery)}"</p>
+                <p class="text-[11px]">Try a username, a name, or a word from someone's bio.</p>
+              </div>`;
+          container.classList.remove('hidden');
+          return;
         }
+        const shown = list.slice(0, 30);
+        container.innerHTML = `
+              <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-violet-600 animate-pulse"></span>
+                    <h3 class="font-extrabold text-xs uppercase tracking-wider text-neutral-900">Creators & Accounts</h3>
+                  </div>
+                  <span class="text-[11px] font-semibold text-violet-600 bg-violet-50 px-2.5 py-0.5 rounded-full">${list.length} found</span>
+                </div>
+                <div class="divide-y divide-neutral-100">
+                  ${shown.map(c => {
+                    const u = exploreSafeUser(c.username);
+                    const isSelf = u === viewer;
+                    const chip = c.category || (c.accountType === 'business' ? 'Business' : 'Creator');
+                    return `
+                      <div class="explore-account-row flex items-center justify-between py-3 px-2 hover:bg-neutral-50/90 rounded-xl transition cursor-pointer group" data-username="${u}" onclick="viewUserProfile('${u}')">
+                        <div class="flex items-center space-x-3 min-w-0 pr-2">
+                          <div class="w-12 h-12 rounded-2xl p-0.5 story-gradient shadow-xs flex-shrink-0">
+                            <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
+                              <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc(c.fullName)}" class="w-full h-full object-cover">
+                            </div>
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center space-x-1.5">
+                              <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${exploreEsc(c.fullName)}</span>
+                              ${c.isVerified ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                              <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${exploreEsc(String(chip).split('&')[0].trim())}</span>
+                            </div>
+                            <div class="text-[11px] font-medium text-neutral-500 truncate">@${u}${isSelf ? ' · You' : ''}</div>
+                            <div class="explore-account-counts text-[10px] text-neutral-500 truncate mt-0.5"><span class="font-semibold text-neutral-700">${exploreFmtCount(c.followersCount)}</span> ${exploreFollowersWord(c.followersCount)} · <span class="font-semibold text-neutral-700">${exploreFmtCount(c.followingCount)}</span> following</div>
+                            ${c.bio ? `<div class="text-[10px] text-neutral-400 truncate mt-0.5">${exploreEsc(c.bio.split('|')[0])}</div>` : ''}
+                          </div>
+                        </div>
+                        ${isSelf ? '' : exploreFollowBtnHtml(c, false)}
+                      </div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+        container.classList.remove('hidden');
+        return;
+      }
+      if (!list.length) { container.innerHTML = ''; container.classList.add('hidden'); return; }
+      container.innerHTML = `
+            <div class="bg-white border border-neutral-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+              <div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+                <div class="flex items-center space-x-2">
+                  <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                  <h3 class="font-extrabold text-xs uppercase tracking-wider text-neutral-900">Creators to Discover</h3>
+                </div>
+                <span class="text-[11px] text-neutral-400 font-medium">On Pixlynote</span>
+              </div>
+              <div class="flex space-x-3 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-neutral-200">
+                ${list.slice(0, 10).map(c => {
+                  const u = exploreSafeUser(c.username);
+                  return `
+                    <div class="explore-account-card flex-shrink-0 w-36 bg-neutral-50/90 hover:bg-neutral-100/80 border border-neutral-100 rounded-2xl p-3 text-center flex flex-col items-center justify-between transition cursor-pointer group shadow-2xs" data-username="${u}" onclick="viewUserProfile('${u}')">
+                      <div class="w-14 h-14 rounded-2xl p-0.5 story-gradient shadow-xs mb-2">
+                        <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
+                          <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc(c.fullName)}" class="w-full h-full object-cover">
+                        </div>
+                      </div>
+                      <div class="w-full min-w-0">
+                        <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc(c.fullName)}</div>
+                        <div class="text-[10px] text-neutral-500 font-medium truncate">@${u}</div>
+                        <div class="explore-account-counts text-[10px] text-neutral-400 truncate">${exploreFmtCount(c.followersCount)} ${exploreFollowersWord(c.followersCount)}</div>
+                      </div>
+                      <div class="w-full mt-2.5">${exploreFollowBtnHtml(c, true)}</div>
+                    </div>`;
+                }).join('')}
+              </div>
+            </div>`;
+      container.classList.remove('hidden');
+    }
+
+    function renderExplore(filterQuery = '') {
+      filterQuery = String(filterQuery || '');
+      const q = filterQuery.toLowerCase().trim();
+      const grid = document.getElementById('explore-grid');
+      const notesList = document.getElementById('explore-notes-list');
+      const creatorsContainer = document.getElementById('explore-creators-container');
+
+      if (!EXPLORE_PAGE_SIZE) return;   // module constants not initialised yet (very early boot call)
+      if (!window._exploreVisible) window._exploreVisible = { posts: EXPLORE_PAGE_SIZE, notes: EXPLORE_PAGE_SIZE };
+      if (q !== window._exploreLastQuery) {
+        window._exploreLastQuery = q;
+        window._exploreVisible = { posts: EXPLORE_PAGE_SIZE, notes: EXPLORE_PAGE_SIZE };
+      }
+      const dir = window._exploreUserDir;
+      if (!dir || (Date.now() - dir.at) >= EXPLORE_DIR_TTL_MS) loadExploreUserDirectory(false);
+      // Wait for the first directory read (deactivation flags, real counts) instead of flashing demo content.
+      const dirWaiting = !window._exploreUserDir && !window._exploreUserDirLastFail;
+      const viewer = exploreViewer();
+
+      // 0. Real accounts: discover carousel, or search results by username / full name / bio
+      if (creatorsContainer) renderExploreAccounts(q, filterQuery, creatorsContainer);
+
+      // 1. Real public posts (ranked, paged), then labeled demo filler only when real posts are sparse
+      if (grid) {
+        const pg = window._explorePaged;
+        if (!exploreUsingListener() && window.firebaseReady && !pg.used) fetchExplorePostsPage(true);
+        const pageWaiting = !exploreUsingListener() && pg.loading && !pg.posts.length;
+        const waiting = dirWaiting || pageWaiting;
+        let html = '';
+        if (waiting) {
+          html = `<div class="col-span-3 py-12 text-center text-xs text-neutral-400 explore-loading">Loading posts…</div>`;
+        } else {
+          const real = getRealExplorePosts().filter(p => exploreMatchesPost(p, q));
+          const visible = real.slice(0, window._exploreVisible.posts);
+          const moreFromServer = !exploreUsingListener() && pg.used && pg.hasMore && !q;
+          const moreReal = real.length > visible.length || moreFromServer;
+          html = visible.map(p => exploreTileHtml(p, false)).join('');
+          if (moreReal) html += exploreLoadMoreHtml('posts', true);
+          if (!moreReal && real.length < EXPLORE_MIN_REAL) {
+            const realIds = new Set(real.map(p => String(p.id)));
+            const filler = (state.explorePosts || [])
+              .filter(p => p && !realIds.has(String(p.id)) && exploreNorm(p.author) !== viewer && exploreMatchesPost(p, q))
+              .slice(0, Math.max(0, EXPLORE_PAGE_SIZE - real.length));
+            if (filler.length) {
+              html += exploreSectionLabel('Suggested', real.length ? 'Sample posts while Pixlynote grows' : 'Sample posts · no community posts yet', true)
+                + filler.map(p => exploreTileHtml(p, true)).join('');
+            }
+          }
+          if (!html) {
+            html = `<div class="col-span-3 py-12 text-center text-xs text-neutral-400">${q ? `No posts matched "${exploreEsc(filterQuery)}".` : 'No posts yet.'}</div>`;
+          }
+        }
+        grid.innerHTML = html;
+        observeExploreLoadMore(grid);
+      }
+
+      // 2. Real public notes (from every account's notes), ranked and paged, demo filler only when sparse
+      if (notesList) {
+        let html = '';
+        if (dirWaiting) {
+          html = `<div class="py-12 text-center text-xs text-neutral-400 explore-loading">Loading notes…</div>`;
+        } else {
+          const realN = getRealExploreNotes().filter(n => exploreMatchesNote(n, q));
+          const visN = realN.slice(0, window._exploreVisible.notes);
+          html = visN.map(n => exploreNoteCardHtml(n, false)).join('');
+          if (realN.length > visN.length) {
+            html += exploreLoadMoreHtml('notes', false);
+          } else if (realN.length < EXPLORE_MIN_REAL) {
+            const ids = new Set(realN.map(n => String(n.id)));
+            const fillerN = (state.exploreNotes || [])
+              .filter(n => n && !ids.has(String(n.id)) && exploreMatchesNote(n, q))
+              .slice(0, Math.max(0, EXPLORE_PAGE_SIZE - realN.length));
+            if (fillerN.length) {
+              html += exploreSectionLabel('Suggested', realN.length ? 'Sample notes while Pixlynote grows' : 'Sample notes · no community notes yet', false)
+                + fillerN.map(n => exploreNoteCardHtml(n, true)).join('');
+            }
+          }
+          if (!html) {
+            html = `<div class="py-12 text-center text-xs text-neutral-400">${q ? `No notes matched "${exploreEsc(filterQuery)}".` : 'No notes yet.'}</div>`;
+          }
+        }
+        notesList.innerHTML = html;
+        notesList.querySelectorAll('.btn-reply-explore-note').forEach(btn => {
+          btn.addEventListener('click', (e) => { e.stopPropagation(); openNoteDetailModal(btn.dataset.noteId); });
+        });
+        notesList.querySelectorAll('.btn-share-explore-note').forEach(btn => {
+          btn.addEventListener('click', () => copyToClipboard(window.location.href, 'Note link copied to clipboard!'));
+        });
+        observeExploreLoadMore(notesList);
       }
     }
 
@@ -8817,9 +9171,10 @@ function syncLikedStateToPosts() {
         setTimeout(() => { if (svg) svg.classList.remove('animate-spin'); }, 600);
       }
       repopulateExploreContent();
+      if (typeof window.refreshExploreRealData === 'function') window.refreshExploreRealData();
       const currentQuery = document.getElementById('explore-search-input') ? document.getElementById('explore-search-input').value : '';
       renderExplore(currentQuery);
-      showToast('✨ Explore refreshed with fresh posts, notes & creators!');
+      showToast('✨ Explore refreshed with the latest posts, notes & creators!');
     }
     window.handleInstantExploreRefresh = handleInstantExploreRefresh;
 
@@ -16294,6 +16649,7 @@ function syncLikedStateToPosts() {
               
               // 1. Repopulate Explore with fresh posts & notes
               repopulateExploreContent();
+              if (typeof window.refreshExploreRealData === 'function') window.refreshExploreRealData();
 
               // 2. Render all active UI views safely
               try { renderFeed(); } catch(e) { console.error('renderFeed error:', e); }
