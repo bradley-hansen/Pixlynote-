@@ -2462,6 +2462,19 @@
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
+        <button type="button" id="btn-ac-tab-privileged-access" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900">Privileged Access</div>
+              <div class="text-[10px] text-neutral-500">Grant or manage account switching invites</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
         <button type="button" id="btn-ac-tab-privacy-safety" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
           <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -2784,6 +2797,55 @@
         </div>
       </div>
 
+      <!-- VIEW 11: PRIVILEGED ACCESS -->
+      <div id="ac-view-privileged-access" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
+        <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-1.5">
+          <div class="text-xs font-bold text-indigo-950">Grant Privileged Access</div>
+          <p class="text-[11px] text-indigo-800/80 leading-relaxed">
+            Invite a trusted account to switch into <span id="ac-priv-owner-handle" class="font-bold">@account</span> without your password. They must accept the invite from their notifications.
+          </p>
+          <div class="flex items-center space-x-2 pt-1">
+            <input type="text" id="ac-priv-username-input" placeholder="Enter @username (e.g. grok_bot)" class="flex-1 px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <button type="button" id="btn-ac-grant-privileged" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0">
+              Invite
+            </button>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1">Granted Accounts</div>
+          <div id="ac-privileged-granted-list" class="space-y-2">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+        <div class="space-y-1.5 pt-2 border-t border-neutral-100">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1">Accounts You Have Access To</div>
+          <div id="ac-privileged-received-list" class="space-y-2">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Password Verification Modal for Account Switching -->
+  <div id="modal-switch-password" class="hidden fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm items-center justify-center p-4" style="display: none;">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-neutral-200 overflow-hidden">
+      <div class="p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-extrabold text-neutral-900">Verify Password to Switch</h3>
+          <button type="button" id="btn-close-switch-password" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p class="text-xs text-neutral-600">Enter the password for <span id="switch-password-target" class="font-bold text-violet-700">@account</span> to switch into this account.</p>
+        <input type="password" id="switch-password-input" placeholder="Password" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <div id="switch-password-error" class="hidden text-[11px] font-semibold text-rose-600"></div>
+        <div class="flex items-center space-x-2 pt-1">
+          <button type="button" id="btn-cancel-switch-password" class="flex-1 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold cursor-pointer">Cancel</button>
+          <button type="button" id="btn-confirm-switch-password" class="flex-1 py-2.5 rounded-xl story-gradient text-white text-xs font-bold cursor-pointer">Switch Account</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2941,14 +3003,30 @@
         };
         window.firebaseReady = true;
 
-        // Function to listen and sync live user document from Firestore (Free Plan)
+        // Function to close all active Firestore snapshot listeners on logout or account switch
         let firestoreListenerAttached = false;
+        window.closeAllFirestoreListeners = function() {
+          firestoreListenerAttached = false;
+          if (window._bradleyUserDocUnsub) { try { window._bradleyUserDocUnsub(); } catch(e) {} window._bradleyUserDocUnsub = null; }
+          if (window._acDocUnsub) { try { window._acDocUnsub(); } catch(e) {} window._acDocUnsub = null; }
+          if (window._postsCollectionUnsub) { try { window._postsCollectionUnsub(); } catch(e) {} window._postsCollectionUnsub = null; }
+          if (window._activeUserDocUnsub) { try { window._activeUserDocUnsub(); } catch(e) {} window._activeUserDocUnsub = null; }
+          window._activeUserDocName = null;
+          if (window._notifUnsubMap && typeof window._notifUnsubMap === 'object') {
+            Object.keys(window._notifUnsubMap).forEach(k => {
+              try { if (typeof window._notifUnsubMap[k] === 'function') window._notifUnsubMap[k](); } catch(e) {}
+            });
+            window._notifUnsubMap = {};
+          }
+        };
+
+        // Function to listen and sync live user document from Firestore (Free Plan)
         function attachFirestoreListeners() {
           if (firestoreListenerAttached) return;
           firestoreListenerAttached = true;
 
           const userDocRef = doc(db, 'users', 'bradley_hansen');
-          onSnapshot(userDocRef, (snap) => {
+          window._bradleyUserDocUnsub = onSnapshot(userDocRef, (snap) => {
             if (snap.exists()) {
               const data = snap.data();
               if (data) {
@@ -3067,17 +3145,18 @@
                 if (data && Array.isArray(data.highlights)) {
                   console.log("Syncing persistent highlights from Cloud Firestore:", data.highlights);
                   state.highlights = data.highlights;
+                  const hlKey = getAccountStorageKey('pixly_highlights', 'bradley_hansen');
                   try {
-                    localStorage.setItem('pixly_highlights', JSON.stringify(data.highlights));
+                    safeLocalStorageSet(hlKey, JSON.stringify(stripHeavyImagesForLocalStorage(data.highlights)));
                   } catch(e) {}
                   if (window.idbStorage) {
-                    idbStorage.set('pixly_highlights', JSON.stringify(data.highlights));
+                    idbStorage.set(hlKey, JSON.stringify(data.highlights));
                   }
                   renderHighlights();
                 }
 
-                // 3e. Direct Messages from Cloud Firestore
-                if (data && Array.isArray(data.dms) && data.dms.length > 0) {
+                // 3e. Direct Messages from Cloud Firestore (respect empty arrays too)
+                if (data && Array.isArray(data.dms)) {
                   const recentlyWroteDm = (Date.now() - (window._lastLocalDmWriteTs || 0)) < 3500;
                   if (!snap.metadata.hasPendingWrites && !recentlyWroteDm) {
                     console.log("Syncing live Direct Messages from Cloud Firestore:", data.dms.length);
@@ -3096,8 +3175,8 @@
                   }
                 }
 
-                // 4. Notes & Liked Notes
-                if (Array.isArray(data.notes) && data.notes.length > 0) {
+                // 4. Notes & Liked Notes (respect empty arrays too)
+                if (Array.isArray(data.notes)) {
                   state.notes = data.notes;
                   if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
                   renderNotes();
@@ -3182,20 +3261,23 @@
             }
           }, (err) => console.log("User doc snapshot notice:", err));
 
-          // Persistent Account Center Cloud Firestore Listener (survives new phone & Chrome cache clear)
+          // Persistent Account Center Cloud Firestore Listener (strictly scoped to active owner)
           try {
-            const acDocRef = doc(db, 'accountCenters', 'default');
-            onSnapshot(acDocRef, (acSnap) => {
-              if (acSnap.exists()) {
-                const acData = acSnap.data();
-                if (acData && Array.isArray(acData.accounts) && typeof window.mergeAccountCenterFromCloud === 'function') {
-                  window.mergeAccountCenterFromCloud(acData.accounts, acData.removedUsernames || []);
+            const acOwner = (typeof getAccountCenterOwner === 'function') ? getAccountCenterOwner() : 'bradley_hansen';
+            if (acOwner && acOwner !== 'guest') {
+              const acDocRef = doc(db, 'accountCenters', acOwner);
+              window._acDocUnsub = onSnapshot(acDocRef, (acSnap) => {
+                if (acSnap.exists()) {
+                  const acData = acSnap.data();
+                  if (acData && Array.isArray(acData.accounts) && typeof window.mergeAccountCenterFromCloud === 'function') {
+                    window.mergeAccountCenterFromCloud(acData.accounts, acData.removedUsernames || []);
+                  }
+                } else if (typeof window.syncAccountCenterToFirestore === 'function' && typeof getSessionAccounts === 'function') {
+                  const localAccs = getSessionAccounts();
+                  if (localAccs.length > 0) window.syncAccountCenterToFirestore(localAccs);
                 }
-              } else if (typeof window.syncAccountCenterToFirestore === 'function' && typeof getSessionAccounts === 'function') {
-                const localAccs = getSessionAccounts();
-                if (localAccs.length > 0) window.syncAccountCenterToFirestore(localAccs);
-              }
-            }, (err) => console.log("Account Center snapshot notice:", err));
+              }, (err) => console.log("Account Center snapshot notice:", err));
+            }
           } catch(e) { console.log("Account Center listener setup notice:", e); }
 
           // Per-account live notifications listener for any active account
@@ -3311,7 +3393,7 @@
                 } catch(e) {}
               }
             }
-            if (Array.isArray(d.notes) && d.notes.length > 0) {
+            if (Array.isArray(d.notes)) {
               state.notes = d.notes;
               if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
               if (typeof renderNotes === 'function') renderNotes();
@@ -3401,7 +3483,7 @@
               if (typeof renderFeed === 'function') renderFeed();
               if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
             }
-            if (Array.isArray(d.dms) && d.dms.length > 0) {
+            if (Array.isArray(d.dms)) {
               const recentlyWroteDm = (Date.now() - (window._lastLocalDmWriteTs || 0)) < 3500;
               if (!hasPendingWrites && !recentlyWroteDm) {
                 state.messages = d.dms;
@@ -3457,7 +3539,7 @@
           // Listen to posts collection
           try {
             const postsCollection = collection(db, 'posts');
-            onSnapshot(postsCollection, (qSnap) => {
+            window._postsCollectionUnsub = onSnapshot(postsCollection, (qSnap) => {
               const cloudPosts = [];
               qSnap.forEach(d => {
                 const p = d.data();
@@ -3779,16 +3861,55 @@ function saveAccountLikes(username) {
 
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
+    function mergeNotificationLists(localList, remoteList) {
+      const byKey = new Map();
+      const makeKey = (n) => {
+        if (!n) return '';
+        if (n.id !== undefined && n.id !== null) return 'id:' + String(n.id);
+        return [n.type || '', n.fromUser || '', n.postId || '', n.noteId || '', n.timestamp || ''].join('|');
+      };
+      (Array.isArray(remoteList) ? remoteList : []).forEach(n => {
+        const k = makeKey(n);
+        if (k) byKey.set(k, { ...n });
+      });
+      (Array.isArray(localList) ? localList : []).forEach(n => {
+        const k = makeKey(n);
+        if (!k) return;
+        const prev = byKey.get(k);
+        if (prev) {
+          byKey.set(k, {
+            ...prev,
+            ...n,
+            read: Boolean(prev.read || n.read),
+            status: (n.status && n.status !== 'pending') ? n.status : (prev.status || n.status)
+          });
+        } else {
+          byKey.set(k, { ...n });
+        }
+      });
+      return Array.from(byKey.values()).sort((a, b) => (Number(b.timestamp || 0) - Number(a.timestamp || 0))).slice(0, 100);
+    }
+    window.mergeNotificationLists = mergeNotificationLists;
+
     function saveAccountNotifications(username, forceDbWrite = false) {
       const u = normalizeUsername(username || 'bradley_hansen');
       const list = Array.isArray(state.notifications) ? state.notifications : [];
       try {
-        localStorage.setItem('pixly_notifications_' + u, JSON.stringify(list));
+        safeLocalStorageSet('pixly_notifications_' + u, JSON.stringify(list));
       } catch(e) {}
       if (window.firebaseReady && window.firebase && (forceDbWrite || window._notificationsHydrated[u] || list.length > 0)) {
         try {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', u), { notifications: list }, { merge: true }).catch(() => {});
+          const { db, doc, getDoc, setDoc } = window.firebase;
+          window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
+            let merged = list;
+            try {
+              const snap = await getDoc(doc(db, 'users', u));
+              if (snap.exists() && Array.isArray(snap.data().notifications)) {
+                merged = mergeNotificationLists(list, snap.data().notifications);
+              }
+            } catch(e) {}
+            await setDoc(doc(db, 'users', u), { notifications: merged }, { merge: true }).catch(() => {});
+          }).catch(() => {});
         } catch(e) {}
       }
     }
@@ -4149,6 +4270,24 @@ function syncLikedStateToPosts() {
       return `${baseKey}_${u || 'guest'}`;
     }
 
+    function safeLocalStorageSet(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch(e) {
+        try {
+          const legacyKeys = ['pixly_custom_posts', 'pixly_notes', 'pixly_highlights', 'pixly_comments_map', 'pixly_session_accounts', 'pixly_following'];
+          legacyKeys.forEach(lk => { try { localStorage.removeItem(lk); } catch(_) {} });
+          localStorage.setItem(key, value);
+          return true;
+        } catch(e2) {
+          console.warn('localStorage quota exceeded for key:', key);
+          return false;
+        }
+      }
+    }
+    window.safeLocalStorageSet = safeLocalStorageSet;
+
     function stripHeavyImagesForLocalStorage(obj) {
       try {
         if (!obj) return obj;
@@ -4484,7 +4623,7 @@ function syncLikedStateToPosts() {
         // 0. Save Deleted Post IDs
         if (state.deletedPostIds) {
           const deletedJson = JSON.stringify(Array.from(state.deletedPostIds).map(String));
-          try { localStorage.setItem(k('pixly_deleted_posts'), deletedJson); } catch(e) {}
+          safeLocalStorageSet(k('pixly_deleted_posts'), deletedJson);
           if (window.idbStorage) idbStorage.set(k('pixly_deleted_posts'), deletedJson);
         }
 
@@ -4509,7 +4648,7 @@ function syncLikedStateToPosts() {
         // Save Highlights (strip heavy base64 images from localStorage, keep full in idbStorage)
         if (state.highlights !== undefined) {
           const lightHighlights = stripHeavyImagesForLocalStorage(state.highlights);
-          try { localStorage.setItem(k('pixly_highlights'), JSON.stringify(lightHighlights)); } catch(e) {}
+          safeLocalStorageSet(k('pixly_highlights'), JSON.stringify(lightHighlights));
           if (window.idbStorage) idbStorage.set(k('pixly_highlights'), JSON.stringify(state.highlights));
         }
 
@@ -4521,7 +4660,7 @@ function syncLikedStateToPosts() {
         // 2. Save Custom User Posts (lightweight in localStorage to avoid 5MB quota errors, full in idbStorage)
         const customPosts = state.posts.filter(p => typeof p.id === "number" && p.id > 1000);
         const lightPosts = stripHeavyImagesForLocalStorage(customPosts);
-        try { localStorage.setItem(k('pixly_custom_posts'), JSON.stringify(lightPosts)); } catch(e) {}
+        safeLocalStorageSet(k('pixly_custom_posts'), JSON.stringify(lightPosts));
         if (window.idbStorage) idbStorage.set(k('pixly_custom_posts'), JSON.stringify(customPosts));
 
         // 3. Save Saved Notes IDs
@@ -4533,7 +4672,7 @@ function syncLikedStateToPosts() {
 
         // 3. Save Notes
         const lightNotes = stripHeavyImagesForLocalStorage(state.notes);
-        try { localStorage.setItem(k('pixly_notes'), JSON.stringify(lightNotes)); } catch(e) {}
+        safeLocalStorageSet(k('pixly_notes'), JSON.stringify(lightNotes));
         if (window.idbStorage) idbStorage.set(k('pixly_notes'), JSON.stringify(state.notes));
         
         // 4. Save Bookmarked post IDs
@@ -4591,10 +4730,15 @@ function syncLikedStateToPosts() {
 
     function loadPersistedState() {
       try {
-        // 1. Restore Deleted Post IDs first
+        let activeBootU = '';
+        try { activeBootU = normalizeUsername(localStorage.getItem('pixly_active_username') || ''); } catch(e) {}
+        const curU = activeBootU || getActiveFirestoreUsername() || 'bradley_hansen';
+        const k = (base) => getAccountStorageKey(base, curU);
+
+        // 1. Restore Deleted Post IDs first (per-account key with legacy fallback only for bradley_hansen)
         try {
           let savedDel = null;
-          try { savedDel = localStorage.getItem('pixly_deleted_posts'); } catch(e) {}
+          try { savedDel = localStorage.getItem(k('pixly_deleted_posts')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_deleted_posts') : null); } catch(e) {}
           if (savedDel) {
             const parsedDel = JSON.parse(savedDel);
             if (Array.isArray(parsedDel)) {
@@ -4607,7 +4751,7 @@ function syncLikedStateToPosts() {
         // 2. Restore Custom Posts (excluding any deleted posts and deduplicating twin bug posts)
         try {
           let savedCustom = null;
-          try { savedCustom = localStorage.getItem('pixly_custom_posts'); } catch(e) {}
+          try { savedCustom = localStorage.getItem(k('pixly_custom_posts')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_custom_posts') : null); } catch(e) {}
           if (savedCustom) {
             const parsedCustom = JSON.parse(savedCustom);
             if (Array.isArray(parsedCustom)) {
@@ -4662,8 +4806,8 @@ function syncLikedStateToPosts() {
         if (savedAccType) state.currentUser.accountType = savedAccType;
 
         let savedUser = null;
-        try { savedUser = localStorage.getItem('pixlynote_user'); } catch(e) {}
-        if (!savedUser) { try { savedUser = sessionStorage.getItem('pixlynote_user'); } catch(e) {} }
+        try { savedUser = localStorage.getItem(k('pixlynote_user')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixlynote_user') : null); } catch(e) {}
+        if (!savedUser) { try { savedUser = sessionStorage.getItem(k('pixlynote_user')) || (curU === 'bradley_hansen' ? sessionStorage.getItem('pixlynote_user') : null); } catch(e) {} }
         if (savedUser) {
           try {
             const parsed = JSON.parse(savedUser);
@@ -4677,7 +4821,7 @@ function syncLikedStateToPosts() {
           } catch(e) {}
         }
         let savedAvatar = null;
-        try { savedAvatar = localStorage.getItem('pixly_avatar'); } catch(e) {}
+        try { savedAvatar = localStorage.getItem(k('pixly_avatar')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_avatar') : null); } catch(e) {}
         if (savedAvatar && state.currentUser.username === 'bradley_hansen') {
           state.currentUser.avatar = savedAvatar;
           state.posts.forEach(p => { if (p.author === state.currentUser.username) p.authorAvatar = savedAvatar; });
@@ -4686,16 +4830,15 @@ function syncLikedStateToPosts() {
         }
 // 3. Restore Liked Posts and Notifications per account
         try {
-          const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
           loadAccountLikes(curU);
           loadAccountNotifications(curU);
           loadAccountDms(curU);
         } catch(e) {}
-// 4. Restore Notes (from 'pixly_notes')
+// 4. Restore Notes (scoped to active user)
         try {
           let savedNotes = null;
-          try { savedNotes = localStorage.getItem('pixly_notes'); } catch(e) {}
-          if (!savedNotes) { try { savedNotes = sessionStorage.getItem('pixly_notes'); } catch(e) {} }
+          try { savedNotes = localStorage.getItem(k('pixly_notes')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_notes') : null); } catch(e) {}
+          if (!savedNotes) { try { savedNotes = sessionStorage.getItem(k('pixly_notes')) || (curU === 'bradley_hansen' ? sessionStorage.getItem('pixly_notes') : null); } catch(e) {} }
           if (savedNotes) {
             const parsedNotes = JSON.parse(savedNotes);
             if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
@@ -4707,7 +4850,7 @@ function syncLikedStateToPosts() {
         // 4.5 Restore Deleted Note IDs
         try {
           let savedDelNotes = null;
-          try { savedDelNotes = localStorage.getItem('pixly_deleted_notes'); } catch(e) {}
+          try { savedDelNotes = localStorage.getItem(k('pixly_deleted_notes')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_deleted_notes') : null); } catch(e) {}
           if (savedDelNotes) {
             const parsedDelN = JSON.parse(savedDelNotes);
             if (Array.isArray(parsedDelN)) {
@@ -4722,7 +4865,7 @@ function syncLikedStateToPosts() {
         // 4.55 Restore Replies & Deleted Reply IDs
         try {
           let savedReplies = null;
-          try { savedReplies = localStorage.getItem('pixly_replies'); } catch(e) {}
+          try { savedReplies = localStorage.getItem(k('pixly_replies')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_replies') : null); } catch(e) {}
           if (savedReplies) {
             const parsedRep = JSON.parse(savedReplies);
             if (Array.isArray(parsedRep)) {
@@ -4730,7 +4873,7 @@ function syncLikedStateToPosts() {
             }
           }
           let savedDelRep = null;
-          try { savedDelRep = localStorage.getItem('pixly_deleted_replies'); } catch(e) {}
+          try { savedDelRep = localStorage.getItem(k('pixly_deleted_replies')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_deleted_replies') : null); } catch(e) {}
           if (savedDelRep) {
             const parsedDelR = JSON.parse(savedDelRep);
             if (Array.isArray(parsedDelR)) {
@@ -4827,7 +4970,6 @@ function syncLikedStateToPosts() {
         email: "bradley.g.hansen@hotmail.com",
         phone: "+1 (609) 289-6702",
         accountType: "personal",
-        password: "demo1234",
         bio: "Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍",
         link: "t.me/bradley_hansen",
         avatar: BRADLEY_AVATAR_IMAGE,
@@ -5998,7 +6140,8 @@ function syncLikedStateToPosts() {
           userInFollowing.isFollowing = !userInFollowing.isFollowing;
 
           try {
-            localStorage.setItem('pixly_following', JSON.stringify(state.following));
+            const followU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+            localStorage.setItem('pixly_following_' + followU, JSON.stringify(state.following));
           } catch(err) {}
 
           const displayTotal = getFollowingDisplayCount();
@@ -7140,18 +7283,23 @@ function syncLikedStateToPosts() {
     function applyCommentsMap(cmap) {
       if (!cmap || typeof cmap !== 'object') return;
       window._lastRemoteCommentsMap = Object.assign({}, window._lastRemoteCommentsMap || {}, cmap);
+      const delSet = state.deletedReplyIds || new Set();
+      const isDel = (id) => delSet.has(String(id)) || (!isNaN(Number(id)) && delSet.has(Number(id)));
       const mergeLists = (localArr, remoteArr) => {
         const byId = new Map();
-        (localArr || []).forEach(c => byId.set(String(c.id), c));
+        (localArr || []).forEach(c => { if (c && !isDel(c.id)) byId.set(String(c.id), c); });
         (remoteArr || []).forEach(rc => {
+          if (!rc || isDel(rc.id)) return;
           if (!byId.has(String(rc.id))) {
-            byId.set(String(rc.id), rc);
+            const copy = { ...rc };
+            if (Array.isArray(copy.replies)) copy.replies = copy.replies.filter(r => r && !isDel(r.id));
+            byId.set(String(rc.id), copy);
           } else {
             const lc = byId.get(String(rc.id));
             if (typeof rc.isSpam === 'boolean') lc.isSpam = rc.isSpam;
             const rMap = new Map();
-            (lc.replies || []).forEach(r => rMap.set(String(r.id), r));
-            (rc.replies || []).forEach(rr => { if (!rMap.has(String(rr.id))) rMap.set(String(rr.id), rr); });
+            (lc.replies || []).forEach(r => { if (r && !isDel(r.id)) rMap.set(String(r.id), r); });
+            (rc.replies || []).forEach(rr => { if (rr && !isDel(rr.id) && !rMap.has(String(rr.id))) rMap.set(String(rr.id), rr); });
             lc.replies = Array.from(rMap.values());
           }
         });
@@ -7242,9 +7390,10 @@ function syncLikedStateToPosts() {
     window.toggleCommentSpam = toggleCommentSpam;
 
 
-    // Restore commentsMap from localStorage on boot
+    // Restore commentsMap from localStorage on boot (scoped to active user)
     try {
-      const savedCmap = localStorage.getItem('pixly_comments_map');
+      const bootCmapU = getActiveFirestoreUsername() || 'bradley_hansen';
+      const savedCmap = localStorage.getItem(getAccountStorageKey('pixly_comments_map', bootCmapU)) || (bootCmapU === 'bradley_hansen' ? localStorage.getItem('pixly_comments_map') : null);
       if (savedCmap) setTimeout(() => applyCommentsMap(JSON.parse(savedCmap)), 50);
     } catch(e) {}
 
@@ -9533,9 +9682,16 @@ function syncLikedStateToPosts() {
           state.stories = state.stories.filter(s => s.image !== post.image);
         }
 
-        // 8. Remove from Notifications if matching
+        // 8. Remove from Notifications if matching (safe against notifications with no text)
         if (state.notifications) {
-          state.notifications = state.notifications.filter(n => !n.text.includes(strId) && !(post && post.caption && n.text.includes(post.caption.slice(0, 15))));
+          state.notifications = state.notifications.filter(n => {
+            if (!n) return false;
+            if (n.postId !== undefined && String(n.postId) === strId) return false;
+            const nText = typeof n.text === 'string' ? n.text : '';
+            if (nText.includes(strId)) return false;
+            if (post && post.caption && nText.includes(post.caption.slice(0, 15))) return false;
+            return true;
+          });
         }
 
         // 9. Update Profile Post Count
@@ -11897,11 +12053,10 @@ function syncLikedStateToPosts() {
       });
 
       const merged = Array.from(mergedMap.values());
-      try {
-        localStorage.setItem('pixly_session_accounts', JSON.stringify(merged));
-      } catch(e) {}
+      const acKey = 'pixly_session_accounts_' + getAccountCenterOwner();
+      safeLocalStorageSet(acKey, JSON.stringify(stripHeavyImagesForLocalStorage(merged)));
       if (window.idbStorage) {
-        try { idbStorage.set('pixly_session_accounts', JSON.stringify(merged)); } catch(e) {}
+        try { idbStorage.set(acKey, JSON.stringify(merged)); } catch(e) {}
       }
 
       // Ensure _pixlyAccounts has entries so 1-tap switching works on a new phone
@@ -11927,9 +12082,11 @@ function syncLikedStateToPosts() {
 
     function fetchCloudAccountCenter() {
       if (!(window.firebaseReady && window.firebase && window.firebase.db)) return;
+      const ownerU = getAccountCenterOwner();
+      if (!ownerU || ownerU === 'guest') return;
       try {
         const { db, doc, getDoc } = window.firebase;
-        getDoc(doc(db, 'accountCenters', 'default')).then(snap => {
+        getDoc(doc(db, 'accountCenters', ownerU)).then(snap => {
           if (snap.exists()) {
             const d = snap.data();
             if (d && Array.isArray(d.accounts)) {
@@ -11939,6 +12096,49 @@ function syncLikedStateToPosts() {
         }).catch(() => {});
       } catch(e) {}
     }
+
+    function addAccountToSpecificAccountCenter(ownerUsername, acc) {
+      const ownerU = normalizeUsername(ownerUsername);
+      if (!ownerU || ownerU === 'guest' || !acc || !acc.username) return;
+      const acKey = 'pixly_session_accounts_' + ownerU;
+      let list = [];
+      try {
+        const raw = localStorage.getItem(acKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) list = parsed;
+        }
+      } catch(e) {}
+      const norm = acc.username.toLowerCase();
+      const idx = list.findIndex(a => (a.username || '').toLowerCase() === norm);
+      if (idx === -1) list.push(acc);
+      else list[idx] = { ...list[idx], ...acc };
+      const lightList = stripHeavyImagesForLocalStorage(list);
+      safeLocalStorageSet(acKey, JSON.stringify(lightList));
+      if (window.idbStorage) {
+        try { idbStorage.set(acKey, JSON.stringify(list)); } catch(e) {}
+      }
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, getDoc, setDoc } = window.firebase;
+          const acRef = doc(db, 'accountCenters', ownerU);
+          getDoc(acRef).then(snap => {
+            const existing = snap.exists() ? (snap.data() || {}) : {};
+            const remoteList = Array.isArray(existing.accounts) ? existing.accounts : [];
+            const map = new Map();
+            remoteList.forEach(a => { if (a && a.username) map.set(a.username.toLowerCase(), a); });
+            sanitizeAccountsForCloud(list).forEach(a => map.set(a.username.toLowerCase(), a));
+            const removed = (Array.isArray(existing.removedUsernames) ? existing.removedUsernames : []).filter(u => u.toLowerCase() !== norm);
+            setDoc(acRef, {
+              accounts: Array.from(map.values()),
+              removedUsernames: removed,
+              updatedAt: Date.now()
+            }, { merge: true }).catch(() => {});
+          }).catch(() => {});
+        } catch(e) {}
+      }
+    }
+    window.addAccountToSpecificAccountCenter = addAccountToSpecificAccountCenter;
 
     function registerSessionAccount(acc) {
       if (!acc || !acc.username) return;
@@ -12015,8 +12215,8 @@ function syncLikedStateToPosts() {
           }
           const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
           closeAccountSwitcher();
-          if (acc) {
-            performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+          if (acc && typeof requestAccountSwitchWithAuth === 'function') {
+            requestAccountSwitchWithAuth(acc);
           }
         });
       });
@@ -12024,6 +12224,9 @@ function syncLikedStateToPosts() {
 
     function openAuthFromSwitcher(mode) {
       window._pixlyReturningSessionUser = state.currentUser ? { ...state.currentUser } : null;
+      window._pixlyAccountCenterAddOwner = (state.isLoggedIn && state.currentUser && state.currentUser.username)
+        ? normalizeUsername(state.currentUser.username)
+        : null;
       closeAccountSwitcher();
 
       const retWrap = document.getElementById('auth-return-session-wrap');
@@ -12228,7 +12431,8 @@ function syncLikedStateToPosts() {
         sessions: document.getElementById('ac-view-sessions'),
         loginActivity: document.getElementById('ac-view-login-activity'),
         privacySafety: document.getElementById('ac-view-privacy-safety'),
-        spamList: document.getElementById('ac-view-spam-list')
+        spamList: document.getElementById('ac-view-spam-list'),
+        privilegedAccess: document.getElementById('ac-view-privileged-access')
       };
       Object.entries(views).forEach(([k, el]) => {
         if (!el) return;
@@ -12316,6 +12520,12 @@ function syncLikedStateToPosts() {
         if (titleEl) titleEl.textContent = 'Spam';
         if (subEl) subEl.textContent = '@' + curU;
         if (typeof renderSpamUsersListView === 'function') renderSpamUsersListView();
+      } else if (viewName === 'privilegedAccess') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'Privileged Access';
+        if (subEl) subEl.textContent = '@' + curU;
+        if (typeof renderPrivilegedAccessView === 'function') renderPrivilegedAccessView();
       }
     }
     window.setAccountCenterView = setAccountCenterView;
@@ -13138,8 +13348,8 @@ function syncLikedStateToPosts() {
           if (!targetU || targetU.toLowerCase() === curNorm) return;
           const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
           closeAccountCenterModal();
-          if (acc) {
-            performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+          if (acc && typeof requestAccountSwitchWithAuth === 'function') {
+            requestAccountSwitchWithAuth(acc);
           }
         });
       });
@@ -13570,6 +13780,12 @@ function syncLikedStateToPosts() {
                   <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
                 </div>
                 <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
+                ${n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined' ? `
+                  <div class="flex items-center space-x-2 pt-1.5">
+                    <button type="button" class="notif-priv-accept px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Accept</button>
+                    <button type="button" class="notif-priv-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Decline</button>
+                  </div>
+                ` : ''}
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -13583,6 +13799,26 @@ function syncLikedStateToPosts() {
           </div>
         `;
       }).join('');
+
+      // Wire Accept/Decline buttons for Privileged Access invites
+      list.querySelectorAll('.notif-priv-accept').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.idx, 10);
+          if (typeof respondToPrivilegedAccessInvite === 'function') {
+            respondToPrivilegedAccessInvite(idx, true);
+          }
+        });
+      });
+      list.querySelectorAll('.notif-priv-decline').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.idx, 10);
+          if (typeof respondToPrivilegedAccessInvite === 'function') {
+            respondToPrivilegedAccessInvite(idx, false);
+          }
+        });
+      });
 
       // Wire interactive click handlers for each notification
       list.querySelectorAll('.notif-item').forEach(item => {
@@ -14893,6 +15129,9 @@ function syncLikedStateToPosts() {
         saveAccountLikes(oldUsername);
         saveAccountNotifications(oldUsername);
       }
+      if (oldUsername && normalizeUsername(oldUsername) !== cleanUsername.toLowerCase() && typeof window.closeAllFirestoreListeners === 'function') {
+        window.closeAllFirestoreListeners();
+      }
       state.isLoggedIn = true;
       try {
         localStorage.setItem('pixly_is_logged_in', '1');
@@ -14920,15 +15159,15 @@ function syncLikedStateToPosts() {
       state.currentUser.subscriptionStatus = 'inactive';
 
       if (cleanUsername.toLowerCase() === 'bradley_hansen') {
-        // Load Bradley Hansen personal account with guaranteed high-res avatar
+        // Load Bradley Hansen personal account, preferring persisted/cloud data over hardcoded defaults
         state.currentUser.username = 'bradley_hansen';
-        state.currentUser.fullName = fullName || (accData && accData.fullName) || 'Bradley Hansen';
-        state.currentUser.email = 'bradley.g.hansen@hotmail.com';
-        state.currentUser.phone = '+1 (609) 289-6702';
-        state.currentUser.accountType = 'personal';
-        state.currentUser.bio = 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍';
-        state.currentUser.link = 't.me/bradley_hansen';
-        state.currentUser.avatar = BRADLEY_AVATAR_IMAGE;
+        state.currentUser.fullName = (accData && accData.fullName) || fullName || 'Bradley Hansen';
+        state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : 'bradley.g.hansen@hotmail.com';
+        state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : '+1 (609) 289-6702';
+        state.currentUser.accountType = (accData && accData.accountType) || 'personal';
+        state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍';
+        state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : 't.me/bradley_hansen';
+        state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : BRADLEY_AVATAR_IMAGE;
         state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
         state.currentUser.followersCount = "4,820";
         state.currentUser.followingCount = "342";
@@ -14942,11 +15181,11 @@ function syncLikedStateToPosts() {
         state.currentUser.fullName = isPixly ? 'Pixlynote' : (isDAP ? ((accData && accData.fullName) ? accData.fullName : 'Digital AssetPro') : ((accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername))));
         
         if (isPixly) {
-          state.currentUser.email = '';
-          state.currentUser.phone = (accData && accData.phone) ? accData.phone : '+1 (609) 289-6702';
-          state.currentUser.bio = (accData && accData.bio && !accData.bio.includes('Fitness')) ? accData.bio : '';
-          state.currentUser.link = (accData && accData.link && !accData.link.includes('bradley_hansen')) ? accData.link : '';
-          state.currentUser.avatar = PIXLYNOTE_SHUTTER_ICON;
+          state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : '';
+          state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : '+1 (609) 289-6702';
+          state.currentUser.bio = (accData && accData.bio !== undefined && !accData.bio.includes('Fitness')) ? accData.bio : '';
+          state.currentUser.link = (accData && accData.link !== undefined && !accData.link.includes('bradley_hansen')) ? accData.link : '';
+          state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : PIXLYNOTE_SHUTTER_ICON;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
           state.currentUser.followersCount = "0";
@@ -15073,7 +15312,7 @@ function syncLikedStateToPosts() {
             if (typeof window.applyActiveUserDocData === 'function') {
               window.applyActiveUserDocData(normLoginU, d, false);
             }
-            if (Array.isArray(d.notes) && d.notes.length > 0) {
+            if (Array.isArray(d.notes)) {
               state.notes = d.notes;
               if (typeof renderNotes === 'function') renderNotes();
             }
@@ -15138,15 +15377,22 @@ function syncLikedStateToPosts() {
       initCreatePresets();
 
       saveUserProfile();
+      const sessionEntry = {
+        username: state.currentUser.username,
+        fullName: state.currentUser.fullName,
+        email: state.currentUser.email || '',
+        phone: state.currentUser.phone || '',
+        avatar: state.currentUser.avatar,
+        accountType: state.currentUser.accountType || 'personal'
+      };
       if (typeof registerSessionAccount === 'function') {
-        registerSessionAccount({
-          username: state.currentUser.username,
-          fullName: state.currentUser.fullName,
-          email: state.currentUser.email || '',
-          phone: state.currentUser.phone || '',
-          avatar: state.currentUser.avatar,
-          accountType: state.currentUser.accountType || 'personal'
-        });
+        registerSessionAccount(sessionEntry);
+      }
+      if (window._pixlyAccountCenterAddOwner && window._pixlyAccountCenterAddOwner !== normalizeUsername(state.currentUser.username)) {
+        if (typeof addAccountToSpecificAccountCenter === 'function') {
+          addAccountToSpecificAccountCenter(window._pixlyAccountCenterAddOwner, sessionEntry);
+        }
+        window._pixlyAccountCenterAddOwner = null;
       }
       const retWrap = document.getElementById('auth-return-session-wrap');
       if (retWrap) retWrap.classList.add('hidden');
@@ -15160,12 +15406,34 @@ function syncLikedStateToPosts() {
     }
 
     function performLogout() {
+      if (typeof window.closeAllFirestoreListeners === 'function') {
+        window.closeAllFirestoreListeners();
+      }
       state.isLoggedIn = false;
       try {
         localStorage.removeItem('pixly_is_logged_in');
         localStorage.removeItem('pixly_active_username');
       } catch(e) {}
       state.messages = [];
+      state.notes = [];
+      state.highlights = [];
+      state.userStories = [];
+      state.notifications = [];
+      state.replies = [];
+      state.likedPostIds = new Set();
+      state.likedOrder = [];
+      state.likedNoteIds = new Set();
+      state.likedNoteOrder = [];
+      state.likedStoryIds = new Set();
+      state.savedPostIds = new Set();
+      state.savedNoteIds = new Set();
+      state.deletedPostIds = new Set();
+      state.deletedNoteIds = new Set();
+      state.deletedReplyIds = new Set();
+      window._likesHydratedFromCloud = false;
+      window._commentsHydratedFromCloud = false;
+      window._lastRemoteCommentsMap = null;
+      window._pixlyAccountCenterAddOwner = null;
       state.activeDmThreadIndex = 0;
       // Populate login inputs with username, but CLEAR password so password is required
       const loginUserInp = document.getElementById('login-username');
@@ -15264,7 +15532,8 @@ function syncLikedStateToPosts() {
       } catch(e) {}
       try { renderStories(); } catch(e) {}
       try {
-        const savedH = localStorage.getItem('pixly_highlights');
+        const hlBootU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || 'bradley_hansen');
+        const savedH = localStorage.getItem(getAccountStorageKey('pixly_highlights', hlBootU)) || (hlBootU === 'bradley_hansen' ? localStorage.getItem('pixly_highlights') : null);
         if (savedH !== null) {
           const parsed = JSON.parse(savedH);
           if (Array.isArray(parsed)) state.highlights = parsed;
@@ -15309,8 +15578,9 @@ function syncLikedStateToPosts() {
             }
           }).catch(() => {});
 
-          // 0. Restore Highlights from IndexedDB
-          idbStorage.get('pixly_highlights').then(idbH => {
+          // 0. Restore Highlights from IndexedDB (scoped to active user)
+          const hlIdbU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || 'bradley_hansen');
+          idbStorage.get(getAccountStorageKey('pixly_highlights', hlIdbU)).then(idbH => {
             if (idbH !== null && idbH !== undefined) {
               try {
                 const parsed = JSON.parse(idbH);
@@ -15556,6 +15826,7 @@ function syncLikedStateToPosts() {
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
         bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
         bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
+        bind('btn-ac-tab-privileged-access', 'click', () => setAccountCenterView('privilegedAccess'));
         bind('btn-ac-tab-privacy-safety', 'click', () => setAccountCenterView('privacySafety'));
         bind('btn-ac-deactivate-account', 'click', openDeactivateConfirmModal);
         bind('btn-cancel-deactivate', 'click', closeDeactivateConfirmModal);
@@ -15971,6 +16242,7 @@ function syncLikedStateToPosts() {
           const retWrap = document.getElementById('auth-return-session-wrap');
           if (retWrap) retWrap.classList.add('hidden');
           window._pixlyReturningSessionUser = null;
+          window._pixlyAccountCenterAddOwner = null;
           if (prev && prev.username) {
             performLogin(prev.username, prev.fullName || '', prev.email || '', '', prev.phone || '', prev.accountType || 'personal');
           }
@@ -16082,9 +16354,10 @@ function syncLikedStateToPosts() {
         }
 
 
-        // Restore following state from storage
+        // Restore following state from storage (scoped to active user)
         try {
-          const savedFollowing = localStorage.getItem('pixly_following');
+          const bootFollowU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || 'bradley_hansen');
+          const savedFollowing = localStorage.getItem('pixly_following_' + bootFollowU) || (bootFollowU === 'bradley_hansen' ? localStorage.getItem('pixly_following') : null);
           if (savedFollowing) {
             const parsed = JSON.parse(savedFollowing);
             if (Array.isArray(parsed) && parsed.length > 0) state.following = parsed;
@@ -16910,7 +17183,7 @@ function syncLikedStateToPosts() {
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             const { db, doc, setDoc } = window.firebase;
-            setDoc(doc(db, 'users', targetUsername), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            setDoc(doc(db, 'users', normalizeUsername(targetUsername)), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
           }
         }
         const loginForm = document.getElementById('login-form');
@@ -17547,7 +17820,6 @@ function syncLikedStateToPosts() {
                 email: state.currentUser.email,
                 phone: phone,
                 accountType: state.currentUser.accountType || 'personal',
-                password: state.currentUser.password || 'demo1234',
                 bio: state.currentUser.bio,
                 link: state.currentUser.link || '',
                 avatar: state.currentUser.avatar
@@ -19366,13 +19638,387 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
 
+
+    // --- Privileged Access & Password-Verified Account Switching Controller ---
+    function getPrivilegedGrantedList(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return [];
+      try {
+        const raw = localStorage.getItem('pixly_priv_granted_' + u);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch(e) {}
+      return [];
+    }
+
+    function savePrivilegedGrantedList(username, list) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return;
+      safeLocalStorageSet('pixly_priv_granted_' + u, JSON.stringify(list || []));
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { privilegedAccessGranted: list || [] }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+    }
+
+    function getPrivilegedAccountsList(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return [];
+      try {
+        const raw = localStorage.getItem('pixly_priv_accounts_' + u);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch(e) {}
+      return [];
+    }
+
+    function savePrivilegedAccountsList(username, list) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return;
+      safeLocalStorageSet('pixly_priv_accounts_' + u, JSON.stringify(list || []));
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { privilegedAccounts: list || [] }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+    }
+
+    function hasAcceptedPrivilegedAccess(viewerUsername, targetUsername) {
+      const viewer = normalizeUsername(viewerUsername);
+      const target = normalizeUsername(targetUsername);
+      if (!viewer || !target || viewer === target) return false;
+      const list = getPrivilegedAccountsList(viewer);
+      return list.some(a => normalizeUsername(a && a.username) === target && a.status === 'accepted');
+    }
+    window.hasAcceptedPrivilegedAccess = hasAcceptedPrivilegedAccess;
+
+    async function renderPrivilegedAccessView() {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const ownerEl = document.getElementById('ac-priv-owner-handle');
+      if (ownerEl) ownerEl.textContent = '@' + curU;
+
+      // Sync from Firestore if available
+      if (window.firebaseReady && window.firebase && window.firebase.db && curU) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          const snap = await getDoc(doc(db, 'users', curU));
+          if (snap.exists()) {
+            const d = snap.data() || {};
+            if (Array.isArray(d.privilegedAccessGranted)) {
+              safeLocalStorageSet('pixly_priv_granted_' + curU, JSON.stringify(d.privilegedAccessGranted));
+            }
+            if (Array.isArray(d.privilegedAccounts)) {
+              safeLocalStorageSet('pixly_priv_accounts_' + curU, JSON.stringify(d.privilegedAccounts));
+            }
+          }
+        } catch(e) {}
+      }
+
+      const grantedEl = document.getElementById('ac-privileged-granted-list');
+      const granted = getPrivilegedGrantedList(curU);
+      if (grantedEl) {
+        if (granted.length === 0) {
+          grantedEl.innerHTML = '<div class="p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-[11px] text-neutral-500 text-center">No accounts granted privileged access yet.</div>';
+        } else {
+          grantedEl.innerHTML = granted.map(g => `
+            <div class="flex items-center justify-between p-2.5 rounded-xl border border-neutral-200 bg-white">
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(g.username)}</div>
+                <div class="text-[10px] ${g.status === 'accepted' ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}">${g.status === 'accepted' ? 'Active · Accepted' : 'Pending invite'}</div>
+              </div>
+              <button type="button" class="ac-priv-revoke-btn px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(g.username)}">Revoke</button>
+            </div>
+          `).join('');
+          grantedEl.querySelectorAll('.ac-priv-revoke-btn').forEach(btn => {
+            btn.addEventListener('click', () => revokePrivilegedAccess(btn.dataset.username));
+          });
+        }
+      }
+
+      const receivedEl = document.getElementById('ac-privileged-received-list');
+      const received = getPrivilegedAccountsList(curU).filter(a => a.status === 'accepted');
+      if (receivedEl) {
+        if (received.length === 0) {
+          receivedEl.innerHTML = '<div class="p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-[11px] text-neutral-500 text-center">No privileged accounts accepted yet.</div>';
+        } else {
+          receivedEl.innerHTML = received.map(r => `
+            <div class="flex items-center justify-between p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40">
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(r.username)}</div>
+                <div class="text-[10px] text-indigo-700 font-semibold">Privileged Access Active</div>
+              </div>
+              <button type="button" class="ac-priv-switch-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(r.username)}">Switch</button>
+            </div>
+          `).join('');
+          receivedEl.querySelectorAll('.ac-priv-switch-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const targetU = btn.dataset.username;
+              const acc = getSessionAccounts().find(a => normalizeUsername(a.username) === normalizeUsername(targetU)) || { username: targetU };
+              closeAccountCenterModal();
+              requestAccountSwitchWithAuth(acc);
+            });
+          });
+        }
+      }
+    }
+    window.renderPrivilegedAccessView = renderPrivilegedAccessView;
+
+    async function grantPrivilegedAccessToUser(rawUsername) {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(rawUsername);
+      if (!targetU) {
+        showToast('Enter a username to invite');
+        return;
+      }
+      if (targetU === curU) {
+        showToast('You cannot grant privileged access to yourself');
+        return;
+      }
+      const list = getPrivilegedGrantedList(curU);
+      const existing = list.find(g => normalizeUsername(g.username) === targetU);
+      if (existing) {
+        showToast(existing.status === 'accepted' ? `@${targetU} already has privileged access` : `Invite already pending for @${targetU}`);
+        return;
+      }
+      list.unshift({ username: targetU, status: 'pending', grantedAt: Date.now() });
+      savePrivilegedGrantedList(curU, list);
+
+      if (typeof addNotificationForUser === 'function') {
+        await addNotificationForUser(targetU, {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: 'privileged_access_invite',
+          status: 'pending',
+          fromUser: curU,
+          fromFullName: (state.currentUser && state.currentUser.fullName) || curU,
+          fromAvatar: (state.currentUser && state.currentUser.avatar) || '',
+          fromAccountType: (state.currentUser && state.currentUser.accountType) || 'personal',
+          text: `invited you to have Privileged Access to @${curU}`,
+          time: 'Just now',
+          timestamp: Date.now(),
+          read: false
+        });
+      }
+      const inp = document.getElementById('ac-priv-username-input');
+      if (inp) inp.value = '';
+      showToast(`Privileged Access invite sent to @${targetU} ✓`);
+      renderPrivilegedAccessView();
+    }
+
+    async function revokePrivilegedAccess(rawTarget) {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(rawTarget);
+      if (!curU || !targetU) return;
+      const updated = getPrivilegedGrantedList(curU).filter(g => normalizeUsername(g.username) !== targetU);
+      savePrivilegedGrantedList(curU, updated);
+
+      // Remove curU from targetU's privilegedAccounts and accountCenters/<targetU>
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, getDoc, setDoc } = window.firebase;
+          const tSnap = await getDoc(doc(db, 'users', targetU));
+          if (tSnap.exists()) {
+            const td = tSnap.data() || {};
+            if (Array.isArray(td.privilegedAccounts)) {
+              const nextPriv = td.privilegedAccounts.filter(a => normalizeUsername(a && a.username) !== curU);
+              await setDoc(doc(db, 'users', targetU), { privilegedAccounts: nextPriv }, { merge: true }).catch(() => {});
+            }
+          }
+          const acSnap = await getDoc(doc(db, 'accountCenters', targetU));
+          if (acSnap.exists()) {
+            const acd = acSnap.data() || {};
+            const nextAccs = (Array.isArray(acd.accounts) ? acd.accounts : []).filter(a => normalizeUsername(a && a.username) !== curU);
+            const removed = Array.isArray(acd.removedUsernames) ? [...acd.removedUsernames] : [];
+            if (!removed.includes(curU)) removed.push(curU);
+            await setDoc(doc(db, 'accountCenters', targetU), { accounts: nextAccs, removedUsernames: removed }, { merge: true }).catch(() => {});
+          }
+        } catch(e) {}
+      }
+      showToast(`Revoked Privileged Access for @${targetU}`);
+      renderPrivilegedAccessView();
+    }
+
+    async function respondToPrivilegedAccessInvite(idx, accept) {
+      const notif = state.notifications && state.notifications[idx];
+      if (!notif) return;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const ownerU = normalizeUsername(notif.fromUser);
+      notif.read = true;
+      notif.status = accept ? 'accepted' : 'declined';
+      notif.text = accept
+        ? `granted you Privileged Access to @${ownerU} (Accepted)`
+        : `invited you to have Privileged Access to @${ownerU} (Declined)`;
+
+      if (accept && ownerU) {
+        const privList = getPrivilegedAccountsList(curU);
+        const entry = {
+          username: ownerU,
+          fullName: notif.fromFullName || ownerU,
+          avatar: notif.fromAvatar || '',
+          accountType: notif.fromAccountType || 'personal',
+          status: 'accepted',
+          acceptedAt: Date.now()
+        };
+        const existingIdx = privList.findIndex(a => normalizeUsername(a.username) === ownerU);
+        if (existingIdx === -1) privList.unshift(entry);
+        else privList[existingIdx] = entry;
+        savePrivilegedAccountsList(curU, privList);
+
+        // Also add to current user's Account Center & Chat Head Switcher
+        if (typeof registerSessionAccount === 'function') {
+          registerSessionAccount({
+            username: ownerU,
+            fullName: notif.fromFullName || ownerU,
+            email: '',
+            phone: '',
+            avatar: notif.fromAvatar || '',
+            accountType: notif.fromAccountType || 'personal'
+          });
+        }
+
+        // Update owner's granted list in Firestore
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, getDoc, setDoc } = window.firebase;
+            const oSnap = await getDoc(doc(db, 'users', ownerU));
+            if (oSnap.exists()) {
+              const od = oSnap.data() || {};
+              const granted = Array.isArray(od.privilegedAccessGranted) ? od.privilegedAccessGranted : [];
+              const nextGranted = granted.map(g => normalizeUsername(g.username) === curU ? { ...g, status: 'accepted', acceptedAt: Date.now() } : g);
+              await setDoc(doc(db, 'users', ownerU), { privilegedAccessGranted: nextGranted }, { merge: true }).catch(() => {});
+            }
+          } catch(e) {}
+        }
+        showToast(`Accepted Privileged Access for @${ownerU} ✓`);
+      } else {
+        if (ownerU && window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, getDoc, setDoc } = window.firebase;
+            const oSnap = await getDoc(doc(db, 'users', ownerU));
+            if (oSnap.exists()) {
+              const od = oSnap.data() || {};
+              const granted = Array.isArray(od.privilegedAccessGranted) ? od.privilegedAccessGranted : [];
+              const nextGranted = granted.filter(g => normalizeUsername(g.username) !== curU);
+              await setDoc(doc(db, 'users', ownerU), { privilegedAccessGranted: nextGranted }, { merge: true }).catch(() => {});
+            }
+          } catch(e) {}
+        }
+        showToast('Declined Privileged Access invite');
+      }
+
+      saveAccountNotifications(curU, true);
+      renderNotifications(true);
+      if (typeof updateChatHeadBadge === 'function') updateChatHeadBadge();
+    }
+    window.respondToPrivilegedAccessInvite = respondToPrivilegedAccessInvite;
+
+    let _pendingSwitchAccountObj = null;
+    function requestAccountSwitchWithAuth(acc) {
+      if (!acc || !acc.username) return;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(acc.username);
+      if (curU === targetU) return;
+
+      // Allow passwordless switch ONLY if current user has accepted Privileged Access for targetU
+      if (hasAcceptedPrivilegedAccess(curU, targetU)) {
+        performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+        return;
+      }
+
+      _pendingSwitchAccountObj = acc;
+      const modal = document.getElementById('modal-switch-password');
+      const targetEl = document.getElementById('switch-password-target');
+      const inp = document.getElementById('switch-password-input');
+      const errEl = document.getElementById('switch-password-error');
+      if (targetEl) targetEl.textContent = '@' + acc.username;
+      if (inp) inp.value = '';
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        setTimeout(() => { if (inp) inp.focus(); }, 100);
+      }
+    }
+    window.requestAccountSwitchWithAuth = requestAccountSwitchWithAuth;
+
+    function closeSwitchPasswordModal() {
+      const modal = document.getElementById('modal-switch-password');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+      _pendingSwitchAccountObj = null;
+    }
+
+    async function confirmSwitchWithPassword() {
+      const acc = _pendingSwitchAccountObj;
+      if (!acc || !acc.username) return;
+      const inp = document.getElementById('switch-password-input');
+      const errEl = document.getElementById('switch-password-error');
+      const pw = inp ? inp.value.trim() : '';
+      if (!pw) {
+        if (errEl) { errEl.textContent = 'Please enter the password for @' + acc.username; errEl.classList.remove('hidden'); }
+        return;
+      }
+
+      const targetU = normalizeUsername(acc.username);
+      let storedPw = (typeof getActiveAccountPassword === 'function' ? getActiveAccountPassword(targetU) : null) || acc.passwordHash || acc.password || null;
+      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+        try {
+          const { db, doc, getDoc } = window.firebase;
+          const snap = await getDoc(doc(db, 'users', targetU));
+          if (snap.exists()) {
+            const d = snap.data() || {};
+            if (d.passwordHash || d.password) storedPw = d.passwordHash || d.password;
+          }
+        } catch(e) {}
+      }
+
+      const ok = storedPw ? await verifyPassword(pw, storedPw) : false;
+      if (!ok) {
+        if (errEl) { errEl.textContent = 'Incorrect password for @' + acc.username; errEl.classList.remove('hidden'); }
+        if (inp) { inp.value = ''; inp.focus(); }
+        return;
+      }
+
+      closeSwitchPasswordModal();
+      performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal');
+    }
+
+    (function wirePrivilegedAndSwitchModals() {
+      const grantBtn = document.getElementById('btn-ac-grant-privileged');
+      if (grantBtn) {
+        grantBtn.addEventListener('click', () => {
+          const inp = document.getElementById('ac-priv-username-input');
+          grantPrivilegedAccessToUser(inp ? inp.value : '');
+        });
+      }
+      const closeSw = document.getElementById('btn-close-switch-password');
+      if (closeSw) closeSw.addEventListener('click', closeSwitchPasswordModal);
+      const cancelSw = document.getElementById('btn-cancel-switch-password');
+      if (cancelSw) cancelSw.addEventListener('click', closeSwitchPasswordModal);
+      const confirmSw = document.getElementById('btn-confirm-switch-password');
+      if (confirmSw) confirmSw.addEventListener('click', confirmSwitchWithPassword);
+      const inpSw = document.getElementById('switch-password-input');
+      if (inpSw) {
+        inpSw.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); confirmSwitchWithPassword(); }
+        });
+      }
+    })();
+
     (function handleStripeRedirectOnLoad() {
       try {
         const params = new URLSearchParams(window.location.search);
         const canceled = params.get('canceled');
         const sessionId = params.get('session_id');
-        const subscribed = params.get('subscribed');
-        const token = (sessionId && sessionId.trim()) || (subscribed === 'true' ? ('subscribed_' + Date.now()) : '');
+        const token = (sessionId && sessionId.trim()) || '';
 
         if (canceled === 'true') {
           localStorage.setItem('pixly_pending_stripe_cancel', 'true');
