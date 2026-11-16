@@ -3723,6 +3723,60 @@ function saveAccountLikes(username) {
     }
     window.loadAccountLikes = loadAccountLikes;
 
+    function saveAccountSaved(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      try {
+        const savedPostsJson = JSON.stringify(Array.from(state.savedPostIds || []).map(String));
+        const savedNotesJson = JSON.stringify(Array.from(state.savedNoteIds || []).map(String));
+        const postKey = getAccountStorageKey('pixly_saved', u);
+        const noteKey = getAccountStorageKey('pixly_saved_notes', u);
+        localStorage.setItem(postKey, savedPostsJson);
+        localStorage.setItem(noteKey, savedNotesJson);
+        if (window.idbStorage) {
+          idbStorage.set(postKey, savedPostsJson);
+          idbStorage.set(noteKey, savedNotesJson);
+        }
+      } catch(e) {
+        console.warn('saveAccountSaved error:', e);
+      }
+    }
+    window.saveAccountSaved = saveAccountSaved;
+
+    function loadAccountSaved(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || 'bradley_hansen');
+      const postKey = getAccountStorageKey('pixly_saved', u);
+      const noteKey = getAccountStorageKey('pixly_saved_notes', u);
+      state.savedPostIds = new Set();
+      state.savedNoteIds = new Set();
+      try {
+        const rawPosts = localStorage.getItem(postKey);
+        if (rawPosts !== null) {
+          const parsed = JSON.parse(rawPosts);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(id => {
+              state.savedPostIds.add(String(id));
+              const num = parseInt(id, 10);
+              if (!isNaN(num)) state.savedPostIds.add(num);
+            });
+          }
+        }
+      } catch(e) {}
+      try {
+        const rawNotes = localStorage.getItem(noteKey);
+        if (rawNotes !== null) {
+          const parsedN = JSON.parse(rawNotes);
+          if (Array.isArray(parsedN)) {
+            parsedN.forEach(id => {
+              state.savedNoteIds.add(String(id));
+              const num = parseInt(id, 10);
+              if (!isNaN(num)) state.savedNoteIds.add(num);
+            });
+          }
+        }
+      } catch(e) {}
+    }
+    window.loadAccountSaved = loadAccountSaved;
+
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
     function saveAccountNotifications(username, forceDbWrite = false) {
@@ -4687,35 +4741,8 @@ function syncLikedStateToPosts() {
           }
         } catch(e) {}
 
-        // 4.6 Restore Saved Note IDs
-        try {
-          let savedNotesIdStr = null;
-          try { savedNotesIdStr = localStorage.getItem('pixly_saved_notes'); } catch(e) {}
-          if (savedNotesIdStr) {
-            const parsedSavedNotes = JSON.parse(savedNotesIdStr);
-            if (Array.isArray(parsedSavedNotes)) {
-              state.savedNoteIds = new Set(parsedSavedNotes.map(Number));
-            }
-          }
-        } catch(e) {}
-
-        // 5. Restore Saved / Bookmarked Posts
-        try {
-          let savedPosts = null;
-          try { savedPosts = localStorage.getItem('pixly_saved'); } catch(e) {}
-          if (!savedPosts) { try { savedPosts = sessionStorage.getItem('pixly_saved'); } catch(e) {} }
-          if (savedPosts) {
-            const parsedSaved = JSON.parse(savedPosts);
-            if (Array.isArray(parsedSaved)) {
-              if (!state.savedPostIds) state.savedPostIds = new Set();
-              parsedSaved.forEach(id => {
-                state.savedPostIds.add(String(id));
-                const num = parseInt(id, 10);
-                if (!isNaN(num)) state.savedPostIds.add(num);
-              });
-            }
-          }
-        } catch(e) {}
+        // 4.6 & 5. Restore Saved Posts & Saved Notes strictly scoped to active account
+        loadAccountSaved(curU);
       } catch (err) {
         console.warn('loadPersistedState error:', err);
       }
@@ -5089,8 +5116,8 @@ function syncLikedStateToPosts() {
       ],
       profileSubTab: "posts", // "posts", "saved"
       selectedCreateImage: PRESET_IMAGES[0].path,
-      savedPostIds: new Set([1, 4]),
-      savedNoteIds: new Set([1]),
+      savedPostIds: new Set(),
+      savedNoteIds: new Set(),
       deletedNoteIds: new Set(),
       likedPostIds: new Set(),
       likedOrder: [],
@@ -5622,6 +5649,16 @@ function syncLikedStateToPosts() {
           }
         });
       }
+
+      // Deterministic newest-first ordering so created posts stay in consistent position across reloads
+      const getFeedPostTimestamp = (p) => {
+        if (!p) return 0;
+        if (typeof p.createdAtMs === 'number' && p.createdAtMs > 0) return p.createdAtMs;
+        const numId = Number(p.id);
+        if (!isNaN(numId) && numId > 1000000000) return numId;
+        return 0;
+      };
+      feedPosts.sort((a, b) => getFeedPostTimestamp(b) - getFeedPostTimestamp(a));
 
       // Helper to generate Suggested Creators cards
       function getSuggestedCreators() {
@@ -7035,9 +7072,8 @@ function syncLikedStateToPosts() {
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     </button>
                   ` : `
-                    <button type="button" onclick="event.stopPropagation(); openEditNoteModal('${n.id}')" class="inline-flex items-center space-x-0.5 text-neutral-400 hover:text-sky-600 transition p-1 cursor-pointer" title="Edit note (Pixlynote Plus required)">
+                    <button type="button" onclick="event.stopPropagation(); openEditNoteModal('${n.id}')" class="inline-flex items-center text-neutral-400 hover:text-sky-600 transition p-1 cursor-pointer" title="Edit note (Pixlynote Plus required)">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                      <span class="text-[9px] font-bold px-1 rounded bg-sky-50 text-sky-600 border border-sky-200">Plus</span>
                     </button>
                   `}
                   <button type="button" onclick="event.stopPropagation(); handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
@@ -7546,7 +7582,7 @@ function syncLikedStateToPosts() {
             <img src="${post.image}" alt="Liked picture" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-3 text-white font-bold text-xs">
               <div class="flex items-center space-x-1">
-                <svg class="w-4 h-4 fill-rose-500 text-rose-500" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <svg class="w-4 h-4 fill-rose-500 text-rose-500" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
                 <span>${post.likes}</span>
               </div>
             </div>
@@ -7849,7 +7885,7 @@ function syncLikedStateToPosts() {
             const isLiked = state.likedPostIds ? state.likedPostIds.has(String(post.id)) : false;
             const btnBg = isLiked ? 'bg-rose-500 text-white shadow-rose-500/50 scale-105 ring-2 ring-white/80' : 'bg-black/60 hover:bg-black/80 text-white';
             const heartSvg = isLiked 
-              ? `<svg class="w-4 h-4 fill-white text-white drop-shadow" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+              ? `<svg class="w-4 h-4 fill-white text-white drop-shadow" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
               : `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
 
             return `
@@ -8020,7 +8056,7 @@ function syncLikedStateToPosts() {
           } else {
             editBtn.className = 'px-2.5 py-1 bg-neutral-100 hover:bg-sky-50 active:bg-sky-100 text-neutral-600 hover:text-sky-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-neutral-200 hover:border-sky-200 cursor-pointer shadow-xs';
             editBtn.title = 'Edit Post (Pixlynote Plus required)';
-            editBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>Edit</span><span class="text-[9px] font-bold px-1 rounded bg-sky-100 text-sky-700">Plus</span>';
+            editBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>Edit</span>';
           }
         }
         if (delBtn) delBtn.classList.remove('hidden');
@@ -9234,7 +9270,7 @@ function syncLikedStateToPosts() {
           }
         });
 
-        const savedPosts = [];
+        var savedPosts = [];
         state.savedPostIds.forEach(id => {
           const p = postMap.get(String(id));
           if (p && !savedPosts.some(sp => String(sp.id) === String(p.id))) {
@@ -9279,7 +9315,7 @@ function syncLikedStateToPosts() {
           }
         });
 
-        const savedNotes = [];
+        var savedNotes = [];
         state.savedNoteIds.forEach(id => {
           let n = noteMap.get(String(id)) || getNoteById(id);
           if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
@@ -9315,6 +9351,28 @@ function syncLikedStateToPosts() {
             `;
           }).join('');
         }
+      }
+
+      // 3. Update Badge on SAVED tab & Sub-menu Labels with respective counts
+      const savedPostsCount = Array.isArray(savedPosts) ? savedPosts.length : 0;
+      const savedNotesCount = Array.isArray(savedNotes) ? savedNotes.length : 0;
+      const totalSavedCount = savedPostsCount + savedNotesCount;
+      const savedTabBtn = document.getElementById('tab-btn-saved');
+      if (savedTabBtn) {
+        savedTabBtn.innerHTML = `
+          <svg class="w-3.5 h-3.5 ${totalSavedCount > 0 ? 'fill-amber-500 text-amber-500' : ''}" fill="${totalSavedCount > 0 ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <span>SAVED${totalSavedCount > 0 ? ` (${totalSavedCount})` : ''}</span>
+        `;
+      }
+      const savedSubPhotos = document.getElementById('saved-subtab-photos');
+      const savedSubNotes = document.getElementById('saved-subtab-notes');
+      if (savedSubPhotos) {
+        const spanEl = savedSubPhotos.querySelector('span');
+        if (spanEl) spanEl.textContent = `Saved Photos${savedPostsCount > 0 ? ` (${savedPostsCount})` : ''}`;
+      }
+      if (savedSubNotes) {
+        const spanEl = savedSubNotes.querySelector('span');
+        if (spanEl) spanEl.textContent = `Saved Notes${savedNotesCount > 0 ? ` (${savedNotesCount})` : ''}`;
       }
     }
     window.renderSaved = renderSaved;
@@ -9733,7 +9791,7 @@ function syncLikedStateToPosts() {
           location: location || 'Vancouver, BC',
           image: imgPath,
           caption: caption || 'New visual post 📸✨',
-          tags: caption.match(/#[a-zA-Z0-9_]+/g) || ['#photography', '#pixlynote'],
+          tags: caption.match(/#[a-zA-Z0-9_]+/g) || [],
           likes: 0,
           isLiked: false,
           timestamp: 'JUST NOW',
@@ -12529,12 +12587,12 @@ function syncLikedStateToPosts() {
         const indivRaw = localStorage.getItem('pixly_account_' + uKey);
         if (indivRaw) {
           const indiv = JSON.parse(indivRaw);
-          if (indiv && indiv.password) return indiv.password;
+          if (indiv && (indiv.passwordHash || indiv.password)) return indiv.passwordHash || indiv.password;
         }
         const acctsRaw = localStorage.getItem('pixly_accounts');
         if (acctsRaw) {
           const accts = JSON.parse(acctsRaw);
-          if (accts && accts[uKey] && accts[uKey].password) return accts[uKey].password;
+          if (accts && accts[uKey] && (accts[uKey].passwordHash || accts[uKey].password)) return accts[uKey].passwordHash || accts[uKey].password;
         }
         if (uKey === 'pixlynote') {
           const pixPw = localStorage.getItem('pixlynote_password') || localStorage.getItem('pixly_password_pixlynote');
@@ -14996,8 +15054,10 @@ function syncLikedStateToPosts() {
         syncLikedStateToPosts();
         saveAccountLikes(cleanUsername);
       }
+      loadAccountSaved(cleanUsername);
       loadAccountNotifications(cleanUsername);
       loadAccountDms(cleanUsername);
+      if (typeof renderSaved === 'function') renderSaved();
 
       if (typeof window.attachActiveUserDocListener === 'function') {
         window.attachActiveUserDocListener(normLoginU);
@@ -15767,7 +15827,7 @@ function syncLikedStateToPosts() {
             }
             const activeUser = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username.toLowerCase() : '';
             const storedPw = activeUser ? getActiveAccountPassword(activeUser) : null;
-            if (storedPw && curPw !== storedPw) {
+            if (storedPw && !(await verifyPassword(curPw, storedPw))) {
               st.classList.add('bg-rose-50', 'text-rose-700');
               st.textContent = 'Current password is incorrect.';
               return;
@@ -15776,29 +15836,33 @@ function syncLikedStateToPosts() {
             const origBtnText = submitBtn ? submitBtn.textContent : 'Update password';
             if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Updating...'; }
 
-            if (state && state.currentUser) state.currentUser.password = newPw;
+            const newPwHash = await hashPassword(newPw);
+            const pwUpdatedAt = Date.now();
+            if (state && state.currentUser) state.currentUser.password = newPwHash;
             if (activeUser) {
               try {
-                localStorage.setItem('pixly_user_password_' + activeUser, newPw);
-                localStorage.setItem('pixly_user_password', newPw);
+                localStorage.setItem('pixly_user_password_' + activeUser, newPwHash);
+                localStorage.setItem('pixly_pw_updated_at_' + activeUser, String(pwUpdatedAt));
+                localStorage.setItem('pixly_user_password', newPwHash);
                 if (activeUser === 'pixlynote') {
-                  localStorage.setItem('pixlynote_password', newPw);
-                  localStorage.setItem('pixly_password_pixlynote', newPw);
+                  localStorage.setItem('pixlynote_password', newPwHash);
+                  localStorage.setItem('pixly_password_pixlynote', newPwHash);
                 }
                 const indivRaw = localStorage.getItem('pixly_account_' + activeUser);
                 if (indivRaw) {
                   const indiv = JSON.parse(indivRaw);
-                  if (indiv) { indiv.password = newPw; localStorage.setItem('pixly_account_' + activeUser, JSON.stringify(indiv)); }
+                  if (indiv) { indiv.passwordHash = newPwHash; delete indiv.password; localStorage.setItem('pixly_account_' + activeUser, JSON.stringify(indiv)); }
                 }
                 const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-                if (accts[activeUser]) { accts[activeUser].password = newPw; localStorage.setItem('pixly_accounts', JSON.stringify(accts)); }
+                if (accts[activeUser]) { accts[activeUser].passwordHash = newPwHash; delete accts[activeUser].password; localStorage.setItem('pixly_accounts', JSON.stringify(accts)); }
                 if (window._pixlyAccounts && window._pixlyAccounts[activeUser]) {
-                  window._pixlyAccounts[activeUser].password = newPw;
+                  window._pixlyAccounts[activeUser].passwordHash = newPwHash;
+                  delete window._pixlyAccounts[activeUser].password;
                 }
               } catch(err) {}
               if (window.firebaseReady && window.firebase && window.firebase.db) {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', activeUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+                setDoc(doc(db, 'users', activeUser), { passwordHash: newPwHash, password: null, lastUpdated: pwUpdatedAt }, { merge: true }).catch(() => {});
               }
               recordLoginActivityEvent('password_updated', 'Changed from Account Center (previous password invalidated)', activeUser);
             }
@@ -16731,15 +16795,33 @@ function syncLikedStateToPosts() {
 
           if (isBradley) {
             // Personal account @bradley_hansen:
-            // Once a password is saved/updated, ONLY that latest password works; old passwords are rejected.
-            const savedBradPw = getActiveAccountPassword('bradley_hansen') || (matchedAccount && matchedAccount.password) || null;
+            // Verify against the latest saved password (supports hashed & legacy formats) and sync with Firestore.
+            let savedBradPw = getActiveAccountPassword('bradley_hansen') || (matchedAccount && (matchedAccount.passwordHash || matchedAccount.password)) || null;
+            let localPwTs = 0;
+            try { localPwTs = Number(localStorage.getItem('pixly_pw_updated_at_bradley_hansen') || 0); } catch(e) {}
+            if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+              try {
+                const { db, doc, getDoc } = window.firebase;
+                const snap = await getDoc(doc(db, 'users', 'bradley_hansen'));
+                if (snap.exists()) {
+                  const remoteDocData = snap.data() || null;
+                  const remotePw = remoteDocData && (remoteDocData.passwordHash || remoteDocData.password);
+                  const remoteTs = Number((remoteDocData && remoteDocData.lastUpdated) || 0);
+                  if (remotePw && (!savedBradPw || remoteTs >= localPwTs)) {
+                    savedBradPw = remotePw;
+                  }
+                  if (!matchedAccount && remoteDocData) matchedAccount = remoteDocData;
+                }
+              } catch(e) {}
+            }
             if (savedBradPw) {
-              isPasswordValid = (pw === savedBradPw);
+              isPasswordValid = await verifyPassword(pw, savedBradPw);
             } else if (pw.length >= 4) {
               isPasswordValid = true;
               try {
-                localStorage.setItem('pixly_user_password_bradley_hansen', pw);
-                localStorage.setItem('pixly_user_password', pw);
+                const initHash = await hashPassword(pw);
+                localStorage.setItem('pixly_user_password_bradley_hansen', initHash);
+                localStorage.setItem('pixly_user_password', initHash);
               } catch(e) {}
             }
           } else {
@@ -17279,28 +17361,33 @@ function syncLikedStateToPosts() {
             }
 
             const targetUser = (pendingReset.username || '').toLowerCase();
+            const newPwHash = await hashPassword(newPw);
+            const pwResetAt = Date.now();
             try {
               if (targetUser) {
-                localStorage.setItem('pixly_user_password_' + targetUser, newPw);
+                localStorage.setItem('pixly_user_password_' + targetUser, newPwHash);
+                localStorage.setItem('pixly_pw_updated_at_' + targetUser, String(pwResetAt));
                 if (targetUser === 'pixlynote') {
-                  localStorage.setItem('pixlynote_password', newPw);
-                  localStorage.setItem('pixly_password_pixlynote', newPw);
+                  localStorage.setItem('pixlynote_password', newPwHash);
+                  localStorage.setItem('pixly_password_pixlynote', newPwHash);
                 }
                 const indivRaw = localStorage.getItem('pixly_account_' + targetUser);
                 if (indivRaw) {
                   const indiv = JSON.parse(indivRaw);
-                  if (indiv) { indiv.password = newPw; localStorage.setItem('pixly_account_' + targetUser, JSON.stringify(indiv)); }
+                  if (indiv) { indiv.passwordHash = newPwHash; delete indiv.password; localStorage.setItem('pixly_account_' + targetUser, JSON.stringify(indiv)); }
                 }
                 if (window._pixlyAccounts && window._pixlyAccounts[targetUser]) {
-                  window._pixlyAccounts[targetUser].password = newPw;
+                  window._pixlyAccounts[targetUser].passwordHash = newPwHash;
+                  delete window._pixlyAccounts[targetUser].password;
                 }
               }
-              localStorage.setItem('pixly_user_password', newPw);
+              localStorage.setItem('pixly_user_password', newPwHash);
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
               for (const k in accts) {
                 const acc = accts[k];
                 if (acc && ((targetUser && acc.username && acc.username.toLowerCase() === targetUser) || (acc.email && acc.email.toLowerCase() === pendingReset.email.toLowerCase()))) {
-                  acc.password = newPw;
+                  acc.passwordHash = newPwHash;
+                  delete acc.password;
                 }
               }
               localStorage.setItem('pixly_accounts', JSON.stringify(accts));
@@ -17309,7 +17396,7 @@ function syncLikedStateToPosts() {
 
             if (window.firebaseReady && window.firebase && window.firebase.db && targetUser) {
               const { db, doc, setDoc } = window.firebase;
-              setDoc(doc(db, 'users', targetUser), { password: newPw, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+              setDoc(doc(db, 'users', targetUser), { passwordHash: newPwHash, password: null, lastUpdated: pwResetAt }, { merge: true }).catch(() => {});
             }
             if (targetUser) {
               recordLoginActivityEvent('password_reset', 'Reset via email verification (previous password invalidated)', targetUser);
