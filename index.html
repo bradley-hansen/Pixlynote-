@@ -2958,7 +2958,9 @@
           signOut, 
           onAuthStateChanged,
           RecaptchaVerifier,
-          signInWithPhoneNumber
+          signInWithPhoneNumber,
+          sendPasswordResetEmail,
+          updatePassword
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js");
         
         const { 
@@ -2998,6 +3000,8 @@
           onAuthStateChanged,
           RecaptchaVerifier,
           signInWithPhoneNumber,
+          sendPasswordResetEmail,
+          updatePassword,
           collection, doc, setDoc, getDoc, getDocs,
           query, where, orderBy, onSnapshot, deleteDoc, serverTimestamp
         };
@@ -3646,6 +3650,9 @@
 
         // On cold start, ensure anonymous Firebase session if not already authenticated (no hardcoded email/password attempts)
         try {
+          // Wait for Firebase Auth to restore a persisted (email/password) session first; otherwise the
+          // anonymous sign-in below would replace the signed-in user on every reload.
+          if (typeof auth.authStateReady === 'function') { await auth.authStateReady(); }
           if (!auth.currentUser) {
             await signInAnonymously(auth);
           }
@@ -4955,6 +4962,66 @@ function syncLikedStateToPosts() {
     function saveUserProfile() {
       persistState();
     }
+
+    // --- Real per-user Firebase Authentication (email/password) ---
+    // Every Pixlynote account gets a Firebase Auth user. users/{username}.uid ties the profile doc to it and
+    // users/{username}.authEmail is the sign-in email (the account email, or a private placeholder when the
+    // account has no email / the email is already used by another Auth user). Security rules use uid.
+    function makePlaceholderAuthEmail(username) {
+      const rnd = Math.random().toString(36).slice(2, 10);
+      return `${normalizeUsername(username).replace(/[^a-z0-9_.]/g, '')}.${rnd}@users.pixlynote.app`;
+    }
+    function isRealAuthEmail(em) { return !!em && !/@users\.pixlynote\.app$/i.test(String(em)); }
+    window.isRealAuthEmail = isRealAuthEmail;
+
+    function authErrCode(e) { return (e && e.code) ? String(e.code) : ''; }
+
+    // Create the Firebase Auth user for a new or legacy account. Returns { uid, authEmail } or throws.
+    async function createAuthUserForAccount(username, password, email) {
+      const fb = window.firebase;
+      if (!fb || !fb.createUserWithEmailAndPassword) throw new Error('auth-unavailable');
+      const preferred = (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ? email.trim().toLowerCase() : makePlaceholderAuthEmail(username);
+      try {
+        const cred = await fb.createUserWithEmailAndPassword(fb.auth, preferred, password);
+        return { uid: cred.user.uid, authEmail: preferred };
+      } catch(e) {
+        if (authErrCode(e) === 'auth/email-already-in-use' && isRealAuthEmail(preferred)) {
+          const alt = makePlaceholderAuthEmail(username);
+          const cred = await fb.createUserWithEmailAndPassword(fb.auth, alt, password);
+          return { uid: cred.user.uid, authEmail: alt };
+        }
+        throw e;
+      }
+    }
+    window.createAuthUserForAccount = createAuthUserForAccount;
+
+    // Sign in to Firebase Auth for an account doc that already has authEmail. Returns true on success.
+    async function signInAuthForAccount(docData, password) {
+      const fb = window.firebase;
+      if (!fb || !fb.signInWithEmailAndPassword || !docData || !docData.authEmail) return false;
+      try {
+        const cred = await fb.signInWithEmailAndPassword(fb.auth, docData.authEmail, password);
+        return !docData.uid || cred.user.uid === docData.uid;
+      } catch(e) {
+        console.warn('Firebase Auth sign-in notice:', authErrCode(e));
+        return false;
+      }
+    }
+    window.signInAuthForAccount = signInAuthForAccount;
+
+    // First login of a legacy account (password checked against the old hash): give it a Firebase Auth user.
+    async function migrateLegacyAccountToAuth(username, password, email) {
+      try {
+        const { db, doc, setDoc } = window.firebase;
+        const res = await createAuthUserForAccount(username, password, email);
+        await setDoc(doc(db, 'users', normalizeUsername(username)), { uid: res.uid, authEmail: res.authEmail, lastUpdated: Date.now() }, { merge: true });
+        return res;
+      } catch(e) {
+        console.warn('Legacy account auth migration notice:', authErrCode(e) || e);
+        return null;
+      }
+    }
+    window.migrateLegacyAccountToAuth = migrateLegacyAccountToAuth;
 
     // --- Cloud followers (users/{target}/followers/{follower}) ---
     // Following lists already sync via users/{me}.following. Followers used to live only in this browser's
@@ -16713,7 +16780,16 @@ function syncLikedStateToPosts() {
               } catch(err) {}
               if (window.firebaseReady && window.firebase && window.firebase.db) {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', activeUser), { passwordHash: newPwHash, password: null, lastUpdated: pwUpdatedAt }, { merge: true }).catch(() => {});
+                const fbUser = window.firebase.auth && window.firebase.auth.currentUser;
+                if (fbUser && !fbUser.isAnonymous && window.firebase.updatePassword) {
+                  // Firebase Auth holds the real password now; the Firestore hash is no longer written.
+                  window.firebase.updatePassword(fbUser, newPw).catch(err => {
+                    const code = err && err.code ? err.code : '';
+                    showToast(code === 'auth/requires-recent-login' ? 'For security, log out and back in, then change your password again.' : 'Password update failed. Please try again.');
+                  });
+                } else {
+                  setDoc(doc(db, 'users', activeUser), { passwordHash: newPwHash, password: null, lastUpdated: pwUpdatedAt }, { merge: true }).catch(() => {});
+                }
               }
               recordLoginActivityEvent('password_updated', 'Changed from Account Center (previous password invalidated)', activeUser);
             }
@@ -17474,6 +17550,22 @@ function syncLikedStateToPosts() {
             followingCount: "0"
           };
 
+          // Real account in Firebase Authentication first; abort the sign-up if it can't be created.
+          let authInfo = null;
+          if (window.firebaseReady && window.firebase && window.firebase.createUserWithEmailAndPassword) {
+            try {
+              authInfo = await createAuthUserForAccount(u, pw, em);
+            } catch(e) {
+              const code = authErrCode(e);
+              showToast(code === 'auth/weak-password' ? 'Please choose a stronger password (at least 6 characters).'
+                : (code === 'auth/network-request-failed' ? 'No connection. Please try again.' : 'Could not create your account. Please try again.'));
+              return;
+            }
+          } else {
+            showToast('Still connecting to Pixlynote… please try again in a moment.');
+            return;
+          }
+
           // Save into global in-memory account directory
           window._pixlyAccounts = window._pixlyAccounts || {};
           if (!window._pixlyAccounts['digitalassetpro']) {
@@ -17538,6 +17630,8 @@ function syncLikedStateToPosts() {
               try {
                 const { db, doc, setDoc } = window.firebase;
                 setDoc(doc(db, 'users', u.toLowerCase()), {
+                  uid: authInfo ? authInfo.uid : null,
+                  authEmail: authInfo ? authInfo.authEmail : null,
                   username: u.toLowerCase(),
                   fullName: fullName,
                   email: em,
@@ -17545,7 +17639,6 @@ function syncLikedStateToPosts() {
                   accountType: accountType,
                   avatar: newAccount.avatar || '',
                   photoURL: newAccount.avatar || '',
-                  passwordHash: pwHash,
                   isVerified: false,
                   isPlus: false,
                   subscriptionStatus: 'inactive',
@@ -17675,6 +17768,7 @@ function syncLikedStateToPosts() {
             // Verify against the latest saved password (supports hashed & legacy formats) and sync with Firestore.
             let savedBradPw = getActiveAccountPassword('bradley_hansen') || (matchedAccount && (matchedAccount.passwordHash || matchedAccount.password)) || null;
             let localPwTs = 0;
+            let bradRemoteDoc = null;
             try { localPwTs = Number(localStorage.getItem('pixly_pw_updated_at_bradley_hansen') || 0); } catch(e) {}
             if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
               try {
@@ -17682,6 +17776,7 @@ function syncLikedStateToPosts() {
                 const snap = await getDoc(doc(db, 'users', 'bradley_hansen'));
                 if (snap.exists()) {
                   const remoteDocData = snap.data() || null;
+                  bradRemoteDoc = remoteDocData;
                   const remotePw = remoteDocData && (remoteDocData.passwordHash || remoteDocData.password);
                   const remoteTs = Number((remoteDocData && remoteDocData.lastUpdated) || 0);
                   if (remotePw && (!savedBradPw || remoteTs >= localPwTs)) {
@@ -17691,8 +17786,12 @@ function syncLikedStateToPosts() {
                 }
               } catch(e) {}
             }
-            if (savedBradPw) {
+            const bradDoc = (bradRemoteDoc && bradRemoteDoc.authEmail) ? bradRemoteDoc : null;
+            if (bradDoc) {
+              isPasswordValid = await signInAuthForAccount(bradDoc, pw);
+            } else if (savedBradPw) {
               isPasswordValid = await verifyPassword(pw, savedBradPw);
+              if (isPasswordValid) await migrateLegacyAccountToAuth('bradley_hansen', pw, 'bradley.g.hansen@hotmail.com');
             } else {
               isPasswordValid = false;
             }
@@ -17715,8 +17814,13 @@ function syncLikedStateToPosts() {
                 }
               } catch(e) {}
             }
-            if (storedPw) {
+            if (remoteDocData && remoteDocData.authEmail) {
+              isPasswordValid = await signInAuthForAccount(remoteDocData, pw);
+            } else if (storedPw) {
               isPasswordValid = await verifyPassword(pw, storedPw);
+              if (isPasswordValid && window.firebaseReady) {
+                await migrateLegacyAccountToAuth(lookupU, pw, (remoteDocData && remoteDocData.email) || (matchedAccount && matchedAccount.email) || '');
+              }
             } else {
               isPasswordValid = false;
             }
@@ -17782,7 +17886,7 @@ function syncLikedStateToPosts() {
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             const { db, doc, setDoc } = window.firebase;
-            setDoc(doc(db, 'users', normalizeUsername(targetUsername)), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            setDoc(doc(db, 'users', normalizeUsername(targetUsername)), { phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
           }
         }
         const loginForm = document.getElementById('login-form');
@@ -18166,13 +18270,49 @@ function syncLikedStateToPosts() {
               setForgotStatus(forgotStatus1, 'Please enter your email address or username.', true);
               return;
             }
-            const { email, username } = resolveEmailAndUsernameForReset(raw);
+            let { email, username } = resolveEmailAndUsernameForReset(raw);
+            if (!email && !raw.includes('@') && window.firebase && window.firebase.getDoc) {
+              // Account created on another device: look up its reset email in Firestore.
+              try {
+                const lu = normalizeUsername(raw);
+                const snap = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'users', lu));
+                if (snap.exists()) {
+                  const dd = snap.data() || {};
+                  const em2 = isRealAuthEmail(dd.authEmail) ? dd.authEmail : (dd.email || '');
+                  if (em2) { email = em2; username = lu; }
+                }
+              } catch(e2) {}
+            }
             if (!email) {
               setForgotStatus(forgotStatus1, 'No email address found for that username. Please enter your email directly.', true);
               return;
             }
             const sendBtn = document.getElementById('btn-forgot-send-code');
             if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending...'; }
+            // Firebase Auth password reset. The old 6-digit code lived in this browser's sessionStorage and in a
+            // world-readable Firestore doc, so anyone could reset anyone's password; it is no longer used.
+            try {
+              const fb = window.firebase;
+              let authEmail = '';
+              if (fb && fb.getDoc && username) {
+                const snap = await fb.getDoc(fb.doc(fb.db, 'users', normalizeUsername(username)));
+                if (snap.exists()) authEmail = (snap.data() || {}).authEmail || '';
+              }
+              if (!authEmail && email) authEmail = email;
+              if (!fb || !fb.sendPasswordResetEmail || !isRealAuthEmail(authEmail)) {
+                setForgotStatus(forgotStatus1, 'This account has no email address for password resets. Please contact Pixlynote support.', true);
+                return;
+              }
+              await fb.sendPasswordResetEmail(fb.auth, authEmail);
+              setForgotStatus(forgotStatus1, 'A password reset link was sent to ' + String(email).replace(/^(.).*(@.*)$/, '$1•••$2') + '. Open it, choose a new password, then log in.', false);
+              if (typeof showToast === 'function') showToast('Password reset link sent');
+            } catch (err) {
+              setForgotStatus(forgotStatus1, 'If that account exists, a password reset link is on its way.', false);
+            } finally {
+              if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Reset Code'; }
+            }
+            return;
+            // eslint-disable-next-line no-unreachable
             const code = String(Math.floor(100000 + Math.random() * 900000));
             pendingReset = { code, email, username, expiresAt: Date.now() + 15 * 60 * 1000 };
             try {
