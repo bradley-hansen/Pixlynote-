@@ -3583,6 +3583,10 @@
               const isPl = Boolean(isVer && d.isPlus === true);
               state.currentUser.isVerified = isVer && isPl;
               state.currentUser.isPlus = isVer && isPl;
+              if (isPl && d.stripeSessionId && typeof recheckStripeSubscription === 'function') {
+                state.currentUser.stripeSessionId = d.stripeSessionId;
+                recheckStripeSubscription(state.currentUser.username, d.stripeSessionId);
+              }
               state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
               if (typeof renderNotes === 'function') renderNotes();
@@ -3807,6 +3811,10 @@
     // =========================================================================
     
     // Canonical username normalizer
+    // Pixlynote Worker: typed emails (/email, /email/reset-verify) and Stripe checks (/verify-stripe-session).
+    var PIXLYNOTE_API_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
+    window.PIXLYNOTE_API_ENDPOINT = PIXLYNOTE_API_ENDPOINT;
+
     function normalizeUsername(u) {
       if (!u) return '';
       const s = String(u).trim().toLowerCase().replace(/^@/, '');
@@ -16269,11 +16277,7 @@ function syncLikedStateToPosts() {
       let emailSent = false;
       if (userEmail && typeof window.sendPixlynoteEmail === 'function') {
         try {
-          await window.sendPixlynoteEmail(
-            userEmail,
-            'Pixlynote Account Deactivation Confirmation',
-            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Account Deactivation Request Received</h2><p style="color:#444;font-size:14px;line-height:1.5;">We received your request to deactivate your Pixlynote account <strong>@${cleanU}</strong>. Your account is now deactivated.</p><div style="margin:16px 0;padding:14px 16px;background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;"><p style="margin:0;color:#9f1239;font-size:14px;line-height:1.5;"><strong>Scheduled Permanent Deletion:</strong><br/>Your account will be permanently deleted on <strong>${deletionDateStr}</strong> if you don't log back in.</p></div><p style="color:#444;font-size:14px;line-height:1.5;"><strong>Want to cancel?</strong> To cancel your deactivation request and keep your account, simply log back in to Pixlynote before <strong>${deletionDateStr}</strong>. Logging in will automatically cancel and delete your deactivation request.</p><p style="color:#888;font-size:12px;margin-top:16px;">If you didn't request this deactivation, log back in immediately and update your password from Account Center.</p></div>`
-          );
+          await window.sendPixlynoteEmail('deactivation', { to: userEmail, username: cleanU, deletionAt: scheduledDeletionAt });
           emailSent = true;
         } catch (err) {
           console.warn('Deactivation confirmation email failed:', err);
@@ -16556,6 +16560,10 @@ function syncLikedStateToPosts() {
               const isPl = Boolean(isVer && d.isPlus === true);
               state.currentUser.isVerified = isVer && isPl;
               state.currentUser.isPlus = isVer && isPl;
+              if (isPl && d.stripeSessionId && typeof recheckStripeSubscription === 'function') {
+                state.currentUser.stripeSessionId = d.stripeSessionId;
+                recheckStripeSubscription(state.currentUser.username, d.stripeSessionId);
+              }
               state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
               if (typeof renderNotes === 'function') renderNotes();
@@ -17354,11 +17362,7 @@ function syncLikedStateToPosts() {
             let emailError = '';
             if (userEmail && typeof sendPixlynoteEmail === 'function') {
               try {
-                await sendPixlynoteEmail(
-                  userEmail,
-                  'Your Pixlynote password was updated',
-                  `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Updated</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${activeUser || 'your account'}</strong> was changed on ${changedAt}.</p><p style="color:#666;font-size:12px;line-height:1.4;">Device: ${sess.device || 'Web Browser'} (${sess.browser || 'Browser'})${sess.location ? ' • ' + sess.location : ''}</p><p style="color:#888;font-size:12px;margin-top:16px;">This change has been recorded in your Login activity log. If this wasn't you, reset your password immediately from the Pixlynote login screen.</p></div>`
-                );
+                await sendPixlynoteEmail('password_changed', { to: userEmail, username: activeUser });
                 emailSent = true;
               } catch (err) {
                 emailError = (err && err.message) ? err.message : 'Resend delivery failed';
@@ -18180,15 +18184,14 @@ function syncLikedStateToPosts() {
                   subscriptionStatus: 'inactive',
                   createdAt: Date.now(),
                   lastUpdated: Date.now()
-                }, { merge: true }).catch(() => {});
+                }, { merge: true }).then(() => {
+                  if (em && typeof window.sendPixlynoteEmail === 'function') {
+                    window.sendPixlynoteEmail('welcome', { to: em, username: u.toLowerCase() }).catch(() => {});
+                  }
+                }).catch(() => {});
               } catch(e) {}
             }
 
-            if (em && typeof window.sendPixlynoteEmail === 'function') {
-              const safeName = (fullName || u).replace(/[<>&]/g, '');
-              const welcomeHtml = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111827;"><h2 style="margin:0 0 12px;font-size:22px;">Welcome to Pixlynote, ${safeName}!</h2><p style="margin:0 0 12px;line-height:1.5;color:#374151;">Your account <strong>@${u}</strong> is ready. Share photos, write notes, and connect with creators on Pixlynote.</p><p style="margin:18px 0 0;font-size:13px;color:#6b7280;">— The Pixlynote Team</p></div>`;
-              window.sendPixlynoteEmail(em, `Welcome to Pixlynote, @${u}!`, welcomeHtml).catch(() => {});
-            }
           } catch(err) {}
 
           showToast(`🎉 Account created! Welcome, @${u}`);
@@ -18694,16 +18697,20 @@ function syncLikedStateToPosts() {
           });
         }
 
-        const PIXLYNOTE_EMAIL_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
-        async function sendPixlynoteEmail(to, subject, htmlBody) {
-          const res = await fetch(PIXLYNOTE_EMAIL_ENDPOINT, {
+        // Typed emails: the Worker builds subject + HTML from fixed templates and only sends to the email on file
+        // for the account (users/{username}.email). It no longer accepts arbitrary to/subject/html.
+        async function sendPixlynoteEmail(type, payload) {
+          const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, subject, html: htmlBody })
+            body: JSON.stringify({ type, ...(payload || {}) })
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(data.message || data.error || 'Failed to send email');
+            const msg = data.error === 'rate_limited' ? 'Too many emails right now. Please try again later.'
+              : data.error === 'recipient_not_on_file' ? 'That email address is not the one on file for this account.'
+              : (data.message || data.error || 'Failed to send email');
+            throw new Error(msg);
           }
           return data;
         }
@@ -18802,21 +18809,14 @@ function syncLikedStateToPosts() {
             }
             const sendBtn = document.getElementById('btn-forgot-send-code');
             if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending...'; }
-            const code = String(Math.floor(100000 + Math.random() * 900000));
-            pendingReset = { code, email, username, expiresAt: Date.now() + 15 * 60 * 1000 };
+            // The 6-digit code is generated, stored (hashed) and checked by the Worker. It never touches the browser
+            // or Firestore (it used to be readable in password_resets/{email}).
+            pendingReset = { email, username, expiresAt: Date.now() + 15 * 60 * 1000 };
             try {
               sessionStorage.setItem('pixly_pending_reset', JSON.stringify(pendingReset));
             } catch(err) {}
-            if (window.firebaseReady && window.firebase && window.firebase.db) {
-              const { db, doc, setDoc } = window.firebase;
-              setDoc(doc(db, 'password_resets', email.toLowerCase()), pendingReset).catch(() => {});
-            }
             try {
-              await sendPixlynoteEmail(
-                email,
-                'Your Pixlynote Password Reset Code: ' + code,
-                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 8px;color:#111;">Pixlynote Password Reset</h2><p style="color:#555;font-size:14px;line-height:1.5;">Use this 6-digit code to reset your Pixlynote password. It expires in 15 minutes.</p><div style="margin:20px 0;padding:16px;background:#f7f5ff;border-radius:12px;text-align:center;font-size:28px;font-weight:bold;letter-spacing:6px;color:#5b21b6;">${code}</div><p style="color:#888;font-size:12px;">If you didn't request this, you can safely ignore this email.</p></div>`
-              );
+              await sendPixlynoteEmail('reset_code', username ? { to: email, username } : { to: email });
               const labelEl = document.getElementById('forgot-sent-email-label');
               if (labelEl) labelEl.textContent = email;
               forgotStep1.classList.add('hidden');
@@ -18848,7 +18848,7 @@ function syncLikedStateToPosts() {
               setForgotStatus(forgotStatus2, 'That code has expired. Please request a new one.', true);
               return;
             }
-            if (enteredCode !== pendingReset.code) {
+            if (!/^\d{6}$/.test(enteredCode)) {
               setForgotStatus(forgotStatus2, 'Incorrect 6-digit code. Please check your email.', true);
               return;
             }
@@ -18858,6 +18858,25 @@ function syncLikedStateToPosts() {
             }
             if (newPw !== confPw) {
               setForgotStatus(forgotStatus2, 'Passwords do not match.', true);
+              return;
+            }
+            try {
+              const vr = await fetch(PIXLYNOTE_API_ENDPOINT + '/email/reset-verify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: pendingReset.email, code: enteredCode })
+              });
+              const vd = await vr.json().catch(() => ({}));
+              if (!vr.ok || vd.valid !== true) {
+                const why = vd.error === 'too_many_attempts' ? 'Too many wrong codes. Please request a new one.'
+                  : vd.error === 'expired' ? 'That code has expired. Please request a new one.'
+                  : vd.error === 'rate_limited' ? 'Too many attempts. Please wait a bit and try again.'
+                  : 'Incorrect 6-digit code. Please check your email.';
+                setForgotStatus(forgotStatus2, why, true);
+                return;
+              }
+              if (vd.username && !pendingReset.username) pendingReset.username = vd.username;
+            } catch (err) {
+              setForgotStatus(forgotStatus2, 'Could not check the code right now. Please try again.', true);
               return;
             }
 
@@ -18901,13 +18920,8 @@ function syncLikedStateToPosts() {
             if (targetUser) {
               recordLoginActivityEvent('password_reset', 'Reset via email verification (previous password invalidated)', targetUser);
             }
-            if (pendingReset.email && typeof sendPixlynoteEmail === 'function') {
-              const resetAt = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-              sendPixlynoteEmail(
-                pendingReset.email,
-                'Your Pixlynote password was reset',
-                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #eee;border-radius:16px;"><h2 style="margin:0 0 12px;color:#111;">Password Reset Confirmed</h2><p style="color:#444;font-size:14px;line-height:1.5;">Your Pixlynote password for <strong>@${targetUser || pendingReset.email}</strong> was reset on ${resetAt}.</p><p style="color:#888;font-size:12px;margin-top:16px;">This event has been recorded in your Login activity log. If this wasn't you, secure your account immediately.</p></div>`
-              ).catch(() => {});
+            if (pendingReset.email && targetUser && typeof sendPixlynoteEmail === 'function') {
+              sendPixlynoteEmail('password_reset', { to: pendingReset.email, username: targetUser }).catch(() => {});
             }
 
             const loginUserInp = document.getElementById('login-username');
@@ -20810,24 +20824,52 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.handleDrawerProfileClick = handleDrawerProfileClick;
 
     // --- Stripe After-Payment Redirect (?session_id=...) Handler (Spark Free Tier) ---
+    // PIXLYNOTE_API_ENDPOINT (declared near the top of the script) is the Pixlynote Worker for email + Stripe checks.
     // Ask the Stripe Worker whether a Checkout Session is really paid. A session id sitting in localStorage
     // (pixly_pending_stripe_session) is not proof of payment: anyone can type one into DevTools.
-    async function verifyStripeSessionWithServer(sessionId) {
-      try {
-        const res = await fetch('https://misty-frog-0c99.brad-g-hansen.workers.dev/verify-stripe-session?session_id=' + encodeURIComponent(sessionId));
-        if (!res.ok) return false;
-        const data = await res.json();
-        return Boolean(data && data.verified === true && (data.payment_status === 'paid' || data.status === 'complete'));
-      } catch(e) { return false; }
+    async function fetchStripeSessionStatus(sessionId) {
+      const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/verify-stripe-session?session_id=' + encodeURIComponent(sessionId));
+      if (!res.ok) return null;
+      return res.json();
+    }
+    window.fetchStripeSessionStatus = fetchStripeSessionStatus;
+    // Paid Plus purchase, subscription still active, and bought by this account (client_reference_id = username).
+    function stripeSessionGrantsPlus(data, username) {
+      if (!data || data.verified !== true || data.plus_active === false) return false;
+      if (!(data.payment_status === 'paid' || data.status === 'complete')) return false;
+      const ref = data.client_reference_id ? normalizeUsername(data.client_reference_id) : '';
+      return !ref || !username || ref === normalizeUsername(username);
+    }
+    window.stripeSessionGrantsPlus = stripeSessionGrantsPlus;
+    async function verifyStripeSessionWithServer(sessionId, username) {
+      try { return stripeSessionGrantsPlus(await fetchStripeSessionStatus(sessionId), username || (state.currentUser && state.currentUser.username)); }
+      catch(e) { return false; }
     }
     window.verifyStripeSessionWithServer = verifyStripeSessionWithServer;
+
+    // Cancellation happens in the Stripe billing portal, which does not call back into the app. So a Plus account
+    // re-checks its subscription with the Worker at most every 6 hours and downgrades only on a definite answer
+    // (subscription canceled / unpaid / ended). Network errors never downgrade anyone.
+    function recheckStripeSubscription(username, sessionId) {
+      const cleanU = normalizeUsername(username || '');
+      if (!cleanU || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId))) return;
+      const key = 'pixly_stripe_recheck_' + cleanU;
+      try { if (Date.now() - Number(localStorage.getItem(key) || 0) < 6 * 3600 * 1000) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
+      fetchStripeSessionStatus(sessionId).then(data => {
+        if (!data || data.verified !== true || !data.subscription) return;
+        if (data.plus_active === false && ['canceled', 'unpaid', 'incomplete_expired'].includes(data.subscription_status)) {
+          if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) applyStripeSubscriptionCancellation(cleanU);
+        }
+      }).catch(() => {});
+    }
+    window.recheckStripeSubscription = recheckStripeSubscription;
 
     function applyStripeSessionVerification(username, sessionId, serverVerified = false) {
       if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return;
       const cleanU = normalizeUsername(username);
       if (!cleanU) return;
       if (serverVerified !== true) {
-        verifyStripeSessionWithServer(sessionId).then(ok => {
+        verifyStripeSessionWithServer(sessionId, username).then(ok => {
           if (ok) applyStripeSessionVerification(username, sessionId, true);
           else { try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {} }
         });
@@ -21320,16 +21362,15 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const hasRecentCheckout = checkoutTs > 0 && (Date.now() - checkoutTs) < 2 * 60 * 60 * 1000;
 
         if (canceled === 'true') {
-          localStorage.setItem('pixly_pending_stripe_cancel', 'true');
-          localStorage.removeItem('pixly_pending_stripe_session');
           localStorage.removeItem('pixly_stripe_checkout_initiated');
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
           setTimeout(() => {
-            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-              applyStripeSubscriptionCancellation(state.currentUser.username);
+            if (state.isLoggedIn && state.currentUser && state.currentUser.username && state.currentUser.stripeSessionId) {
+              try { localStorage.removeItem('pixly_stripe_recheck_' + normalizeUsername(state.currentUser.username)); } catch(e) {}
+              recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId);
             }
-          }, 300);
+          }, 1500);
         } else if (isValidStripeToken && hasRecentCheckout) {
           localStorage.removeItem('pixly_pending_stripe_cancel');
           localStorage.removeItem('pixly_stripe_checkout_initiated');
@@ -21338,10 +21379,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           window.history.replaceState({}, document.title, cleanUrl);
           (async () => {
             try {
-              const res = await fetch('https://misty-frog-0c99.brad-g-hansen.workers.dev/verify-stripe-session?session_id=' + encodeURIComponent(token));
-              if (!res.ok) throw new Error('Stripe verification endpoint returned ' + res.status);
-              const data = await res.json();
-              if (data && data.verified === true && (data.payment_status === 'paid' || data.status === 'complete')) {
+              const data = await fetchStripeSessionStatus(token);
+              if (!data) throw new Error('Stripe verification endpoint error');
+              const forUser = state.isLoggedIn && state.currentUser ? state.currentUser.username : '';
+              if (stripeSessionGrantsPlus(data, forUser)) {
                 localStorage.setItem('pixly_pending_stripe_session', token);
                 if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
                   applyStripeSessionVerification(state.currentUser.username, token, true);
