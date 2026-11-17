@@ -331,6 +331,16 @@
 
     #modal-drafts { background: #0a0a0a; }
     .draft-card { box-shadow: 0 0 0 1px rgba(255,255,255,0.03); }
+    .draft-card-title {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.25rem;
+      max-height: 3.75rem;
+    }
 </style>
   <script async src="https://js.stripe.com/v3/buy-button.js"></script>
 </head>
@@ -4931,7 +4941,7 @@ function syncLikedStateToPosts() {
           <div class="flex items-start gap-3">
             <div class="w-14 h-14 rounded-xl overflow-hidden bg-neutral-800 flex-shrink-0">${thumb}</div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-semibold text-white truncate">${esc(draftTitle(d))}</div>
+              <div class="draft-card-title text-sm font-semibold text-white">${esc(draftTitle(d))}</div>
               <div class="text-[11px] text-neutral-400 mt-0.5">${esc(draftKindLabel(d))}</div>
             </div>
             <div class="flex flex-col items-end gap-2 flex-shrink-0">
