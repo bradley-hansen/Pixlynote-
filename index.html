@@ -31,6 +31,7 @@
       letter-spacing: -0.04em !important;
     }
     .story-gradient { background: linear-gradient(135deg, #fb7185 0%, #e879f9 35%, #818cf8 65%, #22d3ee 100%) !important; }
+    .story-ring-viewed { background: #a3a3a3 !important; }
     .pixly-gradient { background: linear-gradient(135deg, #fb7185 0%, #e879f9 35%, #818cf8 65%, #22d3ee 100%) !important; }
     .pixly-gradient-text { background: linear-gradient(135deg, #fb7185 0%, #c084fc 45%, #22d3ee 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .pixly-gradient {
@@ -81,6 +82,7 @@
       letter-spacing: -0.04em !important;
     }
     .story-gradient { background: linear-gradient(135deg, #fb7185 0%, #e879f9 35%, #818cf8 65%, #22d3ee 100%) !important; }
+    .story-ring-viewed { background: #a3a3a3 !important; }
     .pixly-gradient { background: linear-gradient(135deg, #fb7185 0%, #e879f9 35%, #818cf8 65%, #22d3ee 100%) !important; }
     .pixly-gradient-text { background: linear-gradient(135deg, #fb7185 0%, #c084fc 45%, #22d3ee 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .pixly-gradient {
@@ -2586,7 +2588,7 @@
                 </div>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
-                <span id="ac-2fa-summary-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">Off</span>
+                <span id="ac-2fa-summary-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Coming soon</span>
                 <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </div>
             </button>
@@ -2629,81 +2631,15 @@
         </div>
       </div>
 
-      <!-- VIEW 6: TWO-FACTOR AUTHENTICATION -->
+      <!-- VIEW 6: TWO-FACTOR AUTHENTICATION (disabled until real per-user TOTP ships with the new sign-in) -->
       <div id="ac-view-2fa" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
-        <!-- Enable / Disable Card -->
-        <div class="p-3.5 rounded-2xl border border-neutral-200 bg-white flex items-center justify-between">
-          <div class="pr-3">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-bold text-neutral-900">Two-factor authentication</span>
-              <span id="ac-2fa-status-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">Off</span>
-            </div>
-            <p class="text-[11px] text-neutral-500 mt-1">Require a verification code when logging in from an unrecognized device.</p>
-          </div>
-          <button type="button" id="btn-ac-2fa-toggle" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex-shrink-0 cursor-pointer">
-            Turn on
-          </button>
-        </div>
-
-        <!-- 2FA Methods -->
-        <div class="space-y-2">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 px-1">Verification methods</div>
-
-          <!-- Method: Authentication App -->
-          <div class="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-            <button type="button" id="btn-ac-2fa-method-app" class="w-full flex items-center justify-between p-3.5 hover:bg-neutral-50 transition cursor-pointer">
-              <div class="flex items-center space-x-3 text-left">
-                <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                </div>
-                <div>
-                  <div class="text-xs font-bold text-neutral-900">Authentication app</div>
-                  <div class="text-[10px] text-neutral-500">Use Google Authenticator or another TOTP app</div>
-                </div>
-              </div>
-              <span id="ac-2fa-app-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">Select</span>
-            </button>
-
-            <div id="ac-2fa-app-setup" class="hidden px-3.5 pb-3.5 pt-2 border-t border-neutral-100 bg-neutral-50/70 space-y-2.5">
-              <div class="text-[11px] text-neutral-600">Copy this setup key into your authenticator app, then enter any 6-digit code to verify:</div>
-              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-neutral-200">
-                <code id="ac-2fa-secret-key" class="text-xs font-mono font-bold text-violet-700 tracking-wider">PXLY-7K9M-2Q4W-8Z3N</code>
-                <button type="button" id="btn-ac-2fa-copy-key" class="text-[11px] font-bold text-violet-600 hover:text-violet-800 cursor-pointer">Copy</button>
-              </div>
-              <div class="flex items-center space-x-2">
-                <input type="text" id="ac-2fa-code-input" maxlength="6" inputmode="numeric" placeholder="6-digit code" class="flex-1 px-3 py-2 text-xs bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500">
-                <button type="button" id="btn-ac-2fa-verify-btn" class="px-3.5 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Verify</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Method: Text Message (SMS) -->
-          <button type="button" id="btn-ac-2fa-method-sms" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 transition cursor-pointer">
-            <div class="flex items-center space-x-3 text-left">
-              <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-              </div>
-              <div>
-                <div class="text-xs font-bold text-neutral-900">Text message (SMS)</div>
-                <div id="ac-2fa-sms-phone" class="text-[10px] text-neutral-500">Receive verification codes by text</div>
-              </div>
-            </div>
-            <span id="ac-2fa-sms-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">Select</span>
-          </button>
-        </div>
-
-        <!-- Backup Codes -->
-        <div id="ac-2fa-backup-section" class="p-3.5 rounded-2xl border border-neutral-200 bg-white space-y-2.5">
+        <div class="p-4 rounded-2xl border border-neutral-200 bg-white space-y-2">
           <div class="flex items-center justify-between">
-            <div>
-              <div class="text-xs font-bold text-neutral-900">Backup codes</div>
-              <div class="text-[10px] text-neutral-500">Use these if you lose access to your 2FA device</div>
-            </div>
-            <button type="button" id="btn-ac-2fa-regen-codes" class="text-[11px] font-bold text-violet-600 hover:text-violet-800 cursor-pointer">Regenerate</button>
+            <span class="text-xs font-bold text-neutral-900">Two-factor authentication</span>
+            <span id="ac-2fa-status-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Coming soon</span>
           </div>
-          <div id="ac-2fa-backup-codes" class="grid grid-cols-2 gap-1.5 text-[11px] font-mono font-semibold text-neutral-700">
-            <!-- Rendered dynamically -->
-          </div>
+          <p class="text-[11px] text-neutral-600 leading-relaxed">Two-factor authentication isn't available yet. We're building real authenticator-app codes that are checked every time you sign in. It will show up here when it's ready.</p>
+          <p class="text-[10px] text-neutral-400">Nothing to set up for now. Your account works as usual.</p>
         </div>
       </div>
 
@@ -2975,7 +2911,8 @@
           startAfter, 
           onSnapshot, 
           deleteDoc,
-          serverTimestamp 
+          serverTimestamp,
+          runTransaction
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js");
 
         const firebaseConfig = {
@@ -3001,7 +2938,7 @@
           RecaptchaVerifier,
           signInWithPhoneNumber,
           collection, doc, setDoc, getDoc, getDocs,
-          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp
+          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction
         };
         window.firebaseReady = true;
 
@@ -3542,6 +3479,7 @@
               window._pendingFollowingSync = null;
               state.following = d.following;
               if (typeof snapshotFollowSyncCache === 'function') snapshotFollowSyncCache();
+              if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
               safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(d.following));
               if (state.currentUser) {
                 const activeFollowCount = state.following.filter(u => u && u.isFollowing).length;
@@ -3973,6 +3911,60 @@ function saveAccountLikes(username) {
 
     // --- Dynamic Notifications Engine (Firestore DB Persistent) ---
     window._notificationsHydrated = window._notificationsHydrated || {};
+    // --- Live avatars: always show a person's CURRENT profile picture, looked up by username at render time ---
+    // Stored snapshots (fromAvatar / userAvatar) are only a last resort; big data: URLs are never stored any more.
+    function isUsableAvatar(a) {
+      return typeof a === 'string' && a.length > 20 && a !== 'undefined' && a !== NEUTRAL_BLANK_AVATAR;
+    }
+    function compactAvatarRef(a) {
+      // Keep short http(s) links only; data: URLs bloat users/{u} docs past Firestore's 1 MiB limit.
+      return (typeof a === 'string' && /^https?:\/\//.test(a) && a.length < 600) ? a : '';
+    }
+    window.compactAvatarRef = compactAvatarRef;
+    function resolveLiveAvatar(username, snapshot) {
+      const u = normalizeUsername(String(username || ''));
+      const cur = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (u && u === cur && isUsableAvatar(state.currentUser.avatar)) return state.currentUser.avatar;
+      try {
+        const rc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+        if (rc && isUsableAvatar(rc.avatar || rc.photoURL)) return rc.avatar || rc.photoURL;
+        const dir = window._exploreUserDir;
+        const rec = dir && dir.users && dir.users.get(u);
+        if (rec && isUsableAvatar(rec.avatar)) return rec.avatar;
+      } catch(e) {}
+      if (u && typeof getPostAuthorAvatar === 'function') {
+        const a = getPostAuthorAvatar({ author: u, authorAvatar: isUsableAvatar(snapshot) ? snapshot : '' });
+        if (isUsableAvatar(a) && !(typeof COMMUNITY_IMAGES !== 'undefined' && a === COMMUNITY_IMAGES[0])) return a;
+      }
+      if (isUsableAvatar(snapshot)) return snapshot;
+      // Unknown account: load the users directory once (cached) and repaint lists that show avatars.
+      if (u && typeof loadExploreUserDirectory === 'function' && !window._liveAvatarDirRequested) {
+        window._liveAvatarDirRequested = true;
+        try {
+          Promise.resolve(loadExploreUserDirectory()).then(() => {
+            if (typeof renderNotifications === 'function') renderNotifications(true);
+            if (state.activeStory && typeof window.updateStoryCommentsUI === 'function') window.updateStoryCommentsUI(state.activeStory);
+          }).catch(() => {});
+        } catch(e) {}
+      }
+      return NEUTRAL_BLANK_AVATAR;
+    }
+    window.resolveLiveAvatar = resolveLiveAvatar;
+    // Notifications are stored as an array on users/{u}: keep entries small so the doc never hits 1 MiB.
+    function compactNotificationList(list) {
+      return (Array.isArray(list) ? list : []).filter(Boolean).map(n => {
+        const out = { ...n };
+        out.fromAvatar = compactAvatarRef(n.fromAvatar);
+        if (typeof out.postImage === 'string' && out.postImage.startsWith('data:') && out.postImage.length > 2000) delete out.postImage;
+        return out;
+      }).slice(0, 100);
+    }
+    window.compactNotificationList = compactNotificationList;
+    function compactStoryComments(arr) {
+      return (Array.isArray(arr) ? arr : []).filter(Boolean).map(c => ({ ...c, userAvatar: compactAvatarRef(c.userAvatar) }));
+    }
+    window.compactStoryComments = compactStoryComments;
+
     function makeNotificationKey(n) {
       if (!n) return '';
       if (n.id !== undefined && n.id !== null) return 'id:' + String(n.id);
@@ -4066,10 +4058,23 @@ function saveAccountLikes(username) {
                 }
               }
             } catch(e) {}
-            await setDoc(doc(db, 'users', u), {
-              notifications: merged,
-              deletedNotificationIds: Array.from(mergedDel).slice(-500)
-            }, { merge: true }).catch(() => {});
+            merged = compactNotificationList(merged);
+            const fb = window.firebase;
+            if (fb.runTransaction) {
+              // Re-merge inside a transaction so a like that lands between our read and write is kept.
+              await fb.runTransaction(db, async (tx) => {
+                const ref = doc(db, 'users', u);
+                const s2 = await tx.get(ref);
+                const remote = (s2.exists() && Array.isArray(s2.data().notifications)) ? s2.data().notifications : [];
+                const finalList = compactNotificationList(mergeNotificationLists(merged, remote, mergedDel));
+                tx.set(ref, { notifications: finalList, deletedNotificationIds: Array.from(mergedDel).slice(-500) }, { merge: true });
+              }).catch(err => console.warn('Notifications save notice:', err));
+            } else {
+              await setDoc(doc(db, 'users', u), {
+                notifications: merged,
+                deletedNotificationIds: Array.from(mergedDel).slice(-500)
+              }, { merge: true }).catch(() => {});
+            }
           }).catch(() => {});
         } catch(e) {}
       }
@@ -4197,52 +4202,51 @@ function saveAccountLikes(username) {
         sanitizedNotif.fromAvatar = '';
       }
 
-      window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
-        let notifs = [];
-        if (window.firebaseReady && window.firebase) {
-          try {
-            const { db, doc, getDoc } = window.firebase;
-            const snap = await getDoc(doc(db, 'users', cleanTarget));
-            if (snap.exists() && Array.isArray(snap.data().notifications)) {
-              notifs = snap.data().notifications;
-            }
-          } catch(e) {}
-        }
+      sanitizedNotif.fromAvatar = compactAvatarRef(sanitizedNotif.fromAvatar);
+      const isDupOf = (list) => list.some(n =>
+        n.fromUser === sanitizedNotif.fromUser &&
+        n.type === sanitizedNotif.type &&
+        String(n.postId || '') === String(sanitizedNotif.postId || '') &&
+        String(n.noteId || '') === String(sanitizedNotif.noteId || '') &&
+        String(n.storyId || '') === String(sanitizedNotif.storyId || '') &&
+        String(n.commentId || '') === String(sanitizedNotif.commentId || '') &&
+        (Date.now() - (n.timestamp || 0) < 10000)
+      );
 
-        if (!Array.isArray(notifs) || notifs.length === 0) {
+      window._notifWriteQueue = (window._notifWriteQueue || Promise.resolve()).then(async () => {
+        let notifs = null;
+        if (window.firebaseReady && window.firebase && window.firebase.runTransaction) {
+          // Atomic read-modify-write: two people liking at the same time can no longer overwrite each other.
+          try {
+            const { db, doc, runTransaction } = window.firebase;
+            const ref = doc(db, 'users', cleanTarget);
+            notifs = await runTransaction(db, async (tx) => {
+              const snap = await tx.get(ref);
+              let list = (snap.exists() && Array.isArray(snap.data().notifications)) ? snap.data().notifications : [];
+              if (isDupOf(list)) return null;
+              list = compactNotificationList([sanitizedNotif, ...list]);
+              tx.set(ref, { notifications: list }, { merge: true });
+              return list;
+            });
+            if (!notifs) return;
+          } catch(e) {
+            console.warn('addNotificationForUser Firestore write notice:', e);
+            notifs = null;
+          }
+        }
+        if (!notifs) {
+          let list = [];
           try {
             const raw = localStorage.getItem('pixly_notifications_' + cleanTarget);
-            if (raw) notifs = JSON.parse(raw);
+            if (raw) list = JSON.parse(raw);
           } catch(e) {}
+          if (!Array.isArray(list)) list = [];
+          if (isDupOf(list)) return;
+          notifs = compactNotificationList([sanitizedNotif, ...list]);
         }
-        if (!Array.isArray(notifs)) notifs = [];
-
-        const isDup = notifs.some(n =>
-          n.fromUser === sanitizedNotif.fromUser &&
-          n.type === sanitizedNotif.type &&
-          String(n.postId || '') === String(sanitizedNotif.postId || '') &&
-          String(n.noteId || '') === String(sanitizedNotif.noteId || '') &&
-          String(n.storyId || '') === String(sanitizedNotif.storyId || '') &&
-          String(n.commentId || '') === String(sanitizedNotif.commentId || '') &&
-          (Date.now() - (n.timestamp || 0) < 10000)
-        );
-        if (isDup) return;
-
-        notifs.unshift(sanitizedNotif);
-        if (notifs.length > 100) notifs = notifs.slice(0, 100);
-
         try {
           localStorage.setItem('pixly_notifications_' + cleanTarget, JSON.stringify(notifs));
         } catch(e) {}
-
-        if (window.firebaseReady && window.firebase) {
-          try {
-            const { db, doc, setDoc } = window.firebase;
-            await setDoc(doc(db, 'users', cleanTarget), { notifications: notifs }, { merge: true });
-          } catch(e) {
-            console.warn('addNotificationForUser Firestore write notice:', e);
-          }
-        }
 
         const activeNow = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
         if (activeNow === cleanTarget) {
@@ -4298,7 +4302,7 @@ function saveAccountLikes(username) {
       if (window.firebaseReady && window.firebase && window.firebase.db) {
         try {
           const { db, doc, setDoc } = window.firebase;
-          await setDoc(doc(db, "users", cleanU), { notifications: notifs, lastUpdated: Date.now() }, { merge: true });
+          await setDoc(doc(db, "users", cleanU), { notifications: compactNotificationList(notifs), lastUpdated: Date.now() }, { merge: true });
         } catch(e) {
           console.warn("pushInAppSecurityNotification Firestore write notice:", e);
         }
@@ -4349,7 +4353,7 @@ function saveAccountLikes(username) {
         try {
           const { db, doc, setDoc } = window.firebase;
           const delArr = typeof getDeletedNotificationIds === 'function' ? Array.from(getDeletedNotificationIds(cleanTarget)).slice(-500) : [];
-          setDoc(doc(db, 'users', cleanTarget), { notifications: notifs, deletedNotificationIds: delArr }, { merge: true }).catch(() => {});
+          setDoc(doc(db, 'users', cleanTarget), { notifications: compactNotificationList(notifs), deletedNotificationIds: delArr }, { merge: true }).catch(() => {});
         } catch(e) {}
       }
 
@@ -5014,6 +5018,68 @@ function syncLikedStateToPosts() {
       } catch(e) { console.warn('Follower sync notice:', e); }
     }
     window.syncFollowerDocsFromFollowing = syncFollowerDocsFromFollowing;
+
+    // When I remove someone from my Connections, mark me inactive in THEIR following list (field names unchanged)
+    // so their Connected list, count and Connect button match my Connections list.
+    async function disconnectFollowerSide(followerU, ownerU) {
+      const f = normalizeUsername(followerU || ''), me = normalizeUsername(ownerU || '');
+      if (!f || !me || f === me || !window.firebaseReady || !window.firebase || !window.firebase.runTransaction) return false;
+      try {
+        const { db, doc, runTransaction } = window.firebase;
+        const ref = doc(db, 'users', f);
+        return await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists() || !Array.isArray(snap.data().following)) return false;
+          let changed = false;
+          const next = snap.data().following.map(x => {
+            if (x && x.username && normalizeUsername(x.username) === me && x.isFollowing !== false) { changed = true; return { ...x, isFollowing: false }; }
+            return x;
+          });
+          if (changed) tx.set(ref, { following: next }, { merge: true });
+          return changed;
+        });
+      } catch(e) { console.warn('Remove Connection (other side) notice:', e); return false; }
+    }
+    window.disconnectFollowerSide = disconnectFollowerSide;
+
+    // Self-heal once per session: my active Connected entries must each have their edge doc
+    // users/{them}/followers/{me}; edges on MY Connections whose owner no longer lists me are stale and removed.
+    async function reconcileMyConnectionEdges() {
+      try {
+        if (!state.isLoggedIn || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return null;
+        const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+        if (!me || me === 'guest' || window._connReconciledFor === me) return null;
+        window._connReconciledFor = me;
+        const { db, doc, getDoc, getDocs, collection, setDoc, deleteDoc } = window.firebase;
+        const report = { added: [], removedStale: [] };
+        const active = getActiveConnectedEntries(state.following || [], me);
+        for (const f of active.slice(0, 200)) {
+          const t = normalizeUsername(f.username);
+          const userSnap = await getDoc(doc(db, 'users', t)).catch(() => null);
+          if (!userSnap || !userSnap.exists() || (userSnap.data() || {}).deactivated === true) continue;
+          const edge = await getDoc(doc(db, 'users', t, 'followers', me)).catch(() => null);
+          if (edge && !edge.exists()) {
+            await setDoc(doc(db, 'users', t, 'followers', me), { username: me, fullName: state.currentUser.fullName || me, followedAt: Date.now() }).catch(() => {});
+            report.added.push(t);
+          }
+        }
+        const qs = await getDocs(collection(db, 'users', me, 'followers')).catch(() => null);
+        if (qs) {
+          const edges = []; qs.forEach(d => edges.push(d.id));
+          for (const fid of edges) {
+            const fs = await getDoc(doc(db, 'users', fid)).catch(() => null);
+            if (!fs || !fs.exists()) continue;
+            const fol = (fs.data() || {}).following;
+            if (!Array.isArray(fol)) continue;
+            const stillConnected = fol.some(x => x && x.username && normalizeUsername(x.username) === me && x.isFollowing !== false);
+            if (!stillConnected) { await deleteDoc(doc(db, 'users', me, 'followers', fid)).catch(() => {}); report.removedStale.push(fid); }
+          }
+        }
+        if (report.added.length || report.removedStale.length) console.log('Connections self-heal:', report);
+        return report;
+      } catch(e) { console.warn('Connections self-heal notice:', e); return null; }
+    }
+    window.reconcileMyConnectionEdges = reconcileMyConnectionEdges;
 
     async function fetchCloudFollowers(username) {
       const u = normalizeUsername(username || '');
@@ -5998,6 +6064,178 @@ function syncLikedStateToPosts() {
     }
     window.formatPixlyTimestamp = formatPixlyTimestamp;
 
+    // --- DM timestamps: always computed from the saved send time (ms), shown in the viewer's own time zone ---
+    function dmMsgMs(msg) {
+      if (!msg || typeof msg !== 'object') return null;
+      const cands = [msg.timestamp, msg.createdAtMs, msg.createdAt, msg.sentAt, msg.id];
+      for (const v of cands) {
+        let ms = null;
+        if (typeof v === 'number') ms = v;
+        else if (typeof v === 'string' && /^\d{13}$/.test(v.trim())) ms = Number(v);
+        else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v.trim())) ms = Date.parse(v);
+        else if (v && typeof v === 'object' && typeof v.toMillis === 'function') ms = v.toMillis();
+        else if (v && typeof v === 'object' && typeof v.seconds === 'number') ms = v.seconds * 1000;
+        if (typeof ms === 'number' && isFinite(ms) && ms > 1600000000000 && ms <= Date.now() + 86400000) return ms;
+      }
+      return null;
+    }
+    window.dmMsgMs = dmMsgMs;
+    function dmDayDiff(ms, nowMs) {
+      const a = new Date(ms); const b = new Date(nowMs);
+      const da = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+      const db = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+      return Math.round((db - da) / 86400000);
+    }
+    // One message: "10:42 AM" today, "Yesterday, 10:42 AM", "Tue, 10:42 AM" this week, "Nov 14, 10:42 AM", "Nov 14, 2025, 10:42 AM".
+    function formatDmMessageTime(msg, nowMs) {
+      const ms = dmMsgMs(msg);
+      if (!ms) {
+        const legacy = msg && typeof msg.time === 'string' ? msg.time.trim() : '';
+        return (legacy && !/^just now$/i.test(legacy) && !/nan|invalid/i.test(legacy)) ? legacy : '';
+      }
+      const now = typeof nowMs === 'number' ? nowMs : Date.now();
+      const d = new Date(ms);
+      const t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      const days = dmDayDiff(ms, now);
+      if (days <= 0) return t;
+      if (days === 1) return 'Yesterday, ' + t;
+      if (days < 7) return d.toLocaleDateString(undefined, { weekday: 'short' }) + ', ' + t;
+      const sameYear = d.getFullYear() === new Date(now).getFullYear();
+      return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + t;
+    }
+    window.formatDmMessageTime = formatDmMessageTime;
+    function dmThreadLastMs(thread) {
+      if (!thread) return null;
+      let best = null;
+      (Array.isArray(thread.chat) ? thread.chat : []).forEach(m => { const ms = dmMsgMs(m); if (ms && (!best || ms > best)) best = ms; });
+      const lt = dmMsgMs({ timestamp: thread.lastTimestamp });
+      if (lt && (!best || lt > best)) best = lt;
+      return best;
+    }
+    window.dmThreadLastMs = dmThreadLastMs;
+    // Thread list: "now", "10:42 AM" today, "Yesterday", "Tue", "Nov 14", "Nov 14, 2025".
+    function formatDmThreadTime(thread, nowMs) {
+      const ms = dmThreadLastMs(thread);
+      if (!ms) {
+        const legacy = thread && typeof thread.time === 'string' ? thread.time.trim() : '';
+        return (legacy && !/^just now$/i.test(legacy) && !/nan|invalid/i.test(legacy)) ? legacy : '';
+      }
+      const now = typeof nowMs === 'number' ? nowMs : Date.now();
+      if (now - ms < 60000) return 'now';
+      const d = new Date(ms);
+      const days = dmDayDiff(ms, now);
+      if (days <= 0) return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return d.toLocaleDateString(undefined, { weekday: 'short' });
+      const sameYear = d.getFullYear() === new Date(now).getFullYear();
+      return d.toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    window.formatDmThreadTime = formatDmThreadTime;
+    function dmFullTimeTitle(ms) {
+      return ms ? new Date(ms).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    }
+    window.dmFullTimeTitle = dmFullTimeTitle;
+    // Keep visible DM times fresh ("now" -> "10:42 AM", today -> "Yesterday" after midnight) without re-rendering the chat.
+    function refreshDmLiveTimes() {
+      try {
+        document.querySelectorAll('[data-dm-thread-ts]').forEach(el => {
+          const t = state.messages && state.messages[Number(el.getAttribute('data-dm-thread-ts'))];
+          if (t) el.textContent = formatDmThreadTime(t);
+        });
+        document.querySelectorAll('[data-dm-msg-ts]').forEach(el => {
+          const ms = Number(el.getAttribute('data-dm-msg-ts'));
+          if (ms) el.textContent = formatDmMessageTime({ timestamp: ms });
+        });
+      } catch(e) {}
+    }
+    window.refreshDmLiveTimes = refreshDmLiveTimes;
+    if (!window._dmLiveTimesTimer) window._dmLiveTimesTimer = setInterval(refreshDmLiveTimes, 30000);
+
+    // --- Story rings: colorful = has stories you haven't seen, gray = you've seen them all, light gray = no story ---
+    function storyViewerKey() {
+      return normalizeUsername((state.currentUser && state.currentUser.username) || 'guest') || 'guest';
+    }
+    function getViewedStoriesMap() {
+      const key = 'pixly_viewed_stories_' + storyViewerKey();
+      let map = {};
+      try { map = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch(e) { map = {}; }
+      const cutoff = Date.now() - 2 * STORY_TTL_MS;
+      let pruned = false;
+      Object.keys(map).forEach(k => { if (!(Number(map[k]) > cutoff)) { delete map[k]; pruned = true; } });
+      if (pruned) { try { localStorage.setItem(key, JSON.stringify(map)); } catch(e) {} }
+      return map;
+    }
+    window.getViewedStoriesMap = getViewedStoriesMap;
+    function storyOwnerOf(story) {
+      if (!story) return '';
+      if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) return storyViewerKey();
+      const raw = String(story.username || '').trim();
+      if (!raw || raw.toLowerCase() === 'your story') return storyViewerKey();
+      return normalizeUsername(raw);
+    }
+    function storyViewId(owner, story) {
+      return normalizeUsername(owner) + '|' + String((story && story.id) || ('creator_' + normalizeUsername(owner)));
+    }
+    function markStoryViewed(story) {
+      if (!story || story.isEmptyPlaceholder) return;
+      const owner = storyOwnerOf(story);
+      if (!owner) return;
+      const map = getViewedStoriesMap();
+      map[storyViewId(owner, story)] = Date.now();
+      try { localStorage.setItem('pixly_viewed_stories_' + storyViewerKey(), JSON.stringify(map)); } catch(e) {}
+    }
+    window.markStoryViewed = markStoryViewed;
+    // 'none' | 'viewed' | 'unviewed' for a list of the owner's stories (expired ones ignored).
+    function getStoryRingState(owner, stories) {
+      const now = Date.now();
+      const active = (Array.isArray(stories) ? stories : []).filter(st => st && st.image && !st.isEmptyPlaceholder &&
+        (now - (Number(st.timestamp) || now)) < STORY_TTL_MS);
+      if (active.length === 0) return 'none';
+      const map = getViewedStoriesMap();
+      return active.every(st => map[storyViewId(owner, st)]) ? 'viewed' : 'unviewed';
+    }
+    window.getStoryRingState = getStoryRingState;
+    function applyStoryRingState(el, ringState) {
+      if (!el) return;
+      el.classList.remove('story-gradient', 'story-ring-viewed', 'bg-neutral-200');
+      if (ringState === 'unviewed') el.classList.add('story-gradient');
+      else if (ringState === 'viewed') el.classList.add('story-ring-viewed');
+      else el.classList.add('bg-neutral-200');
+      el.setAttribute('data-story-ring', ringState);
+    }
+    window.applyStoryRingState = applyStoryRingState;
+    function refreshViewedProfileStoryRing() {
+      const box = document.getElementById('user-profile-avatar-container');
+      const vc = state.viewedCreator;
+      if (!box || !vc || !vc.username) return;
+      const u = normalizeUsername(vc.username);
+      const rc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+      const cloudDoc = (window._viewedConn && window._viewedConn.user === u && window._viewedConn.doc) || rc;
+      if (cloudDoc && (Array.isArray(cloudDoc.userStories) || window._viewedConn && window._viewedConn.user === u && window._viewedConn.loadedDoc)) {
+        applyStoryRingState(box, getStoryRingState(u, cloudDoc.userStories));
+      } else {
+        const local = (state.stories || []).filter(st => st && normalizeUsername(st.username) === u);
+        applyStoryRingState(box, local.length ? getStoryRingState(u, local.map(st => ({ ...st, timestamp: st.timestamp || Date.now() }))) : 'unviewed');
+      }
+    }
+    window.refreshViewedProfileStoryRing = refreshViewedProfileStoryRing;
+    function refreshStoryRings() {
+      try {
+        const own = Array.isArray(state.userStories) ? state.userStories : [];
+        applyStoryRingState(document.getElementById('btn-profile-pic'), getStoryRingState(storyViewerKey(), own));
+        refreshViewedProfileStoryRing();
+        document.querySelectorAll('#stories-container .story-trigger').forEach(el => {
+          const st = state.stories && state.stories[Number(el.dataset.storyIdx)];
+          const ring = el.querySelector('[data-story-ring], .story-gradient, .story-ring-viewed');
+          if (!st || !ring) return;
+          const owner = storyOwnerOf(st);
+          const list = (typeof isOwnStoryObj === 'function' && isOwnStoryObj(st)) ? own : [{ ...st, timestamp: st.timestamp || Date.now() }];
+          applyStoryRingState(ring, getStoryRingState(owner, list));
+        });
+      } catch(e) {}
+    }
+    window.refreshStoryRings = refreshStoryRings;
+
     function pruneExpiredUserStories(saveIfChanged = true) {
       const now = Date.now();
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
@@ -6047,13 +6285,7 @@ function syncLikedStateToPosts() {
 
       const ringEl = document.getElementById('btn-profile-pic');
       if (ringEl) {
-        if (state.hasActiveUserStory) {
-          ringEl.classList.add('story-gradient');
-          ringEl.classList.remove('bg-neutral-200');
-        } else {
-          ringEl.classList.remove('story-gradient');
-          ringEl.classList.add('bg-neutral-200');
-        }
+        applyStoryRingState(ringEl, state.hasActiveUserStory ? getStoryRingState(storyViewerKey(), state.userStories) : 'none');
       }
 
       if (saveIfChanged && beforeLen !== state.userStories.length) {
@@ -6085,7 +6317,7 @@ function syncLikedStateToPosts() {
       if (!container) return;
       container.innerHTML = state.stories.map((story, idx) => `
         <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}">
-          <div class="w-16 h-16 rounded-full p-0.5 story-gradient flex items-center justify-center hover:scale-105 transition shadow-xs">
+          <div class="w-16 h-16 rounded-full p-0.5 story-gradient flex items-center justify-center hover:scale-105 transition shadow-xs" data-story-ring="unviewed">
             <div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white">
               <img src="${story.avatar}" alt="${story.username}" class="w-full h-full object-cover">
             </div>
@@ -6100,6 +6332,7 @@ function syncLikedStateToPosts() {
           openStoryViewer(idx);
         });
       });
+      refreshStoryRings();
     }
 
     // --- Render Newsfeed ---
@@ -11536,8 +11769,7 @@ function syncLikedStateToPosts() {
       // Check CREATOR_DETAILS (has bradley_hansen, pixlynote, digitalassetpro, elena_eats, etc.)
       const detailed = CREATOR_DETAILS[cleanU];
       if (detailed) {
-        const fromFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
-        const isFollowing = fromFollowing ? fromFollowing.isFollowing : (detailed.isFollowing !== undefined ? detailed.isFollowing : false);
+        const isFollowing = isUserFollowingCreator(cleanU);
         return { ...detailed, isFollowing };
       }
 
@@ -11594,7 +11826,7 @@ function syncLikedStateToPosts() {
           followersCount: "14.2K",
           followingCount: "310",
           mutual: "Pixlynote Creator",
-          isFollowing: fromFollowing.isFollowing
+          isFollowing: isUserFollowingCreator(fromFollowing.username)
         };
       }
 
@@ -11610,7 +11842,7 @@ function syncLikedStateToPosts() {
         followersCount: "8.5K",
         followingCount: "215",
         mutual: "Pixlynote Creator",
-        isFollowing: true
+        isFollowing: isUserFollowingCreator(cleanU)
       };
     }
     window.getCreatorInfo = getCreatorInfo;
@@ -11716,10 +11948,10 @@ function syncLikedStateToPosts() {
     function isUserFollowingCreator(username) {
       if (!username) return false;
       const cleanU = username.toLowerCase().replace(/^@/, '');
-      const inFollowing = (state.following || []).find(f => f.username.toLowerCase() === cleanU);
-      if (inFollowing) return inFollowing.isFollowing !== false;
-      const creator = CREATOR_DETAILS[cleanU];
-      return creator ? (creator.isFollowing === true) : false;
+      // Same rule as the Connected list (getActiveConnectedEntries): only real, active entries in my following list.
+      // No built-in demo defaults, so a profile can never say "Connected" while my Connected list doesn't show it.
+      const me = (state.currentUser && state.currentUser.username) || '';
+      return getActiveConnectedEntries(state.following || [], me).some(f => connNorm(f.username) === connNorm(cleanU));
     }
     window.isUserFollowingCreator = isUserFollowingCreator;
 
@@ -12033,6 +12265,7 @@ function syncLikedStateToPosts() {
           v.loadedDoc = true;
           const d = snap.exists() ? (snap.data() || {}) : {};
           if (snap.exists()) { v.doc = d; applyViewedProfileDoc(u, d); }
+          refreshViewedProfileStoryRing();
           v.connected = Array.isArray(d.following) ? d.following : [];
           renderViewedConnections();
         }, (e) => { console.warn('Profile live notice:', e && e.code); }));
@@ -12173,6 +12406,7 @@ function syncLikedStateToPosts() {
         profileAvatarBox.onclick = () => {
           if (typeof openCreatorStory === 'function') openCreatorStory(creator);
         };
+        setTimeout(refreshViewedProfileStoryRing, 0);
       }
 
       const profileFullName = document.getElementById('user-profile-fullname');
@@ -12863,6 +13097,8 @@ function syncLikedStateToPosts() {
               console.warn('Remove Connection notice:', err);
               showToast('Could not remove that Connection right now. Please try again.');
             });
+            // Keep both sides in sync: the removed person's Connected list must drop me too.
+            if (typeof disconnectFollowerSide === 'function') disconnectFollowerSide(targetU, curU);
           }
           showToast(`Removed @${targetU} from your Connections`);
           const searchInp = document.getElementById('followers-search-input');
@@ -13850,45 +14086,25 @@ function syncLikedStateToPosts() {
       return codes;
     }
 
+    // 2FA is disabled ("Coming soon") until real per-user TOTP is verified server-side with the new sign-in.
+    // Always off: no shared setup key, no backup codes, nothing written to Firestore or localStorage.
+    // Any stored twoFactorAuth.enabled from the old fake flow is ignored.
+    const TWO_FACTOR_COMING_SOON = true;
+    window.TWO_FACTOR_COMING_SOON = TWO_FACTOR_COMING_SOON;
     function get2FASettings() {
-      const key = 'pixly_2fa_' + getSecurityUsernameKey();
-      const defaults = {
-        enabled: false,
-        method: 'app',
-        secretKey: 'PXLY-7K9M-2Q4W-8Z3N',
-        verified: false,
-        backupCodes: ['4F9K-2M8Q', '7P3W-9X2L', '6N4R-8T5B', '2V7C-5H9D']
-      };
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) return { ...defaults, ...JSON.parse(raw) };
-      } catch(e) {}
-      return defaults;
+      return { enabled: false, method: null, verified: false, comingSoon: true };
     }
 
     function save2FASettings(cfg) {
-      const uKey = getSecurityUsernameKey();
-      try { localStorage.setItem('pixly_2fa_' + uKey, JSON.stringify(cfg)); } catch(e) {}
-      try {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { doc, setDoc } = window.firebase;
-          setDoc(doc(window.firebase.db, 'users', uKey), { twoFactorAuth: cfg, updatedAt: Date.now() }, { merge: true }).catch(() => {});
-        }
-      } catch(e) {}
-      renderSecurityAccessSummary();
+      try { renderSecurityAccessSummary(); } catch(e) {}
     }
 
     function renderSecurityAccessSummary() {
       const cfg = get2FASettings();
       const badge = document.getElementById('ac-2fa-summary-badge');
       if (badge) {
-        if (cfg.enabled) {
-          badge.textContent = 'On • ' + (cfg.method === 'sms' ? 'SMS' : 'App');
-          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
-        } else {
-          badge.textContent = 'Off';
-          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
-        }
+        badge.textContent = 'Coming soon';
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200';
       }
       const sessions = getAccountSessions();
       const sBadge = document.getElementById('ac-sessions-count-badge');
@@ -14086,58 +14302,9 @@ function syncLikedStateToPosts() {
     window.renderLoginActivityView = renderLoginActivityView;
 
     function render2FAView() {
-      const cfg = get2FASettings();
       const pill = document.getElementById('ac-2fa-status-pill');
-      const toggleBtn = document.getElementById('btn-ac-2fa-toggle');
-      const appBadge = document.getElementById('ac-2fa-app-badge');
-      const smsBadge = document.getElementById('ac-2fa-sms-badge');
-      const appSetup = document.getElementById('ac-2fa-app-setup');
-      const secretEl = document.getElementById('ac-2fa-secret-key');
-      const smsPhoneEl = document.getElementById('ac-2fa-sms-phone');
-      const codesEl = document.getElementById('ac-2fa-backup-codes');
-
-      if (pill) {
-        pill.textContent = cfg.enabled ? 'On' : 'Off';
-        pill.className = cfg.enabled
-          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
-          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600';
-      }
-      if (toggleBtn) {
-        toggleBtn.textContent = cfg.enabled ? 'Turn off' : 'Turn on';
-        toggleBtn.className = cfg.enabled
-          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition flex-shrink-0 cursor-pointer'
-          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex-shrink-0 cursor-pointer';
-      }
-      if (appBadge) {
-        const isApp = cfg.enabled && cfg.method === 'app';
-        appBadge.textContent = isApp ? 'Active' : 'Select';
-        appBadge.className = isApp
-          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
-          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500';
-      }
-      if (smsBadge) {
-        const isSms = cfg.enabled && cfg.method === 'sms';
-        smsBadge.textContent = isSms ? 'Active' : 'Select';
-        smsBadge.className = isSms
-          ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200'
-          : 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500';
-      }
-      if (appSetup) {
-        if (cfg.method === 'app') appSetup.classList.remove('hidden');
-        else appSetup.classList.add('hidden');
-      }
-      if (secretEl) secretEl.textContent = cfg.secretKey;
-      if (smsPhoneEl) {
-        const rawPhone = state.currentUser && state.currentUser.phone ? state.currentUser.phone : '';
-        smsPhoneEl.textContent = rawPhone
-          ? 'Send codes to ' + maskPhoneNumber(rawPhone)
-          : 'Add a phone number in Account Info to use SMS';
-      }
-      if (codesEl) {
-        codesEl.innerHTML = (cfg.backupCodes || []).map(c =>
-          `<div class="px-2.5 py-1.5 rounded-lg bg-neutral-50 border border-neutral-200 text-center">${c}</div>`
-        ).join('');
-      }
+      if (pill) pill.textContent = 'Coming soon';
+      try { renderSecurityAccessSummary(); } catch(e) {}
     }
 
     window._pixlyResolvedDeviceModel = window._pixlyResolvedDeviceModel || '';
@@ -14214,7 +14381,7 @@ function syncLikedStateToPosts() {
       if (!data) return;
       const uKey = (username || getSecurityUsernameKey()).toLowerCase().replace(/^@/, '');
       if (data.twoFactorAuth && typeof data.twoFactorAuth === 'object') {
-        try { localStorage.setItem('pixly_2fa_' + uKey, JSON.stringify(data.twoFactorAuth)); } catch(e) {}
+        /* 2FA is Coming soon: stored twoFactorAuth is ignored */
       }
       if (Array.isArray(data.loginActivityLog)) {
         try {
@@ -14692,6 +14859,12 @@ function syncLikedStateToPosts() {
         openStoryViewer(existingIdx);
         return;
       }
+      if (remoteCache) {
+        // Real account with no story in the last 24 hours: same "no story" behavior as your own profile.
+        if (typeof showToast === 'function') showToast(`@${targetU} has no active stories right now`);
+        refreshViewedProfileStoryRing();
+        return;
+      }
       const creatorPosts = (state.posts || []).concat(state.explorePosts || []).filter(p => normalizeUsername(p.author) === targetU);
       const latestPost = creatorPosts[0];
       const storyObj = {
@@ -14768,6 +14941,7 @@ function syncLikedStateToPosts() {
       }
 
       modal.classList.remove('hidden'); modal.style.display = 'flex';
+      markStoryViewed(story);
       startStoryProgressTimer();
     }
 
@@ -14823,6 +14997,7 @@ function syncLikedStateToPosts() {
       if (ownerMenu) ownerMenu.classList.add('hidden');
       const storyModalEl = document.getElementById('modal-story-viewer'); storyModalEl.classList.add('hidden'); storyModalEl.style.display = 'none';
       state.activeStory = null;
+      refreshStoryRings();
     }
 
     // --- Create Post Presets Initialization ---
@@ -14888,7 +15063,15 @@ function syncLikedStateToPosts() {
 
       list.innerHTML = state.notifications.map((n, idx) => {
         const u = n.fromUser || n.user || 'creator';
-        const av = n.fromAvatar || getPostAuthorAvatar({ author: u });
+        const av = resolveLiveAvatar(u, n.fromAvatar);
+        const isStoryNotif = (n.type === 'story_like' || n.type === 'story_reply') && n.storyId !== undefined && n.storyId !== null;
+        const ownStories = isStoryNotif ? (Array.isArray(state.userStories) ? state.userStories : []) : [];
+        const storyIdx = isStoryNotif ? ownStories.findIndex(st => st && String(st.id) === String(n.storyId)) : -1;
+        const storyObj = storyIdx > -1 ? ownStories[storyIdx] : null;
+        const storyActive = !!(storyObj && (Date.now() - (Number(storyObj.timestamp) || Number(storyObj.id) || 0)) < STORY_TTL_MS);
+        const storyLabel = isStoryNotif
+          ? (storyActive ? (ownStories.length > 1 ? `Story ${storyIdx + 1} of ${ownStories.length}` : 'Your story') : 'Expired story')
+          : '';
         return `
           <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${!n.read ? 'bg-violet-50/40' : ''}" data-idx="${idx}">
             <div class="flex items-center space-x-2.5 min-w-0 pr-2">
@@ -14900,7 +15083,7 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
                   <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
                 </div>
-                <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
+                <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
                 ${n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined' ? `
                   <div class="flex items-center space-x-2 pt-1.5">
                     <button type="button" class="notif-priv-accept px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Accept</button>
@@ -14910,11 +15093,17 @@ function syncLikedStateToPosts() {
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
-              ${n.postImage ? `
+              ${isStoryNotif ? (storyObj && storyObj.image ? `
+                <div class="w-8 h-10 rounded-md overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0 notif-story-thumb ${storyActive ? '' : 'opacity-50 grayscale'}" data-story-id="${escapeHtml(String(n.storyId))}">
+                  <img src="${storyObj.image}" alt="Story" class="w-full h-full object-cover">
+                </div>
+              ` : `
+                <div class="w-8 h-10 rounded-md border border-dashed border-neutral-300 bg-neutral-50 flex-shrink-0 flex items-center justify-center text-[9px] text-neutral-400 notif-story-thumb" data-story-id="${escapeHtml(String(n.storyId))}">⏱</div>
+              `) : (n.postImage ? `
                 <div class="w-8 h-8 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
                   <img src="${n.postImage}" alt="Post" class="w-full h-full object-cover">
                 </div>
-              ` : ''}
+              ` : '')}
               ${!n.read ? '<span class="w-2 h-2 rounded-full bg-violet-600"></span>' : ''}
             </div>
           </div>
@@ -14963,6 +15152,13 @@ function syncLikedStateToPosts() {
           if (notif.type === "password_updated") {
             if (typeof openAccountCenterModal === "function") openAccountCenterModal();
             if (typeof setAccountCenterView === "function") setAccountCenterView("loginActivity");
+          } else if ((notif.type === 'story_like' || notif.type === 'story_reply') && notif.storyId !== undefined) {
+            if (typeof openStoryViewer === 'function') {
+              openStoryViewer(0);
+              const q = state.activeStoryQueue || [];
+              const qi = q.findIndex(st => st && String(st.id) === String(notif.storyId));
+              if (qi > 0 && typeof displayStorySlide === 'function') { state.activeStorySlideIdx = qi; displayStorySlide(q[qi]); }
+            }
           } else if (notif.postId) {
             openPostDetailModal(notif.postId);
           } else if (notif.noteId) {
@@ -15076,7 +15272,8 @@ function syncLikedStateToPosts() {
           : 'hover:bg-neutral-50/80 border-l-4 border-transparent';
         const lastSenderPrefix = (m.chat && m.chat.length > 0 && m.chat[m.chat.length - 1].sender === 'me') ? 'You: ' : '';
         const lastText = m.lastMsg || (m.chat && m.chat.length > 0 ? m.chat[m.chat.length - 1].text : 'No messages yet');
-        const timeDisp = m.time || m.lastTime || '';
+        const timeDisp = escapeHtml(formatDmThreadTime(m));
+        const timeTitle = dmFullTimeTitle(dmThreadLastMs(m));
         const threadAvatar = resolveDmAvatar(m.user, m.avatar);
         m.avatar = threadAvatar;
 
@@ -15089,7 +15286,7 @@ function syncLikedStateToPosts() {
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
                 <span class="font-bold text-xs truncate ${isActive ? 'text-violet-950' : 'text-neutral-900'}">${m.name}</span>
-                <span class="text-[10px] text-neutral-400 ml-1 flex-shrink-0">${timeDisp}</span>
+                <span class="text-[10px] text-neutral-400 ml-1 flex-shrink-0 dm-thread-time" data-dm-thread-ts="${idx}" title="${timeTitle}">${timeDisp}</span>
               </div>
               <div class="text-[11px] ${isActive ? 'text-violet-800/80' : 'text-neutral-500'} truncate mt-0.5">
                 ${lastSenderPrefix}${lastText}
@@ -15178,7 +15375,8 @@ function syncLikedStateToPosts() {
           ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl rounded-br-none shadow-2xs'
           : 'bg-white border border-neutral-200/80 text-neutral-900 rounded-2xl rounded-bl-none shadow-2xs';
         const alignClass = isMe ? 'justify-end' : 'justify-start';
-        const timeText = msg.time || '';
+        const msgMs = dmMsgMs(msg);
+        const timeText = escapeHtml(formatDmMessageTime(msg));
 
         let contentHtml = '';
         if (msg.sharedItem) {
@@ -15222,8 +15420,8 @@ function syncLikedStateToPosts() {
               <div class="px-3.5 py-2 text-xs ${bubbleClass}">
                 ${contentHtml}
               </div>
-              <div class="text-[9px] text-neutral-400 mt-0.5 px-1 ${isMe ? 'text-right' : 'text-left'}">
-                ${timeText} ${isMe ? '• Sent ✓' : ''}
+              <div class="text-[9px] text-neutral-400 mt-0.5 px-1 ${isMe ? 'text-right' : 'text-left'}" title="${msgMs ? dmFullTimeTitle(msgMs) : ''}">
+                <span class="dm-msg-time" ${msgMs ? `data-dm-msg-ts="${msgMs}"` : ''}>${timeText}</span> ${isMe ? '• Sent ✓' : ''}
               </div>
             </div>
           </div>
@@ -19364,11 +19562,11 @@ function syncLikedStateToPosts() {
             const commentsHtml = activeComments.map(c => `
               <div class="flex items-start justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
                 <div class="flex items-start space-x-2.5 min-w-0 flex-1">
-                  <img src="${c.userAvatar || BRADLEY_AVATAR_IMAGE}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0">
+                  <img src="${resolveLiveAvatar(c.user, c.userAvatar)}" alt="${c.user}" class="w-7 h-7 rounded-full object-cover border border-white/20 flex-shrink-0 story-comment-avatar" data-user="${c.user}">
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center space-x-1.5">
                       <span class="font-bold text-white truncate">@${c.user}</span>
-                      <span class="text-[10px] text-white/50">${c.time || 'Just now'}</span>
+                      <span class="text-[10px] text-white/50">${formatPixlyTimestamp(c, c.time || 'Just now')}</span>
                     </div>
                     <p class="text-white/90 mt-0.5 leading-relaxed break-words">${escapeHtml(c.text || '')}</p>
                   </div>
@@ -19440,11 +19638,11 @@ function syncLikedStateToPosts() {
                 setDoc(doc(db, 'story_comments', `${targetU}__${storyIdStr}`), {
                   targetUser: targetU,
                   storyId: storyIdStr,
-                  comments: storyRef.comments,
+                  comments: compactStoryComments(storyRef.comments),
                   updatedAt: Date.now()
                 }, { merge: true }).catch(() => {}),
                 setDoc(doc(db, 'users', targetU), {
-                  storyComments: { [storyIdStr]: storyRef.comments }
+                  storyComments: { [storyIdStr]: compactStoryComments(storyRef.comments) }
                 }, { merge: true }).catch(() => {})
               ]);
             } catch(e) {}
@@ -19594,7 +19792,7 @@ function syncLikedStateToPosts() {
           const newComment = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             user: curU,
-            userAvatar: safeAv,
+            userAvatar: compactAvatarRef(safeAv),
             text: replyText,
             time: 'Just now',
             timestamp: Date.now()
@@ -19641,7 +19839,7 @@ function syncLikedStateToPosts() {
               remoteUserArr.forEach(c => byId.set(String(c.id), c));
               remoteDedicatedArr.forEach(c => byId.set(String(c.id), c));
               storyRef.comments.forEach(c => byId.set(String(c.id), c));
-              const mergedComments = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+              const mergedComments = compactStoryComments(Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)));
               storyRef.comments = mergedComments;
               window._remoteUserProfilesCache[targetU].storyComments[storyIdStr] = mergedComments;
               saveLocalStoryComments(targetU, storyIdStr, mergedComments);
@@ -19669,7 +19867,7 @@ function syncLikedStateToPosts() {
               id: Date.now() + Math.floor(Math.random() * 1000),
               type: 'story_reply',
               fromUser: curU,
-              fromAvatar: safeAv,
+              fromAvatar: compactAvatarRef(safeAv),
               text: `replied to your story: "${replyText.slice(0, 40)}${replyText.length > 40 ? '...' : ''}"`,
               storyId: storyIdStr,
               time: 'Just now',
@@ -19727,7 +19925,7 @@ function syncLikedStateToPosts() {
                 id: Date.now() + Math.floor(Math.random() * 1000),
                 type: 'story_like',
                 fromUser: curU,
-                fromAvatar: safeAv,
+                fromAvatar: compactAvatarRef(safeAv),
                 text: 'liked your story ❤️',
                 storyId: storyIdStr,
                 time: 'Just now',
@@ -19869,7 +20067,7 @@ function syncLikedStateToPosts() {
                 setDoc(doc(db, 'users', curU), {
                   userStories: state.userStories,
                   story: state.userStories.length > 0 ? state.userStories[state.userStories.length - 1] : null,
-                  notifications: Array.isArray(state.notifications) ? state.notifications : [],
+                  notifications: compactNotificationList(Array.isArray(state.notifications) ? state.notifications : []),
                   lastUpdated: Date.now()
                 }, { merge: true }).catch(() => {});
               } catch(e) {}
