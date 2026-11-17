@@ -822,13 +822,13 @@
                   <div class="text-base font-black text-neutral-900" id="profile-post-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Posts</div>
                 </div>
-                <div id="stat-followers-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view and explore your followers">
+                <div id="stat-followers-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="View your Connections">
                   <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-followers-count">0</div>
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5">Followers</div>
+                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5" id="profile-followers-label">Connections</div>
                 </div>
-                <div id="stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="Click to view all following accounts">
+                <div id="stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="View the accounts you're connected with">
                   <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="profile-following-count">0</div>
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5">Following</div>
+                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5" id="profile-following-label">Connected</div>
                 </div>
               </div>
 
@@ -1076,13 +1076,13 @@
                   <div class="text-base font-black text-neutral-900" id="user-profile-post-count">0</div>
                   <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Posts</div>
                 </div>
-                <div class="px-3 py-2.5 bg-neutral-50/80 rounded-2xl border border-neutral-100 text-center">
-                  <div class="text-base font-black text-neutral-900" id="user-profile-followers-count">0</div>
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Followers</div>
+                <div id="user-stat-followers-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="View Connections" onclick="window.openViewedConnectionsList && window.openViewedConnectionsList('connections')">
+                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="user-profile-followers-count">0</div>
+                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5" id="user-profile-followers-label">Connections</div>
                 </div>
-                <div class="px-3 py-2.5 bg-neutral-50/80 rounded-2xl border border-neutral-100 text-center">
-                  <div class="text-base font-black text-neutral-900" id="user-profile-following-count">0</div>
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mt-0.5">Following</div>
+                <div id="user-stat-following-btn" class="px-3 py-2.5 bg-neutral-50/80 hover:bg-violet-50/80 hover:border-violet-200 rounded-2xl border border-neutral-100 text-center cursor-pointer transition group" title="View Connected" onclick="window.openViewedConnectionsList && window.openViewedConnectionsList('connected')">
+                  <div class="text-base font-black text-neutral-900 group-hover:text-violet-700 transition" id="user-profile-following-count">0</div>
+                  <div class="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 group-hover:text-violet-600 transition mt-0.5" id="user-profile-following-label">Connected</div>
                 </div>
               </div>
 
@@ -1198,7 +1198,7 @@
                 </div>
                 <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
                   <span class="text-neutral-400">Mutual Connections</span>
-                  <span class="font-medium text-neutral-800" id="info-mutual">Followed by you and 48 others</span>
+                  <span class="font-medium text-neutral-800" id="info-mutual"></span>
                 </div>
               </div>
             </div>
@@ -1456,7 +1456,7 @@
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               <span>Delete</span>
             </button>
-            <button type="button" id="btn-modal-follow-toggle" class="text-xs font-semibold text-sky-600 hover:text-sky-800">Following</button>
+            <button type="button" id="btn-modal-follow-toggle" class="text-xs font-semibold text-sky-600 hover:text-sky-800">Connect</button>
           </div>
         </div>
 
@@ -2196,7 +2196,7 @@
           </div>
           <div>
             <h3 class="font-bold text-sm text-neutral-900 leading-tight">Send via DM</h3>
-            <p class="text-[10px] text-neutral-500">Select people you follow (up to 30)</p>
+            <p class="text-[10px] text-neutral-500">Select people you're connected with (up to 30)</p>
           </div>
         </div>
         <button type="button" onclick="closeDmShareModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition cursor-pointer" title="Close">
@@ -2213,7 +2213,7 @@
       <div class="px-4 pt-3 pb-2 flex-shrink-0">
         <div class="relative">
           <svg class="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          <input type="text" id="dm-share-search" oninput="renderDmShareChatHeads(this.value)" placeholder="Search people you follow..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-100/80 border border-neutral-200/80 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-violet-500/20 transition">
+          <input type="text" id="dm-share-search" oninput="renderDmShareChatHeads(this.value)" placeholder="Search people you're connected with..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-100/80 border border-neutral-200/80 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-violet-500/20 transition">
         </div>
       </div>
 
@@ -2240,8 +2240,8 @@
       <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
         <div class="w-7"></div>
         <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
-          <span>Following</span>
-          <span id="following-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">342</span>
+          <span>Connected</span>
+          <span id="following-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span>
         </h3>
         <button type="button" id="btn-close-following-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -2254,7 +2254,7 @@
           <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input type="text" id="following-search-input" placeholder="Search people you follow..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+          <input type="text" id="following-search-input" placeholder="Search people you're connected with..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
         </div>
       </div>
 
@@ -2274,7 +2274,7 @@
       <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
         <div class="w-7"></div>
         <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
-          <span>Followers</span>
+          <span>Connections</span>
           <span id="followers-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span>
         </h3>
         <button type="button" id="btn-close-followers-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
@@ -2288,7 +2288,7 @@
           <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input type="text" id="followers-search-input" placeholder="Search your followers..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+          <input type="text" id="followers-search-input" placeholder="Search your Connections..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
         </div>
       </div>
 
@@ -2321,7 +2321,7 @@
           <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input type="text" id="discover-creators-search-input" placeholder="Search new creators to follow..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+          <input type="text" id="discover-creators-search-input" placeholder="Search new creators to connect with..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
         </div>
       </div>
 
@@ -4400,7 +4400,7 @@ function saveAccountLikes(username) {
         type: isFollowBack ? 'follow_back' : 'follow',
         fromUser: curU,
         fromAvatar: curAvatar,
-        text: isFollowBack ? 'followed you back.' : 'started following you.',
+        text: isFollowBack ? 'connected back with you.' : 'connected with you.',
         time: 'Just now',
         timestamp: Date.now(),
         read: false
@@ -5050,9 +5050,15 @@ function syncLikedStateToPosts() {
           if (list.length > 0) { try { localStorage.setItem('pixly_followers_cloud_' + u, '1'); } catch(e) {} }
           if (list.length > 0 || cloudSeen || (Array.isArray(local) && local.length === 0)) {
             try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(list)); } catch(e) {}
-            if (state.currentUser) state.currentUser.followersCount = String(list.length);
+            const shown = typeof cleanConnectionsList === 'function' ? cleanConnectionsList(list, u).length : list.length;
+            if (state.currentUser) state.currentUser.followersCount = String(shown);
             const el = document.getElementById('profile-followers-count');
-            if (el) el.textContent = list.length.toLocaleString();
+            if (el) el.textContent = shown.toLocaleString();
+            const fm = document.getElementById('modal-followers');
+            if (fm && !fm.classList.contains('hidden') && typeof renderFollowersList === 'function') {
+              const si = document.getElementById('followers-search-input');
+              renderFollowersList(si ? si.value : '');
+            }
           }
         }, () => {});
       } catch(e) {}
@@ -5781,7 +5787,7 @@ function syncLikedStateToPosts() {
       notifications: [
         { id: 1, user: "marcus_pups", text: "liked your photo of Lake Moraine.", time: "10m ago", read: false },
         { id: 2, user: "elena_eats", text: "commented: 'Adding this to my bucket list right now 😍'", time: "45m ago", read: false },
-        { id: 3, user: "arch_digest", text: "started following you.", time: "2h ago", read: false },
+        { id: 3, user: "arch_digest", text: "connected with you.", time: "2h ago", read: false },
         { id: 4, user: "city_vibe", text: "liked your post 'Golden hour washing over the city'.", time: "1d ago", read: true }
       ],
 
@@ -5858,6 +5864,7 @@ function syncLikedStateToPosts() {
     // --- Tab Navigation Handlers ---
     function switchMainTab(tabName) {
       state.activeTab = tabName;
+      if (tabName !== 'user-profile' && typeof detachViewedConnections === 'function') detachViewedConnections();
       
       const tabFeed = document.getElementById('tab-feed');
       const tabProfile = document.getElementById('tab-profile');
@@ -6175,7 +6182,7 @@ function syncLikedStateToPosts() {
             <div class="max-w-md mx-auto space-y-2">
               <h3 class="font-bold text-base md:text-lg text-neutral-900">Welcome to your Pixlynote Feed ✨</h3>
               <p class="text-xs md:text-sm text-neutral-500 leading-relaxed">
-                Your feed is currently quiet. Follow inspiring creators below to see their photos and notes appear here, or create your first post!
+                Your feed is currently quiet. Connect with inspiring creators below to see their photos and notes appear here, or create your first post!
               </p>
             </div>
 
@@ -6194,7 +6201,7 @@ function syncLikedStateToPosts() {
             <!-- Suggested Creators to Follow -->
             <div class="pt-4 border-t border-neutral-100 text-left">
               <div class="flex items-center justify-between mb-3 px-1">
-                <span class="text-xs font-bold text-neutral-800 uppercase tracking-wider">Suggested Creators to Follow</span>
+                <span class="text-xs font-bold text-neutral-800 uppercase tracking-wider">Suggested Creators to Connect With</span>
                 <button type="button" class="text-xs font-semibold text-violet-600 hover:text-violet-700 btn-open-following-modal cursor-pointer">View All (${followingTotal})</button>
               </div>
 
@@ -6220,7 +6227,7 @@ function syncLikedStateToPosts() {
                         </div>
                       </div>
                       <button type="button" class="btn-feed-suggested-follow px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex-shrink-0 cursor-pointer ${isFollowing ? 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300' : 'story-gradient text-white shadow-xs hover:opacity-95'}" data-username="${creator.username}">
-                        ${isFollowing ? 'Following' : 'Follow'}
+                        ${isFollowing ? 'Connected' : 'Connect'}
                       </button>
                     </div>
                   `;
@@ -6420,13 +6427,13 @@ function syncLikedStateToPosts() {
             <span>You're all caught up!</span>
             <span class="w-8 h-px bg-neutral-200"></span>
           </div>
-          <p class="text-xs text-neutral-500">Discover more creators to follow or share your own moment.</p>
+          <p class="text-xs text-neutral-500">Discover more creators to connect with, or share your own moment.</p>
           <div class="flex justify-center space-x-3">
             <button type="button" class="btn-feed-create-first px-4 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-95 transition cursor-pointer">
               + New Post
             </button>
             <button type="button" class="btn-open-discover-creators px-4 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">
-              Find Creators to Follow
+              Find and Connect with Creators
             </button>
           </div>
         </div>
@@ -6494,7 +6501,7 @@ function syncLikedStateToPosts() {
           if (modalCount) modalCount.textContent = displayTotal.toLocaleString();
 
           persistState();
-          showToast(userInFollowing.isFollowing ? `Followed @${targetU} ✨` : `Unfollowed @${targetU}`);
+          showToast(userInFollowing.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
           renderFeed();
         });
       });
@@ -8246,7 +8253,7 @@ function syncLikedStateToPosts() {
       if (n < 1000000) return (n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, '') + 'K';
       return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
     }
-    function exploreFollowersWord(n) { return (Math.max(0, Number(n) || 0) === 1) ? 'follower' : 'followers'; }
+    function exploreFollowersWord(n) { return (Math.max(0, Number(n) || 0) === 1) ? 'Connection' : 'Connections'; }
     function exploreViewer() { return exploreNorm(state.currentUser && state.currentUser.username); }
     function exploreTerms(q) {
       const t = [q];
@@ -8348,6 +8355,7 @@ function syncLikedStateToPosts() {
         const likesByPost = new Map(), likesByNote = new Map();
         const addLike = (m, id, u) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(u); };
         users.forEach(x => {
+          x.followingCount = x.following.filter(t => { const tr = users.get(t); return !(tr && tr.deactivated); }).length;
           if (x.deactivated) return;
           x.following.forEach(t => { const tr = users.get(t); if (tr) tr.followersCount++; });
           x.likedPostIds.forEach(id => addLike(likesByPost, id, x.username));
@@ -8515,7 +8523,7 @@ function syncLikedStateToPosts() {
       else list = list.filter(c => c.username !== viewer);
       list = list.map(c => {
         const isSelf = c.username === viewer;
-        const followingCount = isSelf ? (state.following || []).filter(f => f && f.isFollowing !== false).length : c.followingCount;
+        const followingCount = isSelf ? getFollowingDisplayCount() : c.followingCount;
         const avatar = isSelf && state.currentUser && state.currentUser.avatar ? state.currentUser.avatar : c.avatar;
         return { ...c, avatar, followingCount, followersCount: exploreAdjustedFollowers(c) };
       });
@@ -8733,7 +8741,7 @@ function syncLikedStateToPosts() {
                               <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${exploreEsc(String(chip).split('&')[0].trim())}</span>
                             </div>
                             <div class="text-[11px] font-medium text-neutral-500 truncate">@${u}${isSelf ? ' · You' : ''}</div>
-                            <div class="explore-account-counts text-[10px] text-neutral-500 truncate mt-0.5"><span class="font-semibold text-neutral-700">${exploreFmtCount(c.followersCount)}</span> ${exploreFollowersWord(c.followersCount)} · <span class="font-semibold text-neutral-700">${exploreFmtCount(c.followingCount)}</span> following</div>
+                            <div class="explore-account-counts text-[10px] text-neutral-500 truncate mt-0.5"><span class="font-semibold text-neutral-700">${exploreFmtCount(c.followersCount)}</span> ${exploreFollowersWord(c.followersCount)} · <span class="font-semibold text-neutral-700">${exploreFmtCount(c.followingCount)}</span> Connected</div>
                             ${c.bio ? `<div class="text-[10px] text-neutral-400 truncate mt-0.5">${exploreEsc(c.bio.split('|')[0])}</div>` : ''}
                           </div>
                         </div>
@@ -8941,7 +8949,12 @@ function syncLikedStateToPosts() {
       } else {
         if (editBtn) editBtn.classList.add('hidden');
         if (delBtn) delBtn.classList.add('hidden');
-        if (followBtn) followBtn.classList.remove('hidden');
+        if (followBtn) {
+          followBtn.classList.remove('hidden');
+          const paintFollow = () => { followBtn.textContent = isUserFollowingCreator(pAuthor) ? 'Connected' : 'Connect'; };
+          paintFollow();
+          followBtn.onclick = (e) => { e.stopPropagation(); window.toggleFollowCreator(pAuthor); paintFollow(); };
+        }
       }
 
       // Populate Comments
@@ -11211,7 +11224,7 @@ function syncLikedStateToPosts() {
         joined: "Joined January 2023",
         followersCount: "18.5K",
         followingCount: "42",
-        mutual: "Followed by bradley_hansen and 64 others",
+        mutual: "Connected with bradley_hansen and 64 others",
         isFollowing: false
       },
       pixlynote: {
@@ -11225,7 +11238,7 @@ function syncLikedStateToPosts() {
         joined: "Joined 2022",
         followersCount: "128K",
         followingCount: "0",
-        mutual: "Followed by bradley_hansen and 1,240 others",
+        mutual: "Connected with bradley_hansen and 1,240 others",
         isFollowing: true
       },
       elena_eats: {
@@ -11239,7 +11252,7 @@ function syncLikedStateToPosts() {
         joined: "Joined March 2023",
         followersCount: "24.6K",
         followingCount: "385",
-        mutual: "Followed by bradley_hansen and 42 others"
+        mutual: "Connected with bradley_hansen and 42 others"
       },
       marcus_pups: {
         username: "marcus_pups",
@@ -11252,7 +11265,7 @@ function syncLikedStateToPosts() {
         joined: "Joined January 2023",
         followersCount: "38.2K",
         followingCount: "294",
-        mutual: "Followed by bradley_hansen and 87 others"
+        mutual: "Connected with bradley_hansen and 87 others"
       },
       arch_digest: {
         username: "arch_digest",
@@ -11265,7 +11278,7 @@ function syncLikedStateToPosts() {
         joined: "Joined November 2022",
         followersCount: "112K",
         followingCount: "180",
-        mutual: "Followed by bradley_hansen and 115 others"
+        mutual: "Connected with bradley_hansen and 115 others"
       },
       city_vibe: {
         username: "city_vibe",
@@ -11278,7 +11291,7 @@ function syncLikedStateToPosts() {
         joined: "Joined April 2023",
         followersCount: "45.1K",
         followingCount: "412",
-        mutual: "Followed by bradley_hansen and 39 others"
+        mutual: "Connected with bradley_hansen and 39 others"
       },
       nordic_trails: {
         username: "nordic_trails",
@@ -11291,7 +11304,7 @@ function syncLikedStateToPosts() {
         joined: "Joined February 2023",
         followersCount: "29.7K",
         followingCount: "270",
-        mutual: "Followed by bradley_hansen and 54 others"
+        mutual: "Connected with bradley_hansen and 54 others"
       },
       coastal_nomad: {
         username: "coastal_nomad",
@@ -11304,7 +11317,7 @@ function syncLikedStateToPosts() {
         joined: "Joined August 2023",
         followersCount: "18.3K",
         followingCount: "310",
-        mutual: "Followed by bradley_hansen and 22 others"
+        mutual: "Connected with bradley_hansen and 22 others"
       },
       tokyo_wanderer: {
         username: "tokyo_wanderer",
@@ -11317,7 +11330,7 @@ function syncLikedStateToPosts() {
         joined: "Joined June 2023",
         followersCount: "33.9K",
         followingCount: "450",
-        mutual: "Followed by bradley_hansen and 61 others"
+        mutual: "Connected with bradley_hansen and 61 others"
       },
       dolomites_hiker: {
         username: "dolomites_hiker",
@@ -11330,7 +11343,7 @@ function syncLikedStateToPosts() {
         joined: "Joined October 2022",
         followersCount: "41.5K",
         followingCount: "220",
-        mutual: "Followed by bradley_hansen and 33 others"
+        mutual: "Connected with bradley_hansen and 33 others"
       },
       patisserie_chef: {
         username: "patisserie_chef",
@@ -11343,7 +11356,7 @@ function syncLikedStateToPosts() {
         joined: "Joined May 2023",
         followersCount: "52.0K",
         followingCount: "340",
-        mutual: "Followed by bradley_hansen and 78 others"
+        mutual: "Connected with bradley_hansen and 78 others"
       },
       desert_mirage: {
         username: "desert_mirage",
@@ -11356,7 +11369,7 @@ function syncLikedStateToPosts() {
         joined: "Joined September 2023",
         followersCount: "22.4K",
         followingCount: "195",
-        mutual: "Followed by bradley_hansen and 19 others"
+        mutual: "Connected with bradley_hansen and 19 others"
       },
       kyoto_moments: {
         username: "kyoto_moments",
@@ -11369,7 +11382,7 @@ function syncLikedStateToPosts() {
         joined: "Joined July 2023",
         followersCount: "27.8K",
         followingCount: "310",
-        mutual: "Followed by bradley_hansen and 45 others"
+        mutual: "Connected with bradley_hansen and 45 others"
       },
       golden_paws: {
         username: "golden_paws",
@@ -11382,7 +11395,7 @@ function syncLikedStateToPosts() {
         joined: "Joined April 2023",
         followersCount: "35.1K",
         followingCount: "280",
-        mutual: "Followed by bradley_hansen and 67 others"
+        mutual: "Connected with bradley_hansen and 67 others"
       },
       bali_sol: {
         username: "bali_sol",
@@ -11395,7 +11408,7 @@ function syncLikedStateToPosts() {
         joined: "Joined December 2022",
         followersCount: "48.9K",
         followingCount: "520",
-        mutual: "Followed by bradley_hansen and 82 others"
+        mutual: "Connected with bradley_hansen and 82 others"
       },
       scandi_living: {
         username: "scandi_living",
@@ -11408,7 +11421,7 @@ function syncLikedStateToPosts() {
         joined: "Joined January 2024",
         followersCount: "31.2K",
         followingCount: "240",
-        mutual: "Followed by bradley_hansen and 29 others"
+        mutual: "Connected with bradley_hansen and 29 others"
       },
       swiss_peaks: {
         username: "swiss_peaks",
@@ -11421,7 +11434,7 @@ function syncLikedStateToPosts() {
         joined: "Joined March 2023",
         followersCount: "44.0K",
         followingCount: "190",
-        mutual: "Followed by bradley_hansen and 53 others"
+        mutual: "Connected with bradley_hansen and 53 others"
       },
       sushi_artisan: {
         username: "sushi_artisan",
@@ -11434,7 +11447,7 @@ function syncLikedStateToPosts() {
         joined: "Joined May 2023",
         followersCount: "63.5K",
         followingCount: "150",
-        mutual: "Followed by bradley_hansen and 91 others"
+        mutual: "Connected with bradley_hansen and 91 others"
       },
       pacific_northwest: {
         username: "pacific_northwest",
@@ -11447,7 +11460,7 @@ function syncLikedStateToPosts() {
         joined: "Joined November 2023",
         followersCount: "26.3K",
         followingCount: "310",
-        mutual: "Followed by bradley_hansen and 41 others"
+        mutual: "Connected with bradley_hansen and 41 others"
       },
       barcelona_light: {
         username: "barcelona_light",
@@ -11460,7 +11473,7 @@ function syncLikedStateToPosts() {
         joined: "Joined June 2023",
         followersCount: "37.4K",
         followingCount: "380",
-        mutual: "Followed by bradley_hansen and 58 others"
+        mutual: "Connected with bradley_hansen and 58 others"
       },
       wander_tropics: {
         username: "wander_tropics",
@@ -11473,7 +11486,7 @@ function syncLikedStateToPosts() {
         joined: "Joined February 2023",
         followersCount: "58.1K",
         followingCount: "420",
-        mutual: "Followed by bradley_hansen and 74 others"
+        mutual: "Connected with bradley_hansen and 74 others"
       },
       aurora_hunter: {
         username: "aurora_hunter",
@@ -11486,7 +11499,7 @@ function syncLikedStateToPosts() {
         joined: "Joined October 2022",
         followersCount: "49.6K",
         followingCount: "260",
-        mutual: "Followed by bradley_hansen and 89 others"
+        mutual: "Connected with bradley_hansen and 89 others"
       }
     };
 
@@ -11747,7 +11760,8 @@ function syncLikedStateToPosts() {
         existing.isFollowing = !existing.isFollowing;
         nowFollowing = existing.isFollowing;
       } else {
-        const creator = getCreatorInfo(cleanU);
+        const vcSame = state.viewedCreator && normalizeUsername(state.viewedCreator.username) === cleanU && window._viewedConn && window._viewedConn.doc;
+        const creator = vcSame ? state.viewedCreator : connDisplay({ ...getCreatorInfo(cleanU), username: cleanU });
         state.following.push({
           id: Date.now(),
           username: creator.username,
@@ -11760,8 +11774,7 @@ function syncLikedStateToPosts() {
       }
 
       // Update current user following count
-      const currentCount = parseInt(String(state.currentUser.followingCount || '0').replace(/\D/g, ''), 10) || 0;
-      state.currentUser.followingCount = String(nowFollowing ? currentCount + 1 : Math.max(0, currentCount - 1));
+      state.currentUser.followingCount = String(getFollowingDisplayCount());
 
       // Sync target account's followers list in localStorage so switching accounts reflects the new follower
       try {
@@ -11802,20 +11815,18 @@ function syncLikedStateToPosts() {
       // If currently viewing this creator's profile, update header button & stats
       if (state.viewedCreator && state.viewedCreator.username.toLowerCase() === cleanU) {
         updateCreatorFollowButton(state.viewedCreator);
-        const followersEl = document.getElementById('user-profile-followers-count');
-        if (followersEl) {
-          let realCount = 0;
-          try {
-            const targetFollowers = JSON.parse(localStorage.getItem('pixly_followers_' + cleanU) || '[]');
-            if (Array.isArray(targetFollowers)) realCount = targetFollowers.length;
-          } catch(e) {}
-          followersEl.textContent = realCount.toLocaleString();
+        const vcConn = window._viewedConn;
+        if (vcConn && vcConn.user === cleanU) {
+          const meN = connNorm(state.currentUser && state.currentUser.username);
+          const others = (vcConn.connections || []).filter(f => connNorm(f.username) !== meN);
+          vcConn.connections = nowFollowing ? [{ id: Date.now(), username: meN, fullName: state.currentUser.fullName || meN, avatar: state.currentUser.avatar || '' }].concat(others) : others;
+          renderViewedConnections();
         }
       }
 
       // Update current profile stats if on profile tab
       const myFollowingEl = document.getElementById('profile-following-count');
-      if (myFollowingEl) myFollowingEl.textContent = state.currentUser.followingCount;
+      if (myFollowingEl) myFollowingEl.textContent = getFollowingDisplayCount().toLocaleString();
 
       persistState();
       if (nowFollowing && typeof sendFollowNotification === 'function') {
@@ -11936,41 +11947,179 @@ function syncLikedStateToPosts() {
 
     // Real accounts created on other devices are not in this browser's localStorage, so getCreatorInfo() used to
     // show made-up values (bio, avatar, "14.2K" followers). Read the real users/{u} doc + followers instead.
-    async function refreshViewedProfileFromCloud(cleanU) {
+    // Other people's profiles: counts and lists come from Firestore and stay live while the profile is open.
+    //   Connected   = users/{u}.following (active, one per username, no self, no deactivated)
+    //   Connections = users/{u}/followers/* edge docs (one per username, no self, no deactivated)
+    function detachViewedConnections() {
+      const v = window._viewedConn;
+      if (v) { (v.unsubs || []).forEach(fn => { try { fn(); } catch(e) {} }); }
+      window._viewedConn = null;
+    }
+    window.detachViewedConnections = detachViewedConnections;
+
+    function applyViewedProfileDoc(u, d) {
+      const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      const vc = state.viewedCreator;
+      if (!vc || normalizeUsername(vc.username) !== u) return;
+      if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; setText('user-profile-fullname', d.fullName); }
+      if (typeof d.bio === 'string') { vc.bio = d.bio; setText('user-profile-bio', d.bio); }
+      const av = d.photoURL || d.avatar;
+      if (typeof av === 'string' && av) { vc.avatar = av; const img = document.getElementById('user-profile-avatar'); if (img) img.src = av; }
+      const cat = d.accountType === 'business' ? 'Business Profile' : 'Pixlynote Member';
+      vc.category = cat; setText('user-profile-category', cat); setText('info-category', cat);
+      vc.location = ''; setText('user-profile-location-text', '');
+      const linkEl = document.getElementById('user-profile-link');
+      const linkTxt = document.getElementById('user-profile-link-text');
+      vc.link = typeof d.link === 'string' ? d.link : '';
+      if (linkEl && linkTxt) {
+        if (vc.link) { linkTxt.textContent = vc.link; linkEl.href = vc.link.startsWith('http') ? vc.link : 'https://' + vc.link; linkEl.classList.remove('hidden'); linkEl.style.display = ''; }
+        else { linkTxt.textContent = ''; linkEl.classList.add('hidden'); linkEl.style.display = 'none'; }
+      }
+    }
+
+    function renderViewedConnections() {
+      const v = window._viewedConn;
+      if (!v) return;
+      const vc = state.viewedCreator;
+      if (!vc || normalizeUsername(vc.username) !== v.user) return;
+      const conns = cleanConnectionsList(v.connections || [], v.user);
+      const connected = getActiveConnectedEntries(v.connected || [], v.user);
+      vc.followersCount = String(conns.length);
+      vc.followingCount = String(connected.length);
+      const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+      setText('user-profile-followers-count', conns.length.toLocaleString());
+      setText('user-profile-following-count', connected.length.toLocaleString());
+      // Mutual Connections: people who connected with this profile that I'm connected with too
+      const mine = new Set(getActiveConnectedEntries(state.following || [], state.currentUser && state.currentUser.username).map(f => connNorm(f.username)));
+      const mutual = conns.map(f => connNorm(f.username)).filter(n => mine.has(n));
+      const mutualTxt = mutual.length === 0 ? 'None yet'
+        : mutual.length === 1 ? '@' + mutual[0]
+        : '@' + mutual[0] + ' and ' + (mutual.length - 1) + ' other' + (mutual.length - 1 === 1 ? '' : 's');
+      vc.mutual = mutualTxt;
+      setText('info-mutual', mutualTxt);
+      const m = document.getElementById('modal-viewed-connections');
+      if (m && !m.classList.contains('hidden')) renderViewedConnectionsList();
+    }
+    window.renderViewedConnections = renderViewedConnections;
+
+    function refreshViewedProfileFromCloud(cleanU) {
       const u = normalizeUsername(cleanU || '');
-      if (!u || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
-      const stillViewing = () => state.viewedCreator && normalizeUsername(state.viewedCreator.username) === u;
+      if (!u) return;
+      if (window._viewedConn && window._viewedConn.user === u && (window._viewedConn.unsubs || []).length) {
+        // Same profile opened again: listeners are already live, just repaint from the latest snapshot
+        if (window._viewedConn.doc) applyViewedProfileDoc(u, window._viewedConn.doc);
+        renderViewedConnections();
+        return;
+      }
+      detachViewedConnections();
+      const v = { user: u, connections: [], connected: [], unsubs: [], loadedDoc: false, loadedEdges: false };
+      window._viewedConn = v;
+      renderViewedConnections();
+      ensureConnectionsDirectory();
+      if (!window.firebaseReady || !window.firebase || !window.firebase.onSnapshot || !window.firebase.doc || !window.firebase.collection) return;
+      const { db, doc, collection, onSnapshot } = window.firebase;
+      const live = () => window._viewedConn === v && state.viewedCreator && normalizeUsername(state.viewedCreator.username) === u;
       try {
-        const { db, doc, getDoc } = window.firebase;
-        const snap = await getDoc(doc(db, 'users', u));
-        if (!snap.exists() || !stillViewing()) return;
-        const d = snap.data() || {};
-        const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-        const vc = state.viewedCreator;
-        if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; setText('user-profile-fullname', d.fullName); }
-        if (typeof d.bio === 'string') { vc.bio = d.bio; setText('user-profile-bio', d.bio); }
-        const av = d.photoURL || d.avatar;
-        if (typeof av === 'string' && av) { vc.avatar = av; const img = document.getElementById('user-profile-avatar'); if (img) img.src = av; }
-        const cat = d.accountType === 'business' ? 'Business Profile' : 'Pixlynote Member';
-        vc.category = cat; setText('user-profile-category', cat); setText('info-category', cat);
-        vc.location = ''; setText('user-profile-location-text', '');
-        const linkEl = document.getElementById('user-profile-link');
-        const linkTxt = document.getElementById('user-profile-link-text');
-        vc.link = typeof d.link === 'string' ? d.link : '';
-        if (linkEl && linkTxt) {
-          if (vc.link) { linkTxt.textContent = vc.link; linkEl.href = vc.link.startsWith('http') ? vc.link : 'https://' + vc.link; linkEl.classList.remove('hidden'); linkEl.style.display = ''; }
-          else { linkTxt.textContent = ''; linkEl.classList.add('hidden'); linkEl.style.display = 'none'; }
-        }
-        const followingN = Array.isArray(d.following) ? d.following.filter(f => f && f.isFollowing).length : 0;
-        vc.followingCount = String(followingN); setText('user-profile-following-count', followingN.toLocaleString());
-        const list = await fetchCloudFollowers(u);
-        if (Array.isArray(list) && stillViewing()) {
-          vc.followersCount = String(list.length);
+        v.unsubs.push(onSnapshot(doc(db, 'users', u), (snap) => {
+          if (!live()) return;
+          v.loadedDoc = true;
+          const d = snap.exists() ? (snap.data() || {}) : {};
+          if (snap.exists()) { v.doc = d; applyViewedProfileDoc(u, d); }
+          v.connected = Array.isArray(d.following) ? d.following : [];
+          renderViewedConnections();
+        }, (e) => { console.warn('Profile live notice:', e && e.code); }));
+        v.unsubs.push(onSnapshot(collection(db, 'users', u, 'followers'), (qs) => {
+          if (!live()) return;
+          v.loadedEdges = true;
+          const list = [];
+          qs.forEach(ds => { const x = ds.data() || {}; list.push({ id: x.followedAt || 0, username: normalizeUsername(x.username || ds.id), fullName: x.fullName || x.username || ds.id }); });
+          list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+          v.connections = list;
           try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(list)); } catch(e) {}
-          setText('user-profile-followers-count', list.length.toLocaleString());
-        }
+          renderViewedConnections();
+        }, (e) => { console.warn('Connections live notice:', e && e.code); }));
       } catch(e) { console.warn('Profile cloud refresh notice:', e); }
     }
+
+    // Read-only list of another profile's Connections or Connected accounts (opened by tapping a count).
+    function ensureViewedConnectionsModal() {
+      let m = document.getElementById('modal-viewed-connections');
+      if (m) return m;
+      m = document.createElement('div');
+      m.id = 'modal-viewed-connections';
+      m.className = 'fixed inset-0 z-[60] bg-neutral-900/60 backdrop-blur-sm items-center justify-center p-4 hidden';
+      m.style.display = 'none';
+      m.innerHTML = `
+        <div class="bg-white rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+          <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
+            <h3 class="font-bold text-sm text-neutral-900 flex items-center space-x-2"><span id="viewed-connections-title">Connections</span>
+              <span id="viewed-connections-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span></h3>
+            <button type="button" id="btn-close-viewed-connections" class="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 cursor-pointer" title="Close">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="px-5 pt-3 text-[11px] text-neutral-500" id="viewed-connections-sub"></div>
+          <div id="viewed-connections-list" class="flex-1 overflow-y-auto px-3 py-2"></div>
+        </div>`;
+      document.body.appendChild(m);
+      const close = () => { m.classList.add('hidden'); m.style.display = 'none'; };
+      m.addEventListener('click', (e) => { if (e.target === m) close(); });
+      m.querySelector('#btn-close-viewed-connections').addEventListener('click', close);
+      return m;
+    }
+    function renderViewedConnectionsList() {
+      const m = document.getElementById('modal-viewed-connections');
+      const v = window._viewedConn;
+      if (!m || !v) return;
+      const kind = m.dataset.kind === 'connected' ? 'connected' : 'connections';
+      const items = kind === 'connected' ? getActiveConnectedEntries(v.connected || [], v.user) : cleanConnectionsList(v.connections || [], v.user);
+      const me = connNorm(state.currentUser && state.currentUser.username);
+      const titleEl = m.querySelector('#viewed-connections-title');
+      if (titleEl) titleEl.textContent = kind === 'connected' ? 'Connected' : connectionsWord(items.length);
+      const cnt = m.querySelector('#viewed-connections-count'); if (cnt) cnt.textContent = items.length.toLocaleString();
+      const sub = m.querySelector('#viewed-connections-sub');
+      if (sub) sub.textContent = kind === 'connected' ? `Accounts @${v.user} is connected with` : `People connected with @${v.user}`;
+      const box = m.querySelector('#viewed-connections-list');
+      if (!box) return;
+      const ready = kind === 'connected' ? v.loadedDoc : v.loadedEdges;
+      if (!items.length) {
+        box.innerHTML = `<div class="py-10 text-center text-xs text-neutral-400">${ready || !window.firebaseReady ? (kind === 'connected' ? `@${escapeHtml(v.user)} isn't connected with anyone yet` : `No Connections yet`) : 'Loading…'}</div>`;
+        return;
+      }
+      const dir = window._exploreUserDir;
+      box.innerHTML = items.map(f => {
+        const n = connNorm(f.username);
+        const rec = dir && dir.users ? dir.users.get(n) : null;
+        const name = (rec && rec.fullName) || f.fullName || n;
+        const av = n === me && state.currentUser && state.currentUser.avatar ? state.currentUser.avatar : connAvatar({ username: n, avatar: (rec && rec.avatar) || f.avatar });
+        const isMe = n === me;
+        const on = !isMe && isUserFollowingCreator(n);
+        const btn = isMe ? '<span class="text-[10px] font-semibold text-neutral-400 px-2">You</span>'
+          : `<button type="button" class="btn-viewed-conn-toggle px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${on ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800' : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs'}" data-username="${escapeHtml(n)}">${on ? 'Connected' : 'Connect'}</button>`;
+        return `<div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
+            <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer viewed-conn-row" data-username="${escapeHtml(n)}">
+              <img src="${escapeHtml(av)}" alt="${escapeHtml(n)}" class="w-10 h-10 rounded-full object-cover border border-neutral-200 flex-shrink-0" onerror="this.src=NEUTRAL_BLANK_AVATAR">
+              <div class="min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">@${escapeHtml(n)}</div><div class="text-[11px] text-neutral-500 truncate">${escapeHtml(name)}</div></div>
+            </div>${btn}</div>`;
+      }).join('');
+      box.querySelectorAll('.viewed-conn-row').forEach(r => r.addEventListener('click', () => {
+        m.classList.add('hidden'); m.style.display = 'none';
+        viewUserProfile(r.dataset.username, 'user-profile');
+      }));
+      box.querySelectorAll('.btn-viewed-conn-toggle').forEach(b => b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.toggleFollowCreator(b.dataset.username);
+        renderViewedConnectionsList();
+      }));
+    }
+    window.renderViewedConnectionsList = renderViewedConnectionsList;
+    window.openViewedConnectionsList = function(kind) {
+      if (!state.viewedCreator || !window._viewedConn) return;
+      const m = ensureViewedConnectionsModal();
+      m.dataset.kind = kind === 'connected' ? 'connected' : 'connections';
+      m.classList.remove('hidden'); m.style.display = 'flex';
+      renderViewedConnectionsList();
+    };
     window.refreshViewedProfileFromCloud = refreshViewedProfileFromCloud;
 
     function viewUserProfile(username, fromTab = '') {
@@ -12045,7 +12194,7 @@ function syncLikedStateToPosts() {
       const infoCategory = document.getElementById('info-category');
       if (infoCategory) infoCategory.textContent = creator.category;
       const infoMutual = document.getElementById('info-mutual');
-      if (infoMutual) infoMutual.textContent = creator.mutual;
+      if (infoMutual) infoMutual.textContent = '';
 
       // Update Follow button state
       updateCreatorFollowButton(creator);
@@ -12055,12 +12204,9 @@ function syncLikedStateToPosts() {
       const postsCountEl = document.getElementById('user-profile-post-count');
       if (postsCountEl) postsCountEl.textContent = posts.length;
       
-      const followersCountEl = document.getElementById('user-profile-followers-count');
-      if (followersCountEl) followersCountEl.textContent = creator.followersCount;
+      // Connections / Connected counts come only from Firestore (live while this profile is open)
+      if (!(window._viewedConn && window._viewedConn.user === cleanU)) detachViewedConnections();
       refreshViewedProfileFromCloud(cleanU);
-
-      const followingCountEl = document.getElementById('user-profile-following-count');
-      if (followingCountEl) followingCountEl.textContent = creator.followingCount;
 
       const gridContainer = document.getElementById('user-profile-grid');
       const emptyPosts = document.getElementById('user-profile-empty-posts');
@@ -12241,6 +12387,8 @@ function syncLikedStateToPosts() {
       modal.style.display = 'flex';
       const searchInp = document.getElementById('following-search-input');
       if (searchInp) searchInp.value = '';
+      window._connectedKeepVisible = new Set();
+      ensureConnectionsDirectory();
       renderFollowingList();
     }
     window.openFollowingModal = openFollowingModal;
@@ -12253,10 +12401,106 @@ function syncLikedStateToPosts() {
     }
     window.closeFollowingModal = closeFollowingModal;
 
-        function getFollowingDisplayCount() {
-      const isBradley = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'bradley_hansen');
-      const activeCount = (state.following || []).filter(u => u.isFollowing).length;
-      return activeCount;
+    // --- Connections helpers (UI says "Connections"/"Connected"; Firestore keeps followers/following) ---
+    function connNorm(u) { return normalizeUsername(String(u || '')); }
+    // Uses the Explore user directory (one cached users read) when it is loaded; unknown/demo accounts are kept.
+    function isConnectionDeactivated(u) {
+      const dir = window._exploreUserDir;
+      const rec = dir && dir.users && dir.users.get(connNorm(u));
+      return !!(rec && rec.deactivated);
+    }
+    window.isConnectionDeactivated = isConnectionDeactivated;
+    function connAvatar(u) {
+      if (u && u.avatar && u.avatar !== 'undefined') return u.avatar;
+      const dir = window._exploreUserDir;
+      const rec = dir && dir.users && u && dir.users.get(connNorm(u.username));
+      if (rec && rec.avatar) return rec.avatar;
+      const c = u && typeof CREATOR_DETAILS !== 'undefined' ? CREATOR_DETAILS[connNorm(u.username)] : null;
+      if (c && c.avatar) return c.avatar;
+      return NEUTRAL_BLANK_AVATAR;
+    }
+    window.connAvatar = connAvatar;
+    // Prefer the real users/{u} doc (Explore directory) over names/bios saved when the connection was made.
+    function connDisplay(u) {
+      const dir = window._exploreUserDir;
+      const rec = dir && dir.users && u ? dir.users.get(connNorm(u.username)) : null;
+      if (!rec) return { ...u, avatar: connAvatar(u), fullName: u.fullName || u.username, bio: u.bio || '' };
+      return { ...u, fullName: rec.fullName || u.fullName || u.username, bio: rec.bio || '', avatar: rec.avatar || connAvatar(u) };
+    }
+    window.connDisplay = connDisplay;
+    // Active "Connected" entries of a following array: active only, one per username, never self, no deactivated accounts.
+    function getActiveConnectedEntries(arr, ownerU) {
+      const owner = connNorm(ownerU);
+      const seen = new Set();
+      const out = [];
+      (Array.isArray(arr) ? arr : []).forEach(f => {
+        if (!f || !f.username || f.isFollowing === false || (f.isFollowing !== true && f.isFollowing !== undefined)) return;
+        const n = connNorm(f.username);
+        if (!n || n === owner || seen.has(n) || isConnectionDeactivated(n)) return;
+        seen.add(n); out.push(f);
+      });
+      return out;
+    }
+    window.getActiveConnectedEntries = getActiveConnectedEntries;
+    // "Connections" edge list cleanup: one per username, never self, no deactivated accounts.
+    function cleanConnectionsList(arr, ownerU) {
+      const owner = connNorm(ownerU);
+      const seen = new Set();
+      const out = [];
+      (Array.isArray(arr) ? arr : []).forEach(f => {
+        if (!f || !f.username) return;
+        const n = connNorm(f.username);
+        if (!n || n === owner || seen.has(n) || isConnectionDeactivated(n)) return;
+        seen.add(n); out.push(f);
+      });
+      return out;
+    }
+    window.cleanConnectionsList = cleanConnectionsList;
+    function connectionsWord(n) { return (Number(String(n).replace(/[^0-9.]/g, '')) === 1 && /^\s*1\s*$/.test(String(n))) ? 'Connection' : 'Connections'; }
+    window.connectionsWord = connectionsWord;
+    // "1 Connection" / "N Connections" under both profile headers, whatever code path set the number.
+    function wireConnectionsLabels() {
+      [['profile-followers-count', 'profile-followers-label'], ['user-profile-followers-count', 'user-profile-followers-label']].forEach(([cid, lid]) => {
+        const c = document.getElementById(cid), l = document.getElementById(lid);
+        if (!c || !l || c._connLabelWired) return;
+        c._connLabelWired = true;
+        const paint = () => { l.textContent = connectionsWord(c.textContent); };
+        paint();
+        new MutationObserver(paint).observe(c, { childList: true, characterData: true, subtree: true });
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireConnectionsLabels); else wireConnectionsLabels();
+    // Older notifications were stored with the old wording; show them in the new wording.
+    function connectionsNotifText(t) {
+      const x = String(t || '');
+      if (/^\s*started following you\.?\s*$/i.test(x)) return 'connected with you.';
+      if (/^\s*followed you back\.?\s*$/i.test(x)) return 'connected back with you.';
+      return x;
+    }
+    window.connectionsNotifText = connectionsNotifText;
+    // Directory needed for deactivated filtering; loads once (cached) and re-renders whatever is showing.
+    function ensureConnectionsDirectory() {
+      if (window._exploreUserDir || typeof loadExploreUserDirectory !== 'function') return;
+      loadExploreUserDirectory().then(dir => { if (dir) refreshConnectionsUi(); }).catch(() => {});
+    }
+    window.ensureConnectionsDirectory = ensureConnectionsDirectory;
+    function refreshConnectionsUi() {
+      try {
+        const fc = document.getElementById('profile-followers-count');
+        if (fc) fc.textContent = getFollowersDisplayCount().toLocaleString();
+        const gc = document.getElementById('profile-following-count');
+        if (gc) gc.textContent = getFollowingDisplayCount().toLocaleString();
+        const fm = document.getElementById('modal-followers');
+        if (fm && !fm.classList.contains('hidden')) { const si = document.getElementById('followers-search-input'); renderFollowersList(si ? si.value : ''); }
+        const gm = document.getElementById('modal-following');
+        if (gm && !gm.classList.contains('hidden')) { const si = document.getElementById('following-search-input'); renderFollowingList(si ? si.value : ''); }
+        if (window._viewedConn) renderViewedConnections();
+      } catch(e) {}
+    }
+    window.refreshConnectionsUi = refreshConnectionsUi;
+
+    function getFollowingDisplayCount() {
+      return getActiveConnectedEntries(state.following || [], state.currentUser && state.currentUser.username).length;
     }
     window.getFollowingDisplayCount = getFollowingDisplayCount;
 
@@ -12267,7 +12511,18 @@ function syncLikedStateToPosts() {
 
       const isPixly = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'pixlynote');
       const q = (query || '').toLowerCase().trim();
-      let list = state.following || [];
+      const keep = window._connectedKeepVisible || new Set();
+      const meU = state.currentUser && state.currentUser.username;
+      const activeSet = new Set(getActiveConnectedEntries(state.following || [], meU).map(f => connNorm(f.username)));
+      const seenRows = new Set();
+      let list = (state.following || []).filter(f => {
+        if (!f || !f.username) return false;
+        const n = connNorm(f.username);
+        if (seenRows.has(n)) return false;
+        const show = (activeSet.has(n) && f.isFollowing) || (keep.has(n) && !f.isFollowing) || (isPixly && activeSet.size === 0 && !f.isFollowing);
+        if (show) seenRows.add(n);
+        return show;
+      });
 
       // Calculate active following count using isolated formula
       const displayTotal = getFollowingDisplayCount();
@@ -12278,7 +12533,7 @@ function syncLikedStateToPosts() {
       if (q) {
         list = list.filter(u => 
           u.username.toLowerCase().includes(q) || 
-          u.fullName.toLowerCase().includes(q) || 
+          String(u.fullName || '').toLowerCase().includes(q) || 
           (u.bio && u.bio.toLowerCase().includes(q))
         );
       }
@@ -12290,28 +12545,35 @@ function syncLikedStateToPosts() {
         emptyHeaderHtml = `
           <div class="py-6 px-4 mb-3 text-center bg-violet-50/50 rounded-2xl border border-violet-100/80 space-y-1.5">
             <div class="w-10 h-10 mx-auto rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-lg">👥</div>
-            <p class="font-bold text-xs text-neutral-800">Not following anyone yet</p>
-            <p class="text-[11px] text-neutral-500 leading-tight">Follow creators below to populate your business feed!</p>
+            <p class="font-bold text-xs text-neutral-800">Not connected with anyone yet</p>
+            <p class="text-[11px] text-neutral-500 leading-tight">Connect with creators below to populate your business feed!</p>
           </div>
         `;
       }
 
       if (list.length === 0) {
-        container.innerHTML = `
+        container.innerHTML = q ? `
           <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
             <p class="font-medium text-neutral-700">No users found</p>
             <p class="text-[11px] text-neutral-400">Try searching another username or creator name</p>
+          </div>
+        ` : `
+          <div class="py-10 px-4 text-center bg-violet-50/50 rounded-2xl border border-violet-100/80 space-y-1.5 my-2">
+            <div class="w-10 h-10 mx-auto rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-lg">👥</div>
+            <p class="font-bold text-xs text-neutral-800">Not connected with anyone yet</p>
+            <p class="text-[11px] text-neutral-500 leading-tight">Find and connect with creators on Explore.</p>
           </div>
         `;
         return;
       }
 
-      container.innerHTML = emptyHeaderHtml + list.map(u => {
+      container.innerHTML = emptyHeaderHtml + list.map(u0 => {
+        const u = connDisplay(u0);
         const isFollowing = u.isFollowing;
         const btnClasses = isFollowing
           ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
           : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs';
-        const btnLabel = isFollowing ? 'Following' : 'Follow';
+        const btnLabel = isFollowing ? 'Connected' : 'Connect';
 
         return `
           <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
@@ -12319,7 +12581,7 @@ function syncLikedStateToPosts() {
             <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer following-user-row" data-username="${u.username}">
               <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
                 <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
-                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                  <img src="${connAvatar(u)}" alt="${u.username}" class="w-full h-full object-cover" onerror="this.src=NEUTRAL_BLANK_AVATAR">
                 </div>
               </div>
               <div class="flex-1 min-w-0">
@@ -12327,14 +12589,14 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
                   <span class="text-[10px] text-violet-600">✓</span>
                 </div>
-                <div class="text-[11px] text-neutral-500 truncate">${u.fullName}</div>
-                <div class="text-[10px] text-neutral-400 truncate">${u.bio}</div>
+                <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
+                <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
               </div>
             </div>
 
             <!-- Follow / Unfollow & Message Buttons -->
             <div class="flex items-center space-x-1.5 flex-shrink-0">
-              <button type="button" class="btn-dm-following-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName}" data-username="${u.username}" data-name="${u.fullName}" data-avatar="${u.avatar}">
+              <button type="button" class="btn-dm-following-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName || u.username}" data-username="${u.username}" data-name="${u.fullName || u.username}" data-avatar="${connAvatar(u)}">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
               </button>
               <button type="button" class="btn-toggle-following-user px-3 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer" data-username="${u.username}">
@@ -12366,6 +12628,7 @@ function syncLikedStateToPosts() {
           const userObj = state.following.find(u => u.username === targetU);
           if (userObj) {
             userObj.isFollowing = !userObj.isFollowing;
+            if (!userObj.isFollowing) { (window._connectedKeepVisible = window._connectedKeepVisible || new Set()).add(connNorm(targetU)); }
             try {
               const curU = (state.currentUser.username || 'user').toLowerCase();
               localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
@@ -12377,7 +12640,7 @@ function syncLikedStateToPosts() {
             state.currentUser.followingCount = String(updatedTotal);
 
             persistState();
-            showToast(userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+            showToast(userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
             const searchInp = document.getElementById('following-search-input');
             renderFollowingList(searchInp ? searchInp.value : '');
           }
@@ -12405,10 +12668,10 @@ function syncLikedStateToPosts() {
       try {
         const stored = JSON.parse(localStorage.getItem('pixly_followers_' + curU) || 'null');
         if (Array.isArray(stored)) {
-          return stored;
+          return cleanConnectionsList(stored, curU);
         }
       } catch(e) {}
-      return getDefaultFollowersForUser(curU);
+      return cleanConnectionsList(getDefaultFollowersForUser(curU), curU);
     }
     window.getAccountFollowersList = getAccountFollowersList;
 
@@ -12425,6 +12688,7 @@ function syncLikedStateToPosts() {
       modal.style.display = 'flex';
       const searchInp = document.getElementById('followers-search-input');
       if (searchInp) searchInp.value = '';
+      ensureConnectionsDirectory();
       renderFollowersList();
     }
     window.openFollowersModal = openFollowersModal;
@@ -12464,26 +12728,27 @@ function syncLikedStateToPosts() {
         container.innerHTML = q
           ? `
             <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
-              <p class="font-medium text-neutral-700">No followers found</p>
+              <p class="font-medium text-neutral-700">No Connections found</p>
               <p class="text-[11px] text-neutral-400">Try searching another username or creator name</p>
             </div>
           `
           : `
             <div class="py-10 px-4 text-center bg-violet-50/50 rounded-2xl border border-violet-100/80 space-y-1.5 my-2">
               <div class="w-10 h-10 mx-auto rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-lg">👥</div>
-              <p class="font-bold text-xs text-neutral-800">No followers yet</p>
-              <p class="text-[11px] text-neutral-500 leading-tight">Share posts and connect with creators to grow your followers!</p>
+              <p class="font-bold text-xs text-neutral-800">No Connections yet</p>
+              <p class="text-[11px] text-neutral-500 leading-tight">Share posts and connect with creators to grow your Connections!</p>
             </div>
           `;
         return;
       }
 
-      container.innerHTML = list.map(u => {
+      container.innerHTML = list.map(u0 => {
+        const u = connDisplay(u0);
         const isFollowing = (state.following || []).some(f => f.username.toLowerCase() === (u.username || '').toLowerCase() && f.isFollowing);
         const btnClasses = isFollowing
           ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
           : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs';
-        const btnLabel = isFollowing ? 'Following' : 'Follow Back';
+        const btnLabel = isFollowing ? 'Connected' : 'Connect Back';
 
         return `
           <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
@@ -12491,7 +12756,7 @@ function syncLikedStateToPosts() {
             <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer followers-user-row" data-username="${u.username}">
               <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
                 <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
-                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                  <img src="${connAvatar(u)}" alt="${u.username}" class="w-full h-full object-cover" onerror="this.src=NEUTRAL_BLANK_AVATAR">
                 </div>
               </div>
               <div class="flex-1 min-w-0">
@@ -12506,13 +12771,13 @@ function syncLikedStateToPosts() {
 
             <!-- Message, Follow Back & Remove Buttons -->
             <div class="flex items-center space-x-1.5 flex-shrink-0">
-              <button type="button" class="btn-dm-follower-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName || u.username}" data-username="${u.username}" data-name="${u.fullName || u.username}" data-avatar="${u.avatar}">
+              <button type="button" class="btn-dm-follower-user p-1.5 text-neutral-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition cursor-pointer" title="Direct Message ${u.fullName || u.username}" data-username="${u.username}" data-name="${u.fullName || u.username}" data-avatar="${connAvatar(u)}">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
               </button>
               <button type="button" class="btn-toggle-follower-back px-3 py-1.5 text-xs font-semibold rounded-lg ${btnClasses} transition cursor-pointer" data-username="${u.username}">
                 ${btnLabel}
               </button>
-              <button type="button" class="btn-remove-follower p-1.5 text-neutral-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remove follower" data-username="${u.username}">
+              <button type="button" class="btn-remove-follower p-1.5 text-neutral-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remove Connection" data-username="${u.username}">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -12567,7 +12832,7 @@ function syncLikedStateToPosts() {
           }
 
           persistState();
-          showToast(userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+          showToast(userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
           const searchInp = document.getElementById('followers-search-input');
           renderFollowersList(searchInp ? searchInp.value : '');
         });
@@ -12583,7 +12848,15 @@ function syncLikedStateToPosts() {
           try {
             localStorage.setItem('pixly_followers_' + curU, JSON.stringify(updatedList));
           } catch(err) {}
-          showToast(`Removed @${targetU} from followers`);
+          if (state.currentUser) state.currentUser.followersCount = String(updatedList.length);
+          if (window.firebaseReady && window.firebase && window.firebase.deleteDoc && window.firebase.doc) {
+            const { db, doc, deleteDoc } = window.firebase;
+            deleteDoc(doc(db, 'users', normalizeUsername(curU), 'followers', normalizeUsername(targetU))).catch(err => {
+              console.warn('Remove Connection notice:', err);
+              showToast('Could not remove that Connection right now. Please try again.');
+            });
+          }
+          showToast(`Removed @${targetU} from your Connections`);
           const searchInp = document.getElementById('followers-search-input');
           renderFollowersList(searchInp ? searchInp.value : '');
         });
@@ -12695,14 +12968,14 @@ function syncLikedStateToPosts() {
         const btnClasses = isFollowing
           ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
           : 'story-gradient text-white shadow-xs hover:opacity-95';
-        const btnLabel = isFollowing ? 'Following' : 'Follow';
+        const btnLabel = isFollowing ? 'Connected' : 'Connect';
 
         return `
           <div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
             <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer discover-creator-row" data-username="${u.username}">
               <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
                 <div class="w-full h-full rounded-full overflow-hidden border border-white bg-white">
-                  <img src="${u.avatar}" alt="${u.username}" class="w-full h-full object-cover">
+                  <img src="${connAvatar(u)}" alt="${u.username}" class="w-full h-full object-cover" onerror="this.src=NEUTRAL_BLANK_AVATAR">
                 </div>
               </div>
               <div class="flex-1 min-w-0">
@@ -12710,8 +12983,8 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
                   <span class="text-[10px] text-violet-600">✓</span>
                 </div>
-                <div class="text-[11px] text-neutral-500 truncate">${u.fullName}</div>
-                <div class="text-[10px] text-neutral-400 truncate">${u.bio}</div>
+                <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
+                <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
               </div>
             </div>
 
@@ -12755,7 +13028,7 @@ function syncLikedStateToPosts() {
           }
 
           persistState();
-          showToast(userObj && userObj.isFollowing ? `Followed @${targetU}` : `Unfollowed @${targetU}`);
+          showToast(userObj && userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
           const searchInp = document.getElementById('discover-creators-search-input');
           renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
         });
@@ -14617,7 +14890,7 @@ function syncLikedStateToPosts() {
               <div class="text-xs min-w-0 space-y-0.5">
                 <div class="leading-snug">
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
-                  <span class="text-neutral-600">${escapeHtml(n.text || '')}</span>
+                  <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
                 </div>
                 <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                 ${n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined' ? `
@@ -15524,7 +15797,7 @@ function syncLikedStateToPosts() {
       });
 
       if (filtered.length === 0) {
-        grid.innerHTML = `<div class="col-span-4 py-8 text-center text-xs text-neutral-400">No followed accounts found${q ? ' matching "' + escapeHtml(q) + '"' : ''}.</div>`;
+        grid.innerHTML = `<div class="col-span-4 py-8 text-center text-xs text-neutral-400">No connected accounts found${q ? ' matching "' + escapeHtml(q) + '"' : ''}.</div>`;
         return;
       }
 
