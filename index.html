@@ -103,6 +103,64 @@
       animation: heart-pulse 0.75s ease-out forwards !important;
     }
     
+
+    /* Notes composer FAB — uses the app-icon pink/coral → teal pastel, not purple */
+    #note-composer-panel {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-8px);
+      margin: 0;
+      pointer-events: none;
+      transition: max-height 0.38s ease, opacity 0.28s ease, transform 0.38s ease, margin 0.38s ease;
+    }
+    #note-composer-panel.is-expanded {
+      max-height: 24rem;
+      opacity: 1;
+      transform: none;
+      margin-bottom: 0.75rem;
+      pointer-events: auto;
+    }
+    #btn-note-fab {
+      position: fixed;
+      right: 1.05rem;
+      bottom: 5.65rem;
+      z-index: 35;
+      width: 3.6rem;
+      height: 3.6rem;
+      padding: 0;
+      border: 0;
+      border-radius: 9999px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, #fb8eaa 0%, #f4b6cc 38%, #7ee3ef 72%, #22d3ee 100%);
+      box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.9),
+        0 0 0 7px rgba(251, 142, 170, 0.32),
+        0 0 22px 4px rgba(34, 211, 238, 0.38),
+        0 8px 18px rgba(251, 142, 170, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    #btn-note-fab.is-visible { display: flex; }
+    #btn-note-fab:hover { transform: scale(1.06); }
+    #btn-note-fab:active { transform: scale(0.96); }
+    #btn-note-fab .note-fab-icon {
+      position: absolute;
+      width: 1.7rem;
+      height: 1.7rem;
+      transition: opacity 0.22s ease, transform 0.28s ease;
+    }
+    #btn-note-fab .note-fab-icon-compose { opacity: 1; transform: rotate(0deg) scale(1); }
+    #btn-note-fab .note-fab-icon-close { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+    #btn-note-fab.is-open .note-fab-icon-compose { opacity: 0; transform: rotate(90deg) scale(0.6); }
+    #btn-note-fab.is-open .note-fab-icon-close { opacity: 1; transform: rotate(0deg) scale(1); }
+    @media (prefers-reduced-motion: reduce) {
+      #note-composer-panel, #btn-note-fab, #btn-note-fab .note-fab-icon { transition: none !important; }
+    }
+
     /* Ensure modals don't leak when hidden */
     #modal-post-detail.hidden,
     #modal-create-post.hidden,
@@ -931,8 +989,15 @@
 
             <!-- 2. Notes View (Tweet/Threads style) -->
             <div id="profile-notes-container" class="hidden p-2 sm:p-3 space-y-3">
-              <!-- Quick Note Composer (Pure Text) -->
+              <!-- Quick Note Composer (collapsed by default; FAB expands it) -->
+              <div id="note-composer-panel">
               <form id="note-compose-form" class="bg-white border border-neutral-200 rounded-xl p-3.5 space-y-3 shadow-xs">
+                <div class="flex items-center justify-between">
+                  <div class="text-[11px] font-semibold text-neutral-500 tracking-wide">New note</div>
+                  <button type="button" id="btn-close-note-composer" class="p-1 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer" title="Close" aria-label="Close note composer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
                 <div class="flex items-start space-x-3">
                   <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">
                     <img id="note-composer-avatar" src="" alt="Avatar" class="w-full h-full object-cover">
@@ -948,6 +1013,7 @@
                 </div>
                 <p id="note-draft-warning" class="text-[11px] text-amber-600 font-medium">⚠ This note has not been saved to the server</p>
               </form>
+              </div>
               
               <!-- Notes Feed List -->
               <div id="notes-list" class="space-y-2.5">
@@ -1345,6 +1411,22 @@
         </div>
       </nav>
     </div>
+
+    <!-- Notes composer FAB: own profile Notes tab only. Pink/coral → teal from the app icon. -->
+    <button type="button" id="btn-note-fab" title="Write a note" aria-label="Write a note" aria-expanded="false" aria-controls="note-composer-panel">
+      <svg class="note-fab-icon note-fab-icon-compose" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <!-- Camera shutter / aperture -->
+        <circle cx="16" cy="13" r="8.15" stroke="#fff" stroke-width="1.7"/>
+        <path fill="#fff" d="M16 5.6l2.35 5.55-2.05.85zM21.6 8.4l-.55 5.95-2.15-.7zM24.15 13.85l-5.05 3.2-1.15-1.95zM21.15 19.7l-5.55-2.2.85-2.05zM16 21.4l-2.35-5.55 2.05-.85zM10.4 18.6l.55-5.95 2.15.7zM7.85 13.15l5.05-3.2 1.15 1.95zM10.85 7.3l5.55 2.2-.85 2.05z"/>
+        <circle cx="16" cy="13" r="2.15" fill="#fff"/>
+        <!-- Fountain pen nib -->
+        <path fill="#fff" d="M16 17.6l-3.35 11.2 3.35-2.15 3.35 2.15z"/>
+        <path stroke="#fb8eaa" stroke-width="1.15" stroke-linecap="round" d="M16 19.1v6.5"/>
+      </svg>
+      <svg class="note-fab-icon note-fab-icon-close" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path stroke="#fff" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
 
   </div>
 
@@ -5119,6 +5201,7 @@ function syncLikedStateToPosts() {
         if (typeof switchMainTab === 'function') switchMainTab('profile');
         const notesBtn = document.getElementById('tab-btn-notes');
         if (notesBtn) notesBtn.click();
+        if (typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(true);
         const input = document.getElementById('note-input-text');
         if (input) {
           input.value = d.text || '';
@@ -6619,6 +6702,90 @@ function syncLikedStateToPosts() {
       showToast(successMsg);
     }
 
+    // --- Notes composer FAB (own profile Notes tab). Collapsed by default. ---
+    let _noteComposerOpen = false;
+    function isOwnProfileNotesTabVisible() {
+      const profileTab = document.getElementById('tab-profile');
+      const notes = document.getElementById('profile-notes-container');
+      const onProfile = (state.activeTab === 'profile');
+      const profileVisible = !!(profileTab && !profileTab.classList.contains('hidden') && profileTab.style.display !== 'none');
+      const notesVisible = !!(notes && !notes.classList.contains('hidden'));
+      return !!(onProfile && profileVisible && notesVisible);
+    }
+    function isNoteComposerExpanded() {
+      const panel = document.getElementById('note-composer-panel');
+      return !!(panel && panel.classList.contains('is-expanded'));
+    }
+    function updateNoteComposerFab() {
+      const fab = document.getElementById('btn-note-fab');
+      if (!fab) return;
+      const show = isOwnProfileNotesTabVisible();
+      fab.classList.toggle('is-visible', show);
+      fab.setAttribute('aria-hidden', show ? 'false' : 'true');
+      if (!show) {
+        fab.tabIndex = -1;
+      } else {
+        fab.tabIndex = 0;
+      }
+    }
+    function setNoteComposerExpanded(open, opts) {
+      opts = opts || {};
+      const expanded = !!open;
+      _noteComposerOpen = expanded;
+      const panel = document.getElementById('note-composer-panel');
+      const fab = document.getElementById('btn-note-fab');
+      if (panel) {
+        panel.classList.toggle('is-expanded', expanded);
+        panel.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+      }
+      if (fab) {
+        fab.classList.toggle('is-open', expanded);
+        fab.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        fab.setAttribute('aria-label', expanded ? 'Close note composer' : 'Write a note');
+        fab.title = expanded ? 'Close' : 'Write a note';
+      }
+      updateNoteComposerFab();
+      if (expanded && opts.focus !== false) {
+        const input = document.getElementById('note-input-text');
+        if (input) {
+          try { input.focus(); } catch (e) {}
+        }
+        try { if (panel) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      }
+      return expanded;
+    }
+    function toggleNoteComposer() {
+      return setNoteComposerExpanded(!isNoteComposerExpanded());
+    }
+    function bindNoteComposerFab() {
+      const fab = document.getElementById('btn-note-fab');
+      if (fab && !fab.dataset.bound) {
+        fab.dataset.bound = '1';
+        fab.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleNoteComposer();
+        });
+      }
+      const closeBtn = document.getElementById('btn-close-note-composer');
+      if (closeBtn && !closeBtn.dataset.bound) {
+        closeBtn.dataset.bound = '1';
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setNoteComposerExpanded(false);
+        });
+      }
+      updateNoteComposerFab();
+    }
+    window.isOwnProfileNotesTabVisible = isOwnProfileNotesTabVisible;
+    window.isNoteComposerExpanded = isNoteComposerExpanded;
+    window.updateNoteComposerFab = updateNoteComposerFab;
+    window.setNoteComposerExpanded = setNoteComposerExpanded;
+    window.toggleNoteComposer = toggleNoteComposer;
+    window.bindNoteComposerFab = bindNoteComposerFab;
+
+
     // --- Tab Navigation Handlers ---
     function switchMainTab(tabName) {
       state.activeTab = tabName;
@@ -6681,6 +6848,8 @@ function syncLikedStateToPosts() {
       } else if (tabName === 'user-profile') {
         if (tabUserProfile) { tabUserProfile.classList.remove('hidden'); tabUserProfile.style.display = 'block'; }
       }
+      if (tabName !== 'profile' && typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false, { focus: false });
+      if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -21395,6 +21564,8 @@ function syncLikedStateToPosts() {
         const tabBtnSaved = document.getElementById('tab-btn-saved');
         const tabBtnLikes = document.getElementById('tab-btn-likes');
 
+        if (typeof bindNoteComposerFab === 'function') bindNoteComposerFab();
+
         // Wire Note Composer form submission
         const noteComposeForm = document.getElementById('note-compose-form');
         if (noteComposeForm) {
@@ -21434,6 +21605,7 @@ function syncLikedStateToPosts() {
             }
             renderNotes();
             renderExplore();
+            if (typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false, { focus: false });
             showToast('Note posted to your profile! 📝');
           });
         }
@@ -21457,6 +21629,11 @@ function syncLikedStateToPosts() {
             btn.className = "flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-bold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
           }
           if (container) container.classList.remove('hidden');
+          const notesContainerEl = document.getElementById('profile-notes-container');
+          if (container !== notesContainerEl && typeof setNoteComposerExpanded === 'function') {
+            setNoteComposerExpanded(false, { focus: false });
+          }
+          if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
         };
 
         if (tabBtnPosts) tabBtnPosts.addEventListener('click', () => activateSubTab(tabBtnPosts, postsGrid));
