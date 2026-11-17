@@ -2313,15 +2313,28 @@
     <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
       
       <!-- Modal Header -->
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
-        <div class="w-7"></div>
-        <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
+      <div class="px-3.5 pt-3 pb-3 border-b border-neutral-200 bg-white sticky top-0 z-10 space-y-2">
+        <div class="flex items-center justify-end">
+        <h3 class="hidden text-sm font-bold text-neutral-900 flex items-center space-x-2">
           <span>Connected</span>
           <span id="following-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span>
         </h3>
         <button type="button" id="btn-close-following-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
+        </div>
+        <div class="px-0 pb-0">
+          <div class="flex bg-neutral-100 p-1 rounded-xl" role="tablist" aria-label="Connections and Connected">
+            <button type="button" class="own-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connections" role="tab" aria-selected="false">
+              <span>Connections</span>
+              <span class="own-conn-tab-count-connections text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+            </button>
+            <button type="button" class="own-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connected" role="tab" aria-selected="false">
+              <span>Connected</span>
+              <span class="own-conn-tab-count-connected text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Search Following Input -->
@@ -2347,15 +2360,28 @@
     <div class="relative bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
       
       <!-- Modal Header -->
-      <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
-        <div class="w-7"></div>
-        <h3 class="text-sm font-bold text-neutral-900 flex items-center space-x-2">
+      <div class="px-3.5 pt-3 pb-3 border-b border-neutral-200 bg-white sticky top-0 z-10 space-y-2">
+        <div class="flex items-center justify-end">
+        <h3 class="hidden text-sm font-bold text-neutral-900 flex items-center space-x-2">
           <span>Connections</span>
           <span id="followers-modal-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span>
         </h3>
         <button type="button" id="btn-close-followers-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full transition cursor-pointer" title="Close">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
+        </div>
+        <div class="px-0 pb-0">
+          <div class="flex bg-neutral-100 p-1 rounded-xl" role="tablist" aria-label="Connections and Connected">
+            <button type="button" class="own-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connections" role="tab" aria-selected="false">
+              <span>Connections</span>
+              <span class="own-conn-tab-count-connections text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+            </button>
+            <button type="button" class="own-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connected" role="tab" aria-selected="false">
+              <span>Connected</span>
+              <span class="own-conn-tab-count-connected text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Search Followers Input -->
@@ -13060,12 +13086,24 @@ function syncLikedStateToPosts() {
       m.style.display = 'none';
       m.innerHTML = `
         <div class="bg-white rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-          <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-            <h3 class="font-bold text-sm text-neutral-900 flex items-center space-x-2"><span id="viewed-connections-title">Connections</span>
+          <div class="px-4 pt-3 pb-0 flex items-center justify-end">
+            <h3 class="hidden font-bold text-sm text-neutral-900 flex items-center space-x-2"><span id="viewed-connections-title">Connections</span>
               <span id="viewed-connections-count" class="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-full">0</span></h3>
             <button type="button" id="btn-close-viewed-connections" class="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 cursor-pointer" title="Close">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
+          </div>
+          <div class="px-4 pt-1">
+            <div class="flex bg-neutral-100 p-1 rounded-xl" role="tablist" aria-label="Connections and Connected">
+              <button type="button" id="viewed-tab-connections" class="viewed-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connections" role="tab" aria-selected="false">
+                <span>Connections</span>
+                <span id="viewed-tab-connections-count" class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+              </button>
+              <button type="button" id="viewed-tab-connected" class="viewed-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5" data-kind="connected" role="tab" aria-selected="false">
+                <span>Connected</span>
+                <span id="viewed-tab-connected-count" class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-neutral-200/80 text-neutral-700">0</span>
+              </button>
+            </div>
           </div>
           <div class="px-5 pt-3 text-[11px] text-neutral-500" id="viewed-connections-sub"></div>
           <div id="viewed-connections-list" class="flex-1 overflow-y-auto px-3 py-2"></div>
@@ -13074,8 +13112,21 @@ function syncLikedStateToPosts() {
       const close = () => { m.classList.add('hidden'); m.style.display = 'none'; };
       m.addEventListener('click', (e) => { if (e.target === m) close(); });
       m.querySelector('#btn-close-viewed-connections').addEventListener('click', close);
+      m.querySelectorAll('.viewed-conn-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (typeof switchViewedConnectionsTab === 'function') switchViewedConnectionsTab(btn.dataset.kind);
+        });
+      });
       return m;
     }
+    function switchViewedConnectionsTab(kind) {
+      const m = document.getElementById('modal-viewed-connections') || ensureViewedConnectionsModal();
+      if (!m) return;
+      m.dataset.kind = kind === 'connected' ? 'connected' : 'connections';
+      renderViewedConnectionsList();
+    }
+    window.switchViewedConnectionsTab = switchViewedConnectionsTab;
     function renderViewedConnectionsList() {
       const m = document.getElementById('modal-viewed-connections');
       const v = window._viewedConn;
@@ -13086,6 +13137,17 @@ function syncLikedStateToPosts() {
       const titleEl = m.querySelector('#viewed-connections-title');
       if (titleEl) titleEl.textContent = kind === 'connected' ? 'Connected' : connectionsWord(items.length);
       const cnt = m.querySelector('#viewed-connections-count'); if (cnt) cnt.textContent = items.length.toLocaleString();
+      const connsN = cleanConnectionsList(v.connections || [], v.user).length;
+      const connectedN = getActiveConnectedEntries(v.connected || [], v.user).length;
+      const tConn = m.querySelector('#viewed-tab-connections-count'); if (tConn) tConn.textContent = connsN.toLocaleString();
+      const tCted = m.querySelector('#viewed-tab-connected-count'); if (tCted) tCted.textContent = connectedN.toLocaleString();
+      const TAB_ON = "viewed-conn-tab flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-neutral-900 shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5";
+      const TAB_OFF = "viewed-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5";
+      m.querySelectorAll('.viewed-conn-tab').forEach(btn => {
+        const on = btn.dataset.kind === kind;
+        btn.className = on ? TAB_ON : TAB_OFF;
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
       const sub = m.querySelector('#viewed-connections-sub');
       if (sub) sub.textContent = kind === 'connected' ? `Accounts @${v.user} is connected with` : `People connected with @${v.user}`;
       const box = m.querySelector('#viewed-connections-list');
@@ -13392,6 +13454,40 @@ function syncLikedStateToPosts() {
 
 
     // --- Following Modal Controller (Displays All Followed Users & Toggle Actions) ---
+    var OWN_CONN_TAB_ACTIVE = "own-conn-tab flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-neutral-900 shadow-xs transition cursor-pointer flex items-center justify-center gap-1.5";
+    var OWN_CONN_TAB_IDLE = "own-conn-tab flex-1 py-1.5 text-xs font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 transition cursor-pointer flex items-center justify-center gap-1.5";
+    function paintOwnConnectionTabs(activeKind) {
+      const connCount = (typeof getFollowersDisplayCount === 'function') ? getFollowersDisplayCount() : 0;
+      const me = state.currentUser && state.currentUser.username;
+      const connectedCount = (typeof getActiveConnectedEntries === 'function')
+        ? getActiveConnectedEntries(state.following || [], me).length
+        : 0;
+      const root = document.querySelector('#modal-followers:not(.hidden), #modal-following:not(.hidden)');
+      (root ? root.querySelectorAll('.own-conn-tab') : document.querySelectorAll('.own-conn-tab')).forEach(btn => {
+        const on = btn.dataset.kind === activeKind;
+        btn.className = on ? OWN_CONN_TAB_ACTIVE : OWN_CONN_TAB_IDLE;
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.querySelectorAll('.own-conn-tab-count-connections').forEach(el => { el.textContent = Number(connCount).toLocaleString(); });
+      document.querySelectorAll('.own-conn-tab-count-connected').forEach(el => { el.textContent = Number(connectedCount).toLocaleString(); });
+    }
+    function switchOwnConnectionsTab(kind) {
+      const want = (kind === 'connected') ? 'connected' : 'connections';
+      const folOpen = (() => { const m = document.getElementById('modal-followers'); return m && !m.classList.contains('hidden'); })();
+      const ingOpen = (() => { const m = document.getElementById('modal-following'); return m && !m.classList.contains('hidden'); })();
+      if (want === 'connected') {
+        if (folOpen) closeFollowersModal();
+        if (!ingOpen) openFollowingModal();
+        else paintOwnConnectionTabs('connected');
+      } else {
+        if (ingOpen) closeFollowingModal();
+        if (!folOpen) openFollowersModal();
+        else paintOwnConnectionTabs('connections');
+      }
+    }
+    window.switchOwnConnectionsTab = switchOwnConnectionsTab;
+    window.paintOwnConnectionTabs = paintOwnConnectionTabs;
+
     function openFollowingModal() {
       const modal = document.getElementById('modal-following');
       if (!modal) return;
@@ -13402,6 +13498,7 @@ function syncLikedStateToPosts() {
       window._connectedKeepVisible = new Set();
       ensureConnectionsDirectory();
       renderFollowingList();
+      paintOwnConnectionTabs('connected');
     }
     window.openFollowingModal = openFollowingModal;
 
@@ -13539,6 +13636,10 @@ function syncLikedStateToPosts() {
       // Calculate active following count using isolated formula
       const displayTotal = getFollowingDisplayCount();
       if (countEl) countEl.textContent = displayTotal.toLocaleString();
+      if (typeof paintOwnConnectionTabs === 'function') {
+        const ing = document.getElementById('modal-following');
+        if (ing && !ing.classList.contains('hidden')) paintOwnConnectionTabs('connected');
+      }
       const profCount = document.getElementById('profile-following-count');
       if (profCount) profCount.textContent = displayTotal.toLocaleString();
 
@@ -13702,6 +13803,7 @@ function syncLikedStateToPosts() {
       if (searchInp) searchInp.value = '';
       ensureConnectionsDirectory();
       renderFollowersList();
+      paintOwnConnectionTabs('connections');
     }
     window.openFollowersModal = openFollowersModal;
 
@@ -13725,6 +13827,10 @@ function syncLikedStateToPosts() {
       const displayTotal = getFollowersDisplayCount();
       const formattedTotal = typeof displayTotal === 'number' ? displayTotal.toLocaleString() : String(displayTotal);
       if (countEl) countEl.textContent = formattedTotal;
+      if (typeof paintOwnConnectionTabs === 'function') {
+        const fol = document.getElementById('modal-followers');
+        if (fol && !fol.classList.contains('hidden')) paintOwnConnectionTabs('connections');
+      }
       const profCount = document.getElementById('profile-followers-count');
       if (profCount) profCount.textContent = formattedTotal;
 
@@ -18752,6 +18858,14 @@ function syncLikedStateToPosts() {
         const profFollowingCount = document.getElementById('profile-following-count');
         if (profFollowingCount) profFollowingCount.addEventListener('click', openFollowingModal);
 
+        document.querySelectorAll('.own-conn-tab').forEach(btn => {
+          if (btn._ownConnBound) return;
+          btn._ownConnBound = true;
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof switchOwnConnectionsTab === 'function') switchOwnConnectionsTab(btn.dataset.kind);
+          });
+        });
         bind('btn-close-following-modal', 'click', closeFollowingModal);
         const modalFollowing = document.getElementById('modal-following');
         if (modalFollowing) {
