@@ -2513,9 +2513,23 @@
 
       <!-- VIEW 3: ACCOUNT INFO -->
       <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
-        <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-neutral-100">
+        <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-neutral-100">
           <button type="button" id="btn-ac-info-tab-details" onclick="setAccountInfoTab('details')" class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer">Details</button>
           <button type="button" id="btn-ac-info-tab-contact" onclick="setAccountInfoTab('contact')" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Contact Preferences</button>
+          <button type="button" id="btn-ac-info-tab-history" onclick="setAccountInfoTab('history')" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Profile History</button>
+        </div>
+        <div id="ac-info-panel-history" class="hidden space-y-3">
+          <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Changes you save in Edit profile are listed here, newest first. Only you can see this tab. The last 20 changes per item are kept.</p>
+          <label for="ac-history-field" class="block text-[11px] font-bold text-neutral-700 px-1">Show</label>
+          <select id="ac-history-field" onchange="renderProfileHistoryPanel()" class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-300">
+            <option value="name">Name changes</option>
+            <option value="username">Username changes</option>
+            <option value="email">Email changes</option>
+            <option value="phone">Phone number changes</option>
+            <option value="bio">Bio changes</option>
+            <option value="website">Website changes</option>
+          </select>
+          <div id="ac-history-list" class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden"></div>
         </div>
         <div id="ac-info-panel-contact" class="hidden space-y-3">
           <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Choose which contact buttons appear on your profile. They're off until you turn them on.</p>
@@ -12176,6 +12190,8 @@ function syncLikedStateToPosts() {
           ps.forEach(pd => ops.push(setDoc(pd.ref, { author: newU, username: newU }, { merge: true })));
           await Promise.all(ops);
         } catch(e) { console.warn('Rename: posts move notice', e); }
+        // Before users/{old} goes away, so owner-only rules on profileHistory/{old} still let us delete it.
+        await moveProfileHistoryOnRename(oldU, newU);
         await deleteDoc(doc(db, 'users', oldU)).catch(() => {});
       } catch(e) {
         console.warn('Rename failed:', e);
@@ -14233,16 +14249,15 @@ function syncLikedStateToPosts() {
     }
     window.renderContactPrefsPanel = renderContactPrefsPanel;
     function setAccountInfoTab(tab) {
-      const isContact = tab === 'contact';
-      const on = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
-      const off = 'py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
-      const d = document.getElementById('btn-ac-info-tab-details'), c = document.getElementById('btn-ac-info-tab-contact');
-      if (d) d.className = isContact ? off : on;
-      if (c) c.className = isContact ? on : off;
-      const pd = document.getElementById('ac-info-panel-details'), pc = document.getElementById('ac-info-panel-contact');
-      if (pd) pd.classList.toggle('hidden', isContact);
-      if (pc) pc.classList.toggle('hidden', !isContact);
-      if (isContact) renderContactPrefsPanel();
+      if (tab !== 'contact' && tab !== 'history') tab = 'details';
+      const on = 'py-2 px-2 rounded-lg text-[11px] leading-tight font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
+      const off = 'py-2 px-2 rounded-lg text-[11px] leading-tight font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
+      ['details', 'contact', 'history'].forEach(t => {
+        const b = document.getElementById('btn-ac-info-tab-' + t); if (b) { b.className = (t === tab) ? on : off; b.setAttribute('aria-selected', t === tab ? 'true' : 'false'); }
+        const pnl = document.getElementById('ac-info-panel-' + t); if (pnl) pnl.classList.toggle('hidden', t !== tab);
+      });
+      if (tab === 'contact') renderContactPrefsPanel();
+      if (tab === 'history') { renderProfileHistoryPanel(); loadProfileHistory(); }
     }
     window.setAccountInfoTab = setAccountInfoTab;
     function openContactPreferences() {
@@ -14252,6 +14267,158 @@ function syncLikedStateToPosts() {
       setAccountInfoTab('contact');
     }
     window.openContactPreferences = openContactPreferences;
+
+    // ---- Profile History: profileHistory/{username} = { username, updatedAt, fields: { name:[{from,to,at}], ... } } ----
+    // Kept in its own small doc (not users/{u}, which is already large for some accounts). Newest first, 20 per field.
+    const PROFILE_HISTORY_FIELDS = ['name', 'username', 'email', 'phone', 'bio', 'website'];
+    const PROFILE_HISTORY_CAP = 20;
+    const PROFILE_HISTORY_MAXLEN = 500;
+    function normalizeProfileHistory(raw) {
+      const out = {};
+      const f = (raw && typeof raw === 'object' && raw.fields && typeof raw.fields === 'object') ? raw.fields : {};
+      PROFILE_HISTORY_FIELDS.forEach(k => {
+        out[k] = (Array.isArray(f[k]) ? f[k] : [])
+          .filter(e => e && typeof e === 'object' && Number.isFinite(Number(e.at)))
+          .map(e => ({ from: String(e.from == null ? '' : e.from), to: String(e.to == null ? '' : e.to), at: Number(e.at) }))
+          .sort((a, b) => b.at - a.at)
+          .slice(0, PROFILE_HISTORY_CAP);
+      });
+      return out;
+    }
+    function profileHistoryOwnerKey() {
+      return contactOwnerKey();
+    }
+    function historyClip(v) { v = String(v == null ? '' : v).trim(); return v.length > PROFILE_HISTORY_MAXLEN ? v.slice(0, PROFILE_HISTORY_MAXLEN) + '…' : v; }
+    function mergeProfileHistory(fields, changes) {
+      const out = normalizeProfileHistory({ fields });
+      (changes || []).forEach(c => {
+        if (!c || PROFILE_HISTORY_FIELDS.indexOf(c.field) < 0) return;
+        out[c.field] = [{ from: historyClip(c.from), to: historyClip(c.to), at: Number(c.at) || Date.now() }].concat(out[c.field]).sort((a, b) => b.at - a.at).slice(0, PROFILE_HISTORY_CAP);
+      });
+      return out;
+    }
+    // Diff two snapshots of the editable profile fields; only real changes (after trimming) become entries.
+    function diffProfileForHistory(before, after) {
+      const at = Date.now();
+      const changes = [];
+      PROFILE_HISTORY_FIELDS.forEach(k => {
+        if (!(k in after)) return;
+        const a = String(before[k] == null ? '' : before[k]).trim();
+        const b = String(after[k] == null ? '' : after[k]).trim();
+        const same = (k === 'username' || k === 'email') ? a.toLowerCase() === b.toLowerCase() : a === b;
+        if (!same) changes.push({ field: k, from: a, to: b, at });
+      });
+      return changes;
+    }
+    function setLocalProfileHistory(u, fields) {
+      window._profileHistory = { user: u, fields: normalizeProfileHistory({ fields }), loaded: true };
+      try { localStorage.setItem('pixly_profile_history_' + u, JSON.stringify(window._profileHistory.fields)); } catch(e) {}
+    }
+    function getLocalProfileHistory(u) {
+      if (window._profileHistory && window._profileHistory.user === u) return window._profileHistory.fields;
+      try { const raw = localStorage.getItem('pixly_profile_history_' + u); if (raw) return normalizeProfileHistory({ fields: JSON.parse(raw) }); } catch(e) {}
+      return normalizeProfileHistory(null);
+    }
+    async function recordProfileHistory(u, changes) {
+      u = normalizeUsername(u || '');
+      if (!u || !changes || !changes.length) return false;
+      setLocalProfileHistory(u, mergeProfileHistory(getLocalProfileHistory(u), changes));
+      renderProfileHistoryPanel();
+      const fb = window.firebase;
+      if (!(window.firebaseReady && fb && fb.db && fb.doc)) return false;
+      try {
+        const ref = fb.doc(fb.db, 'profileHistory', u);
+        if (fb.runTransaction) {
+          await fb.runTransaction(fb.db, async (tx) => {
+            const snap = await tx.get(ref);
+            const merged = mergeProfileHistory(snap.exists() ? ((snap.data() || {}).fields || {}) : {}, changes);
+            tx.set(ref, { username: u, fields: merged, updatedAt: Date.now() });
+          });
+        } else {
+          const snap = await fb.getDoc(ref);
+          const merged = mergeProfileHistory(snap.exists() ? ((snap.data() || {}).fields || {}) : {}, changes);
+          await fb.setDoc(ref, { username: u, fields: merged, updatedAt: Date.now() });
+        }
+        return true;
+      } catch(e) { console.warn('Profile history write failed', e); return false; }
+    }
+    window.recordProfileHistory = recordProfileHistory;
+    // Rename: move profileHistory/{old} -> profileHistory/{new} and add the username entry, so history follows the user.
+    async function moveProfileHistoryOnRename(oldU, newU) {
+      oldU = normalizeUsername(oldU || ''); newU = normalizeUsername(newU || '');
+      if (!oldU || !newU || oldU === newU) return;
+      const change = [{ field: 'username', from: oldU, to: newU, at: Date.now() }];
+      const localOld = getLocalProfileHistory(oldU);
+      const fb = window.firebase;
+      let merged = mergeProfileHistory(localOld, change);
+      try {
+        if (window.firebaseReady && fb && fb.db && fb.getDoc && fb.setDoc) {
+          const oldRef = fb.doc(fb.db, 'profileHistory', oldU), newRef = fb.doc(fb.db, 'profileHistory', newU);
+          const [os, ns] = await Promise.all([fb.getDoc(oldRef), fb.getDoc(newRef)]);
+          const oldFields = os.exists() ? ((os.data() || {}).fields || {}) : {};
+          // A stale doc under the new name (from someone who used it before) is replaced, not merged.
+          merged = mergeProfileHistory(oldFields, change);
+          await fb.setDoc(newRef, { username: newU, fields: merged, updatedAt: Date.now(), renamedFrom: oldU });
+          if (os.exists() && fb.deleteDoc) await fb.deleteDoc(oldRef).catch(() => {});
+          void ns;
+        }
+      } catch(e) { console.warn('Profile history move failed', e); }
+      try { localStorage.removeItem('pixly_profile_history_' + oldU); } catch(e) {}
+      setLocalProfileHistory(newU, merged);
+    }
+    window.moveProfileHistoryOnRename = moveProfileHistoryOnRename;
+    async function loadProfileHistory() {
+      const u = profileHistoryOwnerKey();
+      if (!u) return;
+      const fb = window.firebase;
+      if (!(window.firebaseReady && fb && fb.db && fb.getDoc)) return;
+      try {
+        const snap = await fb.getDoc(fb.doc(fb.db, 'profileHistory', u));
+        if (profileHistoryOwnerKey() !== u) return;
+        setLocalProfileHistory(u, snap.exists() ? ((snap.data() || {}).fields || {}) : {});
+        renderProfileHistoryPanel();
+      } catch(e) { console.warn('Profile history load failed', e); }
+    }
+    window.loadProfileHistory = loadProfileHistory;
+    function formatHistoryTime(at) {
+      try { return new Date(at).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+      catch(e) { return new Date(at).toLocaleString(); }
+    }
+    function renderProfileHistoryPanel() {
+      const list = document.getElementById('ac-history-list');
+      const sel = document.getElementById('ac-history-field');
+      if (!list || !sel) return;
+      const u = profileHistoryOwnerKey();
+      const field = PROFILE_HISTORY_FIELDS.indexOf(sel.value) >= 0 ? sel.value : 'name';
+      const entries = u ? (getLocalProfileHistory(u)[field] || []) : [];
+      list.innerHTML = '';
+      if (!entries.length) {
+        const empty = document.createElement('div');
+        empty.id = 'ac-history-empty';
+        empty.className = 'px-4 py-8 text-center text-xs font-semibold text-neutral-400';
+        empty.textContent = 'No changes yet';
+        list.appendChild(empty);
+        return;
+      }
+      const show = (v) => v === '' ? '(empty)' : (field === 'username' ? '@' + v : v);
+      entries.forEach(e => {
+        const row = document.createElement('div');
+        row.className = 'ac-history-entry px-4 py-3 space-y-1';
+        const vals = document.createElement('div');
+        vals.className = 'text-xs text-neutral-900 break-words';
+        const from = document.createElement('span'); from.className = 'ac-history-from text-neutral-500 line-through decoration-neutral-300'; from.textContent = show(e.from);
+        const arrow = document.createElement('span'); arrow.className = 'mx-1.5 text-neutral-400'; arrow.textContent = '→';
+        const to = document.createElement('span'); to.className = 'ac-history-to font-semibold'; to.textContent = show(e.to);
+        vals.append(from, arrow, to);
+        const when = document.createElement('div');
+        when.className = 'ac-history-at text-[10px] text-neutral-400 font-medium';
+        when.textContent = formatHistoryTime(e.at);
+        when.setAttribute('data-at', String(e.at));
+        row.append(vals, when);
+        list.appendChild(row);
+      });
+    }
+    window.renderProfileHistoryPanel = renderProfileHistoryPanel;
 
     function getSecurityUsernameKey() {
       const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
@@ -19455,6 +19622,11 @@ function syncLikedStateToPosts() {
               return;
             }
 
+            const _histBefore = {
+              name: state.currentUser.fullName || '', username: state.currentUser.username || '',
+              email: state.currentUser.email || '', phone: state.currentUser.phone || '',
+              bio: state.currentUser.bio || '', website: state.currentUser.link || ''
+            };
             if (name) state.currentUser.fullName = name;
             if (username) state.currentUser.username = username;
             state.currentUser.email = email;
@@ -19528,6 +19700,14 @@ function syncLikedStateToPosts() {
                 }, { merge: true }).catch(() => {});
               }
             } catch(fbErr) {}
+            try {
+              // Username renames are recorded by renameAccountUsername (it moves the history doc too).
+              const _histChanges = diffProfileForHistory(_histBefore, {
+                name: state.currentUser.fullName || '', email: state.currentUser.email || '', phone: state.currentUser.phone || '',
+                bio: state.currentUser.bio || '', website: state.currentUser.link || ''
+              });
+              if (_histChanges.length) recordProfileHistory(state.currentUser.username, _histChanges);
+            } catch(hErr) {}
             saveUserProfile();
             renderProfile();
             closeEditProfileModal();
