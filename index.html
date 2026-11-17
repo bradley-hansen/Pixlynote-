@@ -1532,6 +1532,10 @@
               <svg id="note-modal-like-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               <span id="note-modal-likes-count">0</span>
             </button>
+            <span id="modal-note-views-count" class="note-views-count inline-flex items-center space-x-1 text-xs text-neutral-600" data-note-id="" title="0 views" aria-label="0 views">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>
+              <span class="note-views-count-num font-semibold">0</span>
+            </span>
             <!-- Comments Count / Focus Reply -->
             <button type="button" onclick="const inp=document.getElementById('note-modal-comment-input'); if(inp) inp.focus();" class="flex items-center space-x-1 text-xs text-neutral-600 hover:text-sky-600 font-medium transition cursor-pointer" title="Comment">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -7538,7 +7542,7 @@ function syncLikedStateToPosts() {
     function bindPostViewsPagehide() {
       if (_viewsPagehideBound) return;
       _viewsPagehideBound = true;
-      const flush = function () { try { flushPostViewIncrements(); } catch (e) {} };
+      const flush = function () { try { flushPostViewIncrements(); } catch (e) {} try { if (typeof flushNoteViewIncrements === 'function') flushNoteViewIncrements(); } catch (e) {} };
       window.addEventListener('pagehide', flush);
       document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'hidden') flush();
@@ -7572,6 +7576,7 @@ function syncLikedStateToPosts() {
     }
     function observePostViewTargets() {
       bindPostViewsPagehide();
+      if (typeof refreshNoteViewsUI === 'function') refreshNoteViewsUI();
       if (typeof IntersectionObserver !== 'function') return;
       const ratio = (typeof window.PIXLY_VIEWS_VISIBLE_RATIO === 'number') ? window.PIXLY_VIEWS_VISIBLE_RATIO : PIXLY_VIEWS_VISIBLE_RATIO;
       if (!_postViewsObserver) {
@@ -7604,7 +7609,270 @@ function syncLikedStateToPosts() {
     window.queuePostView = queuePostView;
     window.flushPostViewIncrements = flushPostViewIncrements;
     window.getPendingPostViewIds = getPendingPostViewIds;
+
     window.observePostViewTargets = observePostViewTargets;
+
+    // --- Note view counts (stored in noteViews/{noteId}, never on users/{username}.notes) ---
+    const _noteViewsCache = new Map();
+    const _pendingNoteViewIncrements = new Set();
+    const _noteViewVisibleTimers = new Map();
+    let _noteViewsFlushTimer = null;
+    let _noteViewObserver = null;
+
+    function viewedNotesStorageKey(username) {
+      const u = (username != null && username !== '')
+        ? String(username)
+        : ((typeof getViewsUsername === 'function') ? getViewsUsername() : '');
+      return 'pixly_viewed_notes_' + String(u || '').toLowerCase();
+    }
+    function readViewedNoteIds(username) {
+      try {
+        const raw = localStorage.getItem(viewedNotesStorageKey(username));
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch (e) { return []; }
+    }
+    function writeViewedNoteIds(ids, username) {
+      let list = Array.from(ids).map(String);
+      if (list.length > PIXLY_VIEWED_IDS_CAP) list = list.slice(list.length - PIXLY_VIEWED_IDS_CAP);
+      try { localStorage.setItem(viewedNotesStorageKey(username), JSON.stringify(list)); } catch (e) {}
+      return list;
+    }
+    function hasViewedNote(noteId, username) {
+      if (noteId == null || noteId === '') return false;
+      return readViewedNoteIds(username).indexOf(String(noteId)) !== -1;
+    }
+    function markNoteViewedLocal(noteId, username) {
+      const id = String(noteId);
+      const list = readViewedNoteIds(username);
+      if (list.indexOf(id) !== -1) return list;
+      list.push(id);
+      return writeViewedNoteIds(list, username);
+    }
+    function isNoteAuthorCurrentUser(note) {
+      if (!note) return false;
+      const cur = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      const author = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(note.author || note.username || '')
+        : String(note.author || note.username || '').toLowerCase().replace(/^@/, '');
+      return !!(cur && author && cur === author);
+    }
+    function getNoteViewsCount(noteOrId) {
+      const id = (noteOrId && typeof noteOrId === 'object') ? noteOrId.id : noteOrId;
+      if (id == null || id === '') return 0;
+      const sid = String(id);
+      if (_noteViewsCache.has(sid)) return Math.max(0, Math.floor(Number(_noteViewsCache.get(sid)) || 0));
+      return 0;
+    }
+    function canCountNoteView(noteId) {
+      if (noteId == null || noteId === '') return false;
+      const id = String(noteId);
+      const note = (typeof getNoteById === 'function') ? getNoteById(id) : null;
+      if (!note) return false;
+      if (isNoteAuthorCurrentUser(note)) return false;
+      if (_pendingNoteViewIncrements.has(id)) return false;
+      if (hasViewedNote(id)) return false;
+      return true;
+    }
+    function noteViewsCountHtml(note, opts) {
+      opts = opts || {};
+      const n = getNoteViewsCount(note);
+      const compact = (opts.compact !== false);
+      const cls = 'note-views-count inline-flex items-center space-x-1 text-xs text-neutral-500';
+      const iconClass = compact ? 'w-3.5 h-3.5' : 'w-4 h-4';
+      const idA = note && note.id != null ? String(note.id).replace(/"/g, '') : '';
+      return '<span class="' + cls + '" data-note-id="' + idA + '" title="' + n.toLocaleString() + ' views" aria-label="' + n.toLocaleString() + ' views">'
+        + postViewsIconSvg(iconClass)
+        + '<span class="note-views-count-num font-semibold">' + formatViewCount(n) + '</span></span>';
+    }
+    function paintNoteViewsEl(el, id, n, label, title) {
+      if (!el) return;
+      el.setAttribute('data-note-id', id);
+      el.title = title;
+      el.setAttribute('aria-label', title);
+      const num = el.querySelector('.note-views-count-num');
+      if (num) num.textContent = label;
+    }
+    function updateNoteViewsDisplays(noteId, count) {
+      const id = String(noteId);
+      const n = Math.max(0, Math.floor(Number(count) || 0));
+      const label = formatViewCount(n);
+      const title = n.toLocaleString() + ' views';
+      document.querySelectorAll('.note-views-count').forEach(function (el) {
+        if (String(el.getAttribute('data-note-id') || '') !== id) return;
+        paintNoteViewsEl(el, id, n, label, title);
+      });
+      const modal = document.getElementById('modal-note-views-count');
+      if (modal && state.currentModalNoteId != null && String(state.currentModalNoteId) === id) {
+        paintNoteViewsEl(modal, id, n, label, title);
+      }
+    }
+    function setNoteViewsCache(noteId, count) {
+      const id = String(noteId);
+      const n = Math.max(0, Math.floor(Number(count) || 0));
+      _noteViewsCache.set(id, n);
+      updateNoteViewsDisplays(id, n);
+      return n;
+    }
+    async function fetchNoteViewsCounts(ids) {
+      const unique = [];
+      const seen = new Set();
+      (ids || []).forEach(function (id) {
+        const sid = String(id);
+        if (!sid || sid === 'undefined' || sid === 'null') return;
+        if (seen.has(sid)) return;
+        seen.add(sid);
+        unique.push(sid);
+      });
+      unique.forEach(function (sid) {
+        if (_noteViewsCache.has(sid)) updateNoteViewsDisplays(sid, _noteViewsCache.get(sid));
+      });
+      const pendingFetch = unique.filter(function (sid) { return !_noteViewsCache.has(sid); });
+      if (!pendingFetch.length) return;
+      const fb = window.firebase;
+      if (!fb || !fb.db || typeof fb.getDoc !== 'function' || typeof fb.doc !== 'function') {
+        pendingFetch.forEach(function (sid) { if (!_noteViewsCache.has(sid)) _noteViewsCache.set(sid, 0); });
+        return;
+      }
+      const chunk = 10;
+      for (let i = 0; i < pendingFetch.length; i += chunk) {
+        const slice = pendingFetch.slice(i, i + chunk);
+        await Promise.all(slice.map(async function (sid) {
+          try {
+            const snap = await fb.getDoc(fb.doc(fb.db, 'noteViews', sid));
+            const fetched = (snap && typeof snap.exists === 'function' && snap.exists())
+              ? Math.max(0, Math.floor(Number((snap.data() || {}).views) || 0))
+              : 0;
+            const cur = _noteViewsCache.has(sid) ? _noteViewsCache.get(sid) : 0;
+            _noteViewsCache.set(sid, Math.max(cur, fetched));
+            updateNoteViewsDisplays(sid, _noteViewsCache.get(sid));
+          } catch (e) {
+            if (!_noteViewsCache.has(sid)) _noteViewsCache.set(sid, 0);
+          }
+        }));
+      }
+    }
+    function collectVisibleNoteIds() {
+      const ids = [];
+      const sel = '.profile-note-card[data-note-id], .explore-note-card[data-note-id], .saved-note-card[data-note-id], .liked-note-card[data-note-id], .user-profile-note-card[data-note-id], #modal-note-detail[data-note-id]';
+      document.querySelectorAll(sel).forEach(function (el) {
+        if (el.id === 'modal-note-detail' && el.classList.contains('hidden')) return;
+        const id = el.getAttribute('data-note-id');
+        if (id) ids.push(id);
+      });
+      return ids;
+    }
+    function queueNoteView(noteId) {
+      if (!canCountNoteView(noteId)) return false;
+      const id = String(noteId);
+      _pendingNoteViewIncrements.add(id);
+      markNoteViewedLocal(id);
+      const next = getNoteViewsCount(id) + 1;
+      _noteViewsCache.set(id, next);
+      updateNoteViewsDisplays(id, next);
+      scheduleNoteViewsFlush();
+      return true;
+    }
+    function scheduleNoteViewsFlush() {
+      if (_noteViewsFlushTimer) return;
+      const ms = (typeof window.PIXLY_VIEWS_FLUSH_MS === 'number') ? window.PIXLY_VIEWS_FLUSH_MS : PIXLY_VIEWS_FLUSH_MS;
+      _noteViewsFlushTimer = setTimeout(function () {
+        _noteViewsFlushTimer = null;
+        flushNoteViewIncrements();
+      }, ms);
+    }
+    function getPendingNoteViewIds() {
+      return Array.from(_pendingNoteViewIncrements);
+    }
+    async function flushNoteViewIncrements() {
+      if (_noteViewsFlushTimer) {
+        clearTimeout(_noteViewsFlushTimer);
+        _noteViewsFlushTimer = null;
+      }
+      if (!_pendingNoteViewIncrements.size) return { ok: true, wrote: 0, skipped: 'empty' };
+      const fb = window.firebase;
+      if (!fb || !fb.db || typeof fb.setDoc !== 'function' || typeof fb.increment !== 'function' || typeof fb.doc !== 'function') {
+        return { ok: false, wrote: 0, skipped: 'no-firebase' };
+      }
+      const ids = Array.from(_pendingNoteViewIncrements).slice(0, PIXLY_VIEWS_FLUSH_MAX);
+      const { db, doc, setDoc, increment } = fb;
+      let wrote = 0;
+      const dropped = [];
+      await Promise.all(ids.map(async function (id) {
+        try {
+          await setDoc(doc(db, 'noteViews', String(id)), { views: increment(1) }, { merge: true });
+          dropped.push(id);
+          wrote += 1;
+        } catch (e) {}
+      }));
+      dropped.forEach(function (id) { _pendingNoteViewIncrements.delete(id); });
+      if (_pendingNoteViewIncrements.size) scheduleNoteViewsFlush();
+      return { ok: true, wrote: wrote, pending: _pendingNoteViewIncrements.size };
+    }
+    function onNoteViewIntersect(entries) {
+      const ratio = (typeof window.PIXLY_VIEWS_VISIBLE_RATIO === 'number') ? window.PIXLY_VIEWS_VISIBLE_RATIO : PIXLY_VIEWS_VISIBLE_RATIO;
+      const dwell = (typeof window.PIXLY_VIEWS_VISIBLE_MS === 'number') ? window.PIXLY_VIEWS_VISIBLE_MS : PIXLY_VIEWS_VISIBLE_MS;
+      entries.forEach(function (entry) {
+        const el = entry.target;
+        if (!el) return;
+        const id = (el.id === 'modal-note-detail')
+          ? (el.getAttribute('data-note-id') || state.currentModalNoteId)
+          : el.getAttribute('data-note-id');
+        if (id == null || id === '') return;
+        const key = String(id) + '::' + (el.id || el.className || 'el');
+        const visible = entry.isIntersecting && (entry.intersectionRatio >= ratio);
+        if (visible) {
+          if (_noteViewVisibleTimers.has(key)) return;
+          if (!canCountNoteView(id)) return;
+          const t = setTimeout(function () {
+            _noteViewVisibleTimers.delete(key);
+            queueNoteView(id);
+          }, dwell);
+          _noteViewVisibleTimers.set(key, t);
+        } else {
+          const t = _noteViewVisibleTimers.get(key);
+          if (t) { clearTimeout(t); _noteViewVisibleTimers.delete(key); }
+        }
+      });
+    }
+    function observeNoteViewTargets() {
+      bindPostViewsPagehide();
+      if (typeof IntersectionObserver !== 'function') return;
+      if (!_noteViewObserver) {
+        _noteViewObserver = new IntersectionObserver(onNoteViewIntersect, { threshold: [0, 0.25, 0.5, 0.75, 1], root: null, rootMargin: '0px' });
+      }
+      const sel = '.profile-note-card[data-note-id], .explore-note-card[data-note-id], .saved-note-card[data-note-id], .liked-note-card[data-note-id], .user-profile-note-card[data-note-id], #modal-note-detail';
+      document.querySelectorAll(sel).forEach(function (el) {
+        if (el.id === 'modal-note-detail' && el.classList.contains('hidden')) {
+          try { _noteViewObserver.unobserve(el); } catch (e) {}
+          return;
+        }
+        _noteViewObserver.observe(el);
+      });
+    }
+    function refreshNoteViewsUI() {
+      observeNoteViewTargets();
+      fetchNoteViewsCounts(collectVisibleNoteIds());
+    }
+
+    window._noteViewsCache = _noteViewsCache;
+    window.getNoteViewsCount = getNoteViewsCount;
+    window.canCountNoteView = canCountNoteView;
+    window.isNoteAuthorCurrentUser = isNoteAuthorCurrentUser;
+    window.noteViewsCountHtml = noteViewsCountHtml;
+    window.updateNoteViewsDisplays = updateNoteViewsDisplays;
+    window.setNoteViewsCache = setNoteViewsCache;
+    window.fetchNoteViewsCounts = fetchNoteViewsCounts;
+    window.queueNoteView = queueNoteView;
+    window.flushNoteViewIncrements = flushNoteViewIncrements;
+    window.getPendingNoteViewIds = getPendingNoteViewIds;
+    window.observeNoteViewTargets = observeNoteViewTargets;
+    window.refreshNoteViewsUI = refreshNoteViewsUI;
+    window.hasViewedNote = hasViewedNote;
+    window.viewedNotesStorageKey = viewedNotesStorageKey;
+
     window.postViewsCountHtml = postViewsCountHtml;
     window.updatePostViewsDisplays = updatePostViewsDisplays;
     window.isPostAuthorCurrentUser = isPostAuthorCurrentUser;
@@ -8608,6 +8876,11 @@ function syncLikedStateToPosts() {
       // Render comments
       renderNoteModalComments(note);
 
+      modal.setAttribute('data-note-id', String(note.id));
+      if (typeof updateNoteViewsDisplays === 'function') updateNoteViewsDisplays(note.id, (typeof getNoteViewsCount === 'function') ? getNoteViewsCount(note.id) : 0);
+      if (typeof fetchNoteViewsCounts === 'function') fetchNoteViewsCounts([note.id]);
+      if (typeof observeNoteViewTargets === 'function') observeNoteViewTargets();
+
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
     }
@@ -9060,7 +9333,7 @@ function syncLikedStateToPosts() {
           const isSaved = state.savedNoteIds ? (state.savedNoteIds.has(n.id) || state.savedNoteIds.has(String(n.id))) : false;
           const avatar = getNoteAuthorAvatar(n);
           return `
-            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2.5 shadow-2xs cursor-pointer hover:border-neutral-300 hover:shadow-xs profile-note-card group" onclick="openNoteDetailModal('${n.id}')">
+            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2.5 shadow-2xs cursor-pointer hover:border-neutral-300 hover:shadow-xs profile-note-card group" data-note-id="${n.id}" onclick="openNoteDetailModal('${n.id}')">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2.5">
                   <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
@@ -9097,6 +9370,7 @@ function syncLikedStateToPosts() {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     <span>${Array.isArray(n.comments) ? n.comments.length : (n.replies || 0)}</span>
                   </button>
+                  ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(n) : ''}
                   <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}');" class="flex items-center text-neutral-400 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Send via DM">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.6 8.2C17.2 5.4 14.3 3.7 11 3.7 6.3 3.7 2.8 7.2 2.8 11.7c0 1.8.6 3.5 1.7 4.9L3.3 20.4l4.1-1.4c1.1.5 2.3.7 3.6.7 3.3 0 6.2-1.7 7.6-4.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.5 12h9m0 0l-3.3-3.3M21.5 12l-3.3 3.3"/></svg>
                   </button>
@@ -9112,6 +9386,7 @@ function syncLikedStateToPosts() {
           `;
         }).join('');
       }
+      if (typeof refreshNoteViewsUI === 'function') refreshNoteViewsUI();
     }
     window.renderNotes = renderNotes;
 
@@ -9688,7 +9963,7 @@ function syncLikedStateToPosts() {
         likedNotesList.innerHTML = likedNotes.map(n => {
           const avatar = getNoteAuthorAvatar(n);
           return `
-            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl p-3.5 flex items-start justify-between text-xs shadow-xs cursor-pointer transition liked-note-card group" onclick="openNoteDetailModal('${n.id}')">
+            <div class="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl p-3.5 flex items-start justify-between text-xs shadow-xs cursor-pointer transition liked-note-card group" data-note-id="${n.id}" onclick="openNoteDetailModal('${n.id}')">
               <div class="flex items-start space-x-2.5 min-w-0 pr-2">
                 <div class="w-8 h-8 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
                   <img src="${avatar}" alt="${n.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
@@ -9701,10 +9976,13 @@ function syncLikedStateToPosts() {
                   <p class="text-neutral-700 leading-relaxed text-xs">${escapeHtml(n.text)}</p>
                 </div>
               </div>
-              <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="text-rose-500 hover:text-neutral-400 flex items-center space-x-1 ml-2 font-semibold flex-shrink-0 cursor-pointer p-1" title="Unlike note">
-                <span>❤️</span>
-                <span>${n.likes || 1}</span>
-              </button>
+              <div class="flex flex-col items-end space-y-1 ml-2 flex-shrink-0">
+                <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="text-rose-500 hover:text-neutral-400 flex items-center space-x-1 font-semibold cursor-pointer p-1" title="Unlike note">
+                  <span>❤️</span>
+                  <span>${n.likes || 1}</span>
+                </button>
+                ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(n) : ''}
+              </div>
             </div>
           `;
         }).join('');
@@ -9731,6 +10009,7 @@ function syncLikedStateToPosts() {
         const spanEl = subtabNotes.querySelector('span');
         if (spanEl) spanEl.textContent = `Liked Notes${likedNotes.length > 0 ? ` (${likedNotes.length})` : ''}`;
       }
+      if (typeof refreshNoteViewsUI === 'function') refreshNoteViewsUI();
     }
 
     // --- Render Explore (Posts Grid & Notes) ---
@@ -10172,6 +10451,7 @@ function syncLikedStateToPosts() {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     <span>${replies}</span>
                   </button>
+                  ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(note) : ''}
                   <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${idJs}');" class="flex items-center hover:text-violet-600 transition btn-dm-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="Send via DM">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.6 8.2C17.2 5.4 14.3 3.7 11 3.7 6.3 3.7 2.8 7.2 2.8 11.7c0 1.8.6 3.5 1.7 4.9L3.3 20.4l4.1-1.4c1.1.5 2.3.7 3.6.7 3.3 0 6.2-1.7 7.6-4.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.5 12h9m0 0l-3.3-3.3M21.5 12l-3.3 3.3"/></svg>
                   </button>
@@ -11773,11 +12053,13 @@ function syncLikedStateToPosts() {
                   </button>
                 </div>
                 <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(note.text)}</p>
+                ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(note) : ''}
               </div>
             `;
           }).join('');
         }
       }
+      if (typeof refreshNoteViewsUI === 'function') refreshNoteViewsUI();
 
       // 3. Update Badge on SAVED tab & Sub-menu Labels with respective counts
       const savedPostsCount = Array.isArray(savedPosts) ? savedPosts.length : 0;
@@ -14056,7 +14338,7 @@ function syncLikedStateToPosts() {
             }
             const isLiked = likedByMatch || (state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false);
             return `
-            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300" onclick="openNoteDetailModal('${n.id}')">
+            <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300 user-profile-note-card" data-note-id="${n.id}" onclick="openNoteDetailModal('${n.id}')">
               <div class="flex items-center space-x-2.5">
                 <img src="${creator.avatar}" alt="${creator.username}" class="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0">
                 <div>
@@ -14070,11 +14352,13 @@ function syncLikedStateToPosts() {
                   <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                   <span class="font-semibold">${n.likes || 0}</span>
                 </button>
+                ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(n) : ''}
               </div>
             </div>
           `;
           }).join('');
         }
+        if (typeof refreshNoteViewsUI === 'function') refreshNoteViewsUI();
       };
       window._refreshCreatorNotesUI = () => renderCreatorNotes();
       renderCreatorNotes();
