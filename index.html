@@ -4697,29 +4697,61 @@ function syncLikedStateToPosts() {
         return [];
       }
     }
+    function draftsFullStorageKey(username) {
+      return 'pixly_drafts_full_' + (username || getDraftsUsername() || 'guest');
+    }
+    async function idbGetDraftsList(key) {
+      if (!window.idbStorage || typeof window.idbStorage.get !== 'function') return null;
+      try {
+        const raw = await window.idbStorage.get(key);
+        if (!raw) return null;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? parsed : null;
+      } catch (e) {
+        return null;
+      }
+    }
+    function mergeDraftListsPreferringImages() {
+      const byId = new Map();
+      const lists = Array.prototype.slice.call(arguments);
+      lists.forEach(list => {
+        if (!Array.isArray(list)) return;
+        list.forEach(d => {
+          if (!d || d.id == null) return;
+          const id = String(d.id);
+          const prev = byId.get(id);
+          if (!prev) { byId.set(id, d); return; }
+          const prevImg = prev.image && !isDraftPlaceholderImage(prev.image);
+          const nextImg = d.image && !isDraftPlaceholderImage(d.image);
+          const newer = (d.updatedAt || 0) >= (prev.updatedAt || 0);
+          const merged = Object.assign({}, newer ? prev : d, newer ? d : prev);
+          merged.image = nextImg ? d.image : (prevImg ? prev.image : (d.image || prev.image || ''));
+          byId.set(id, merged);
+        });
+      });
+      return Array.from(byId.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    }
     async function readDraftsFull(username) {
       const u = username || getDraftsUsername();
-      const key = draftsStorageKey(u);
-      if (window.idbStorage && typeof window.idbStorage.get === 'function') {
-        try {
-          const raw = await window.idbStorage.get(key);
-          if (raw) {
-            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (Array.isArray(parsed)) return parsed;
-          }
-        } catch (e) {}
+      const fromFull = await idbGetDraftsList(draftsFullStorageKey(u));
+      const fromLegacy = await idbGetDraftsList(draftsStorageKey(u));
+      if (Array.isArray(fromFull) || Array.isArray(fromLegacy)) {
+        return mergeDraftListsPreferringImages(readDraftsMetaSync(u), fromLegacy, fromFull);
       }
       return readDraftsMetaSync(u);
     }
     async function writeDraftsFull(username, drafts) {
       const u = username || getDraftsUsername();
-      const key = draftsStorageKey(u);
+      const metaKey = draftsStorageKey(u);
       const list = Array.isArray(drafts) ? drafts : [];
-      const ok = await idbSetAwait(key, JSON.stringify(list));
+      const payload = JSON.stringify(list);
+      const okNew = await idbSetAwait(draftsFullStorageKey(u), payload);
+      const okLegacy = await idbSetAwait(metaKey, payload);
+      const ok = !!(okNew || okLegacy);
       if (typeof safeLocalStorageSet === 'function') {
-        safeLocalStorageSet(key, JSON.stringify(list.map(stripDraftForLocalStorage)));
+        safeLocalStorageSet(metaKey, JSON.stringify(list.map(stripDraftForLocalStorage)));
       } else {
-        try { localStorage.setItem(key, JSON.stringify(list.map(stripDraftForLocalStorage))); } catch (e) {}
+        try { localStorage.setItem(metaKey, JSON.stringify(list.map(stripDraftForLocalStorage))); } catch (e) {}
       }
       return ok;
     }
@@ -4988,6 +5020,66 @@ function syncLikedStateToPosts() {
       box.classList.remove('hidden');
     }
 
+    (function snapshotCreatePreviewPlaceholder() {
+      const el = document.getElementById('create-preview-img');
+      if (el && !el.dataset.placeholderSrc) {
+        const src = el.getAttribute('src') || '';
+        if (src) el.dataset.placeholderSrc = src;
+      }
+    })();
+    function getCreatePreviewPlaceholderSrc() {
+      const el = document.getElementById('create-preview-img');
+      if (el && el.dataset.placeholderSrc) return el.dataset.placeholderSrc;
+      if (el) {
+        const src = el.getAttribute('src') || '';
+        if (isDraftPlaceholderImage(src)) {
+          el.dataset.placeholderSrc = src;
+          return src;
+        }
+      }
+      return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxIiBoZWlnaHQ9IjEiPjwvc3ZnPg==';
+    }
+    function clearCreateWizardImage() {
+      state.selectedCreateImage = '';
+      const prevImg = document.getElementById('create-preview-img');
+      if (prevImg) prevImg.src = getCreatePreviewPlaceholderSrc();
+      const uploadBadge = document.getElementById('upload-status-badge');
+      if (uploadBadge) {
+        uploadBadge.classList.add('hidden');
+        uploadBadge.textContent = '';
+      }
+      const previewBox = document.getElementById('create-preview-box');
+      if (previewBox) {
+        previewBox.classList.remove('border-sky-500', 'ring-2', 'ring-sky-200');
+        previewBox.classList.add('border-neutral-300');
+      }
+      const thumbs = document.getElementById('preset-thumbs');
+      if (thumbs) {
+        thumbs.querySelectorAll('.select-preset-img').forEach(t => {
+          t.className = "aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition select-preset-img border-transparent hover:border-neutral-300";
+        });
+      }
+      const fileInp = document.getElementById('create-file-upload');
+      if (fileInp) { try { fileInp.value = ''; } catch (e) {} }
+    }
+    function applyDraftImageToWizard(img) {
+      clearCreateWizardImage();
+      if (!img || isDraftPlaceholderImage(img)) return false;
+      state.selectedCreateImage = img;
+      const prevImg = document.getElementById('create-preview-img');
+      if (prevImg) prevImg.src = img;
+      const uploadBadge = document.getElementById('upload-status-badge');
+      if (uploadBadge) {
+        uploadBadge.textContent = '\u2713 Draft photo';
+        uploadBadge.classList.remove('hidden');
+      }
+      const previewBox = document.getElementById('create-preview-box');
+      if (previewBox) {
+        previewBox.classList.remove('border-neutral-300');
+        previewBox.classList.add('border-sky-500', 'ring-2', 'ring-sky-200');
+      }
+      return true;
+    }
     async function openDraftById(id) {
       const d = await getDraftById(id);
       if (!d) {
@@ -5010,6 +5102,10 @@ function syncLikedStateToPosts() {
         return;
       }
       if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal();
+      // Always drop any leftover wizard photo first so a missing or late
+      // IndexedDB payload cannot keep a previous session's image in the
+      // preview or the publish path (state.selectedCreateImage).
+      clearCreateWizardImage();
       if (typeof openCreatePostModal === 'function') {
         openCreatePostModal(d.type === 'story' ? 'story' : 'post');
       }
@@ -5018,14 +5114,13 @@ function syncLikedStateToPosts() {
       const locInp = document.getElementById('create-location-input');
       if (captionInp) captionInp.value = d.caption || '';
       if (locInp) locInp.value = d.location || '';
-      const img = d.image && !isDraftPlaceholderImage(d.image) ? d.image : '';
-      if (img) {
-        state.selectedCreateImage = img;
-        const prevImg = document.getElementById('create-preview-img');
-        if (prevImg) prevImg.src = img;
-        const uploadBadge = document.getElementById('upload-status-badge');
-        if (uploadBadge) uploadBadge.classList.remove('hidden');
-      }
+      applyDraftImageToWizard(d.image);
+      const draftId = d.id;
+      const draftImage = d.image;
+      requestAnimationFrame(function () {
+        if (state.activeDraftId !== draftId) return;
+        applyDraftImageToWizard(draftImage);
+      });
     }
 
     async function confirmDeleteDraft() {
@@ -5050,6 +5145,8 @@ function syncLikedStateToPosts() {
     window.openDraftsPage = openDraftsPage;
     window.closeDraftsPage = closeDraftsPage;
     window.openDraftById = openDraftById;
+    window.clearCreateWizardImage = clearCreateWizardImage;
+    window.applyDraftImageToWizard = applyDraftImageToWizard;
     window.handleSavePostDraft = handleSavePostDraft;
     window.handleSaveNoteDraft = handleSaveNoteDraft;
     window.syncDraftToCloud = syncDraftToCloud;
