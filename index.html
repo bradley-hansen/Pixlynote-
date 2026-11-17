@@ -1597,7 +1597,13 @@
               </svg>
             </button>
           </div>
-          <div class="font-bold text-xs text-neutral-900" id="modal-likes-count">1,428 likes</div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="font-bold text-xs text-neutral-900" id="modal-likes-count">1,428 likes</div>
+            <div id="modal-views-count" class="post-views-count flex items-center space-x-1 text-xs text-neutral-600" data-post-id="" title="0 views" aria-label="0 views">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>
+              <span class="post-views-count-num font-semibold">0</span>
+            </div>
+          </div>
           <div class="text-[10px] text-neutral-400 uppercase tracking-wider" id="modal-timestamp">2 HOURS AGO</div>
         </div>
 
@@ -3159,7 +3165,9 @@
           onSnapshot, 
           deleteDoc,
           serverTimestamp,
-          runTransaction
+          runTransaction,
+          increment,
+          updateDoc
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js");
 
         const firebaseConfig = {
@@ -3185,7 +3193,7 @@
           RecaptchaVerifier,
           signInWithPhoneNumber,
           collection, doc, setDoc, getDoc, getDocs,
-          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction
+          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc
         };
         window.firebaseReady = true;
 
@@ -5418,7 +5426,8 @@ function syncLikedStateToPosts() {
             timestamp: post.timestamp,
             createdAt: serverTimestamp()
           };
-          await setDoc(postDocRef, postPayload);
+          // merge so we never overwrite posts/{id}.views; increments own that field
+          await setDoc(postDocRef, postPayload, { merge: true });
           console.log("Saved post to Firestore posts/" + post.id);
         } catch(e) {
           console.warn("Firestore post save notice:", e);
@@ -5441,6 +5450,8 @@ function syncLikedStateToPosts() {
         cp.comments = cp.comments.filter(c => c && !isRepDel(c.id));
         const existing = state.posts.find(p => String(p.id) === String(cp.id));
         if (!existing) {
+          if (cp.views == null || isNaN(Number(cp.views))) cp.views = 0;
+          else cp.views = Math.max(0, Math.floor(Number(cp.views)));
           state.posts.unshift(cp);
           changed = true;
         } else {
@@ -5453,6 +5464,14 @@ function syncLikedStateToPosts() {
             if (cp.location !== undefined) existing.location = cp.location;
             existing.edited = true;
             changed = true;
+          }
+          if (cp.views != null && !isNaN(Number(cp.views))) {
+            const remoteViews = Math.max(0, Math.floor(Number(cp.views)));
+            const localViews = Math.max(0, Math.floor(Number(existing.views) || 0));
+            if (remoteViews > localViews) {
+              existing.views = remoteViews;
+              changed = true;
+            }
           }
           if (JSON.stringify(cp.comments) !== JSON.stringify(existing.comments || [])) {
             if (cp.updatedAt && (!existing.updatedAt || cp.updatedAt >= existing.updatedAt)) {
@@ -7201,6 +7220,272 @@ function syncLikedStateToPosts() {
     }
     window.isAuthorHiddenFromFeed = isAuthorHiddenFromFeed;
 
+    // --- Post view counts (posts only; notes later if approved) ---
+    // Spark-friendly: one increment per viewer per post, batched onto posts/{id}.views.
+    // Client-side dedupe lives in localStorage. Firestore rules are still open, so
+    // these increments are not server-authoritative (see abuse risk).
+    const PIXLY_VIEWS_VISIBLE_MS = 1000;
+    const PIXLY_VIEWS_VISIBLE_RATIO = 0.5;
+    const PIXLY_VIEWS_FLUSH_MS = 10000;
+    const PIXLY_VIEWS_FLUSH_MAX = 20;
+    const PIXLY_VIEWED_IDS_CAP = 2000;
+    const PIXLY_VIEWS_PER_POST_VIEWER_CAP = 1;
+
+    const _pendingViewIncrements = new Set();
+    const _viewVisibleTimers = new Map();
+    let _viewsFlushTimer = null;
+    let _postViewsObserver = null;
+    let _viewsPagehideBound = false;
+
+    function formatViewCount(n) {
+      const v = Math.max(0, Math.floor(Number(n) || 0));
+      if (v < 1000) return String(v);
+      const trim = (x, suffix) => {
+        const s = x >= 100 ? x.toFixed(0) : x.toFixed(1);
+        return s.replace(/\.0$/, '') + suffix;
+      };
+      if (v < 1000000) return trim(v / 1000, 'K');
+      if (v < 1000000000) return trim(v / 1000000, 'M');
+      return trim(v / 1000000000, 'B');
+    }
+    function getPostViewsCount(post) {
+      if (!post) return 0;
+      const n = Number(post.views);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    }
+    function getViewsUsername() {
+      return (typeof getActiveFirestoreUsername === 'function' && getActiveFirestoreUsername())
+        || (typeof normalizeUsername === 'function' && normalizeUsername(state.currentUser && state.currentUser.username))
+        || 'guest';
+    }
+    function viewedPostsStorageKey(username) {
+      return 'pixly_viewed_posts_' + (username || getViewsUsername() || 'guest');
+    }
+    function readViewedPostIds(username) {
+      try {
+        const raw = localStorage.getItem(viewedPostsStorageKey(username));
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function writeViewedPostIds(ids, username) {
+      let list = Array.from(ids).map(String);
+      if (list.length > PIXLY_VIEWED_IDS_CAP) list = list.slice(list.length - PIXLY_VIEWED_IDS_CAP);
+      try { localStorage.setItem(viewedPostsStorageKey(username), JSON.stringify(list)); } catch (e) {}
+      return list;
+    }
+    function hasViewedPost(postId, username) {
+      if (postId == null || postId === '') return false;
+      return readViewedPostIds(username).indexOf(String(postId)) !== -1;
+    }
+    function markPostViewedLocal(postId, username) {
+      const id = String(postId);
+      const list = readViewedPostIds(username);
+      if (list.indexOf(id) !== -1) return list;
+      list.push(id);
+      return writeViewedPostIds(list, username);
+    }
+    function viewsCountOfPost(postId) {
+      const viewed = readViewedPostIds();
+      let n = 0;
+      viewed.forEach(id => { if (id === String(postId)) n++; });
+      return n;
+    }
+    function isPostAuthorCurrentUser(post) {
+      if (!post) return false;
+      const cur = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      const author = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(post.author || post.username || '')
+        : String(post.author || post.username || '').toLowerCase().replace(/^@/, '');
+      return !!(cur && author && cur === author);
+    }
+    function findPostForViews(postId) {
+      if (typeof getPostById === 'function') return getPostById(postId);
+      const strId = String(postId);
+      return (state.posts || []).find(p => String(p.id) === strId)
+        || ((state.explorePosts || []).find(p => String(p.id) === strId))
+        || null;
+    }
+    function canCountPostView(postId) {
+      if (postId == null || postId === '') return false;
+      const id = String(postId);
+      const post = findPostForViews(id);
+      if (!post) return false;
+      if (isPostAuthorCurrentUser(post)) return false;
+      if (_pendingViewIncrements.has(id)) return false;
+      if (hasViewedPost(id)) return false;
+      if (viewsCountOfPost(id) >= PIXLY_VIEWS_PER_POST_VIEWER_CAP) return false;
+      return true;
+    }
+    function postViewsIconSvg(sizeClass) {
+      return '<svg class="' + (sizeClass || 'w-4 h-4') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>';
+    }
+    function postViewsCountHtml(post, opts) {
+      opts = opts || {};
+      const n = getPostViewsCount(post);
+      const compact = !!opts.compact;
+      const light = !!opts.light;
+      const cls = light
+        ? 'post-views-count flex items-center space-x-1 text-white/90 drop-shadow-sm'
+        : 'post-views-count flex items-center space-x-1 text-xs text-neutral-600';
+      const iconClass = compact ? 'w-3.5 h-3.5' : 'w-4 h-4';
+      const idA = post && post.id != null ? String(post.id).replace(/"/g, '') : '';
+      const numClass = 'post-views-count-num ' + (opts.numClass || (light ? 'font-semibold' : 'font-semibold'));
+      return '<span class="' + cls + '" data-post-id="' + idA + '" title="' + n.toLocaleString() + ' views" aria-label="' + n.toLocaleString() + ' views">'
+        + postViewsIconSvg(iconClass)
+        + '<span class="' + numClass + '">' + formatViewCount(n) + '</span></span>';
+    }
+    function updatePostViewsDisplays(postId, count) {
+      const id = String(postId);
+      const n = Math.max(0, Math.floor(Number(count) || 0));
+      const label = formatViewCount(n);
+      const title = n.toLocaleString() + ' views';
+      document.querySelectorAll('.post-views-count').forEach(el => {
+        if (String(el.getAttribute('data-post-id') || '') !== id) return;
+        el.title = title;
+        el.setAttribute('aria-label', title);
+        const num = el.querySelector('.post-views-count-num');
+        if (num) num.textContent = label;
+      });
+      const modal = document.getElementById('modal-views-count');
+      if (modal && state.currentModalPostId != null && String(state.currentModalPostId) === id) {
+        modal.setAttribute('data-post-id', id);
+        modal.title = title;
+        modal.setAttribute('aria-label', title);
+        const num = modal.querySelector('.post-views-count-num');
+        if (num) num.textContent = label;
+      }
+    }
+    function queuePostView(postId) {
+      if (!canCountPostView(postId)) return false;
+      const id = String(postId);
+      _pendingViewIncrements.add(id);
+      markPostViewedLocal(id);
+      const post = findPostForViews(id);
+      if (post) {
+        post.views = getPostViewsCount(post) + 1;
+        updatePostViewsDisplays(id, post.views);
+      }
+      scheduleViewsFlush();
+      return true;
+    }
+    function scheduleViewsFlush() {
+      if (_viewsFlushTimer) return;
+      const ms = (typeof window.PIXLY_VIEWS_FLUSH_MS === 'number') ? window.PIXLY_VIEWS_FLUSH_MS : PIXLY_VIEWS_FLUSH_MS;
+      _viewsFlushTimer = setTimeout(function () {
+        _viewsFlushTimer = null;
+        flushPostViewIncrements();
+      }, ms);
+    }
+    function getPendingPostViewIds() {
+      return Array.from(_pendingViewIncrements);
+    }
+    async function flushPostViewIncrements() {
+      if (_viewsFlushTimer) {
+        clearTimeout(_viewsFlushTimer);
+        _viewsFlushTimer = null;
+      }
+      if (!_pendingViewIncrements.size) return { ok: true, wrote: 0, skipped: 'empty' };
+      if (!window.firebase || !window.firebase.db || typeof window.firebase.updateDoc !== 'function' || typeof window.firebase.increment !== 'function' || typeof window.firebase.doc !== 'function') {
+        return { ok: false, wrote: 0, skipped: 'no-firebase' };
+      }
+      const ids = Array.from(_pendingViewIncrements).slice(0, PIXLY_VIEWS_FLUSH_MAX);
+      const { db, doc, updateDoc, increment } = window.firebase;
+      let wrote = 0;
+      const dropped = [];
+      await Promise.all(ids.map(async function (id) {
+        try {
+          await updateDoc(doc(db, 'posts', String(id)), { views: increment(1) });
+          dropped.push(id);
+          wrote += 1;
+        } catch (e) {
+          const msg = String((e && (e.code || e.message)) || e || '');
+          if (/not-found|not found|No document/i.test(msg)) dropped.push(id);
+        }
+      }));
+      dropped.forEach(function (id) { _pendingViewIncrements.delete(id); });
+      if (_pendingViewIncrements.size) scheduleViewsFlush();
+      return { ok: true, wrote: wrote, pending: _pendingViewIncrements.size };
+    }
+    function bindPostViewsPagehide() {
+      if (_viewsPagehideBound) return;
+      _viewsPagehideBound = true;
+      const flush = function () { try { flushPostViewIncrements(); } catch (e) {} };
+      window.addEventListener('pagehide', flush);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') flush();
+      });
+    }
+    function onPostViewIntersect(entries) {
+      const ratio = (typeof window.PIXLY_VIEWS_VISIBLE_RATIO === 'number') ? window.PIXLY_VIEWS_VISIBLE_RATIO : PIXLY_VIEWS_VISIBLE_RATIO;
+      const dwell = (typeof window.PIXLY_VIEWS_VISIBLE_MS === 'number') ? window.PIXLY_VIEWS_VISIBLE_MS : PIXLY_VIEWS_VISIBLE_MS;
+      entries.forEach(function (entry) {
+        const el = entry.target;
+        if (!el) return;
+        const id = (el.id === 'modal-post-detail')
+          ? (el.getAttribute('data-post-id') || state.currentModalPostId)
+          : el.getAttribute('data-post-id');
+        if (id == null || id === '') return;
+        const key = String(id) + '::' + (el.id || el.className || 'el');
+        const visible = entry.isIntersecting && (entry.intersectionRatio >= ratio);
+        if (visible) {
+          if (_viewVisibleTimers.has(key)) return;
+          if (!canCountPostView(id)) return;
+          const t = setTimeout(function () {
+            _viewVisibleTimers.delete(key);
+            queuePostView(id);
+          }, dwell);
+          _viewVisibleTimers.set(key, t);
+        } else {
+          const t = _viewVisibleTimers.get(key);
+          if (t) { clearTimeout(t); _viewVisibleTimers.delete(key); }
+        }
+      });
+    }
+    function observePostViewTargets() {
+      bindPostViewsPagehide();
+      if (typeof IntersectionObserver !== 'function') return;
+      const ratio = (typeof window.PIXLY_VIEWS_VISIBLE_RATIO === 'number') ? window.PIXLY_VIEWS_VISIBLE_RATIO : PIXLY_VIEWS_VISIBLE_RATIO;
+      if (!_postViewsObserver) {
+        _postViewsObserver = new IntersectionObserver(onPostViewIntersect, {
+          threshold: [0, ratio, 1],
+          root: null,
+          rootMargin: '0px'
+        });
+      }
+      const nodes = document.querySelectorAll('.post-card[data-post-id], .explore-grid-item[data-post-id], .profile-post-tile[data-post-id], .user-grid-item[data-post-id], .profile-saved-tile[data-post-id], #modal-post-detail');
+      nodes.forEach(function (el) {
+        if (el.id === 'modal-post-detail' && el.classList.contains('hidden')) return;
+        try { _postViewsObserver.observe(el); } catch (e) {}
+      });
+    }
+
+    window.PIXLY_VIEWS_VISIBLE_MS = PIXLY_VIEWS_VISIBLE_MS;
+    window.PIXLY_VIEWS_VISIBLE_RATIO = PIXLY_VIEWS_VISIBLE_RATIO;
+    window.PIXLY_VIEWS_FLUSH_MS = PIXLY_VIEWS_FLUSH_MS;
+    window.PIXLY_VIEWS_FLUSH_MAX = PIXLY_VIEWS_FLUSH_MAX;
+    window.PIXLY_VIEWED_IDS_CAP = PIXLY_VIEWED_IDS_CAP;
+    window.PIXLY_VIEWS_PER_POST_VIEWER_CAP = PIXLY_VIEWS_PER_POST_VIEWER_CAP;
+    window.formatViewCount = formatViewCount;
+    window.getPostViewsCount = getPostViewsCount;
+    window.getViewsUsername = getViewsUsername;
+    window.viewedPostsStorageKey = viewedPostsStorageKey;
+    window.readViewedPostIds = readViewedPostIds;
+    window.hasViewedPost = hasViewedPost;
+    window.canCountPostView = canCountPostView;
+    window.queuePostView = queuePostView;
+    window.flushPostViewIncrements = flushPostViewIncrements;
+    window.getPendingPostViewIds = getPendingPostViewIds;
+    window.observePostViewTargets = observePostViewTargets;
+    window.postViewsCountHtml = postViewsCountHtml;
+    window.updatePostViewsDisplays = updatePostViewsDisplays;
+    window.isPostAuthorCurrentUser = isPostAuthorCurrentUser;
+
+
     function renderFeed() {
       const stream = document.getElementById('posts-stream');
       if (!stream) return;
@@ -7336,6 +7621,7 @@ function syncLikedStateToPosts() {
       if (feedPosts.length === 0) {
         stream.innerHTML = buildSuggestedCreatorsHtml(true);
         attachFeedCardEventListeners();
+        if (typeof observePostViewTargets === 'function') observePostViewTargets();
         return;
       }
 
@@ -7423,9 +7709,12 @@ function syncLikedStateToPosts() {
                 </button>
               </div>
 
-              <!-- Likes Count -->
-              <div class="font-bold text-xs text-neutral-900 cursor-pointer" onclick="openPostDetailModal(${post.id})">
-                ${(post.likes || 0).toLocaleString()} likes
+              <!-- Likes + views -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="font-bold text-xs text-neutral-900 cursor-pointer" onclick="openPostDetailModal(${post.id})">
+                  ${(post.likes || 0).toLocaleString()} likes
+                </div>
+                ${postViewsCountHtml(post)}
               </div>
 
               <!-- Caption (omitted entirely when the post has no caption) -->
@@ -7536,6 +7825,7 @@ function syncLikedStateToPosts() {
 
       stream.innerHTML = postsHtml + endOfFeedBanner;
       attachFeedCardEventListeners();
+      if (typeof observePostViewTargets === 'function') observePostViewTargets();
     }
 
     function attachFeedCardEventListeners() {
@@ -7995,6 +8285,7 @@ function syncLikedStateToPosts() {
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   <span>${(post.comments || []).length}</span>
                 </div>
+                ${postViewsCountHtml(post, { compact: true, light: true })}
               </div>
             </div>
           `).join('');
@@ -8008,6 +8299,7 @@ function syncLikedStateToPosts() {
           openPostDetailModal(postId);
         });
       });
+      if (typeof observePostViewTargets === 'function') observePostViewTargets();
 
       renderSaved();
     }
@@ -9712,9 +10004,12 @@ function syncLikedStateToPosts() {
               </button>
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6 flex items-end justify-between text-white text-[10px] sm:text-xs font-semibold z-10 pointer-events-none">
                 <span class="btn-explore-post-author truncate max-w-[70%] drop-shadow-sm pointer-events-auto cursor-pointer hover:underline hover:text-violet-300 transition" data-author="${author}" onclick="event.stopPropagation(); viewUserProfile('${author}', 'explore')" title="View @${author}'s profile">@${author}</span>
-                <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
-                  <span>${isLiked ? '❤️' : '🤍'}</span>
-                  <span class="explore-like-count">${Number(post.likes) || 0}</span>
+                <span class="flex items-center space-x-2">
+                  <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
+                    <span>${isLiked ? '❤️' : '🤍'}</span>
+                    <span class="explore-like-count">${Number(post.likes) || 0}</span>
+                  </span>
+                  ${postViewsCountHtml(post, { compact: true, light: true })}
                 </span>
               </div>
             </div>`;
@@ -9970,6 +10265,7 @@ function syncLikedStateToPosts() {
         });
         observeExploreLoadMore(notesList);
       }
+      if (typeof observePostViewTargets === 'function') observePostViewTargets();
     }
 
     // --- Open Post Detail Modal ---
@@ -9992,6 +10288,16 @@ function syncLikedStateToPosts() {
         };
       }
       document.getElementById('modal-likes-count').textContent = `${post.likes.toLocaleString()} likes`;
+      if (modal) modal.setAttribute('data-post-id', String(postId));
+      const viewsBox = document.getElementById('modal-views-count');
+      if (viewsBox) {
+        const vn = (typeof getPostViewsCount === 'function') ? getPostViewsCount(post) : (Number(post.views) || 0);
+        viewsBox.setAttribute('data-post-id', String(postId));
+        viewsBox.title = vn.toLocaleString() + ' views';
+        viewsBox.setAttribute('aria-label', vn.toLocaleString() + ' views');
+        const num = viewsBox.querySelector('.post-views-count-num');
+        if (num) num.textContent = (typeof formatViewCount === 'function') ? formatViewCount(vn) : String(vn);
+      }
       document.getElementById('modal-timestamp').textContent = formatPixlyTimestamp(post, post.timestamp || 'RECENT');
 
       // Update Like Icon in modal
@@ -10152,6 +10458,7 @@ function syncLikedStateToPosts() {
       `;
 
       modal.classList.remove('hidden'); modal.style.display = 'flex'; modal.style.display = 'flex';
+      if (typeof observePostViewTargets === 'function') observePostViewTargets();
     }
 
     function closePostDetailModal() {
@@ -10159,6 +10466,7 @@ function syncLikedStateToPosts() {
       if (postModalEl) {
         postModalEl.classList.add('hidden');
         postModalEl.style.display = 'none';
+        postModalEl.removeAttribute('data-post-id');
       }
       state.currentModalPostId = null;
       renderFeed();
@@ -11800,6 +12108,7 @@ function syncLikedStateToPosts() {
           caption: caption || '',
           tags: caption.match(/#[a-zA-Z0-9_]+/g) || [],
           likes: 0,
+          views: 0,
           isLiked: false,
           timestamp: 'JUST NOW',
           createdAtMs: now,
@@ -13569,6 +13878,7 @@ function syncLikedStateToPosts() {
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                   <span>${post.comments ? post.comments.length : 0}</span>
                 </div>
+                ${postViewsCountHtml(post, { compact: true, light: true })}
               </div>
             </div>
           `).join('');
@@ -13579,6 +13889,7 @@ function syncLikedStateToPosts() {
               openPostDetailModal(pid);
             });
           });
+          if (typeof observePostViewTargets === 'function') observePostViewTargets();
         }
       }
 
@@ -23635,6 +23946,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <ul class="list-disc pl-5 space-y-1 text-neutral-600">
               <li><strong>Account Identifiers:</strong> Username, full name, email address, phone number (optional/for 2FA and account recovery), hashed passwords, profile photo (avatar), and public bio.</li>
               <li><strong>User Content:</strong> Photos, images, vibe notes, written comments, replies, like reactions, and saved/bookmarked collections.</li>
+              <li><strong>Post view counts:</strong> When a post stays on screen (about half visible for about a second), we increment a view count on that post document only (posts/{id}.views), not on your user profile. This device remembers which posts you have already counted so the same view is not counted twice. We do not count a creator's views of their own posts.</li>
               <li><strong>Technical & Device Telemetry:</strong> IP addresses, browser user-agent, device characteristics, timestamps, referral domains, and crash reports necessary to deliver secure real-time services.</li>
               <li><strong>AI Assistant Data:</strong> Text prompts and queries submitted to Pixlynote AI (powered by Google Gemini) for caption crafting, photo critiques, and vibe notes. API calls do not use your personal images to train foundational models without consent.</li>
             </ul>
@@ -23642,7 +23954,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">How We Use Your Data</h4>
-            <p>Your data is strictly utilized to operate, maintain, and personalize the Pixlynote service: authenticating sessions, synchronizing profile updates across devices via Google Cloud Firestore, delivering the Explore feeds, and protecting against spam, bots, or unauthorized access.</p>
+            <p>Your data is strictly utilized to operate, maintain, and personalize the Pixlynote service: authenticating sessions, synchronizing profile updates across devices via Google Cloud Firestore, delivering the Explore feeds, showing post view counts, and protecting against spam, bots, or unauthorized access.</p>
           </div>
 
           <div class="space-y-2">
