@@ -1616,8 +1616,15 @@
 
         <!-- Caption -->
         <div id="create-caption-group">
-          <label class="block text-xs font-semibold text-neutral-700 mb-1">Caption</label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="create-caption-input" class="block text-xs font-semibold text-neutral-700">Caption</label>
+            <button type="button" id="btn-caption-gemini" onclick="suggestCaptionsWithGemini()" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-[10px] font-bold text-violet-700 hover:bg-violet-100 active:scale-95 transition cursor-pointer disabled:opacity-60 disabled:cursor-wait">✨ Suggest with Gemini</button>
+          </div>
           <textarea id="create-caption-input" rows="3" placeholder="Write a caption... add hashtags #photography #sunset" class="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400"></textarea>
+          <div id="create-caption-ai" class="hidden mt-1.5 rounded-lg border border-violet-100 bg-violet-50/50 p-2">
+            <div id="create-caption-ai-status" class="text-[10px] font-semibold text-violet-700"></div>
+            <div id="create-caption-ai-chips" class="flex flex-col gap-1.5 mt-1"></div>
+          </div>
           <div id="create-caption-suggestions" class="mt-1.5">
             <div class="flex items-center justify-between mb-1">
               <span class="text-[10px] font-semibold text-neutral-500">Suggested captions</span>
@@ -11523,6 +11530,144 @@ function syncLikedStateToPosts() {
     }
     window.renderCaptionSuggestions = renderCaptionSuggestions;
 
+    // ---- ✨ Suggest with Gemini (Create New Post) ----
+    // Same path as Pixai chat: getPixaiApiKey() (window.PIXAI_GOOGLE_API_KEY or the key saved in Pixai, localStorage
+    // 'pixai_gemini_key') + generativelanguage.googleapis.com generateContent. Nothing is filled unless a chip is tapped,
+    // and there is NO canned fallback on failure.
+    window.PIXAI_GEMINI_ENDPOINTS = [
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+    ];
+    const AI_CAPTION_DAILY_CAP = 20;
+    function aiCaptionUsageKey() {
+      const u = (state.isLoggedIn && state.currentUser && state.currentUser.username) ? normalizeUsername(state.currentUser.username) : 'guest';
+      return 'pixly_ai_caption_usage_' + u;
+    }
+    function aiCaptionToday() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function getAiCaptionUsage() {
+      try { const r = JSON.parse(localStorage.getItem(aiCaptionUsageKey()) || 'null'); if (r && r.day === aiCaptionToday()) return Number(r.n) || 0; } catch(e) {}
+      return 0;
+    }
+    function bumpAiCaptionUsage() { try { localStorage.setItem(aiCaptionUsageKey(), JSON.stringify({ day: aiCaptionToday(), n: getAiCaptionUsage() + 1 })); } catch(e) {} }
+    function resetAiCaptionUi() {
+      const box = document.getElementById('create-caption-ai'); if (box) box.classList.add('hidden');
+      const chips = document.getElementById('create-caption-ai-chips'); if (chips) chips.innerHTML = '';
+      const st = document.getElementById('create-caption-ai-status'); if (st) st.textContent = '';
+      const btn = document.getElementById('btn-caption-gemini'); if (btn) { btn.disabled = false; btn.textContent = '✨ Suggest with Gemini'; }
+      window._aiCaptionReq = (window._aiCaptionReq || 0) + 1;
+    }
+    window.resetAiCaptionUi = resetAiCaptionUi;
+    function currentCreateImageSrc() {
+      let src = state.selectedCreateImage;
+      if (!src) {
+        const prev = document.getElementById('create-preview-img');
+        if (prev && prev.src && !prev.src.startsWith('data:image/svg+xml;base64,PHN2Zy')) src = prev.src;
+      }
+      if (!src) src = (typeof PRESET_IMAGES !== 'undefined' && PRESET_IMAGES[0]) ? PRESET_IMAGES[0].path : '';
+      return src || '';
+    }
+    // Downscale to max 512px JPEG so the request stays small (free tier friendly).
+    function downscaleImageForAi(src, maxDim = 512) {
+      return new Promise((resolve, reject) => {
+        if (!src) return reject(new Error('no image'));
+        const img = new Image();
+        if (!/^data:|^blob:/.test(src)) img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const w0 = img.naturalWidth || img.width || maxDim, h0 = img.naturalHeight || img.height || maxDim;
+            const k = Math.min(1, maxDim / Math.max(w0, h0));
+            const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w0 * k)); c.height = Math.max(1, Math.round(h0 * k));
+            const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+            resolve(c.toDataURL('image/jpeg', 0.75).split(',')[1]);
+          } catch(e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error('image load failed'));
+        img.src = src;
+      });
+    }
+    function parseAiCaptions(text) {
+      if (!text) return [];
+      let arr = null;
+      const m = String(text).match(/\[[\s\S]*\]/);
+      if (m) { try { arr = JSON.parse(m[0]); } catch(e) {} }
+      if (!Array.isArray(arr)) arr = String(text).split('\n').map(l => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^"|"$/g, '').trim()).filter(Boolean);
+      return arr.map(x => (typeof x === 'string' ? x : (x && (x.caption || x.text)) || '')).map(x => String(x).replace(/\s+/g, ' ').trim())
+        .filter(x => x.length > 0 && x.length <= 220).filter((x, i, a) => a.indexOf(x) === i).slice(0, 3);
+    }
+    async function suggestCaptionsWithGemini() {
+      const btn = document.getElementById('btn-caption-gemini');
+      const box = document.getElementById('create-caption-ai');
+      const st = document.getElementById('create-caption-ai-status');
+      const chipsEl = document.getElementById('create-caption-ai-chips');
+      if (!box || !st || !chipsEl) return;
+      const reqId = (window._aiCaptionReq = (window._aiCaptionReq || 0) + 1);
+      const fail = (msg) => {
+        if (reqId !== window._aiCaptionReq) return;
+        chipsEl.innerHTML = '';
+        st.textContent = msg || "Couldn't get a suggestion. Try again in a moment.";
+        st.className = 'text-[10px] font-semibold text-rose-600';
+        box.classList.remove('hidden');
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Suggest with Gemini'; }
+      };
+      box.classList.remove('hidden'); chipsEl.innerHTML = '';
+      const apiKey = (typeof getPixaiApiKey === 'function') ? getPixaiApiKey() : '';
+      if (!apiKey || apiKey.length < 10) return fail("Couldn't get a suggestion: Gemini isn't connected yet (add the key in the AI tab).");
+      if (getAiCaptionUsage() >= AI_CAPTION_DAILY_CAP) return fail(`Couldn't get a suggestion: daily limit of ${AI_CAPTION_DAILY_CAP} reached. Try again tomorrow.`);
+      st.textContent = 'Looking at your photo…'; st.className = 'text-[10px] font-semibold text-violet-700 animate-pulse';
+      if (btn) { btn.disabled = true; btn.textContent = '✨ Thinking…'; }
+      let b64 = '';
+      try { b64 = await downscaleImageForAi(currentCreateImageSrc()); } catch(e) { return fail("Couldn't get a suggestion: the photo couldn't be read."); }
+      const inp = document.getElementById('create-caption-input');
+      const hint = inp ? inp.value.trim().slice(0, 300) : '';
+      const prompt = 'Write 3 different short, engaging Instagram-style captions for this photo, describing what is actually in it. '
+        + 'Each caption: one line, under 120 characters, natural tone, at most 1 emoji, ending with 2-3 relevant hashtags. '
+        + (hint ? `Take this note from the author into account: "${hint}". ` : '')
+        + 'Return ONLY a JSON array of 3 strings.';
+      const payload = {
+        contents: [{ role: 'user', parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 400 }
+      };
+      bumpAiCaptionUsage();
+      let captions = [];
+      for (const base of window.PIXAI_GEMINI_ENDPOINTS) {
+        if (reqId !== window._aiCaptionReq) return;
+        try {
+          const res = await fetch(`${base}?key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (res.status === 429) break; // quota hit: don't hammer the other models
+          if (!res.ok) continue;
+          const data = await res.json();
+          const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+          captions = parseAiCaptions(Array.isArray(parts) ? parts.map(x => x.text || '').join('\n') : '');
+          if (captions.length) break;
+        } catch(e) { console.warn('Gemini caption request failed', e); }
+      }
+      if (reqId !== window._aiCaptionReq) return;
+      if (!captions.length) return fail("Couldn't get a suggestion. Try again in a moment.");
+      const left = Math.max(0, AI_CAPTION_DAILY_CAP - getAiCaptionUsage());
+      st.textContent = `Tap one to use it (you can edit it) · ${left} left today`;
+      st.className = 'text-[10px] font-semibold text-violet-700';
+      captions.forEach(text => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ai-caption-chip text-left px-2.5 py-1.5 rounded-lg border border-violet-200 bg-white text-[11px] font-medium text-neutral-800 hover:border-violet-400 active:scale-[0.99] transition cursor-pointer';
+        b.textContent = text;
+        b.addEventListener('click', () => {
+          const ta = document.getElementById('create-caption-input'); if (!ta) return;
+          ta.value = text; ta.focus();
+          try { ta.setSelectionRange(text.length, text.length); } catch(e) {}
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        chipsEl.appendChild(b);
+      });
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Suggest with Gemini'; }
+    }
+    window.suggestCaptionsWithGemini = suggestCaptionsWithGemini;
+
     function openCreatePostModal(mode = "post") {
       const modal = document.getElementById('modal-create-post');
       if (modal) {
@@ -11531,6 +11676,7 @@ function syncLikedStateToPosts() {
       }
       setCreateWizardMode(mode);
       renderCaptionSuggestions(true);
+      resetAiCaptionUi();
     }
 
     function closeCreatePostModal() {
@@ -20989,7 +21135,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
       if (apiKey && apiKey.length >= 10) {
         // Multi-endpoint automatic resolver for Google Generative AI
-        const candidateModels = [
+        const candidateModels = (Array.isArray(window.PIXAI_GEMINI_ENDPOINTS) && window.PIXAI_GEMINI_ENDPOINTS.length) ? window.PIXAI_GEMINI_ENDPOINTS : [
           'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
           'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
           'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
