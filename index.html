@@ -6802,8 +6802,20 @@ function syncLikedStateToPosts() {
       const feedVisible = !!(tabFeed && !tabFeed.classList.contains('hidden') && tabFeed.style.display !== 'none');
       return !!(onFeed && feedVisible);
     }
+    function isExploreNotesTabVisible() {
+      if (!state.isLoggedIn) return false;
+      const tabExplore = document.getElementById('tab-explore');
+      const notes = document.getElementById('explore-notes-container');
+      const onExplore = (state.activeTab === 'explore');
+      const exploreVisible = !!(tabExplore && !tabExplore.classList.contains('hidden') && tabExplore.style.display !== 'none');
+      const notesVisible = !!(notes && !notes.classList.contains('hidden') && notes.style.display !== 'none');
+      return !!(onExplore && exploreVisible && state.exploreSubTab === 'notes' && notesVisible);
+    }
+    function shouldUseNoteComposerSheet() {
+      return !!(isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
+    }
     function isNoteFabContextVisible() {
-      return !!(isOwnProfileNotesTabVisible() || isFeedTabVisibleForNotes());
+      return !!(isOwnProfileNotesTabVisible() || isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
     }
     function isNoteComposerExpanded() {
       const panel = document.getElementById('note-composer-panel');
@@ -6840,8 +6852,8 @@ function syncLikedStateToPosts() {
       const panel = document.getElementById('note-composer-panel');
       const fab = document.getElementById('btn-note-fab');
       const sheet = document.getElementById('note-composer-sheet');
-      const onFeed = isFeedTabVisibleForNotes();
-      if (expanded && onFeed) {
+      const useSheet = shouldUseNoteComposerSheet();
+      if (expanded && useSheet) {
         moveNoteComposerToSheet();
         if (sheet) {
           sheet.classList.add('is-open');
@@ -6876,7 +6888,7 @@ function syncLikedStateToPosts() {
         if (input) {
           try { input.focus(); } catch (e) {}
         }
-        if (!onFeed) {
+        if (!useSheet) {
           try { if (panel) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
         }
       }
@@ -6925,6 +6937,8 @@ function syncLikedStateToPosts() {
     }
     window.isOwnProfileNotesTabVisible = isOwnProfileNotesTabVisible;
     window.isFeedTabVisibleForNotes = isFeedTabVisibleForNotes;
+    window.isExploreNotesTabVisible = isExploreNotesTabVisible;
+    window.shouldUseNoteComposerSheet = shouldUseNoteComposerSheet;
     window.isNoteFabContextVisible = isNoteFabContextVisible;
     window.isNoteComposerExpanded = isNoteComposerExpanded;
     window.updateNoteComposerFab = updateNoteComposerFab;
@@ -7311,8 +7325,42 @@ function syncLikedStateToPosts() {
     }
     window.pruneExpiredUserStories = pruneExpiredUserStories;
 
+    function isPinnedFeedStory(story) {
+      if (!story) return false;
+      if (typeof isOwnStoryObj === 'function') return isOwnStoryObj(story);
+      const raw = String(story.username || '').trim().toLowerCase().replace(/^@/, '');
+      if (raw === 'your story') return true;
+      if (story.isUser === true) return true;
+      const cur = (typeof storyViewerKey === 'function') ? storyViewerKey() : '';
+      const owner = (typeof storyOwnerOf === 'function') ? storyOwnerOf(story) : raw;
+      return !!(cur && owner && cur === owner);
+    }
+    function feedStoryRingState(story) {
+      if (!story) return 'none';
+      const owner = storyOwnerOf(story);
+      const own = Array.isArray(state.userStories) ? state.userStories : [];
+      const list = (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story))
+        ? own
+        : [{ ...story, timestamp: story.timestamp || Date.now() }];
+      return getStoryRingState(owner, list);
+    }
+    function sortFeedStoriesByViewed() {
+      if (!Array.isArray(state.stories) || state.stories.length < 2) return state.stories;
+      const items = state.stories.map((story, idx) => ({ story, idx, pinned: isPinnedFeedStory(story), ring: feedStoryRingState(story) }));
+      const pinned = items.filter(x => x.pinned).sort((a, b) => a.idx - b.idx);
+      const rest = items.filter(x => !x.pinned);
+      const unviewed = rest.filter(x => x.ring !== 'viewed').sort((a, b) => a.idx - b.idx);
+      const viewed = rest.filter(x => x.ring === 'viewed').sort((a, b) => a.idx - b.idx);
+      state.stories = pinned.concat(unviewed, viewed).map(x => x.story);
+      return state.stories;
+    }
+    window.isPinnedFeedStory = isPinnedFeedStory;
+    window.feedStoryRingState = feedStoryRingState;
+    window.sortFeedStoriesByViewed = sortFeedStoriesByViewed;
+
     function renderStories() {
       pruneExpiredUserStories(true);
+      sortFeedStoriesByViewed();
       const container = document.getElementById('stories-container');
       if (!container) return;
       container.innerHTML = state.stories.map((story, idx) => `
@@ -17146,7 +17194,8 @@ function syncLikedStateToPosts() {
       if (ownerMenu) ownerMenu.classList.add('hidden');
       const storyModalEl = document.getElementById('modal-story-viewer'); storyModalEl.classList.add('hidden'); storyModalEl.style.display = 'none';
       state.activeStory = null;
-      refreshStoryRings();
+      if (typeof renderStories === 'function') renderStories();
+      else refreshStoryRings();
     }
 
     // --- Create Post Presets Initialization ---
@@ -22468,6 +22517,8 @@ function syncLikedStateToPosts() {
           expBtnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition";
           if (expBtnNotes) expBtnNotes.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition";
           renderExplore();
+          if (typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false, { focus: false });
+          if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
         });
 
         if (expBtnNotes) expBtnNotes.addEventListener('click', () => {
@@ -22477,6 +22528,7 @@ function syncLikedStateToPosts() {
           expBtnNotes.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-neutral-900 text-neutral-900 transition";
           if (expBtnPosts) expBtnPosts.className = "flex-1 py-3 text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 border-b-2 border-transparent text-neutral-400 hover:text-neutral-700 transition";
           renderExplore();
+          if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
         });
 
         const expSearchInput = document.getElementById('explore-search-input');
