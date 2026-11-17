@@ -790,6 +790,7 @@
                     </svg>
                   </div>
                   <div class="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 text-[11px] text-neutral-500">
+                    <button type="button" id="profile-contact-hint" onclick="openContactPreferences()" class="hidden text-[10px] text-neutral-400 hover:text-violet-700 underline-offset-2 hover:underline cursor-pointer"></button>
                     <div class="flex items-center space-x-1" id="profile-email-badge-wrap" style="display: none;">
                       <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                       <span id="profile-email-badge"></span>
@@ -807,6 +808,8 @@
                     <span>New post</span>
                   </button>
                   <button type="button" id="btn-edit-profile-modal" onclick="openEditProfileModal()" class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-800 text-xs font-semibold rounded-xl transition cursor-pointer">Edit profile</button>
+                  <a id="btn-profile-contact-email" href="#" class="hidden p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-violet-700 rounded-xl transition cursor-pointer inline-flex items-center justify-center" title="Email" aria-label="Email"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>
+                  <a id="btn-profile-contact-call" href="#" class="hidden p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-violet-700 rounded-xl transition cursor-pointer inline-flex items-center justify-center" title="Call" aria-label="Call"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></a>
                   <button type="button" id="btn-share-profile" class="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-800 text-xs font-semibold rounded-xl transition cursor-pointer">Share profile</button>
                   <button type="button" id="btn-profile-row-menu" onclick="openProfileMenu()" class="p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-neutral-900 rounded-xl transition cursor-pointer" title="Account Menu">
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -1069,6 +1072,8 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     <span>Message</span>
                   </button>
+                  <a id="btn-user-profile-contact-email" href="#" class="hidden p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-violet-700 rounded-xl transition cursor-pointer inline-flex items-center justify-center" title="Email" aria-label="Email"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>
+                  <a id="btn-user-profile-contact-call" href="#" class="hidden p-2 bg-neutral-100 hover:bg-neutral-200 active:scale-95 text-neutral-700 hover:text-violet-700 rounded-xl transition cursor-pointer inline-flex items-center justify-center" title="Call" aria-label="Call"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></a>
                 </div>
               </div>
 
@@ -2508,6 +2513,43 @@
 
       <!-- VIEW 3: ACCOUNT INFO -->
       <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
+        <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-neutral-100">
+          <button type="button" id="btn-ac-info-tab-details" onclick="setAccountInfoTab('details')" class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer">Details</button>
+          <button type="button" id="btn-ac-info-tab-contact" onclick="setAccountInfoTab('contact')" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Contact Preferences</button>
+        </div>
+        <div id="ac-info-panel-contact" class="hidden space-y-3">
+          <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Choose which contact buttons appear on your profile. They're off until you turn them on.</p>
+          <div class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <span class="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+                  <div class="min-w-0">
+                    <div class="text-xs font-bold text-neutral-900">Email Visibility</div>
+                    <div id="ac-contact-email-value" class="text-[10px] text-neutral-500 truncate">Not set</div>
+                  </div>
+                </div>
+                <button type="button" id="ac-toggle-show-email" role="switch" aria-checked="false" aria-label="Email Visibility" onclick="toggleContactPref('showEmail')" class="relative w-10 h-6 rounded-full bg-neutral-300 transition flex-shrink-0 cursor-pointer"><span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"></span></button>
+              </div>
+              <p id="ac-contact-email-note" class="hidden text-[10px] text-amber-700 mt-2">Add an email address in Edit profile. The Email button stays hidden until you do.</p>
+            </div>
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></span>
+                  <div class="min-w-0">
+                    <div class="text-xs font-bold text-neutral-900">Phone Visibility</div>
+                    <div id="ac-contact-phone-value" class="text-[10px] text-neutral-500 truncate">Not set</div>
+                  </div>
+                </div>
+                <button type="button" id="ac-toggle-show-phone" role="switch" aria-checked="false" aria-label="Phone Visibility" onclick="toggleContactPref('showPhone')" class="relative w-10 h-6 rounded-full bg-neutral-300 transition flex-shrink-0 cursor-pointer"><span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"></span></button>
+              </div>
+              <p id="ac-contact-phone-note" class="hidden text-[10px] text-amber-700 mt-2">Add a phone number in Edit profile. The Call button stays hidden until you do.</p>
+            </div>
+          </div>
+          <p class="text-[10px] text-neutral-400 px-1">When on, visitors see an Email or Call button next to Message on your profile.</p>
+        </div>
+        <div id="ac-info-panel-details" class="space-y-4">
         <div class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
           <div class="flex items-center justify-between px-4 py-3 text-xs">
             <span class="font-semibold text-neutral-500">@username</span>
@@ -2531,6 +2573,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
           <span>Log out</span>
         </button>
+        </div>
       </div>
 
       <!-- VIEW 4: CHANGE YOUR PASSWORD -->
@@ -2995,6 +3038,7 @@
                   return;
                 }
                 console.log("Firestore cloud data received for bradley_hansen:", data);
+                if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc('bradley_hansen', data, Boolean(snap.metadata && snap.metadata.hasPendingWrites));
                 // 1. Profile Picture & Story Avatar
                 const photo = data.photoURL || data.avatar;
                 if (photo) {
@@ -3284,6 +3328,7 @@
             if (!d || !cleanU) return;
             const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
             if (curU !== cleanU) return;
+            if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
             const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
             if (!hasPendingWrites && !recentlyMutatedProfile) {
               let profileChanged = false;
@@ -7021,12 +7066,12 @@ function syncLikedStateToPosts() {
         }
       }
 
-      // Email badge: NEVER shown for Pixlynote (user did not put an email); shown for Bradley Hansen
+      // Contact buttons (Email / Call) follow the owner's Contact Preferences; the old "Email:/Call:" text line is retired.
+      if (typeof renderOwnContactButtons === 'function') renderOwnContactButtons();
       const emailWrap = document.getElementById('profile-email-badge-wrap');
       const emailBadge = document.getElementById('profile-email-badge');
       if (emailWrap && emailBadge) {
-        if (!isPixly && state.currentUser.email && state.currentUser.email.trim()) {
-          emailBadge.textContent = state.currentUser.email.trim();
+        if (false) {
           emailWrap.classList.remove('hidden');
           emailWrap.style.display = 'inline-flex';
         } else {
@@ -7040,9 +7085,8 @@ function syncLikedStateToPosts() {
       const phoneWrap = document.getElementById('profile-phone-badge-wrap');
       const phoneBadge = document.getElementById('profile-phone-badge');
       if (phoneWrap && phoneBadge) {
-        const ph = String(state.currentUser.phone || '').trim();
+        const ph = '';
         if (ph) {
-          phoneBadge.textContent = ph;
           phoneWrap.classList.remove('hidden');
           phoneWrap.style.display = 'inline-flex';
         } else {
@@ -12201,6 +12245,9 @@ function syncLikedStateToPosts() {
       const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       const vc = state.viewedCreator;
       if (!vc || normalizeUsername(vc.username) !== u) return;
+      // Contact buttons come ONLY from this profile's own users/{u} doc (never the viewer's or Bradley's record).
+      vc._contact = { user: u, email: typeof d.email === 'string' ? d.email : '', phone: typeof d.phone === 'string' ? d.phone : '', prefs: normalizeContactPrefs(d.contactPrefs) };
+      renderViewedContactButtons();
       if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; setText('user-profile-fullname', d.fullName); }
       if (typeof d.bio === 'string') { vc.bio = d.bio; setText('user-profile-bio', d.bio); }
       const av = d.photoURL || d.avatar;
@@ -12440,6 +12487,8 @@ function syncLikedStateToPosts() {
 
       // Update Follow button state
       updateCreatorFollowButton(creator);
+      // Contact buttons stay hidden until this profile's own doc arrives (applyViewedProfileDoc).
+      if (typeof renderViewedContactButtons === 'function') renderViewedContactButtons();
 
       // Render creator's posts
       const posts = getCreatorPosts(cleanU);
@@ -13818,6 +13867,8 @@ function syncLikedStateToPosts() {
         if (iconEl) iconEl.classList.add('hidden');
         if (titleEl) titleEl.textContent = 'Account Info';
         if (subEl) subEl.textContent = '@' + curU;
+        if (typeof setAccountInfoTab === 'function') setAccountInfoTab(window._acInfoNextTab || 'details');
+        window._acInfoNextTab = null;
         const uEl = document.getElementById('ac-info-username');
         const pEl = document.getElementById('ac-info-phone');
         const eEl = document.getElementById('ac-info-email');
@@ -14066,6 +14117,141 @@ function syncLikedStateToPosts() {
       }
     }
     window.setSecurityAccessTab = setSecurityAccessTab;
+
+    // --- Contact Preferences (users/{u}.contactPrefs = { showEmail, showPhone }, both default off) ---
+    function normalizeContactPrefs(p) {
+      return { showEmail: !!(p && p.showEmail === true), showPhone: !!(p && p.showPhone === true) };
+    }
+    window.normalizeContactPrefs = normalizeContactPrefs;
+    function contactOwnerKey() {
+      // The logged-in account only: never fall back to bradley_hansen.
+      if (!state.isLoggedIn || !state.currentUser || !state.currentUser.username) return '';
+      const u = normalizeUsername(state.currentUser.username);
+      return (u && u !== 'guest') ? u : '';
+    }
+    function getOwnContactPrefs() {
+      const u = contactOwnerKey();
+      if (state.currentUser && state.currentUser.contactPrefs && state.currentUser._contactPrefsFor === u) return normalizeContactPrefs(state.currentUser.contactPrefs);
+      try { const raw = u && localStorage.getItem('pixly_contact_prefs_' + u); if (raw) return normalizeContactPrefs(JSON.parse(raw)); } catch(e) {}
+      return normalizeContactPrefs(null);
+    }
+    window.getOwnContactPrefs = getOwnContactPrefs;
+    function applyContactPrefsFromDoc(u, d, hasPendingWrites) {
+      if (!d || u !== contactOwnerKey() || hasPendingWrites) return;
+      if ((Date.now() - (window._lastContactPrefsWriteTs || 0)) < 3500) return;
+      const prefs = normalizeContactPrefs(d.contactPrefs);
+      state.currentUser.contactPrefs = prefs; state.currentUser._contactPrefsFor = u;
+      try { localStorage.setItem('pixly_contact_prefs_' + u, JSON.stringify(prefs)); } catch(e) {}
+      renderOwnContactButtons(); renderContactPrefsPanel();
+    }
+    window.applyContactPrefsFromDoc = applyContactPrefsFromDoc;
+    function saveContactPrefs(prefs) {
+      const u = contactOwnerKey();
+      if (!u) return false;
+      const clean = normalizeContactPrefs(prefs);
+      state.currentUser.contactPrefs = clean; state.currentUser._contactPrefsFor = u;
+      window._lastContactPrefsWriteTs = Date.now();
+      try { localStorage.setItem('pixly_contact_prefs_' + u, JSON.stringify(clean)); } catch(e) {}
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { contactPrefs: clean }, { merge: true }).catch(err => {
+            console.warn('Contact preferences save notice:', err);
+            if (typeof showToast === 'function') showToast('Could not save Contact Preferences. Please try again.');
+          });
+        } catch(e) {}
+      }
+      renderOwnContactButtons(); renderContactPrefsPanel();
+      return true;
+    }
+    window.saveContactPrefs = saveContactPrefs;
+    function toggleContactPref(key) {
+      const prefs = getOwnContactPrefs();
+      prefs[key] = !prefs[key];
+      if (saveContactPrefs(prefs) && typeof showToast === 'function') {
+        showToast((key === 'showEmail' ? 'Email' : 'Phone') + ' button ' + (prefs[key] ? 'shown on' : 'hidden from') + ' your profile');
+      }
+    }
+    window.toggleContactPref = toggleContactPref;
+    function contactHrefs(email, phone) {
+      const e = String(email || '').trim(); const ph = String(phone || '').trim();
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+      const digits = ph.replace(/[^\d+]/g, '');
+      return { mail: validEmail ? 'mailto:' + e : '', tel: digits.replace(/\D/g, '').length >= 7 ? 'tel:' + digits : '', email: validEmail ? e : '', phone: digits.replace(/\D/g, '').length >= 7 ? ph : '' };
+    }
+    window.contactHrefs = contactHrefs;
+    function setContactBtn(el, href, label) {
+      if (!el) return;
+      if (href) { el.setAttribute('href', href); el.title = label; el.classList.remove('hidden'); el.style.display = ''; }
+      else { el.setAttribute('href', '#'); el.classList.add('hidden'); el.style.display = 'none'; }
+    }
+    function renderOwnContactButtons() {
+      const u = contactOwnerKey();
+      const prefs = getOwnContactPrefs();
+      const h = contactHrefs(u ? state.currentUser.email : '', u ? state.currentUser.phone : '');
+      setContactBtn(document.getElementById('btn-profile-contact-email'), prefs.showEmail ? h.mail : '', 'Email ' + h.email);
+      setContactBtn(document.getElementById('btn-profile-contact-call'), prefs.showPhone ? h.tel : '', 'Call ' + h.phone);
+      const hint = document.getElementById('profile-contact-hint');
+      if (hint) {
+        const hidden = [];
+        if (h.email && !prefs.showEmail) hidden.push('Email');
+        if (h.phone && !prefs.showPhone) hidden.push('phone');
+        if (u && hidden.length) {
+          hint.textContent = hidden.join(' & ') + ' hidden from visitors · Contact Preferences';
+          hint.classList.remove('hidden');
+        } else { hint.textContent = ''; hint.classList.add('hidden'); }
+      }
+    }
+    window.renderOwnContactButtons = renderOwnContactButtons;
+    function renderViewedContactButtons() {
+      const vc = state.viewedCreator;
+      const c = vc && vc._contact;
+      const ok = !!(c && vc.username && c.user === normalizeUsername(vc.username));
+      const h = ok ? contactHrefs(c.email, c.phone) : { mail: '', tel: '' };
+      setContactBtn(document.getElementById('btn-user-profile-contact-email'), ok && c.prefs.showEmail ? h.mail : '', 'Email ' + (h.email || ''));
+      setContactBtn(document.getElementById('btn-user-profile-contact-call'), ok && c.prefs.showPhone ? h.tel : '', 'Call ' + (h.phone || ''));
+    }
+    window.renderViewedContactButtons = renderViewedContactButtons;
+    function setToggleUi(el, on, disabledLook) {
+      if (!el) return;
+      el.setAttribute('aria-checked', on ? 'true' : 'false');
+      el.classList.toggle('bg-violet-600', on); el.classList.toggle('bg-neutral-300', !on);
+      el.classList.toggle('opacity-60', !!disabledLook);
+      const knob = el.querySelector('span'); if (knob) knob.style.transform = on ? 'translateX(16px)' : 'translateX(0)';
+    }
+    function renderContactPrefsPanel() {
+      const u = contactOwnerKey();
+      const prefs = getOwnContactPrefs();
+      const h = contactHrefs(u ? state.currentUser.email : '', u ? state.currentUser.phone : '');
+      const setTxt = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+      setTxt('ac-contact-email-value', h.email || 'No email on file');
+      setTxt('ac-contact-phone-value', h.phone || 'No phone number on file');
+      setToggleUi(document.getElementById('ac-toggle-show-email'), prefs.showEmail, !h.email);
+      setToggleUi(document.getElementById('ac-toggle-show-phone'), prefs.showPhone, !h.phone);
+      const en = document.getElementById('ac-contact-email-note'); if (en) en.classList.toggle('hidden', !!h.email);
+      const pn = document.getElementById('ac-contact-phone-note'); if (pn) pn.classList.toggle('hidden', !!h.phone);
+    }
+    window.renderContactPrefsPanel = renderContactPrefsPanel;
+    function setAccountInfoTab(tab) {
+      const isContact = tab === 'contact';
+      const on = 'py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
+      const off = 'py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
+      const d = document.getElementById('btn-ac-info-tab-details'), c = document.getElementById('btn-ac-info-tab-contact');
+      if (d) d.className = isContact ? off : on;
+      if (c) c.className = isContact ? on : off;
+      const pd = document.getElementById('ac-info-panel-details'), pc = document.getElementById('ac-info-panel-contact');
+      if (pd) pd.classList.toggle('hidden', isContact);
+      if (pc) pc.classList.toggle('hidden', !isContact);
+      if (isContact) renderContactPrefsPanel();
+    }
+    window.setAccountInfoTab = setAccountInfoTab;
+    function openContactPreferences() {
+      window._acInfoNextTab = 'contact';
+      if (typeof openAccountCenterModal === 'function') openAccountCenterModal();
+      if (typeof setAccountCenterView === 'function') setAccountCenterView('accountInfo');
+      setAccountInfoTab('contact');
+    }
+    window.openContactPreferences = openContactPreferences;
 
     function getSecurityUsernameKey() {
       const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
