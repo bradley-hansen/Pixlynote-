@@ -1254,7 +1254,7 @@
                     <span id="user-profile-follow-text">Connect</span>
                   </button>
                   <button type="button" id="btn-user-profile-cf-caret" class="px-1.5 py-2 rounded-r-xl border border-l-0 border-violet-200 bg-white hover:bg-emerald-50 transition cursor-pointer flex items-center gap-0.5 flex-shrink-0" title="Close Friends" aria-label="Close Friends menu" aria-haspopup="true">
-                    <img src="assets/close-friends-hands.webp" srcset="assets/close-friends-hands.webp 1x, assets/close-friends-hands@2x.webp 2x" alt="" class="cf-hands-emblem w-5 h-5 rounded-full object-cover flex-shrink-0" width="20" height="20">
+                    <img src="assets/close-friends-hands.webp" srcset="assets/close-friends-hands.webp 1x, assets/close-friends-hands@2x.webp 2x" alt="" class="cf-hands-emblem w-5 h-5 rounded-full object-cover flex-shrink-0 hidden" width="20" height="20">
                     <svg class="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                   </button>
                   </div>
@@ -8007,7 +8007,12 @@ function syncLikedStateToPosts() {
       if (caret) {
         caret.className = on
           ? 'px-1.5 py-2 rounded-r-xl border border-l-0 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer flex items-center gap-0.5 flex-shrink-0'
-          : 'px-1.5 py-2 rounded-r-xl border border-l-0 border-violet-200 bg-white hover:bg-emerald-50 transition cursor-pointer flex items-center gap-0.5 flex-shrink-0';
+          : 'px-2 py-2 rounded-r-xl border border-l-0 border-violet-200 bg-white hover:bg-emerald-50 transition cursor-pointer flex items-center gap-0.5 flex-shrink-0';
+        const hands = caret.querySelector('.cf-hands-emblem');
+        if (hands) {
+          if (on) hands.classList.remove('hidden');
+          else hands.classList.add('hidden');
+        }
       }
       if (menuBtn) menuBtn.textContent = on ? 'Remove from Close Friends' : 'Add to Close Friends';
       const moreBlock = document.getElementById('btn-menu-block');
