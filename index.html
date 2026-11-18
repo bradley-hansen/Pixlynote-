@@ -1053,20 +1053,20 @@
               <span>NOTES</span>
             </button>
 
-            <!-- 3. Info & About (public, same as visitor/signed-out) -->
-            <button type="button" id="tab-btn-info" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              <span>INFO & ABOUT</span>
-            </button>
-
-            <!-- 4. Replies (owner-only) -->
+            <!-- 3. Replies (public, same as visitor/signed-out) -->
             <button type="button" id="tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
               </svg>
               <span>REPLIES</span>
+            </button>
+
+            <!-- 4. Info & About (public, same as visitor/signed-out) -->
+            <button type="button" id="tab-btn-info" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>INFO & ABOUT</span>
             </button>
 
             <!-- 4. Saved -->
@@ -1353,18 +1353,22 @@
           <div id="user-profile-highlights-container" class="hidden mt-3 pt-2.5 border-t border-neutral-100 flex items-center space-x-2 overflow-x-auto hide-scrollbar"></div>
         </div>
 
-        <!-- Creator Tabs: same pill control as the owner profile (Posts, Notes, Info & About) -->
+        <!-- Creator Tabs: same public pills as the owner (Posts, Notes, Replies, Info & About) -->
         <div class="bg-neutral-100/80 p-1.5 rounded-2xl border border-neutral-200/60 shadow-xs">
-          <div class="flex space-x-1 overflow-x-auto hide-scrollbar">
-            <button type="button" id="user-tab-btn-posts" class="flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-bold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
+          <div id="user-profile-tab-bar" class="flex flex-nowrap space-x-1 overflow-x-auto hide-scrollbar">
+            <button type="button" id="user-tab-btn-posts" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
               <span>POSTS</span>
             </button>
-            <button type="button" id="user-tab-btn-notes" class="flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="user-tab-btn-notes" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               <span>NOTES</span>
             </button>
-            <button type="button" id="user-tab-btn-info" class="flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="user-tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+              <span>REPLIES</span>
+            </button>
+            <button type="button" id="user-tab-btn-info" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span>INFO & ABOUT</span>
             </button>
@@ -1389,6 +1393,13 @@
             </div>
             <div id="user-profile-empty-notes" class="hidden py-12 text-center text-xs text-neutral-400">
               No notes posted yet by this creator.
+            </div>
+          </div>
+
+          <!-- Creator Replies (public, same source as the owner Replies tab) -->
+          <div id="user-profile-replies-view" class="hidden p-2 sm:p-3 space-y-3">
+            <div id="user-profile-replies-list" class="space-y-3">
+              <!-- Dynamically populated by renderReplies() -->
             </div>
           </div>
 
@@ -4264,8 +4275,8 @@
     }
     window.setOwnerAvatarEditorVisible = setOwnerAvatarEditorVisible;
     function scrollOwnerProfileTabIntoView(btn) {
-      const bar = document.getElementById('profile-tab-bar');
-      const el = btn || document.querySelector('#profile-tab-bar button.bg-white, #tab-btn-posts');
+      const el = btn || document.querySelector('#profile-tab-bar button.bg-white, #user-profile-tab-bar button.bg-white, #tab-btn-posts');
+      const bar = (el && el.closest && (el.closest('#profile-tab-bar') || el.closest('#user-profile-tab-bar'))) || document.getElementById('profile-tab-bar');
       if (!el || !bar) return;
       try { el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } catch (e) {
         const left = el.offsetLeft - (bar.clientWidth - el.offsetWidth) / 2;
@@ -10736,127 +10747,174 @@ function syncLikedStateToPosts() {
     } catch(e) {}
 
     // --- Render Replies ---
-    function renderReplies() {
-      const repliesList = document.getElementById('replies-list');
-      if (!repliesList) return;
-
-      const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
-      const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
+    function commentsMapForUser(username) {
+      const u = normalizeUsername(username || '');
+      const cached = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+      const maps = [];
+      if (cached && cached.commentsMap && typeof cached.commentsMap === 'object') maps.push(cached.commentsMap);
+      if (window._lastRemoteCommentsMap && typeof window._lastRemoteCommentsMap === 'object') maps.push(window._lastRemoteCommentsMap);
+      const out = {};
+      maps.forEach(m => { Object.keys(m).forEach(k => { if (Array.isArray(m[k])) out[k] = m[k]; }); });
+      return out;
+    }
+    function isDeletedReplyId(id) {
+      const delSet = state.deletedReplyIds || new Set();
+      return delSet.has(String(id)) || (!isNaN(Number(id)) && delSet.has(Number(id)));
+    }
+    function isProfileReplyParentVisible(parent) {
+      if (!parent) return true;
+      if (typeof isContentVisibleToViewer === 'function' && !isContentVisibleToViewer(parent)) return false;
+      const author = parent.author || parent.username;
+      if (typeof shouldHideAuthorInFeedExplore === 'function' && shouldHideAuthorInFeedExplore(author)) return false;
+      return true;
+    }
+    function collectProfileReplies(username) {
+      const u = normalizeUsername(username || '');
+      if (!u) return [];
+      const cmap = commentsMapForUser(u);
+      Object.keys(cmap).forEach(k => {
+        if (k.startsWith('post:') && typeof getPostById === 'function') getPostById(k.slice(5));
+        else if (k.startsWith('note:') && typeof getNoteById === 'function') getNoteById(k.slice(5));
+      });
       const items = [];
+      const seen = new Set();
+      const pushItem = (item) => {
+        const key = [item.kind, item.targetId, item.commentId, item.replyId].join(':');
+        if (seen.has(key)) return;
+        seen.add(key);
+        items.push(item);
+      };
+      const consider = (kind, target, comments) => {
+        if (!target) return;
+        if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(target)) return;
+        if (!isProfileReplyParentVisible(target)) return;
+        (comments || []).forEach(c => {
+          if (!c || isDeletedReplyId(c.id) || (typeof isCannedDemoComment === 'function' && isCannedDemoComment(c))) return;
+          if (typeof isCommentVisibleToViewer === 'function' && !isCommentVisibleToViewer(c)) return;
+          if (normalizeUsername(c.user || c.username || c.author) === u) {
+            pushItem({
+              kind: kind,
+              targetId: target.id,
+              commentId: c.id,
+              replyId: '',
+              targetAuthor: target.author || 'creator',
+              targetImage: target.image || '',
+              targetSnippet: (kind === 'post')
+                ? ((typeof displayPostCaption === 'function' ? displayPostCaption(target.caption) : (target.caption || '')) || '')
+                : (target.text || ''),
+              text: c.text || '',
+              time: formatPixlyTimestamp(c, c.timestamp || 'Just now'),
+              sortTs: c.createdAtMs || getContentSortTime(c) || c.id || 0,
+              contextLabel: 'Commented on @' + (target.author || 'creator') + (kind === 'note' ? "'s note" : "'s post")
+            });
+          }
+          (c.replies || []).forEach(r => {
+            if (!r || isDeletedReplyId(r.id) || (typeof isCannedDemoComment === 'function' && isCannedDemoComment(r))) return;
+            if (typeof isCommentVisibleToViewer === 'function' && !isCommentVisibleToViewer(r)) return;
+            if (normalizeUsername(r.user || r.username || r.author) === u) {
+              pushItem({
+                kind: kind,
+                targetId: target.id,
+                commentId: c.id,
+                replyId: r.id,
+                targetAuthor: target.author || 'creator',
+                targetImage: target.image || '',
+                targetSnippet: (kind === 'post')
+                  ? ((typeof displayPostCaption === 'function' ? displayPostCaption(target.caption) : (target.caption || '')) || '')
+                  : (target.text || ''),
+                text: r.text || '',
+                time: formatPixlyTimestamp(r, r.timestamp || 'Just now'),
+                sortTs: r.createdAtMs || getContentSortTime(r) || r.id || 0,
+                contextLabel: 'Replied to @' + (c.user || 'creator') + ' on @' + (target.author || 'creator') + (kind === 'note' ? "'s note" : "'s post")
+              });
+            }
+          });
+        });
+      };
 
-      // Collect from posts (feed + explore + archived explore)
       const seenPostIds = new Set();
       const allPosts = [...(state.posts || []), ...(state.explorePosts || [])];
-      if (state.explorePostsArchive instanceof Map) {
-        state.explorePostsArchive.forEach(p => allPosts.push(p));
-      }
+      if (state.explorePostsArchive instanceof Map) state.explorePostsArchive.forEach(p => allPosts.push(p));
+      Object.keys(cmap).forEach(k => {
+        if (k.startsWith('post:') && typeof getPostById === 'function') {
+          const p = getPostById(k.slice(5));
+          if (p) allPosts.push(p);
+        }
+      });
       allPosts.forEach(p => {
         if (!p || seenPostIds.has(String(p.id))) return;
         seenPostIds.add(String(p.id));
-        (p.comments || []).forEach(c => {
-          if (normalizeUsername(c.user) === curU) {
-            items.push({
-              kind: 'post',
-              targetId: p.id,
-              commentId: c.id,
-              replyId: '',
-              targetAuthor: p.author || 'creator',
-              targetImage: p.image || '',
-              targetSnippet: p.caption || '',
-              text: c.text || '',
-              time: formatPixlyTimestamp(c, c.timestamp || 'Just now'),
-              sortTs: c.createdAtMs || c.id || 0,
-              contextLabel: `Commented on @${p.author || 'creator'}'s post`
-            });
-          }
-          (c.replies || []).forEach(r => {
-            if (normalizeUsername(r.user) === curU) {
-              items.push({
-                kind: 'post',
-                targetId: p.id,
-                commentId: c.id,
-                replyId: r.id,
-                targetAuthor: p.author || 'creator',
-                targetImage: p.image || '',
-                targetSnippet: p.caption || '',
-                text: r.text || '',
-                time: formatPixlyTimestamp(r, r.timestamp || 'Just now'),
-                sortTs: r.createdAtMs || r.id || 0,
-                contextLabel: `Replied to @${c.user || 'creator'} on @${p.author || 'creator'}'s post`
-              });
-            }
-          });
-        });
+        const extra = cmap['post:' + String(p.id)];
+        const comments = (Array.isArray(extra) && extra.length) ? extra : (p.comments || []);
+        consider('post', p, comments);
+      });
+      Object.keys(cmap).forEach(k => {
+        if (!k.startsWith('post:')) return;
+        const pid = k.slice(5);
+        if (seenPostIds.has(String(pid))) return;
+        const parent = { id: pid, author: 'creator', caption: '', image: '', comments: cmap[k] };
+        consider('post', parent, cmap[k]);
       });
 
-      // Collect from notes (user + explore + archived explore)
       const seenNoteIds = new Set();
       const allNotes = [...(state.notes || []), ...(state.exploreNotes || [])];
-      if (state.exploreNotesArchive instanceof Map) {
-        state.exploreNotesArchive.forEach(n => allNotes.push(n));
-      }
+      if (state.exploreNotesArchive instanceof Map) state.exploreNotesArchive.forEach(n => allNotes.push(n));
+      Object.keys(cmap).forEach(k => {
+        if (k.startsWith('note:') && typeof getNoteById === 'function') {
+          const n = getNoteById(k.slice(5));
+          if (n) allNotes.push(n);
+        }
+      });
       allNotes.forEach(n => {
         if (!n || seenNoteIds.has(String(n.id))) return;
         seenNoteIds.add(String(n.id));
-        (n.comments || []).forEach(c => {
-          if (normalizeUsername(c.user) === curU) {
-            items.push({
-              kind: 'note',
-              targetId: n.id,
-              commentId: c.id,
-              replyId: '',
-              targetAuthor: n.author || 'creator',
-              targetImage: '',
-              targetSnippet: n.text || '',
-              text: c.text || '',
-              time: formatPixlyTimestamp(c, c.timestamp || 'Just now'),
-              sortTs: c.createdAtMs || c.id || 0,
-              contextLabel: `Commented on @${n.author || 'creator'}'s note`
-            });
-          }
-          (c.replies || []).forEach(r => {
-            if (normalizeUsername(r.user) === curU) {
-              items.push({
-                kind: 'note',
-                targetId: n.id,
-                commentId: c.id,
-                replyId: r.id,
-                targetAuthor: n.author || 'creator',
-                targetImage: '',
-                targetSnippet: n.text || '',
-                text: r.text || '',
-                time: formatPixlyTimestamp(r, r.timestamp || 'Just now'),
-                sortTs: r.createdAtMs || r.id || 0,
-                contextLabel: `Replied to @${c.user || 'creator'} on @${n.author || 'creator'}'s note`
-              });
-            }
-          });
-        });
+        const extra = cmap['note:' + String(n.id)];
+        const comments = (Array.isArray(extra) && extra.length) ? extra : (n.comments || []);
+        consider('note', n, comments);
+      });
+      Object.keys(cmap).forEach(k => {
+        if (!k.startsWith('note:')) return;
+        const nid = k.slice(5);
+        if (seenNoteIds.has(String(nid))) return;
+        consider('note', { id: nid, author: 'creator', text: '', comments: cmap[k] }, cmap[k]);
       });
 
       items.sort((a, b) => (b.sortTs || 0) - (a.sortTs || 0));
+      return items;
+    }
+    window.collectProfileReplies = collectProfileReplies;
 
+    function renderRepliesInto(listEl, username) {
+      if (!listEl) return;
+      const profileU = normalizeUsername(username || '');
+      const items = collectProfileReplies(profileU);
+      const isOwn = !!(state.isLoggedIn && normalizeUsername((state.currentUser && state.currentUser.username) || '') === profileU);
+      const avatar = (isOwn && state.currentUser && state.currentUser.avatar)
+        || (typeof getPostAuthorAvatar === 'function' ? getPostAuthorAvatar({ author: profileU }) : '')
+        || '';
       if (items.length === 0) {
-        repliesList.innerHTML = `
+        const emptyHint = isOwn
+          ? 'Conversations and comments you leave will be organized here.'
+          : 'Public comments and replies will show up here.';
+        listEl.innerHTML = `
           <div class="py-10 text-center text-neutral-400 space-y-1.5 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
             <div class="text-2xl">💬</div>
             <p class="font-bold text-xs text-neutral-700">No replies yet</p>
-            <p class="text-[11px] text-neutral-400">Conversations and comments you leave will be organized here.</p>
+            <p class="text-[11px] text-neutral-400">${emptyHint}</p>
           </div>
         `;
         return;
       }
-
-      repliesList.innerHTML = items.map(item => `
-        <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-violet-200 hover:shadow-xs" onclick="${item.kind === 'post' ? `openPostDetailModal('${item.targetId}')` : `openNoteDetailModal('${item.targetId}')`}">
+      listEl.innerHTML = items.map(item => `
+        <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-violet-200 hover:shadow-xs reply-item" data-reply-id="${item.replyId || item.commentId}" data-target-id="${item.targetId}" onclick="${item.kind === 'post' ? `openPostDetailModal('${item.targetId}')` : `openNoteDetailModal('${item.targetId}')`}">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2.5 min-w-0">
               <div class="w-7 h-7 rounded-full overflow-hidden bg-white border border-neutral-200 flex-shrink-0">
-                <img src="${curAvatar}" alt="${curU}" class="w-full h-full object-cover">
+                <img src="${avatar}" alt="${profileU}" class="w-full h-full object-cover">
               </div>
               <div class="min-w-0">
                 <div class="text-[11px] font-bold text-violet-700 truncate">${escapeHtml(item.contextLabel)}</div>
-                <div class="text-[10px] text-neutral-400">@${curU} · ${item.time}</div>
+                <div class="text-[10px] text-neutral-400">@${profileU} · ${item.time}</div>
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -10865,15 +10923,29 @@ function syncLikedStateToPosts() {
                   <img src="${item.targetImage}" alt="Post" class="w-full h-full object-cover">
                 </div>
               ` : ''}
+              ${isOwn ? `
               <button type="button" onclick="event.stopPropagation(); deleteProfileReplyItem('${item.kind}', '${item.targetId}', '${item.commentId || ''}', '${item.replyId || ''}')" class="px-2 py-1 rounded-lg text-[10px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 transition" title="Delete reply">
                 Delete
-              </button>
+              </button>` : ''}
             </div>
           </div>
-          <p class="text-xs text-neutral-800 leading-relaxed">${escapeHtml(item.text)}</p>
+          <p class="text-xs text-neutral-800 leading-relaxed reply-text">${escapeHtml(item.text)}</p>
           ${item.targetSnippet ? `<div class="text-[11px] text-neutral-400 bg-neutral-50 px-2.5 py-1.5 rounded-lg truncate border border-neutral-100">${escapeHtml(item.targetSnippet)}</div>` : ''}
         </div>
       `).join('');
+    }
+
+    function renderReplies(username, listId) {
+      if (listId) {
+        renderRepliesInto(document.getElementById(listId), username);
+        return;
+      }
+      const ownerU = (state.currentUser && state.currentUser.username) || '';
+      const ownerList = document.getElementById('replies-list');
+      if (ownerList && ownerU) renderRepliesInto(ownerList, ownerU);
+      const viewedU = (state.viewedCreator && state.viewedCreator.username) || username || '';
+      const viewedList = document.getElementById('user-profile-replies-list');
+      if (viewedList && viewedU) renderRepliesInto(viewedList, viewedU);
     }
     window.renderReplies = renderReplies;
 
@@ -14982,6 +15054,15 @@ function syncLikedStateToPosts() {
     window.getContentSortTime = getContentSortTime;
     window.sortNewestFirst = sortNewestFirst;
     window.isFabricatedFeedItem = isFabricatedFeedItem;
+    // Synthetic comments getCreatorPosts attaches to fabricated creator grids (id 9000+i).
+    function isCannedDemoComment(c) {
+      if (!c) return true;
+      const text = String(c.text || '').replace(/\s+/g, ' ').trim();
+      const n = (typeof c.id === 'number') ? c.id : Number(c.id);
+      if (text === 'Incredible perspective and composition!' && Number.isFinite(n) && n >= 9000 && n <= 9099) return true;
+      return false;
+    }
+    window.isCannedDemoComment = isCannedDemoComment;
     window.isTombstonedPostId = isTombstonedPostId;
     window.whenFirebaseReady = function(fn) {
       if (typeof fn !== 'function') return;
@@ -15177,19 +15258,29 @@ function syncLikedStateToPosts() {
     function switchUserSubTab(tab) {
       const postsView = document.getElementById('user-profile-posts-view');
       const notesView = document.getElementById('user-profile-notes-view');
+      const repliesView = document.getElementById('user-profile-replies-view');
       const infoView = document.getElementById('user-profile-info-view');
       const btnPosts = document.getElementById('user-tab-btn-posts');
       const btnNotes = document.getElementById('user-tab-btn-notes');
+      const btnReplies = document.getElementById('user-tab-btn-replies');
       const btnInfo = document.getElementById('user-tab-btn-info');
-      const activeCls = "flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-bold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
-      const inactiveCls = "flex-1 min-w-[70px] py-2 px-2 text-[11px] sm:text-xs font-semibold tracking-wider flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
+      const activeCls = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
+      const inactiveCls = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
 
       if (postsView) postsView.classList.toggle('hidden', tab !== 'posts');
       if (notesView) notesView.classList.toggle('hidden', tab !== 'notes');
+      if (repliesView) repliesView.classList.toggle('hidden', tab !== 'replies');
       if (infoView) infoView.classList.toggle('hidden', tab !== 'info');
       if (btnPosts) btnPosts.className = (tab === 'posts') ? activeCls : inactiveCls;
       if (btnNotes) btnNotes.className = (tab === 'notes') ? activeCls : inactiveCls;
+      if (btnReplies) btnReplies.className = (tab === 'replies') ? activeCls : inactiveCls;
       if (btnInfo) btnInfo.className = (tab === 'info') ? activeCls : inactiveCls;
+      if (tab === 'replies' && typeof renderReplies === 'function') {
+        const viewedU = (state.viewedCreator && state.viewedCreator.username) || '';
+        renderReplies(viewedU, 'user-profile-replies-list');
+      }
+      const activeBtn = tab === 'posts' ? btnPosts : tab === 'notes' ? btnNotes : tab === 'replies' ? btnReplies : btnInfo;
+      if (activeBtn && typeof scrollOwnerProfileTabIntoView === 'function') scrollOwnerProfileTabIntoView(activeBtn);
     }
     window.switchUserSubTab = switchUserSubTab;
 
@@ -15356,6 +15447,13 @@ function syncLikedStateToPosts() {
       if (typeof d.subscriptionStatus === 'string') vc.subscriptionStatus = d.subscriptionStatus;
       window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
       window._remoteUserProfilesCache[u] = Object.assign({}, window._remoteUserProfilesCache[u] || {}, d, { isVerified: vc.isVerified, isPlus: vc.isPlus });
+      if (d.commentsMap && typeof d.commentsMap === 'object') {
+        window._remoteUserProfilesCache[u].commentsMap = d.commentsMap;
+        if (typeof applyCommentsMap === 'function') applyCommentsMap(d.commentsMap);
+      }
+      if (typeof renderReplies === 'function' && state.viewedCreator && normalizeUsername(state.viewedCreator.username) === u) {
+        renderReplies(u, 'user-profile-replies-list');
+      }
       if (Array.isArray(d.following)) vc.following = d.following;
       const connectedN = (typeof storedFollowingCount === 'function')
         ? storedFollowingCount(vc.following || d.following || [], u)
@@ -21506,6 +21604,7 @@ function syncLikedStateToPosts() {
         }
 
         bind('user-tab-btn-notes', 'click', () => switchUserSubTab('notes'));
+        bind('user-tab-btn-replies', 'click', () => switchUserSubTab('replies'));
         const btnUserTabInfo = document.getElementById('user-tab-btn-info');
         if (btnUserTabInfo) {
           btnUserTabInfo.addEventListener('click', () => switchUserSubTab('info'));
