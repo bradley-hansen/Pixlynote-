@@ -22113,6 +22113,18 @@ function syncLikedStateToPosts() {
           return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em) && !em.includes('..') && !localPart.startsWith('.') && !localPart.endsWith('.');
         }
 
+        // Reuse the form's existing taken check (findEmailOwner / findPhoneOwner). No extra reads.
+        function isSignupEmailTaken() {
+          const em = currentSignupEmail();
+          return !!(em && typeof findEmailOwner === 'function' && findEmailOwner(em));
+        }
+        function isSignupPhoneTaken() {
+          const raw = ((document.getElementById('signup-phone') || {}).value || '').trim();
+          return !!(raw && typeof findPhoneOwner === 'function' && findPhoneOwner(raw));
+        }
+        window.isSignupEmailTaken = isSignupEmailTaken;
+        window.isSignupPhoneTaken = isSignupPhoneTaken;
+
         function isSignupContactVerified() {
           const v = state.signupVerify || {};
           const needsEmail = signupEmailLooksValid();
@@ -22140,6 +22152,8 @@ function syncLikedStateToPosts() {
           if (e === 'invalid_phone') return 'Enter a complete 10-digit US phone number.';
           if (e === 'country_not_supported') return 'US phone numbers only for now.';
           if (e === 'sms_unavailable') return 'Phone verification isn\'t available yet';
+          if (e === 'email_taken') return 'This email is already on an account';
+          if (e === 'phone_taken' || e === 'contact_taken') return 'This number is already on an account';
           if (e === 'number_not_verified_on_trial') return 'This Twilio trial can only text verified numbers. Verify the number in the Twilio console, or upgrade the account.';
           return kind === 'email' ? 'Could not verify that email code. Please try again.' : 'Could not verify that code. Please try again.';
         }
@@ -22174,7 +22188,11 @@ function syncLikedStateToPosts() {
           const emailCode = document.getElementById('signup-email-code-wrap');
           const emailStatus = document.getElementById('signup-email-verify-status');
           const emailSendBtn = document.getElementById('btn-signup-send-email-code');
-          if (v.emailVerified && v.email && v.email.toLowerCase() === em.toLowerCase()) {
+          if (isSignupEmailTaken()) {
+            if (emailSend) emailSend.classList.remove('hidden');
+            if (emailCode) emailCode.classList.add('hidden');
+            setSignupVerifyStatus(emailStatus, 'This email is already on an account', true);
+          } else if (v.emailVerified && v.email && v.email.toLowerCase() === em.toLowerCase()) {
             if (emailSend) emailSend.classList.add('hidden');
             if (emailCode) emailCode.classList.add('hidden');
             setSignupVerifyStatus(emailStatus, 'Email verified', false);
@@ -22186,14 +22204,18 @@ function syncLikedStateToPosts() {
             if (emailCode) emailCode.classList.add('hidden');
             if (emailStatus && !signupEmailLooksValid()) setSignupVerifyStatus(emailStatus, '', false);
           }
-          if (emailSendBtn) emailSendBtn.disabled = !signupEmailLooksValid();
+          if (emailSendBtn) emailSendBtn.disabled = !signupEmailLooksValid() || isSignupEmailTaken();
 
           const phoneSend = document.getElementById('signup-phone-send-wrap');
           const phoneCode = document.getElementById('signup-phone-code-wrap');
           const phoneStatus = document.getElementById('signup-phone-verify-status');
           const phoneSendBtn = document.getElementById('btn-signup-send-phone-code');
           const rawPhone = ((document.getElementById('signup-phone') || {}).value || '').trim();
-          if (v.phoneVerified && v.phone && v.phone === ph) {
+          if (isSignupPhoneTaken()) {
+            if (phoneSend) phoneSend.classList.remove('hidden');
+            if (phoneCode) phoneCode.classList.add('hidden');
+            setSignupVerifyStatus(phoneStatus, 'This number is already on an account', true);
+          } else if (v.phoneVerified && v.phone && v.phone === ph) {
             if (phoneSend) phoneSend.classList.add('hidden');
             if (phoneCode) phoneCode.classList.add('hidden');
             setSignupVerifyStatus(phoneStatus, 'Phone verified', false);
@@ -22205,7 +22227,7 @@ function syncLikedStateToPosts() {
             if (phoneCode) phoneCode.classList.add('hidden');
             if (phoneStatus && !ph) setSignupVerifyStatus(phoneStatus, '', false);
           }
-          if (phoneSendBtn) phoneSendBtn.disabled = !ph;
+          if (phoneSendBtn) phoneSendBtn.disabled = !ph || isSignupPhoneTaken();
         }
 
         async function sendSignupEmailCode() {
@@ -22215,6 +22237,11 @@ function syncLikedStateToPosts() {
             setSignupVerifyStatus(status, 'Enter a valid email address first.', true);
             return;
           }
+          if (isSignupEmailTaken()) {
+            setSignupVerifyStatus(status, 'This email is already on an account', true);
+            if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
+            return;
+          }
           const btn = document.getElementById('btn-signup-send-email-code');
           const resend = document.getElementById('btn-signup-resend-email-code');
           if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
@@ -22222,8 +22249,11 @@ function syncLikedStateToPosts() {
           try {
             const r = await postSignupVerify('/email', { type: 'signup_code', to: email });
             if (!r.ok || r.data.error) {
-              const msg = r.data.error === 'rate_limited' ? 'Too many codes sent. Please try again later.'
-                : (r.data.message || 'Could not send the verification code.');
+              const err = (r.data && r.data.error) || '';
+              const msg = err === 'rate_limited' ? 'Too many codes sent. Please try again later.'
+                : (signupVerifyErrorMessage(err, 'email') !== 'Could not verify that email code. Please try again.'
+                    ? signupVerifyErrorMessage(err, 'email')
+                    : (r.data.message || 'Could not send the verification code.'));
               setSignupVerifyStatus(status, msg, true);
               return;
             }
@@ -22237,8 +22267,10 @@ function syncLikedStateToPosts() {
           } catch (err) {
             setSignupVerifyStatus(status, 'Could not send the verification code. Please try again.', true);
           } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Send email code'; }
+            if (btn) { btn.textContent = 'Send email code'; }
             if (resend) resend.disabled = false;
+            if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
+            else if (btn) btn.disabled = false;
           }
         }
 
@@ -22286,6 +22318,11 @@ function syncLikedStateToPosts() {
             setSignupVerifyStatus(status, msg, true);
             return;
           }
+          if (isSignupPhoneTaken()) {
+            setSignupVerifyStatus(status, 'This number is already on an account', true);
+            if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
+            return;
+          }
           const btn = document.getElementById('btn-signup-send-phone-code');
           const resend = document.getElementById('btn-signup-resend-phone-code');
           if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
@@ -22308,8 +22345,10 @@ function syncLikedStateToPosts() {
           } catch (err) {
             setSignupVerifyStatus(status, 'Could not send the verification code. Please try again.', true);
           } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Send phone code'; }
+            if (btn) { btn.textContent = 'Send phone code'; }
             if (resend) resend.disabled = false;
+            if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
+            else if (btn) btn.disabled = false;
           }
         }
 
