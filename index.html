@@ -461,7 +461,7 @@
       line-height: 1.25rem;
       max-height: 3.75rem;
     }
-    .cf-star-emblem { width: 20px; height: 20px; display: block; flex-shrink: 0; }
+    .cf-star-emblem { display: block; flex-shrink: 0; overflow: visible; }
     #user-profile-connect-split { display: flex; align-items: stretch; }
     #menu-user-profile-cf, #menu-user-profile-more {
       position: fixed; z-index: 70; min-width: 13.5rem;
@@ -1101,21 +1101,37 @@
                   <input type="checkbox" id="note-cf-only-toggle" class="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500">
                   <svg class="cf-star-emblem w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                     <defs>
-                      <linearGradient id="cf-star-fill-note" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#f472b6"/>
-                        <stop offset="40%" stop-color="#d946ef"/>
-                        <stop offset="100%" stop-color="#2dd4bf"/>
+                      <radialGradient id="cf-star-glow-note" cx="50%" cy="52%" r="58%">
+                        <stop offset="40%" stop-color="#ff4a14" stop-opacity="0.7"/>
+                        <stop offset="78%" stop-color="#ff5a1f" stop-opacity="0.28"/>
+                        <stop offset="100%" stop-color="#ff5a1f" stop-opacity="0"/>
+                      </radialGradient>
+                      <linearGradient id="cf-star-tile-note" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FF8A42"/>
+                        <stop offset="38%" stop-color="#FF4A1F"/>
+                        <stop offset="100%" stop-color="#C81420"/>
                       </linearGradient>
-                      <linearGradient id="cf-star-glint-note" x1="9" y1="3" x2="13" y2="11" gradientUnits="userSpaceOnUse">
+                      <linearGradient id="cf-star-tilegloss-note" x1="12" y1="2" x2="12" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-gold-note" x1="6" y1="4" x2="17" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FFF6C2"/>
+                        <stop offset="28%" stop-color="#FFE15A"/>
+                        <stop offset="68%" stop-color="#F0B000"/>
+                        <stop offset="100%" stop-color="#D07A00"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-shine-note" x1="8" y1="4.5" x2="13" y2="12" gradientUnits="userSpaceOnUse">
                         <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
                         <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path fill="url(#cf-star-fill-note)" stroke="#ffffff" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" fill-rule="evenodd" d="M12.00,2.75 L14.38,8.87 L20.94,9.25 L15.85,13.40 L17.53,19.75 L12.00,16.20 L6.47,19.75 L8.15,13.40 L3.06,9.25 L9.62,8.87 Z M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" d="M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="url(#cf-star-glint-note)" d="M12.00,3.55 L10.05,8.55 L12.15,8.20 L13.55,8.55 Z"/>
-                    <path fill="#ffffff" d="M19.20,4.05 L19.47,5.13 L20.55,5.40 L19.47,5.67 L19.20,6.75 L18.93,5.67 L17.85,5.40 L18.93,5.13 Z"/>
-                    <path fill="#ffffff" fill-opacity="0.9" d="M20.40,7.45 L20.56,8.04 L21.15,8.20 L20.56,8.36 L20.40,8.95 L20.24,8.36 L19.65,8.20 L20.24,8.04 Z"/>
+                    <rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.4" fill="url(#cf-star-glow-note)"/>
+                    <rect x="2.15" y="2.15" width="19.7" height="19.7" rx="5.3" fill="url(#cf-star-tile-note)"/>
+                    <rect x="2.35" y="2.35" width="19.3" height="10.2" rx="5.1" fill="url(#cf-star-tilegloss-note)"/>
+                    <path fill="url(#cf-star-gold-note)" stroke="#C46A00" stroke-width="0.45" stroke-linejoin="round" stroke-linecap="round" d="M12.00,5.00 13.86,9.82 19.15,10.13 15.15,13.47 16.48,18.63 12.00,15.80 7.52,18.63 8.85,13.47 4.85,10.13 10.14,9.82 Z"/>
+                    <path fill="url(#cf-star-shine-note)" d="M12.00,5.55 L10.55,9.35 L12.10,9.15 L13.30,9.40 Z"/>
+                    <circle cx="11.15" cy="7.15" r="0.55" fill="#ffffff" fill-opacity="0.85"/>
                   </svg>
                   <span>Close Friends only</span>
                 </label>
@@ -1273,21 +1289,37 @@
                   <button type="button" id="btn-user-profile-cf-caret" class="px-1.5 py-2 rounded-r-xl border border-l-0 border-violet-200 bg-white hover:bg-emerald-50 transition cursor-pointer flex items-center gap-0.5 flex-shrink-0" title="Close Friends" aria-label="Close Friends menu" aria-haspopup="true">
                     <svg class="cf-star-emblem w-5 h-5 flex-shrink-0 hidden" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                     <defs>
-                      <linearGradient id="cf-star-fill-caret" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#f472b6"/>
-                        <stop offset="40%" stop-color="#d946ef"/>
-                        <stop offset="100%" stop-color="#2dd4bf"/>
+                      <radialGradient id="cf-star-glow-caret" cx="50%" cy="52%" r="58%">
+                        <stop offset="40%" stop-color="#ff4a14" stop-opacity="0.7"/>
+                        <stop offset="78%" stop-color="#ff5a1f" stop-opacity="0.28"/>
+                        <stop offset="100%" stop-color="#ff5a1f" stop-opacity="0"/>
+                      </radialGradient>
+                      <linearGradient id="cf-star-tile-caret" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FF8A42"/>
+                        <stop offset="38%" stop-color="#FF4A1F"/>
+                        <stop offset="100%" stop-color="#C81420"/>
                       </linearGradient>
-                      <linearGradient id="cf-star-glint-caret" x1="9" y1="3" x2="13" y2="11" gradientUnits="userSpaceOnUse">
+                      <linearGradient id="cf-star-tilegloss-caret" x1="12" y1="2" x2="12" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-gold-caret" x1="6" y1="4" x2="17" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FFF6C2"/>
+                        <stop offset="28%" stop-color="#FFE15A"/>
+                        <stop offset="68%" stop-color="#F0B000"/>
+                        <stop offset="100%" stop-color="#D07A00"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-shine-caret" x1="8" y1="4.5" x2="13" y2="12" gradientUnits="userSpaceOnUse">
                         <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
                         <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path fill="url(#cf-star-fill-caret)" stroke="#ffffff" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" fill-rule="evenodd" d="M12.00,2.75 L14.38,8.87 L20.94,9.25 L15.85,13.40 L17.53,19.75 L12.00,16.20 L6.47,19.75 L8.15,13.40 L3.06,9.25 L9.62,8.87 Z M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" d="M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="url(#cf-star-glint-caret)" d="M12.00,3.55 L10.05,8.55 L12.15,8.20 L13.55,8.55 Z"/>
-                    <path fill="#ffffff" d="M19.20,4.05 L19.47,5.13 L20.55,5.40 L19.47,5.67 L19.20,6.75 L18.93,5.67 L17.85,5.40 L18.93,5.13 Z"/>
-                    <path fill="#ffffff" fill-opacity="0.9" d="M20.40,7.45 L20.56,8.04 L21.15,8.20 L20.56,8.36 L20.40,8.95 L20.24,8.36 L19.65,8.20 L20.24,8.04 Z"/>
+                    <rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.4" fill="url(#cf-star-glow-caret)"/>
+                    <rect x="2.15" y="2.15" width="19.7" height="19.7" rx="5.3" fill="url(#cf-star-tile-caret)"/>
+                    <rect x="2.35" y="2.35" width="19.3" height="10.2" rx="5.1" fill="url(#cf-star-tilegloss-caret)"/>
+                    <path fill="url(#cf-star-gold-caret)" stroke="#C46A00" stroke-width="0.45" stroke-linejoin="round" stroke-linecap="round" d="M12.00,5.00 13.86,9.82 19.15,10.13 15.15,13.47 16.48,18.63 12.00,15.80 7.52,18.63 8.85,13.47 4.85,10.13 10.14,9.82 Z"/>
+                    <path fill="url(#cf-star-shine-caret)" d="M12.00,5.55 L10.55,9.35 L12.10,9.15 L13.30,9.40 Z"/>
+                    <circle cx="11.15" cy="7.15" r="0.55" fill="#ffffff" fill-opacity="0.85"/>
                   </svg>
                     <svg class="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                   </button>
@@ -1901,21 +1933,37 @@
             <input type="checkbox" id="create-cf-only-toggle" class="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500">
             <svg class="cf-star-emblem w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                     <defs>
-                      <linearGradient id="cf-star-fill-create" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#f472b6"/>
-                        <stop offset="40%" stop-color="#d946ef"/>
-                        <stop offset="100%" stop-color="#2dd4bf"/>
+                      <radialGradient id="cf-star-glow-create" cx="50%" cy="52%" r="58%">
+                        <stop offset="40%" stop-color="#ff4a14" stop-opacity="0.7"/>
+                        <stop offset="78%" stop-color="#ff5a1f" stop-opacity="0.28"/>
+                        <stop offset="100%" stop-color="#ff5a1f" stop-opacity="0"/>
+                      </radialGradient>
+                      <linearGradient id="cf-star-tile-create" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FF8A42"/>
+                        <stop offset="38%" stop-color="#FF4A1F"/>
+                        <stop offset="100%" stop-color="#C81420"/>
                       </linearGradient>
-                      <linearGradient id="cf-star-glint-create" x1="9" y1="3" x2="13" y2="11" gradientUnits="userSpaceOnUse">
+                      <linearGradient id="cf-star-tilegloss-create" x1="12" y1="2" x2="12" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-gold-create" x1="6" y1="4" x2="17" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FFF6C2"/>
+                        <stop offset="28%" stop-color="#FFE15A"/>
+                        <stop offset="68%" stop-color="#F0B000"/>
+                        <stop offset="100%" stop-color="#D07A00"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-shine-create" x1="8" y1="4.5" x2="13" y2="12" gradientUnits="userSpaceOnUse">
                         <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
                         <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path fill="url(#cf-star-fill-create)" stroke="#ffffff" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" fill-rule="evenodd" d="M12.00,2.75 L14.38,8.87 L20.94,9.25 L15.85,13.40 L17.53,19.75 L12.00,16.20 L6.47,19.75 L8.15,13.40 L3.06,9.25 L9.62,8.87 Z M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" d="M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="url(#cf-star-glint-create)" d="M12.00,3.55 L10.05,8.55 L12.15,8.20 L13.55,8.55 Z"/>
-                    <path fill="#ffffff" d="M19.20,4.05 L19.47,5.13 L20.55,5.40 L19.47,5.67 L19.20,6.75 L18.93,5.67 L17.85,5.40 L18.93,5.13 Z"/>
-                    <path fill="#ffffff" fill-opacity="0.9" d="M20.40,7.45 L20.56,8.04 L21.15,8.20 L20.56,8.36 L20.40,8.95 L20.24,8.36 L19.65,8.20 L20.24,8.04 Z"/>
+                    <rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.4" fill="url(#cf-star-glow-create)"/>
+                    <rect x="2.15" y="2.15" width="19.7" height="19.7" rx="5.3" fill="url(#cf-star-tile-create)"/>
+                    <rect x="2.35" y="2.35" width="19.3" height="10.2" rx="5.1" fill="url(#cf-star-tilegloss-create)"/>
+                    <path fill="url(#cf-star-gold-create)" stroke="#C46A00" stroke-width="0.45" stroke-linejoin="round" stroke-linecap="round" d="M12.00,5.00 13.86,9.82 19.15,10.13 15.15,13.47 16.48,18.63 12.00,15.80 7.52,18.63 8.85,13.47 4.85,10.13 10.14,9.82 Z"/>
+                    <path fill="url(#cf-star-shine-create)" d="M12.00,5.55 L10.55,9.35 L12.10,9.15 L13.30,9.40 Z"/>
+                    <circle cx="11.15" cy="7.15" r="0.55" fill="#ffffff" fill-opacity="0.85"/>
                   </svg>
             <span>Close Friends only</span>
           </label>
@@ -2822,24 +2870,40 @@
 
         <button type="button" id="btn-ac-tab-close-friends" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-emerald-200 transition cursor-pointer group">
           <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <svg class="cf-star-emblem w-6 h-6" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <div class="w-8 h-8 flex items-center justify-center">
+              <svg class="cf-star-emblem w-8 h-8" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
                     <defs>
-                      <linearGradient id="cf-star-fill-tab" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#f472b6"/>
-                        <stop offset="40%" stop-color="#d946ef"/>
-                        <stop offset="100%" stop-color="#2dd4bf"/>
+                      <radialGradient id="cf-star-glow-tab" cx="50%" cy="52%" r="58%">
+                        <stop offset="40%" stop-color="#ff4a14" stop-opacity="0.7"/>
+                        <stop offset="78%" stop-color="#ff5a1f" stop-opacity="0.28"/>
+                        <stop offset="100%" stop-color="#ff5a1f" stop-opacity="0"/>
+                      </radialGradient>
+                      <linearGradient id="cf-star-tile-tab" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FF8A42"/>
+                        <stop offset="38%" stop-color="#FF4A1F"/>
+                        <stop offset="100%" stop-color="#C81420"/>
                       </linearGradient>
-                      <linearGradient id="cf-star-glint-tab" x1="9" y1="3" x2="13" y2="11" gradientUnits="userSpaceOnUse">
+                      <linearGradient id="cf-star-tilegloss-tab" x1="12" y1="2" x2="12" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-gold-tab" x1="6" y1="4" x2="17" y2="20" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#FFF6C2"/>
+                        <stop offset="28%" stop-color="#FFE15A"/>
+                        <stop offset="68%" stop-color="#F0B000"/>
+                        <stop offset="100%" stop-color="#D07A00"/>
+                      </linearGradient>
+                      <linearGradient id="cf-star-shine-tab" x1="8" y1="4.5" x2="13" y2="12" gradientUnits="userSpaceOnUse">
                         <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
                         <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path fill="url(#cf-star-fill-tab)" stroke="#ffffff" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" fill-rule="evenodd" d="M12.00,2.75 L14.38,8.87 L20.94,9.25 L15.85,13.40 L17.53,19.75 L12.00,16.20 L6.47,19.75 L8.15,13.40 L3.06,9.25 L9.62,8.87 Z M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" d="M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>
-                    <path fill="url(#cf-star-glint-tab)" d="M12.00,3.55 L10.05,8.55 L12.15,8.20 L13.55,8.55 Z"/>
-                    <path fill="#ffffff" d="M19.20,4.05 L19.47,5.13 L20.55,5.40 L19.47,5.67 L19.20,6.75 L18.93,5.67 L17.85,5.40 L18.93,5.13 Z"/>
-                    <path fill="#ffffff" fill-opacity="0.9" d="M20.40,7.45 L20.56,8.04 L21.15,8.20 L20.56,8.36 L20.40,8.95 L20.24,8.36 L19.65,8.20 L20.24,8.04 Z"/>
+                    <rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.4" fill="url(#cf-star-glow-tab)"/>
+                    <rect x="2.15" y="2.15" width="19.7" height="19.7" rx="5.3" fill="url(#cf-star-tile-tab)"/>
+                    <rect x="2.35" y="2.35" width="19.3" height="10.2" rx="5.1" fill="url(#cf-star-tilegloss-tab)"/>
+                    <path fill="url(#cf-star-gold-tab)" stroke="#C46A00" stroke-width="0.45" stroke-linejoin="round" stroke-linecap="round" d="M12.00,5.00 13.86,9.82 19.15,10.13 15.15,13.47 16.48,18.63 12.00,15.80 7.52,18.63 8.85,13.47 4.85,10.13 10.14,9.82 Z"/>
+                    <path fill="url(#cf-star-shine-tab)" d="M12.00,5.55 L10.55,9.35 L12.10,9.15 L13.30,9.40 Z"/>
+                    <circle cx="11.15" cy="7.15" r="0.55" fill="#ffffff" fill-opacity="0.85"/>
                   </svg>
             </div>
             <div class="text-left">
@@ -8067,21 +8131,37 @@ function syncLikedStateToPosts() {
       const wh = (size ? ' width="' + size + '" height="' + size + '"' : ' width="20" height="20"');
       return '<svg' + cls + ' viewBox="0 0 24 24"' + wh + ' aria-hidden="true">' +
         '<defs>' +
-        '<linearGradient id="cf-star-fill-' + id + '" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">' +
-        '<stop offset="0%" stop-color="#f472b6"/>' +
-        '<stop offset="40%" stop-color="#d946ef"/>' +
-        '<stop offset="100%" stop-color="#2dd4bf"/>' +
+        '<radialGradient id="cf-star-glow-' + id + '" cx="50%" cy="52%" r="58%">' +
+        '<stop offset="40%" stop-color="#ff4a14" stop-opacity="0.7"/>' +
+        '<stop offset="78%" stop-color="#ff5a1f" stop-opacity="0.28"/>' +
+        '<stop offset="100%" stop-color="#ff5a1f" stop-opacity="0"/>' +
+        '</radialGradient>' +
+        '<linearGradient id="cf-star-tile-' + id + '" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">' +
+        '<stop offset="0%" stop-color="#FF8A42"/>' +
+        '<stop offset="38%" stop-color="#FF4A1F"/>' +
+        '<stop offset="100%" stop-color="#C81420"/>' +
         '</linearGradient>' +
-        '<linearGradient id="cf-star-glint-' + id + '" x1="9" y1="3" x2="13" y2="11" gradientUnits="userSpaceOnUse">' +
+        '<linearGradient id="cf-star-tilegloss-' + id + '" x1="12" y1="2" x2="12" y2="13" gradientUnits="userSpaceOnUse">' +
+        '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.42"/>' +
+        '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="cf-star-gold-' + id + '" x1="6" y1="4" x2="17" y2="20" gradientUnits="userSpaceOnUse">' +
+        '<stop offset="0%" stop-color="#FFF6C2"/>' +
+        '<stop offset="28%" stop-color="#FFE15A"/>' +
+        '<stop offset="68%" stop-color="#F0B000"/>' +
+        '<stop offset="100%" stop-color="#D07A00"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="cf-star-shine-' + id + '" x1="8" y1="4.5" x2="13" y2="12" gradientUnits="userSpaceOnUse">' +
         '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>' +
         '<stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>' +
         '</linearGradient>' +
         '</defs>' +
-        '<path fill="url(#cf-star-fill-' + id + ')" stroke="#ffffff" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" fill-rule="evenodd" d="M12.00,2.75 L14.38,8.87 L20.94,9.25 L15.85,13.40 L17.53,19.75 L12.00,16.20 L6.47,19.75 L8.15,13.40 L3.06,9.25 L9.62,8.87 Z M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>' +
-        '<path fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" d="M12,15.2 C10.05,13.7 8.7,12.6 8.7,11.25 C8.7,10.2 9.5,9.45 10.55,9.45 C11.15,9.45 11.68,9.72 12,10.2 C12.32,9.72 12.85,9.45 13.45,9.45 C14.5,9.45 15.3,10.2 15.3,11.25 C15.3,12.6 13.95,13.7 12,15.2 Z"/>' +
-        '<path fill="url(#cf-star-glint-' + id + ')" d="M12.00,3.55 L10.05,8.55 L12.15,8.20 L13.55,8.55 Z"/>' +
-        '<path fill="#ffffff" d="M19.20,4.05 L19.47,5.13 L20.55,5.40 L19.47,5.67 L19.20,6.75 L18.93,5.67 L17.85,5.40 L18.93,5.13 Z"/>' +
-        '<path fill="#ffffff" fill-opacity="0.9" d="M20.40,7.45 L20.56,8.04 L21.15,8.20 L20.56,8.36 L20.40,8.95 L20.24,8.36 L19.65,8.20 L20.24,8.04 Z"/>' +
+        '<rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.4" fill="url(#cf-star-glow-' + id + ')"/>' +
+        '<rect x="2.15" y="2.15" width="19.7" height="19.7" rx="5.3" fill="url(#cf-star-tile-' + id + ')"/>' +
+        '<rect x="2.35" y="2.35" width="19.3" height="10.2" rx="5.1" fill="url(#cf-star-tilegloss-' + id + ')"/>' +
+        '<path fill="url(#cf-star-gold-' + id + ')" stroke="#C46A00" stroke-width="0.45" stroke-linejoin="round" stroke-linecap="round" d="M12.00,5.00 13.86,9.82 19.15,10.13 15.15,13.47 16.48,18.63 12.00,15.80 7.52,18.63 8.85,13.47 4.85,10.13 10.14,9.82 Z"/>' +
+        '<path fill="url(#cf-star-shine-' + id + ')" d="M12.00,5.55 L10.55,9.35 L12.10,9.15 L13.30,9.40 Z"/>' +
+        '<circle cx="11.15" cy="7.15" r="0.55" fill="#ffffff" fill-opacity="0.85"/>' +
         '</svg>';
     }
 
