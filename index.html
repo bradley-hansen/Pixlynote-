@@ -13340,6 +13340,8 @@ function syncLikedStateToPosts() {
             savedNotes.push(n);
           }
         });
+        // savedNoteIds is an append-only list (newest last). Reverse so Saved Notes is newest-first.
+        savedNotes.reverse();
 
         if (savedNotes.length === 0) {
           savedNotesList.innerHTML = '';
