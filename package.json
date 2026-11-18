@@ -1,0 +1,12 @@
+{
+  "name": "pixlynote",
+  "private": true,
+  "description": "Pixlynote single-page app. Run the regression suite with npm test before shipping any change.",
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:list": "node tests/run.js --list"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.1"
+  }
+}

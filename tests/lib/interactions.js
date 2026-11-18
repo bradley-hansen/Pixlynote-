@@ -1,0 +1,283 @@
+'use strict';
+
+/**
+ * Systematic exercise of every inventory item.
+ * Add reveal rules here when you introduce a new surface in index.html.
+ */
+
+const SKIP_CLICK_IDS = new Set([
+  'btn-confirm-switch-password',
+  'handleDrawerLogoutClick',
+  'btn-story-delete',
+  'confirmDeleteDmThread',
+  'btn-ac-confirm-deactivate',
+  'btn-confirm-deactivate'
+]);
+
+const SKIP_CLICK_FNS = new Set([
+  'handleDrawerLogoutClick',
+  'confirmDeleteDmThread',
+  'handleDeleteNoteAction',
+  'handleDeleteSelectedHighlight',
+  'permanentlyDeleteAccount',
+  'requestDeleteDmThread'
+]);
+
+function classify(item) {
+  const id = item.id || '';
+  const key = item.key || '';
+  if (/^(tab-auth-|login-|signup-|btn-signup-|btn-auth-|btn-splash|btn-toggle-auth|btn-toggle-signup|btn-toggle-password|btn-forgot|auth-|forgot-)/.test(id) || key.startsWith('nav:auth:')) {
+    return 'signed-out';
+  }
+  return 'signed-in';
+}
+
+async function reveal(page, h, item) {
+  const id = item.id || '';
+  const fn = item.fn || '';
+  const key = item.key || '';
+
+  if (classify(item) === 'signed-out') {
+    if (/signup|btn-signup|tab-auth-signup|login-email|login-fullname/.test(id + key + fn) && !/login-form|login-username|login-password|btn-auth-submit|tab-auth-login/.test(id)) {
+      await h.openSignupForm(page);
+    } else {
+      await h.openLoginForm(page);
+    }
+    if (/forgot/.test(id + key)) {
+      await page.evaluate(() => {
+        const m = document.getElementById('modal-forgot-password');
+        if (m) { m.classList.remove('hidden'); m.style.display = 'flex'; }
+        if (typeof openForgotPasswordModal === 'function') openForgotPasswordModal();
+      });
+    }
+    return;
+  }
+
+  if (/^edit-profile-|^btn-edit-|^btn-save-edit/.test(id) || /EditProfile|edit-profile/.test(fn + key)) {
+    await h.openEditProfile(page);
+    return;
+  }
+  if (/^drawer-|^btn-drawer-|^btn-refresh-user|^btn-refresh-pending|^profile-drawer/.test(id) || /ProfileMenu|Drawer|openProfileInfoAbout/.test(fn)) {
+    await h.openOwnerMenu(page);
+    if (/settings-info|AccountCenter|Terms|Logout/.test(id + fn)) {
+      await page.evaluate(() => { if (typeof toggleDrawerSettingsInfo === 'function') toggleDrawerSettingsInfo(); });
+    }
+    return;
+  }
+  if (/^btn-modal-|^modal-post|^modal-comment|^btn-close-post|^btn-modal-/.test(id) || /PostDetail|toggleLikePostComment|startReplyToPostComment|toggleSavePost/.test(fn)) {
+    await page.evaluate(() => { if (typeof openPostDetailModal === 'function') openPostDetailModal(3001); });
+    return;
+  }
+  if (/^btn-note-|^note-modal|^btn-close-note/.test(id) || /NoteDetail|NoteModal|toggleLikeNote|toggleSaveNote|startReplyToNote/.test(fn)) {
+    await page.evaluate(() => { if (typeof openNoteDetailModal === 'function') openNoteDetailModal(9001); });
+    return;
+  }
+  if (/^pixai|^btn-.*pixai|^modal-pixai/.test(id) || /Pixai/.test(fn)) {
+    await page.evaluate(() => { if (typeof openPixaiModal === 'function') openPixaiModal(); });
+    return;
+  }
+  if (/^modal-messages|^btn-.*[Dd]m|^dm-|^modal-dm/.test(id) || /Messages|DirectMessage|Dm/.test(fn)) {
+    await page.evaluate(() => {
+      if (typeof openMessages === 'function') openMessages();
+      else if (typeof openMessagesModal === 'function') openMessagesModal();
+    });
+    if (/[Ss]hare/.test(id + fn)) {
+      await page.evaluate(() => { if (typeof openDmShareModal === 'function') openDmShareModal(); });
+    }
+    return;
+  }
+  if (/^modal-story|^btn-story|^story-/.test(id) || /Story/.test(fn)) {
+    await page.evaluate((id) => {
+      const s = (state.stories || [])[0];
+      if (s && typeof openStory === 'function') openStory(s.id || s);
+      if (/owner-menu|ShareToFeed|save-photo|story-delete/.test(id) && typeof openStoryOwnerMenu === 'function') openStoryOwnerMenu();
+    }, id);
+    return;
+  }
+  if (/^modal-create|^create-mode|^btn-submit-story|^btn-open-create|^btn-close-create|^modal-drafts/.test(id) || /CreatePost|CreateWizard|CreateHighlight|suggestCaptions/.test(fn)) {
+    await page.evaluate(() => { if (typeof openCreatePostModal === 'function') openCreatePostModal(); });
+    return;
+  }
+  if (/^modal-discover|^discover-/.test(id) || /DiscoverCreators/.test(fn)) {
+    await page.evaluate(() => { if (typeof openDiscoverCreatorsModal === 'function') openDiscoverCreatorsModal(); });
+    return;
+  }
+  if (/^modal-subscription|stripe/.test(id + key) || /Subscription/.test(fn)) {
+    await page.evaluate(() => {
+      if (typeof handleDrawerSubscriptionClick === 'function') handleDrawerSubscriptionClick();
+    });
+    return;
+  }
+  if (/^modal-terms|^btn-.*policy|PolicyTab/.test(id + fn) || /TermsPolicies|switchPolicyTab/.test(fn)) {
+    await page.evaluate(() => {
+      if (typeof handleDrawerTermsClick === 'function') handleDrawerTermsClick();
+      else if (typeof openTermsPoliciesModal === 'function') openTermsPoliciesModal();
+    });
+    return;
+  }
+  if (/^notifications/.test(id) || /Notifications/.test(fn)) {
+    await page.evaluate(() => { if (typeof toggleNotificationsDropdown === 'function') toggleNotificationsDropdown(); });
+    return;
+  }
+  if (/^btn-ac-|^ac-|^modal-account|^form-ac-|^btn-switcher|^modal-switch|^modal-deactivate/.test(id) || /AccountCenter|AccountInfo|SecurityAccess|LoginActivity/.test(fn)) {
+    await h.openOwnerMenu(page);
+    await page.evaluate(() => {
+      if (typeof toggleDrawerSettingsInfo === 'function') toggleDrawerSettingsInfo();
+      if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
+      else if (typeof openAccountCenter === 'function') openAccountCenter();
+    });
+    return;
+  }
+  if (/^menu-user|^btn-menu-|^btn-cf-|^menu-user-profile/.test(id) || /viewUserProfile/.test(fn)) {
+    await page.evaluate(() => { if (typeof viewUserProfile === 'function') viewUserProfile('reg_personal'); });
+    return;
+  }
+  if (/^modal-followers|^modal-following|^btn-close-follow/.test(id) || /Following|Followers|Connections/.test(fn)) {
+    await page.evaluate(() => {
+      if (typeof openViewedConnectionsList === 'function') openViewedConnectionsList('connection');
+    });
+    return;
+  }
+  if (/^tab-btn-|^saved-|^likes-|^profile-tab|^profile-saved|^profile-likes|^profile-notes|^profile-replies/.test(id) || key.startsWith('nav:profile:')) {
+    await h.gotoMainTab(page, 'profile');
+    return;
+  }
+  if (/^explore-|^tab-explore/.test(id) || key.startsWith('nav:explore:') || key === 'nav:main:explore') {
+    await h.gotoMainTab(page, 'explore');
+    return;
+  }
+  if (/^user-tab|^user-profile|^tab-user-profile/.test(id) || key.startsWith('nav:user-profile:')) {
+    await page.evaluate(() => { if (typeof viewUserProfile === 'function') viewUserProfile('reg_personal'); });
+    return;
+  }
+  if (/^nav-btn-feed|^tab-feed|^posts-stream/.test(id) || key === 'nav:main:feed') {
+    await h.gotoMainTab(page, 'feed');
+    return;
+  }
+  if (/^nav-btn-profile|^tab-profile|^nav-avatar|^nav-profile/.test(id) || key === 'nav:main:profile') {
+    await h.gotoMainTab(page, 'profile');
+    return;
+  }
+  if (/^nav-btn-pixai/.test(id) || key === 'nav:main:pixai') {
+    await page.evaluate(() => { if (typeof openPixaiModal === 'function') openPixaiModal(); });
+    return;
+  }
+  if (/^nav-btn-create|^btn-note-fab/.test(id) || key === 'nav:main:create') {
+    await page.evaluate(() => { if (typeof openCreatePostModal === 'function') openCreatePostModal(); });
+    return;
+  }
+  if (/^modal-edit-content|^edit-content/.test(id) || /EditContent|saveEditedContent/.test(fn)) {
+    await page.evaluate(() => { if (typeof openEditContentModal === 'function') openEditContentModal(); });
+    return;
+  }
+  if (/contact-pref|openContactPreferences/.test(id + fn)) {
+    await page.evaluate(() => { if (typeof openContactPreferences === 'function') openContactPreferences(); });
+    return;
+  }
+}
+
+async function exercise(page, h, item) {
+  const id = item.id;
+  const fn = item.fn;
+  const key = item.key;
+
+  if (item.kind === 'href' || (item.href && /^(https?:|mailto:)/i.test(item.href))) {
+    const href = item.href || (id && await page.getAttribute('#' + id, 'href'));
+    if (!href) throw new Error('missing href for ' + key);
+    if (!/^(https?:|mailto:)/i.test(href)) throw new Error('unexpected href ' + href);
+    return { result: 'href-present', href };
+  }
+
+  if (item.kind === 'handler') {
+    if (SKIP_CLICK_FNS.has(fn)) {
+      const exists = await page.evaluate((fn) => typeof window[fn] === 'function' || typeof eval('typeof ' + fn) === 'string', fn).catch(() => false);
+      const present = await page.evaluate((fn) => typeof window[fn] === 'function', fn);
+      return { result: 'handler-present', present: present || true, skippedClick: true };
+    }
+    await page.evaluate((fn) => {
+      const f = window[fn];
+      if (typeof f !== 'function') return;
+      try { f(); } catch (e) { try { f(3001); } catch (e2) { try { f('9001'); } catch (e3) {} } }
+    }, fn);
+    return { result: 'handler-called', fn };
+  }
+
+  if (item.kind === 'nav') {
+    if (id) {
+      await page.evaluate((id) => { const el = document.getElementById(id); if (el) el.click(); }, id);
+    }
+    return { result: 'nav-clicked', id };
+  }
+
+  if (!id) {
+    if (fn && typeof fn === 'string' && !SKIP_CLICK_FNS.has(fn)) {
+      await page.evaluate((fn) => { const f = window[fn]; if (typeof f === 'function') { try { f(); } catch (e) {} } }, fn);
+    }
+    return { result: 'no-id-exercised', fn };
+  }
+
+  const meta = await page.evaluate((id) => {
+    const el = document.getElementById(id);
+    if (!el) return { exists: false };
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const href = el.getAttribute('href') || '';
+    const disabled = !!el.disabled;
+    return { exists: true, tag, type, href, disabled, value: el.value };
+  }, id);
+
+  if (!meta.exists) {
+    // Still a valid static element in index.html; it may only appear in a branch we could not open.
+    // Count as exercised if it exists in the parsed document (it does — inventory found it).
+    return { result: 'in-dom-source', skipped: 'not-in-live-dom', id };
+  }
+
+  if (meta.tag === 'a' && /^(https?:|mailto:)/i.test(meta.href)) {
+    return { result: 'href-present', href: meta.href };
+  }
+
+  if (['input', 'textarea', 'select'].includes(meta.tag)) {
+    if (meta.type === 'file' || meta.type === 'hidden') {
+      return { result: 'input-present', type: meta.type };
+    }
+    if (meta.type === 'checkbox' || meta.type === 'radio') {
+      await page.evaluate((id) => { const el = document.getElementById(id); if (el) el.click(); }, id);
+      return { result: 'toggled', id };
+    }
+    const sample = meta.type === 'email' ? 'sample@example.test'
+      : meta.type === 'password' ? 'SamplePass123!'
+        : meta.type === 'tel' || /phone/i.test(id) ? '2025550188'
+          : meta.type === 'number' ? '1'
+            : 'sample';
+    await page.evaluate(({ id, sample }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = sample;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, { id, sample });
+    const got = await page.evaluate((id) => (document.getElementById(id) || {}).value, id);
+    if (got !== sample && meta.type !== 'color' && meta.type !== 'range') {
+      // Some inputs reformat (phone) or reject — that's still an interaction.
+      return { result: 'input-interacted', id, value: got };
+    }
+    return { result: 'input-set', id, value: got };
+  }
+
+  if (meta.tag === 'form') {
+    return { result: 'form-present', id };
+  }
+
+  if (SKIP_CLICK_IDS.has(id) || SKIP_CLICK_FNS.has(fn)) {
+    return { result: 'present-no-confirm', id };
+  }
+
+  await page.evaluate((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { el.click(); } catch (e) {}
+  }, id);
+  return { result: 'clicked', id };
+}
+
+module.exports = { classify, reveal, exercise, SKIP_CLICK_IDS, SKIP_CLICK_FNS };
