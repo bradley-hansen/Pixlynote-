@@ -1216,7 +1216,7 @@
           </button>
           <div class="flex items-center space-x-1">
             <span class="font-bold text-xs text-neutral-900" id="user-profile-header-username">username</span>
-            <svg class="w-3.5 h-3.5 text-violet-600 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            <svg id="user-profile-header-verified-badge" class="hidden w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
           </div>
           <button type="button" id="btn-share-user-profile" class="p-1 text-neutral-500 hover:text-neutral-900 transition cursor-pointer" title="Share Profile">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
@@ -1383,9 +1383,8 @@
                 </div>
                 <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
                   <span class="text-neutral-400">Account Status</span>
-                  <span class="font-semibold text-sky-600 flex items-center space-x-1">
-                    <span>Verified Creator</span>
-                    <svg class="w-3.5 h-3.5 text-violet-600 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                  <span id="info-account-status" class="font-semibold text-neutral-800 flex items-center space-x-1">
+                    <span>Not verified</span>
                   </span>
                 </div>
                 <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
@@ -8941,9 +8940,9 @@ function syncLikedStateToPosts() {
                           </div>
                         </div>
                         <div class="min-w-0">
-                          <div class="flex items-center space-x-1">
+                          <div class="flex items-center space-x-1 min-w-0">
                             <span class="font-bold text-xs text-neutral-900 truncate">${creator.fullName}</span>
-                            <svg class="w-3 h-3 text-sky-500 fill-sky-500 flex-shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                            ${isViewedCreatorCheckmarkShown(creator) ? (EXPLORE_VERIFIED_SVG || '') : ''}
                           </div>
                           <div class="text-[11px] text-neutral-500 truncate">@${creator.username}</div>
                           <div class="text-[10px] text-neutral-400 truncate mt-0.5">${creator.bio || ''}</div>
@@ -11087,6 +11086,7 @@ function syncLikedStateToPosts() {
             category: String(d.category || ''),
             accountType: d.accountType === 'business' ? 'business' : 'personal',
             isVerified: d.isVerified === true,
+            isPlus: d.isPlus === true,
             deactivated: d.deactivated === true,
             following,
             likedPostIds: Array.isArray(d.likedPostIds) ? d.likedPostIds.map(String) : [],
@@ -11448,7 +11448,7 @@ function syncLikedStateToPosts() {
     function exploreAccountAvatar(c) {
       return exploreSafeSrc(c.avatar, typeof NEUTRAL_BLANK_AVATAR !== 'undefined' ? NEUTRAL_BLANK_AVATAR : '');
     }
-    var EXPLORE_VERIFIED_SVG = `<svg class="w-3.5 h-3.5 text-violet-600 fill-current flex-shrink-0" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    var EXPLORE_VERIFIED_SVG = `<svg class="w-3.5 h-3.5 text-sky-500 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
     function renderExploreAccounts(q, filterQuery, container) {
       const viewer = exploreViewer();
@@ -11501,7 +11501,7 @@ function syncLikedStateToPosts() {
                           <div class="min-w-0 flex-1">
                             <div class="flex items-center space-x-1.5">
                               <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${exploreEsc(c.fullName)}</span>
-                              ${c.isVerified ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                              ${isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : ''}
                               <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${exploreEsc(String(chip).split('&')[0].trim())}</span>
                             </div>
                             <div class="text-[11px] font-medium text-neutral-500 truncate">@${u}${isSelf ? ' · You' : ''}</div>
@@ -11538,7 +11538,10 @@ function syncLikedStateToPosts() {
                         </div>
                       </div>
                       <div class="w-full min-w-0">
-                        <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc(c.fullName)}</div>
+                        <div class="flex items-center justify-center gap-0.5 min-w-0">
+                          <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc(c.fullName)}</div>
+                          ${isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                        </div>
                         <div class="text-[10px] text-neutral-500 font-medium truncate">@${u}</div>
                         <div class="explore-account-counts text-[10px] text-neutral-400 truncate">${exploreFmtCount(c.followersCount)} ${exploreFollowersWord(c.followersCount)}</div>
                       </div>
@@ -15125,7 +15128,7 @@ function syncLikedStateToPosts() {
         return `<div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
             <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer viewed-conn-row" data-username="${escapeHtml(n)}">
               <img src="${escapeHtml(av)}" alt="${escapeHtml(n)}" class="w-10 h-10 rounded-full object-cover border border-neutral-200 flex-shrink-0" onerror="this.src=NEUTRAL_BLANK_AVATAR">
-              <div class="min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">@${escapeHtml(n)}</div><div class="text-[11px] text-neutral-500 truncate">${escapeHtml(name)}</div></div>
+              <div class="min-w-0"><div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">@${escapeHtml(n)}</div>${isViewedCreatorCheckmarkShown({ username: n, isVerified: rec && rec.isVerified, isPlus: rec && rec.isPlus }) ? (EXPLORE_VERIFIED_SVG || '') : ''}</div><div class="text-[11px] text-neutral-500 truncate">${escapeHtml(name)}</div></div>
             </div>${btn}</div>`;
       }).join('');
       box.querySelectorAll('.viewed-conn-row').forEach(r => r.addEventListener('click', () => {
@@ -15147,6 +15150,43 @@ function syncLikedStateToPosts() {
       renderViewedConnectionsList();
     };
     window.refreshViewedProfileFromCloud = refreshViewedProfileFromCloud;
+
+
+    // Same source of truth as the blue checkmark next to a viewed profile's name.
+    // Uses the profile being viewed (state.viewedCreator / getCreatorInfo), never the viewer.
+    function isViewedCreatorCheckmarkShown(creator) {
+      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
+      const cleanU = normalizeUsername(src.username || src.user || '');
+      if (!cleanU || cleanU.includes('bot') || cleanU.includes('test')) return false;
+      let isVerified = src.isVerified === true;
+      let isPlus = src.isPlus === true;
+      if (!isVerified || !isPlus) {
+        const rec = window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU);
+        if (rec) {
+          if (rec.isVerified === true) isVerified = true;
+          if (rec.isPlus === true) isPlus = true;
+        }
+      }
+      if ((!isVerified || !isPlus) && typeof getCreatorInfo === 'function') {
+        const info = getCreatorInfo(cleanU);
+        if (info) {
+          if (info.isVerified === true) isVerified = true;
+          if (info.isPlus === true) isPlus = true;
+        }
+      }
+      return Boolean(isVerified && isPlus);
+    }
+    function renderViewedAccountStatus(creator) {
+      const el = document.getElementById('info-account-status');
+      if (!el) return;
+      if (isViewedCreatorCheckmarkShown(creator)) {
+        el.className = 'font-semibold text-sky-600 flex items-center space-x-1';
+        el.innerHTML = '<span>Verified</span><svg class="w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+      } else {
+        el.className = 'font-semibold text-neutral-800 flex items-center space-x-1';
+        el.innerHTML = '<span>Not verified</span>';
+      }
+    }
 
     function viewUserProfile(username, fromTab = '') {
       if (!username) return;
@@ -15178,11 +15218,11 @@ function syncLikedStateToPosts() {
       
       const profileUsername = document.getElementById('user-profile-username');
       if (profileUsername) profileUsername.textContent = creator.username;
+      const showCheck = isViewedCreatorCheckmarkShown(creator);
       const verifiedBadge = document.getElementById('user-profile-verified-badge');
-      if (verifiedBadge) {
-        const showCheck = Boolean(creator.isVerified === true && creator.isPlus === true && !cleanU.includes('bot') && !cleanU.includes('test'));
-        verifiedBadge.classList.toggle('hidden', !showCheck);
-      }
+      if (verifiedBadge) verifiedBadge.classList.toggle('hidden', !showCheck);
+      const headerBadge = document.getElementById('user-profile-header-verified-badge');
+      if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
 
       const profileAvatar = document.getElementById('user-profile-avatar');
       if (profileAvatar) profileAvatar.src = creator.avatar;
@@ -15222,6 +15262,7 @@ function syncLikedStateToPosts() {
       if (infoCategory) infoCategory.textContent = creator.category;
       const infoMutual = document.getElementById('info-mutual');
       if (infoMutual) infoMutual.textContent = '';
+      if (typeof renderViewedAccountStatus === 'function') renderViewedAccountStatus(creator);
 
       // Update Follow button state
       updateCreatorFollowButton(creator);
@@ -15663,7 +15704,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  <span class="text-[10px] text-violet-600">✓</span>
+                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
@@ -15843,7 +15884,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  <span class="text-[10px] text-violet-600">✓</span>
+                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
@@ -16064,7 +16105,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  <span class="text-[10px] text-violet-600">✓</span>
+                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
