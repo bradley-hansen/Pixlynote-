@@ -4441,7 +4441,7 @@
     var PIXLYNOTE_API_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
     window.PIXLYNOTE_API_ENDPOINT = PIXLYNOTE_API_ENDPOINT;
     // Sign-up email/SMS verification lives on the staging Worker until Bradley says Go.
-    var PIXLYNOTE_VERIFY_ENDPOINT = 'https://pixlynote-api-staging.brad-g-hansen.workers.dev';
+    var PIXLYNOTE_VERIFY_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
     window.PIXLYNOTE_VERIFY_ENDPOINT = PIXLYNOTE_VERIFY_ENDPOINT;
 
     function normalizeUsername(u) {
@@ -22139,6 +22139,7 @@ function syncLikedStateToPosts() {
           if (e === 'rate_limited') return 'Too many attempts. Please wait a bit and try again.';
           if (e === 'invalid_phone') return 'Enter a complete 10-digit US phone number.';
           if (e === 'country_not_supported') return 'US phone numbers only for now.';
+          if (e === 'sms_unavailable') return 'Phone verification isn\'t available yet';
           if (e === 'number_not_verified_on_trial') return 'This Twilio trial can only text verified numbers. Verify the number in the Twilio console, or upgrade the account.';
           return kind === 'email' ? 'Could not verify that email code. Please try again.' : 'Could not verify that code. Please try again.';
         }
