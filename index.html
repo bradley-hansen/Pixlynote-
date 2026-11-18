@@ -25430,6 +25430,32 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         drawerUsername.textContent = state.currentUser ? `@${state.currentUser.username}` : '@bradley_hansen';
       }
 
+      const metricsBox = document.getElementById('drawer-pixlynote-metrics');
+      const deactBox = document.getElementById('drawer-pixlynote-deactivations');
+      const activeNormU = (typeof normalizeUsername === 'function' && state.currentUser && state.currentUser.username)
+        ? normalizeUsername(state.currentUser.username)
+        : (state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '');
+      if (metricsBox) {
+        if (activeNormU === 'pixlynote') {
+          metricsBox.classList.remove('hidden');
+          if (typeof refreshDrawerUserMetrics === 'function') {
+            refreshDrawerUserMetrics(false);
+          }
+        } else {
+          metricsBox.classList.add('hidden');
+        }
+      }
+      if (deactBox) {
+        if (activeNormU === 'pixlynote') {
+          deactBox.classList.remove('hidden');
+          if (typeof refreshPendingDeactivations === 'function') {
+            refreshPendingDeactivations(false);
+          }
+        } else {
+          deactBox.classList.add('hidden');
+        }
+      }
+
       if (modal && backdrop && card) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -26786,6 +26812,77 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+        <!-- @pixlynote-only User Base Metrics Card -->
+        <div id="drawer-pixlynote-metrics" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-violet-50 via-indigo-50/70 to-sky-50 border border-violet-200/80 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-2xs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <div>
+                <div class="font-extrabold text-xs text-neutral-900 leading-tight">User Base Metrics</div>
+                <div class="text-[10px] font-semibold text-violet-700">@pixlynote Only</div>
+              </div>
+            </div>
+            <button type="button" id="btn-refresh-user-metrics" onclick="refreshDrawerUserMetrics(true)" class="p-1.5 rounded-lg text-violet-600 hover:text-violet-800 hover:bg-white/80 transition cursor-pointer" title="Refresh user metrics">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+
+          <div class="bg-white/90 rounded-xl p-2.5 border border-violet-100/80 flex items-baseline justify-between">
+            <div>
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Total Signed Up</div>
+              <div id="metric-total-users" class="text-2xl font-black text-neutral-900 tracking-tight leading-tight mt-0.5">—</div>
+            </div>
+            <span id="metric-users-source" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Loading...</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5 mt-2">
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-personal-users" class="text-sm font-black text-neutral-900">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Personal</div>
+            </div>
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-business-users" class="text-sm font-black text-neutral-900">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Business</div>
+            </div>
+            <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
+              <div id="metric-plus-users" class="text-sm font-black text-sky-600">0</div>
+              <div class="text-[9px] font-semibold text-neutral-500">Plus</div>
+            </div>
+          </div>
+
+          <button type="button" onclick="toggleDrawerUserMetricsList()" class="mt-2 w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/70 hover:bg-white text-[11px] font-bold text-violet-700 transition cursor-pointer border border-violet-100/80">
+            <span>View signed-up accounts</span>
+            <svg id="drawer-metrics-list-chevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="drawer-metrics-accounts-list" class="hidden mt-1.5 max-h-36 overflow-y-auto space-y-1 pr-0.5"></div>
+        </div>
+
+        <!-- @pixlynote-only Pending Deactivations Admin Card -->
+        <div id="drawer-pixlynote-deactivations" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 via-amber-50/60 to-orange-50 border border-rose-200/80 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-2xs flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-extrabold text-xs text-neutral-900 leading-tight">Pending Deactivations</span>
+                  <span id="pending-deactivations-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">0</span>
+                </div>
+                <div class="text-[10px] font-medium text-rose-700/90 leading-tight">Accounts requesting deletion (30-day window)</div>
+              </div>
+            </div>
+            <button type="button" id="btn-refresh-pending-deactivations" onclick="refreshPendingDeactivations(true)" class="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh pending deactivations">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+          <div id="drawer-pending-deactivations-list" class="max-h-40 overflow-y-auto space-y-1.5 pr-0.5">
+            <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">No pending deactivations</div>
+          </div>
+        </div>
+
       </div>
 
 
