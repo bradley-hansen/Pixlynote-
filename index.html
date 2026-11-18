@@ -1061,10 +1061,10 @@
         </div>
 
         <!-- Profile Tabs: Modern Segmented Pill Control -->
-        <div class="bg-neutral-100/80 p-1.5 rounded-2xl border border-neutral-200/60 shadow-xs">
-          <div id="profile-tab-bar" class="flex flex-nowrap space-x-1 overflow-x-auto hide-scrollbar">
+        <div class="bg-neutral-100/80 p-1 rounded-2xl border border-neutral-200/60 shadow-xs">
+          <div id="profile-tab-bar" class="flex flex-nowrap space-x-0.5 overflow-x-auto hide-scrollbar">
             <!-- 1. Posts (3x3 grid) -->
-            <button type="button" id="tab-btn-posts" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
+            <button type="button" id="tab-btn-posts" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
               </svg>
@@ -1072,7 +1072,7 @@
             </button>
             
             <!-- 2. Notes -->
-            <button type="button" id="tab-btn-notes" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="tab-btn-notes" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
@@ -1080,23 +1080,15 @@
             </button>
 
             <!-- 3. Replies (public, same as visitor/signed-out) -->
-            <button type="button" id="tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
               </svg>
               <span>REPLIES</span>
             </button>
 
-            <!-- 4. Info & About (public, same as visitor/signed-out) -->
-            <button type="button" id="tab-btn-info" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              <span>INFO & ABOUT</span>
-            </button>
-
-            <!-- 4. Saved -->
-            <button type="button" id="tab-btn-saved" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <!-- 4. Saved (owner-only) -->
+            <button type="button" id="tab-btn-saved" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
               </svg>
@@ -1104,7 +1096,7 @@
             </button>
 
             <!-- 5. Likes -->
-            <button type="button" id="tab-btn-likes" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="tab-btn-likes" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
               </svg>
@@ -1379,24 +1371,20 @@
           <div id="user-profile-highlights-container" class="hidden mt-3 pt-2.5 border-t border-neutral-100 flex items-center space-x-2 overflow-x-auto hide-scrollbar"></div>
         </div>
 
-        <!-- Creator Tabs: same public pills as the owner (Posts, Notes, Replies, Info & About) -->
-        <div class="bg-neutral-100/80 p-1.5 rounded-2xl border border-neutral-200/60 shadow-xs">
-          <div id="user-profile-tab-bar" class="flex flex-nowrap space-x-1 overflow-x-auto hide-scrollbar">
-            <button type="button" id="user-tab-btn-posts" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
+        <!-- Creator Tabs: same public pills as the owner (Posts, Notes, Replies) -->
+        <div class="bg-neutral-100/80 p-1 rounded-2xl border border-neutral-200/60 shadow-xs">
+          <div id="user-profile-tab-bar" class="flex flex-nowrap space-x-0.5 overflow-x-auto hide-scrollbar">
+            <button type="button" id="user-tab-btn-posts" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
               <span>POSTS</span>
             </button>
-            <button type="button" id="user-tab-btn-notes" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="user-tab-btn-notes" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               <span>NOTES</span>
             </button>
-            <button type="button" id="user-tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
+            <button type="button" id="user-tab-btn-replies" class="flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
               <span>REPLIES</span>
-            </button>
-            <button type="button" id="user-tab-btn-info" class="flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>INFO & ABOUT</span>
             </button>
           </div>
         </div>
@@ -2229,6 +2217,7 @@
   <div id="menu-user-profile-more" class="hidden" role="menu">
     <button type="button" id="btn-menu-block" class="w-full text-left px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 cursor-pointer" role="menuitem">Block</button>
     <button type="button" id="btn-menu-mute" class="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 cursor-pointer" role="menuitem">Mute</button>
+    <button type="button" id="btn-menu-info-about" class="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-violet-50 cursor-pointer border-t border-neutral-100 mt-0.5" role="menuitem">Info &amp; About</button>
   </div>
 
     <!-- PIXAI BOTTOM POPUP CHAT SHEET (PIXLYNOTE PIXAI) -->
@@ -8509,6 +8498,11 @@ function syncLikedStateToPosts() {
       if (blk) blk.addEventListener('click', onMenuBlockClick);
       const mut = document.getElementById('btn-menu-mute');
       if (mut) mut.addEventListener('click', onMenuMuteClick);
+      const infoAbout = document.getElementById('btn-menu-info-about');
+      if (infoAbout) infoAbout.addEventListener('click', function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (typeof openProfileInfoAbout === 'function') openProfileInfoAbout();
+      });
       document.addEventListener('click', function () { hideProfileMenus(); });
       window.addEventListener('resize', hideProfileMenus);
       const cfSearch = document.getElementById('ac-cf-search');
@@ -15285,8 +15279,8 @@ function syncLikedStateToPosts() {
       const btnNotes = document.getElementById('user-tab-btn-notes');
       const btnReplies = document.getElementById('user-tab-btn-replies');
       const btnInfo = document.getElementById('user-tab-btn-info');
-      const activeCls = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
-      const inactiveCls = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
+      const activeCls = "flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
+      const inactiveCls = "flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
 
       if (postsView) postsView.classList.toggle('hidden', tab !== 'posts');
       if (notesView) notesView.classList.toggle('hidden', tab !== 'notes');
@@ -24431,14 +24425,14 @@ function syncLikedStateToPosts() {
         const activateSubTab = (btn, container) => {
           [tabBtnPosts, tabBtnNotes, tabBtnInfo, tabBtnReplies, tabBtnSaved, tabBtnLikes].forEach(b => {
             if (b) {
-              b.className = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
+              b.className = "flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-semibold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl text-neutral-500 hover:text-neutral-900 transition cursor-pointer";
             }
           });
           [postsGrid, notesContainer, infoContainer, repliesContainer, savedContainer, likesContainer].forEach(c => {
             if (c) c.classList.add('hidden');
           });
           if (btn) {
-            btn.className = "flex-shrink-0 whitespace-nowrap py-2 px-2.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
+            btn.className = "flex-shrink-0 whitespace-nowrap py-2 px-1.5 text-[11px] sm:text-xs font-bold tracking-wider inline-flex items-center justify-center space-x-1.5 rounded-xl bg-white text-violet-950 shadow-xs border border-neutral-200/60 transition cursor-pointer";
             if (typeof scrollOwnerProfileTabIntoView === 'function') scrollOwnerProfileTabIntoView(btn);
             else btn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
           }
@@ -24449,6 +24443,7 @@ function syncLikedStateToPosts() {
           }
           if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
         };
+        window.activateOwnerProfileSubTab = activateSubTab;
 
         if (tabBtnPosts) tabBtnPosts.addEventListener('click', () => activateSubTab(tabBtnPosts, postsGrid));
         if (tabBtnNotes) tabBtnNotes.addEventListener('click', () => { activateSubTab(tabBtnNotes, notesContainer); renderNotes(); });
@@ -25000,6 +24995,32 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
     }
     window.openProfileMenu = openProfileMenu;
+
+    function openProfileInfoAbout() {
+      if (typeof closeProfileMenu === 'function') closeProfileMenu();
+      if (typeof hideProfileMenus === 'function') hideProfileMenus();
+      const userSec = document.getElementById('tab-user-profile');
+      const userVisible = !!(userSec && !userSec.classList.contains('hidden') && userSec.style.display !== 'none');
+      if (userVisible && typeof switchUserSubTab === 'function') {
+        switchUserSubTab('info');
+        const v = document.getElementById('user-profile-info-view');
+        if (v && typeof v.scrollIntoView === 'function') v.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (typeof switchMainTab === 'function') switchMainTab('profile');
+      const info = document.getElementById('profile-info-container');
+      if (typeof window.activateOwnerProfileSubTab === 'function') {
+        window.activateOwnerProfileSubTab(null, info);
+      } else if (info) {
+        ['posts-grid', 'profile-notes-container', 'replies-container', 'saved-container', 'likes-container'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('hidden');
+        });
+        info.classList.remove('hidden');
+      }
+      if (info && typeof info.scrollIntoView === 'function') info.scrollIntoView({ block: 'nearest' });
+    }
+    window.openProfileInfoAbout = openProfileInfoAbout;
 
     function toggleDrawerUserMetricsList() {
       const listEl = document.getElementById('drawer-metrics-accounts-list');
@@ -26378,6 +26399,19 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <svg class="w-4 h-4 text-rose-300 group-hover:text-rose-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </button>
         </div>
+
+        <button type="button" id="btn-drawer-info-about" onclick="openProfileInfoAbout()" class="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold group-hover:scale-105 transition shadow-2xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-800 transition">Info &amp; About</div>
+              <div class="text-[10px] text-neutral-500">Profile details for this account</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
 
       <!-- Drawer Footer -->
