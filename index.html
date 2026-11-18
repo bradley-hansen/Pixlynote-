@@ -22125,6 +22125,14 @@ function syncLikedStateToPosts() {
         window.isSignupEmailTaken = isSignupEmailTaken;
         window.isSignupPhoneTaken = isSignupPhoneTaken;
 
+        function styleSignupSendButton(btn, enabled) {
+          if (!btn) return;
+          btn.disabled = !enabled;
+          ['opacity-50', 'cursor-not-allowed'].forEach(c => btn.classList.toggle(c, !enabled));
+          btn.classList.toggle('cursor-pointer', enabled);
+          btn.classList.toggle('hover:bg-violet-100', enabled);
+        }
+
         function isSignupContactVerified() {
           const v = state.signupVerify || {};
           const needsEmail = signupEmailLooksValid();
@@ -22191,7 +22199,7 @@ function syncLikedStateToPosts() {
           if (isSignupEmailTaken()) {
             if (emailSend) emailSend.classList.remove('hidden');
             if (emailCode) emailCode.classList.add('hidden');
-            setSignupVerifyStatus(emailStatus, 'This email is already on an account', true);
+            setSignupVerifyStatus(emailStatus, '', false);
           } else if (v.emailVerified && v.email && v.email.toLowerCase() === em.toLowerCase()) {
             if (emailSend) emailSend.classList.add('hidden');
             if (emailCode) emailCode.classList.add('hidden');
@@ -22204,7 +22212,7 @@ function syncLikedStateToPosts() {
             if (emailCode) emailCode.classList.add('hidden');
             if (emailStatus && !signupEmailLooksValid()) setSignupVerifyStatus(emailStatus, '', false);
           }
-          if (emailSendBtn) emailSendBtn.disabled = !signupEmailLooksValid() || isSignupEmailTaken();
+          if (emailSendBtn) styleSignupSendButton(emailSendBtn, signupEmailLooksValid() && !isSignupEmailTaken());
 
           const phoneSend = document.getElementById('signup-phone-send-wrap');
           const phoneCode = document.getElementById('signup-phone-code-wrap');
@@ -22214,7 +22222,7 @@ function syncLikedStateToPosts() {
           if (isSignupPhoneTaken()) {
             if (phoneSend) phoneSend.classList.remove('hidden');
             if (phoneCode) phoneCode.classList.add('hidden');
-            setSignupVerifyStatus(phoneStatus, 'This number is already on an account', true);
+            setSignupVerifyStatus(phoneStatus, '', false);
           } else if (v.phoneVerified && v.phone && v.phone === ph) {
             if (phoneSend) phoneSend.classList.add('hidden');
             if (phoneCode) phoneCode.classList.add('hidden');
@@ -22227,7 +22235,7 @@ function syncLikedStateToPosts() {
             if (phoneCode) phoneCode.classList.add('hidden');
             if (phoneStatus && !ph) setSignupVerifyStatus(phoneStatus, '', false);
           }
-          if (phoneSendBtn) phoneSendBtn.disabled = !ph || isSignupPhoneTaken();
+          if (phoneSendBtn) styleSignupSendButton(phoneSendBtn, !!ph && !isSignupPhoneTaken());
         }
 
         async function sendSignupEmailCode() {
@@ -22238,7 +22246,6 @@ function syncLikedStateToPosts() {
             return;
           }
           if (isSignupEmailTaken()) {
-            setSignupVerifyStatus(status, 'This email is already on an account', true);
             if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
             return;
           }
@@ -22319,7 +22326,6 @@ function syncLikedStateToPosts() {
             return;
           }
           if (isSignupPhoneTaken()) {
-            setSignupVerifyStatus(status, 'This number is already on an account', true);
             if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
             return;
           }
