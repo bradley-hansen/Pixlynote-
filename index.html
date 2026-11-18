@@ -2160,11 +2160,12 @@
         <div>
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Username</label>
           <input type="text" id="edit-profile-username" value="" placeholder="username" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+          <p id="edit-profile-username-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium">Username taken</p>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs font-semibold text-neutral-700">Email Address (Registered)</label>
-            <span class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1">
+            <span id="edit-profile-email-verified-badge" class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1">
               <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
               <span>Verified Account Email</span>
             </span>
@@ -2176,6 +2177,20 @@
             </div>
           </div>
           <p class="text-[10px] text-neutral-400 mt-1">This email or phone is registered for account access & recovery.</p>
+          <p id="edit-profile-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+          <div id="edit-profile-email-verify-panel" class="hidden mt-2 space-y-2">
+            <p id="edit-profile-email-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+            <div id="edit-profile-email-send-wrap">
+              <button type="button" id="btn-edit-send-email-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send code</button>
+            </div>
+            <div id="edit-profile-email-code-wrap" class="hidden space-y-2">
+              <input type="text" id="edit-profile-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+              <div class="flex items-center space-x-2">
+                <button type="button" id="btn-edit-verify-email-code" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify email</button>
+                <button type="button" id="btn-edit-resend-email-code" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- Phone Number Field (Required: Phone or Email) -->
         <div id="edit-profile-phone-group">
@@ -2192,6 +2207,20 @@
             </div>
           </div>
           <p class="text-[10px] text-neutral-400 mt-1" id="edit-profile-phone-hint">Enter your phone number so you can log in with phone or email next time. Either phone or email is required.</p>
+          <p id="edit-profile-phone-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+          <div id="edit-profile-phone-verify-panel" class="hidden mt-2 space-y-2">
+            <p id="edit-profile-phone-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+            <div id="edit-profile-phone-send-wrap">
+              <button type="button" id="btn-edit-send-phone-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send code</button>
+            </div>
+            <div id="edit-profile-phone-code-wrap" class="hidden space-y-2">
+              <input type="text" id="edit-profile-phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit phone code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+              <div class="flex items-center space-x-2">
+                <button type="button" id="btn-edit-verify-phone-code" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify phone</button>
+                <button type="button" id="btn-edit-resend-phone-code" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Bio</label>
@@ -12268,6 +12297,7 @@ function syncLikedStateToPosts() {
       if (typeof window.hydrateActiveAccountFromFirestore === 'function' && state.currentUser && state.currentUser.username) {
         window.hydrateActiveAccountFromFirestore(state.currentUser.username);
       }
+      if (typeof window.syncEditProfileVerifyUi === 'function') window.syncEditProfileVerifyUi(true);
     }
 
     function closeEditProfileModal() {
@@ -22182,6 +22212,405 @@ function syncLikedStateToPosts() {
           return { ok: res.ok, status: res.status, data };
         }
 
+        window.postSignupVerify = postSignupVerify;
+        window.signupVerifyErrorMessage = signupVerifyErrorMessage;
+        window.styleSignupSendButton = styleSignupSendButton;
+        window.normalizeSignupPhone = normalizeSignupPhone;
+
+        function editProfileSelfUsername() {
+          const u = (state.currentUser && state.currentUser.username) || '';
+          return (typeof normalizeUsername === 'function') ? normalizeUsername(u) : String(u).toLowerCase().replace(/^@/, '');
+        }
+        function editProfileEmailValue() {
+          return ((document.getElementById('edit-profile-email') || {}).value || '').trim();
+        }
+        function editProfilePhoneRaw() {
+          return ((document.getElementById('edit-profile-phone') || {}).value || '').trim();
+        }
+        function editProfilePhoneValue() {
+          return (typeof normalizeSignupPhone === 'function') ? normalizeSignupPhone(editProfilePhoneRaw()) : editProfilePhoneRaw();
+        }
+        function editProfileUsernameValue() {
+          const u = ((document.getElementById('edit-profile-username') || {}).value || '').trim().replace(/^@/, '');
+          return (typeof normalizeUsername === 'function') ? normalizeUsername(u) : u.toLowerCase();
+        }
+        function editEmailLooksValid(em) {
+          em = (em || '').trim();
+          if (!em) return false;
+          const localPart = em.split('@')[0] || '';
+          return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em) && !em.includes('..') && !localPart.startsWith('.') && !localPart.endsWith('.');
+        }
+        function sameEditEmail(a, b) {
+          return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+        }
+        function sameEditPhone(a, b) {
+          if (typeof normalizePhoneDigits === 'function') {
+            const da = normalizePhoneDigits(a);
+            const db = normalizePhoneDigits(b);
+            if (da && db) return da === db;
+            if (!da && !db) return !String(a || '').trim() && !String(b || '').trim();
+          }
+          const na = (typeof normalizeSignupPhone === 'function') ? normalizeSignupPhone(a) : String(a || '').trim();
+          const nb = (typeof normalizeSignupPhone === 'function') ? normalizeSignupPhone(b) : String(b || '').trim();
+          return na === nb;
+        }
+        function setEditInlineError(el, msg) {
+          if (!el) return;
+          if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+          el.textContent = msg;
+          el.classList.remove('hidden');
+        }
+        function setEditVerifyStatus(el, msg, isError) {
+          if (!el) return;
+          if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+          el.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-emerald-50', 'text-emerald-700');
+          el.classList.add(isError ? 'bg-rose-50' : 'bg-emerald-50', isError ? 'text-rose-700' : 'text-emerald-700');
+          el.textContent = msg;
+        }
+        function styleEditSaveButton(enabled) {
+          const btn = document.getElementById('btn-save-edit-profile');
+          if (!btn) return;
+          btn.disabled = !enabled;
+          btn.classList.toggle('opacity-50', !enabled);
+          btn.classList.toggle('cursor-not-allowed', !enabled);
+          btn.classList.toggle('hover:opacity-95', enabled);
+          btn.classList.toggle('cursor-pointer', enabled);
+        }
+        function editProfileEmailChanged() {
+          const v = state.editProfileVerify || {};
+          return !sameEditEmail(editProfileEmailValue(), v.savedEmail || '');
+        }
+        function editProfilePhoneChanged() {
+          const v = state.editProfileVerify || {};
+          return !sameEditPhone(editProfilePhoneRaw(), v.savedPhone || '');
+        }
+        function editProfileEmailVerified() {
+          const v = state.editProfileVerify || {};
+          const em = editProfileEmailValue();
+          return !!(v.emailVerified && v.email && sameEditEmail(v.email, em));
+        }
+        function editProfilePhoneVerified() {
+          const v = state.editProfileVerify || {};
+          const ph = editProfilePhoneRaw();
+          return !!(v.phoneVerified && (sameEditPhone(v.phone, ph)));
+        }
+        function editProfileCanSave() {
+          const email = editProfileEmailValue();
+          const phoneRaw = editProfilePhoneRaw();
+          if (!email && !phoneRaw) return false;
+          if (email && editProfileEmailChanged() && !editEmailLooksValid(email)) return false;
+          if (email && editProfileEmailChanged() && !editProfileEmailVerified()) return false;
+          if (phoneRaw && editProfilePhoneChanged() && !editProfilePhoneValue()) return false;
+          if (phoneRaw && editProfilePhoneChanged() && !editProfilePhoneVerified()) return false;
+          const v = state.editProfileVerify || {};
+          if (v.usernameTaken) return false;
+          if (v.emailTaken && editProfileEmailChanged()) return false;
+          if (v.phoneTaken && editProfilePhoneChanged()) return false;
+          return true;
+        }
+        window.editProfileCanSave = editProfileCanSave;
+
+        function syncEditProfileVerifyUi(resetSaved) {
+          const selfU = editProfileSelfUsername();
+          if (resetSaved) {
+            state.editProfileVerify = {
+              savedEmail: editProfileEmailValue(),
+              savedPhone: editProfilePhoneRaw(),
+              savedUsername: editProfileUsernameValue() || selfU,
+              email: '', emailVerified: false, emailCodeSent: false, emailTaken: false,
+              phone: '', phoneVerified: false, phoneCodeSent: false, phoneTaken: false,
+              usernameTaken: false, usernameCheckSeq: 0
+            };
+            const emCode = document.getElementById('edit-profile-email-code');
+            const phCode = document.getElementById('edit-profile-phone-code');
+            if (emCode) emCode.value = '';
+            if (phCode) phCode.value = '';
+            setEditVerifyStatus(document.getElementById('edit-profile-email-verify-status'), '');
+            setEditVerifyStatus(document.getElementById('edit-profile-phone-verify-status'), '');
+          }
+          state.editProfileVerify = state.editProfileVerify || {};
+          const v = state.editProfileVerify;
+          const email = editProfileEmailValue();
+          const phoneRaw = editProfilePhoneRaw();
+          const emailChanged = editProfileEmailChanged();
+          const phoneChanged = editProfilePhoneChanged();
+
+          // Reset verification if the typed value no longer matches the one that was sent/verified.
+          if (v.email && !sameEditEmail(v.email, email)) {
+            v.emailVerified = false;
+            v.emailCodeSent = false;
+            v.email = '';
+          }
+          if (v.phone && !sameEditPhone(v.phone, phoneRaw)) {
+            v.phoneVerified = false;
+            v.phoneCodeSent = false;
+            v.phone = '';
+          }
+
+          v.emailTaken = false;
+          if (emailChanged && email) {
+            const owner = (typeof findEmailOwner === 'function') ? findEmailOwner(email, selfU) : null;
+            v.emailTaken = !!owner;
+          }
+          v.phoneTaken = false;
+          if (phoneChanged && phoneRaw) {
+            const owner = (typeof findPhoneOwner === 'function') ? findPhoneOwner(phoneRaw, selfU) : null;
+            v.phoneTaken = !!owner;
+          }
+
+          const badge = document.getElementById('edit-profile-email-verified-badge');
+          const showBadge = !emailChanged || editProfileEmailVerified();
+          if (badge) badge.classList.toggle('hidden', !showBadge || !email);
+
+          const emailErr = document.getElementById('edit-profile-email-error');
+          const phoneErr = document.getElementById('edit-profile-phone-error');
+          setEditInlineError(emailErr, (emailChanged && v.emailTaken) ? 'This email is already on an account' : '');
+          setEditInlineError(phoneErr, (phoneChanged && v.phoneTaken) ? 'This number is already on an account' : '');
+
+          const emailPanel = document.getElementById('edit-profile-email-verify-panel');
+          const emailSendWrap = document.getElementById('edit-profile-email-send-wrap');
+          const emailCodeWrap = document.getElementById('edit-profile-email-code-wrap');
+          if (emailPanel) emailPanel.classList.toggle('hidden', !emailChanged || !email);
+          const emailShowCode = !!(emailChanged && email && v.emailCodeSent && !v.emailTaken && !editProfileEmailVerified());
+          if (emailSendWrap) emailSendWrap.classList.toggle('hidden', emailShowCode || editProfileEmailVerified());
+          if (emailCodeWrap) emailCodeWrap.classList.toggle('hidden', !emailShowCode);
+          const emailSendBtn = document.getElementById('btn-edit-send-email-code');
+          const emailCanSend = !!(emailChanged && editEmailLooksValid(email) && !v.emailTaken && !editProfileEmailVerified());
+          styleSignupSendButton(emailSendBtn, emailCanSend);
+          if (editProfileEmailVerified()) {
+            setEditVerifyStatus(document.getElementById('edit-profile-email-verify-status'), 'Email verified.', false);
+          }
+
+          const phonePanel = document.getElementById('edit-profile-phone-verify-panel');
+          const phoneSendWrap = document.getElementById('edit-profile-phone-send-wrap');
+          const phoneCodeWrap = document.getElementById('edit-profile-phone-code-wrap');
+          if (phonePanel) phonePanel.classList.toggle('hidden', !phoneChanged || !phoneRaw);
+          const phoneShowCode = !!(phoneChanged && phoneRaw && v.phoneCodeSent && !v.phoneTaken && !editProfilePhoneVerified());
+          if (phoneSendWrap) phoneSendWrap.classList.toggle('hidden', phoneShowCode || editProfilePhoneVerified());
+          if (phoneCodeWrap) phoneCodeWrap.classList.toggle('hidden', !phoneShowCode);
+          const phoneSendBtn = document.getElementById('btn-edit-send-phone-code');
+          const phoneCanSend = !!(phoneChanged && editProfilePhoneValue() && !v.phoneTaken && !editProfilePhoneVerified());
+          styleSignupSendButton(phoneSendBtn, phoneCanSend);
+          if (editProfilePhoneVerified()) {
+            setEditVerifyStatus(document.getElementById('edit-profile-phone-verify-status'), 'Phone verified.', false);
+          }
+
+          styleEditSaveButton(editProfileCanSave());
+        }
+        window.syncEditProfileVerifyUi = syncEditProfileVerifyUi;
+
+        async function sendEditEmailCode() {
+          const status = document.getElementById('edit-profile-email-verify-status');
+          const email = editProfileEmailValue();
+          const btn = document.getElementById('btn-edit-send-email-code');
+          const resend = document.getElementById('btn-edit-resend-email-code');
+          syncEditProfileVerifyUi();
+          const v = state.editProfileVerify || {};
+          if (!editEmailLooksValid(email) || v.emailTaken || !editProfileEmailChanged() || editProfileEmailVerified()) return;
+          if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+          if (resend) resend.disabled = true;
+          try {
+            const r = await postSignupVerify('/email', { type: 'signup_code', to: email });
+            if (!r.ok || r.data.error) {
+              const err = (r.data && r.data.error) || '';
+              if (err === 'email_taken' || err === 'contact_taken') {
+                v.emailTaken = true;
+                setEditInlineError(document.getElementById('edit-profile-email-error'), 'This email is already on an account');
+                styleSignupSendButton(btn, false);
+              }
+              const msg = (typeof signupVerifyErrorMessage === 'function')
+                ? signupVerifyErrorMessage(err, 'email')
+                : ((r.data && r.data.message) || 'Could not send the verification code.');
+              setEditVerifyStatus(status, err === 'email_taken' ? 'This email is already on an account' : msg, true);
+              return;
+            }
+            state.editProfileVerify = Object.assign({}, v, {
+              email: email, emailVerified: false, emailCodeSent: true, emailTaken: false
+            });
+            setEditVerifyStatus(status, 'We sent a 6-digit code to ' + email + '.', false);
+            const inp = document.getElementById('edit-profile-email-code');
+            if (inp) { inp.value = ''; inp.focus(); }
+            syncEditProfileVerifyUi();
+          } catch (e) {
+            setEditVerifyStatus(status, 'Could not send the verification code.', true);
+          } finally {
+            if (btn) btn.textContent = 'Send code';
+            if (resend) resend.disabled = false;
+            syncEditProfileVerifyUi();
+          }
+        }
+        async function verifyEditEmailCode() {
+          const status = document.getElementById('edit-profile-email-verify-status');
+          const email = editProfileEmailValue();
+          const code = ((document.getElementById('edit-profile-email-code') || {}).value || '').trim();
+          const btn = document.getElementById('btn-edit-verify-email-code');
+          if (!editEmailLooksValid(email) || !/^\d{6}$/.test(code)) {
+            setEditVerifyStatus(status, 'Enter the 6-digit email code.', true);
+            return;
+          }
+          if (btn) btn.disabled = true;
+          try {
+            const r = await postSignupVerify('/email/signup-verify', { to: email, code: code });
+            if (!r.ok || r.data.error || r.data.verified === false) {
+              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage((r.data && r.data.error) || '', 'email') : 'Could not verify that email code. Please try again.', true);
+              return;
+            }
+            state.editProfileVerify = Object.assign({}, state.editProfileVerify || {}, {
+              email: email, emailVerified: true, emailCodeSent: true, emailTaken: false
+            });
+            syncEditProfileVerifyUi();
+          } catch (e) {
+            setEditVerifyStatus(status, 'Could not verify that email code. Please try again.', true);
+          } finally {
+            if (btn) btn.disabled = false;
+          }
+        }
+        async function sendEditPhoneCode() {
+          const status = document.getElementById('edit-profile-phone-verify-status');
+          const raw = editProfilePhoneRaw();
+          const phone = editProfilePhoneValue();
+          const btn = document.getElementById('btn-edit-send-phone-code');
+          const resend = document.getElementById('btn-edit-resend-phone-code');
+          syncEditProfileVerifyUi();
+          const v = state.editProfileVerify || {};
+          if (v.phoneTaken || !editProfilePhoneChanged() || editProfilePhoneVerified()) return;
+          if (!phone) {
+            setEditVerifyStatus(status, 'Enter a complete 10-digit US phone number first.', true);
+            return;
+          }
+          if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+          if (resend) resend.disabled = true;
+          try {
+            const r = await postSignupVerify('/sms/send', { phone: phone });
+            if (!r.ok || r.data.error) {
+              const err = (r.data && r.data.error) || '';
+              if (err === 'phone_taken' || err === 'contact_taken') {
+                v.phoneTaken = true;
+                setEditInlineError(document.getElementById('edit-profile-phone-error'), 'This number is already on an account');
+                styleSignupSendButton(btn, false);
+              }
+              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'phone') : 'Could not send the verification code.', true);
+              return;
+            }
+            state.editProfileVerify = Object.assign({}, v, {
+              phone: raw, phoneVerified: false, phoneCodeSent: true, phoneTaken: false
+            });
+            setEditVerifyStatus(status, 'We sent a 6-digit code to your phone.', false);
+            const inp = document.getElementById('edit-profile-phone-code');
+            if (inp) { inp.value = ''; inp.focus(); }
+            syncEditProfileVerifyUi();
+          } catch (e) {
+            setEditVerifyStatus(status, 'Could not send the verification code.', true);
+          } finally {
+            if (btn) btn.textContent = 'Send code';
+            if (resend) resend.disabled = false;
+            syncEditProfileVerifyUi();
+          }
+        }
+        async function verifyEditPhoneCode() {
+          const status = document.getElementById('edit-profile-phone-verify-status');
+          const raw = editProfilePhoneRaw();
+          const phone = editProfilePhoneValue();
+          const code = ((document.getElementById('edit-profile-phone-code') || {}).value || '').trim();
+          const btn = document.getElementById('btn-edit-verify-phone-code');
+          if (!phone || !/^\d{6}$/.test(code)) {
+            setEditVerifyStatus(status, 'Enter the 6-digit phone code.', true);
+            return;
+          }
+          if (btn) btn.disabled = true;
+          try {
+            const r = await postSignupVerify('/sms/check', { phone: phone, code: code });
+            if (!r.ok || r.data.error || r.data.verified === false) {
+              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage((r.data && r.data.error) || '', 'phone') : 'Could not verify that phone code. Please try again.', true);
+              return;
+            }
+            state.editProfileVerify = Object.assign({}, state.editProfileVerify || {}, {
+              phone: raw, phoneVerified: true, phoneCodeSent: true, phoneTaken: false
+            });
+            syncEditProfileVerifyUi();
+          } catch (e) {
+            setEditVerifyStatus(status, 'Could not verify that phone code. Please try again.', true);
+          } finally {
+            if (btn) btn.disabled = false;
+          }
+        }
+
+        async function checkEditUsernameTaken(seq) {
+          const selfU = editProfileSelfUsername();
+          const nu = editProfileUsernameValue();
+          const err = document.getElementById('edit-profile-username-error');
+          const v = state.editProfileVerify || (state.editProfileVerify = {});
+          if (!nu || nu === selfU) {
+            if (seq === v.usernameCheckSeq) {
+              v.usernameTaken = false;
+              setEditInlineError(err, '');
+              styleEditSaveButton(editProfileCanSave());
+            }
+            return;
+          }
+          let taken = !!(typeof findUsernameOwner === 'function' && findUsernameOwner(nu, selfU));
+          if (!taken && window.firebaseReady && window.firebase && window.firebase.getDoc && window.firebase.doc && window.firebase.db) {
+            try {
+              const snap = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'users', nu));
+              if (snap && snap.exists && snap.exists() && (typeof normalizeUsername === 'function' ? normalizeUsername(snap.id) : String(snap.id).toLowerCase()) !== selfU) {
+                taken = true;
+              }
+            } catch (e) {}
+          }
+          if (seq !== (state.editProfileVerify || {}).usernameCheckSeq) return;
+          v.usernameTaken = taken;
+          setEditInlineError(err, taken ? 'Username taken' : '');
+          styleEditSaveButton(editProfileCanSave());
+        }
+        function scheduleEditUsernameCheck() {
+          const v = state.editProfileVerify || (state.editProfileVerify = {});
+          const selfU = editProfileSelfUsername();
+          const nu = editProfileUsernameValue();
+          const err = document.getElementById('edit-profile-username-error');
+          // Instant local taken check so Save disables immediately for known names.
+          if (nu && nu !== selfU && typeof findUsernameOwner === 'function' && findUsernameOwner(nu, selfU)) {
+            v.usernameTaken = true;
+            setEditInlineError(err, 'Username taken');
+            styleEditSaveButton(false);
+          } else if (!nu || nu === selfU) {
+            v.usernameTaken = false;
+            setEditInlineError(err, '');
+            styleEditSaveButton(editProfileCanSave());
+          } else {
+            // A previously taken value may have been edited; don't leave Save stuck while we debounce.
+            v.usernameTaken = false;
+            setEditInlineError(err, '');
+            styleEditSaveButton(editProfileCanSave());
+          }
+          const seq = (v.usernameCheckSeq = (v.usernameCheckSeq || 0) + 1);
+          clearTimeout(window._editUsernameTimer);
+          window._editUsernameTimer = setTimeout(() => { checkEditUsernameTaken(seq); }, 400);
+        }
+
+        (function bindEditProfileVerify() {
+          if (window._editProfileVerifyBound) return;
+          window._editProfileVerifyBound = true;
+          const emailInp = document.getElementById('edit-profile-email');
+          const phoneInp = document.getElementById('edit-profile-phone');
+          const userInp = document.getElementById('edit-profile-username');
+          if (emailInp) emailInp.addEventListener('input', () => syncEditProfileVerifyUi());
+          if (phoneInp) phoneInp.addEventListener('input', () => syncEditProfileVerifyUi());
+          if (userInp) userInp.addEventListener('input', scheduleEditUsernameCheck);
+          const sendEm = document.getElementById('btn-edit-send-email-code');
+          const resendEm = document.getElementById('btn-edit-resend-email-code');
+          const verifyEm = document.getElementById('btn-edit-verify-email-code');
+          if (sendEm) sendEm.addEventListener('click', sendEditEmailCode);
+          if (resendEm) resendEm.addEventListener('click', sendEditEmailCode);
+          if (verifyEm) verifyEm.addEventListener('click', verifyEditEmailCode);
+          const sendPh = document.getElementById('btn-edit-send-phone-code');
+          const resendPh = document.getElementById('btn-edit-resend-phone-code');
+          const verifyPh = document.getElementById('btn-edit-verify-phone-code');
+          if (sendPh) sendPh.addEventListener('click', sendEditPhoneCode);
+          if (resendPh) resendPh.addEventListener('click', sendEditPhoneCode);
+          if (verifyPh) verifyPh.addEventListener('click', verifyEditPhoneCode);
+        })();
+
+
         function syncSignupVerifyUi() {
           state.signupVerify = state.signupVerify || { email: '', emailVerified: false, phone: '', phoneVerified: false };
           const v = state.signupVerify;
@@ -23501,6 +23930,12 @@ function syncLikedStateToPosts() {
             if (!email && !phone) {
               showToast('Please provide either an email or phone number');
               if (phoneInp) phoneInp.focus();
+              return;
+            }
+
+            if (typeof window.syncEditProfileVerifyUi === 'function') window.syncEditProfileVerifyUi();
+            if (typeof window.editProfileCanSave === 'function' && !window.editProfileCanSave()) {
+              showToast('Verify any changed email or phone, and choose a free username, before saving.');
               return;
             }
 
