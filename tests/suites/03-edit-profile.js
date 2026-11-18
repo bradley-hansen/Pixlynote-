@@ -187,6 +187,111 @@ module.exports = {
           if (linkId) a.ok((fields.link || '').includes('example.test/updated'), 'Reopened modal shows the saved website');
         }
       }
+    },
+    {
+      name: 'Edit Profile: switching category starts the other type\'s name empty and requires a name to save',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#btn-edit-account-personal', 'el:#btn-edit-account-business', 'el:#lbl-edit-profile-name', 'el:#edit-profile-name', 'el:#btn-save-edit-profile'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        const start = await page.evaluate(() => {
+          const nameInp = document.getElementById('edit-profile-name');
+          const save = document.getElementById('btn-save-edit-profile');
+          const lbl = document.getElementById('lbl-edit-profile-name');
+          return {
+            type: window._editingAccountType || (state.currentUser && state.currentUser.accountType) || 'personal',
+            name: nameInp ? nameInp.value : '',
+            placeholder: nameInp ? (nameInp.placeholder || '') : '',
+            label: lbl ? (lbl.textContent || '').trim() : '',
+            canSave: (typeof editProfileCanSave === 'function') ? editProfileCanSave() : !save?.disabled,
+            saveDisabled: !!(save && save.disabled)
+          };
+        });
+        const isBiz = start.type === 'business';
+        const savedName = start.name;
+        a.ok(savedName, 'Current category opens with the saved name: ' + savedName);
+        a.ok(start.canSave && !start.saveDisabled, 'Save is enabled when the saved name for this category is present');
+        a.equal(start.label, isBiz ? 'Business Name' : 'Full Name', 'Label matches the current category');
+
+        const otherBtn = isBiz ? '#btn-edit-account-personal' : '#btn-edit-account-business';
+        const backBtn = isBiz ? '#btn-edit-account-business' : '#btn-edit-account-personal';
+        await page.click(otherBtn);
+        await page.waitForTimeout(80);
+        const switched = await page.evaluate(() => {
+          const nameInp = document.getElementById('edit-profile-name');
+          const save = document.getElementById('btn-save-edit-profile');
+          const lbl = document.getElementById('lbl-edit-profile-name');
+          const extras = ['edit-profile-category', 'edit-profile-business-category', 'edit-profile-business-contact', 'edit-profile-contact', 'edit-profile-address', 'edit-profile-business-address']
+            .map((id) => {
+              const el = document.getElementById(id);
+              return el ? { id, value: el.value || '' } : null;
+            })
+            .filter(Boolean);
+          return {
+            type: window._editingAccountType,
+            name: nameInp ? nameInp.value : 'MISSING',
+            placeholder: nameInp ? (nameInp.placeholder || '') : '',
+            label: lbl ? (lbl.textContent || '').trim() : '',
+            canSave: (typeof editProfileCanSave === 'function') ? editProfileCanSave() : !save?.disabled,
+            saveDisabled: !!(save && save.disabled),
+            extras
+          };
+        });
+        a.equal(switched.type, isBiz ? 'personal' : 'business', 'Switcher selected the other category');
+        a.equal(switched.name, '', 'The other category\'s name is not copied from the current name (got "' + switched.name + '")');
+        a.ok((switched.placeholder || '').trim(), 'Empty name field shows a placeholder: ' + switched.placeholder);
+        a.equal(switched.label, isBiz ? 'Full Name' : 'Business Name', 'Label updates for the other category');
+        a.ok(!switched.canSave && switched.saveDisabled, 'Save is disabled until the new category name is filled');
+        switched.extras.forEach((f) => {
+          a.equal(f.value, '', 'Type-only field #' + f.id + ' starts empty');
+        });
+
+        await page.click(backBtn);
+        await page.waitForTimeout(80);
+        const restored = await page.evaluate(() => {
+          const nameInp = document.getElementById('edit-profile-name');
+          const save = document.getElementById('btn-save-edit-profile');
+          const lbl = document.getElementById('lbl-edit-profile-name');
+          return {
+            type: window._editingAccountType,
+            name: nameInp ? nameInp.value : '',
+            label: lbl ? (lbl.textContent || '').trim() : '',
+            canSave: (typeof editProfileCanSave === 'function') ? editProfileCanSave() : !save?.disabled,
+            saveDisabled: !!(save && save.disabled)
+          };
+        });
+        a.equal(restored.type, start.type, 'Switcher returns to the original category');
+        a.equal(restored.name, savedName, 'Saved name for the original category is restored unchanged');
+        a.equal(restored.label, start.label, 'Original label is restored');
+        a.ok(restored.canSave && !restored.saveDisabled, 'Save is enabled again after the saved name is restored');
+
+        await page.click(otherBtn);
+        await page.waitForTimeout(50);
+        const typedName = isBiz ? 'Pat Person' : 'Acme Test Co';
+        await page.fill('#edit-profile-name', typedName);
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-name')?.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        const afterType = await page.evaluate(() => {
+          const save = document.getElementById('btn-save-edit-profile');
+          return {
+            canSave: (typeof editProfileCanSave === 'function') ? editProfileCanSave() : !save?.disabled,
+            saveDisabled: !!(save && save.disabled),
+            name: (document.getElementById('edit-profile-name') || {}).value || ''
+          };
+        });
+        a.equal(afterType.name, typedName, 'Typed name is accepted');
+        a.ok(afterType.canSave && !afterType.saveDisabled, 'Save enables once the new category name is filled');
+
+        await page.click(backBtn);
+        await page.waitForTimeout(80);
+        const backAgain = await page.evaluate(() => (document.getElementById('edit-profile-name') || {}).value || '');
+        a.equal(backAgain, savedName, 'Switching back still keeps the original saved name unchanged');
+        await page.evaluate(() => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+        });
+      }
     }
   ]
 };

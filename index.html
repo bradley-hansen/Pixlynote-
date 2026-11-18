@@ -3901,7 +3901,12 @@
                     const sameEmail = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
                     const digits = (a) => String(a || '').replace(/\D/g, '');
                     if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
-                    if (nameInp && document.activeElement !== nameInp) nameInp.value = state.currentUser.fullName || '';
+                    if (nameInp && document.activeElement !== nameInp) {
+                      const editing = window._editingAccountType || (state.currentUser && state.currentUser.accountType) || 'personal';
+                      nameInp.value = (typeof window.getEditProfileSavedName === 'function')
+                        ? window.getEditProfileSavedName(editing)
+                        : (state.currentUser.fullName || '');
+                    }
                     if (emailInp && document.activeElement !== emailInp) {
                       if (!ev.savedEmail || sameEmail(emailInp.value, ev.savedEmail)) emailInp.value = state.currentUser.email || '';
                     }
@@ -12280,21 +12285,11 @@ function syncLikedStateToPosts() {
         phoneInp.classList.remove('border-violet-400', 'bg-violet-50/30');
       }
 
-      // Account category buttons
-      const editBtnPers = document.getElementById('btn-edit-account-personal');
-      const editBtnBiz = document.getElementById('btn-edit-account-business');
-      const editNameLbl = document.getElementById('lbl-edit-profile-name');
+      // Account category buttons. Stash each type's saved name so a switch does not copy the other type's name.
       const curType = state.currentUser.accountType || (isPixly ? 'business' : 'personal');
+      if (typeof window.initEditProfileCategoryStash === 'function') window.initEditProfileCategoryStash();
       window._editingAccountType = curType;
-      if (curType === 'business') {
-        if (editBtnPers) editBtnPers.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
-        if (editBtnBiz) editBtnBiz.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
-        if (editNameLbl) editNameLbl.textContent = "Business Name";
-      } else {
-        if (editBtnPers) editBtnPers.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
-        if (editBtnBiz) editBtnBiz.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
-        if (editNameLbl) editNameLbl.textContent = "Full Name";
-      }
+      if (typeof window.applyEditProfileCategoryFields === 'function') window.applyEditProfileCategoryFields(curType);
 
       const bioInp = document.getElementById('edit-profile-bio');
       if (bioInp) bioInp.value = isPixly ? '' : (state.currentUser.bio || '');
@@ -22322,7 +22317,61 @@ function syncLikedStateToPosts() {
           const ph = editProfilePhoneRaw();
           return !!(v.phoneVerified && (sameEditPhone(v.phone, ph)));
         }
+        function initEditProfileCategoryStash() {
+          const u = (state && state.currentUser) || {};
+          const isBiz = (u.accountType === 'business') || (typeof normalizeUsername === 'function' && normalizeUsername(u.username) === 'pixlynote');
+          const full = String(u.fullName || '').trim();
+          window._editSavedPersonalName = isBiz ? String(u.personalName || '') : full;
+          window._editSavedBusinessName = isBiz ? String(u.businessName || full) : String(u.businessName || '');
+        }
+        function getEditProfileSavedName(type) {
+          return String((type === 'business' ? window._editSavedBusinessName : window._editSavedPersonalName) || '');
+        }
+        function applyEditProfileCategoryFields(type) {
+          const selected = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
+          const idle = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
+          const btnP = document.getElementById('btn-edit-account-personal');
+          const btnB = document.getElementById('btn-edit-account-business');
+          const lbl = document.getElementById('lbl-edit-profile-name');
+          const nameInp = document.getElementById('edit-profile-name');
+          const isBiz = type === 'business';
+          if (btnP) btnP.className = isBiz ? idle : selected;
+          if (btnB) btnB.className = isBiz ? selected : idle;
+          if (lbl) lbl.textContent = isBiz ? 'Business Name' : 'Full Name';
+          if (nameInp) {
+            nameInp.placeholder = isBiz ? 'e.g. Pixlynote' : 'e.g. John Doe';
+            nameInp.value = getEditProfileSavedName(isBiz ? 'business' : 'personal');
+          }
+          const u = (state && state.currentUser) || {};
+          const typedFields = isBiz
+            ? [['edit-profile-category', 'category'], ['edit-profile-business-category', 'businessCategory'], ['edit-profile-business-contact', 'businessContact'], ['edit-profile-contact', 'businessContact'], ['edit-profile-address', 'address'], ['edit-profile-business-address', 'businessAddress']]
+            : [];
+          typedFields.forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = u[key] || '';
+          });
+          if (typeof styleEditSaveButton === 'function') styleEditSaveButton(typeof editProfileCanSave === 'function' && editProfileCanSave());
+        }
+        function setEditProfileAccountCategory(type) {
+          const next = type === 'business' ? 'business' : 'personal';
+          const prev = window._editingAccountType;
+          if (prev && prev !== next) {
+            const nameInp = document.getElementById('edit-profile-name');
+            const val = nameInp ? nameInp.value : '';
+            if (prev === 'business') window._editSavedBusinessName = val;
+            else window._editSavedPersonalName = val;
+          }
+          window._editingAccountType = next;
+          applyEditProfileCategoryFields(next);
+        }
+        window.initEditProfileCategoryStash = initEditProfileCategoryStash;
+        window.getEditProfileSavedName = getEditProfileSavedName;
+        window.applyEditProfileCategoryFields = applyEditProfileCategoryFields;
+        window.setEditProfileAccountCategory = setEditProfileAccountCategory;
+
         function editProfileCanSave() {
+          const nameVal = ((document.getElementById('edit-profile-name') || {}).value || '').trim();
+          if (!nameVal) return false;
           const email = editProfileEmailValue();
           const phoneRaw = editProfilePhoneRaw();
           if (!email && !phoneRaw) return false;
@@ -22337,6 +22386,7 @@ function syncLikedStateToPosts() {
           return true;
         }
         window.editProfileCanSave = editProfileCanSave;
+        window.styleEditSaveButton = styleEditSaveButton;
 
         function syncEditProfileVerifyUi(resetSaved) {
           const selfU = editProfileSelfUsername();
@@ -22620,6 +22670,12 @@ function syncLikedStateToPosts() {
             if (!t || !t.id) return;
             if (t.id === 'edit-profile-email' || t.id === 'edit-profile-phone') syncEditProfileVerifyUi();
             if (t.id === 'edit-profile-username') scheduleEditUsernameCheck();
+            if (t.id === 'edit-profile-name') {
+              const typ = window._editingAccountType || 'personal';
+              if (typ === 'business') window._editSavedBusinessName = t.value;
+              else window._editSavedPersonalName = t.value;
+              styleEditSaveButton(editProfileCanSave());
+            }
           };
           document.addEventListener('input', fieldHandler, true);
           document.addEventListener('change', fieldHandler, true);
@@ -23390,22 +23446,11 @@ function syncLikedStateToPosts() {
         // Wire Account Category Switcher in Edit Profile
         const btnEditPersonal = document.getElementById('btn-edit-account-personal');
         const btnEditBusiness = document.getElementById('btn-edit-account-business');
-        const lblEditName = document.getElementById('lbl-edit-profile-name');
         if (btnEditPersonal) {
-          btnEditPersonal.addEventListener('click', () => {
-            window._editingAccountType = 'personal';
-            btnEditPersonal.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
-            if (btnEditBusiness) btnEditBusiness.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
-            if (lblEditName) lblEditName.textContent = "Full Name";
-          });
+          btnEditPersonal.addEventListener('click', () => setEditProfileAccountCategory('personal'));
         }
         if (btnEditBusiness) {
-          btnEditBusiness.addEventListener('click', () => {
-            window._editingAccountType = 'business';
-            btnEditBusiness.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
-            if (btnEditPersonal) btnEditPersonal.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
-            if (lblEditName) lblEditName.textContent = "Business Name";
-          });
+          btnEditBusiness.addEventListener('click', () => setEditProfileAccountCategory('business'));
         }
 
         // Wire Splash Screen Buttons
@@ -23955,6 +24000,12 @@ function syncLikedStateToPosts() {
             if (!email && !phone) {
               showToast('Please provide either an email or phone number');
               if (phoneInp) phoneInp.focus();
+              return;
+            }
+            if (!name) {
+              showToast((window._editingAccountType === 'business') ? 'Business Name is required' : 'Full Name is required');
+              const nameEl = document.getElementById('edit-profile-name');
+              if (nameEl) nameEl.focus();
               return;
             }
 
