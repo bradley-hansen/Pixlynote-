@@ -11154,7 +11154,12 @@ function syncLikedStateToPosts() {
           post = state.posts.find(p => p.id === numId);
         }
 
-        if (post && !seenIds.has(String(post.id)) && !(typeof isFabricatedFeedItem === 'function' && isFabricatedFeedItem(post))) {
+        // Show anything the owner actually liked, including Explore items in the
+        // 201–212 / 2001–2999 / 8000–8999 ranges. Those IDs are persisted to the
+        // user doc; isFabricatedFeedItem is only meant to keep generated Explore
+        // filler out of a real account's own Posts/Feed, not to empty Likes.
+        // Still hide hardcoded seed demo posts (ids 1–6 / isSeed).
+        if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoContent === 'function' && isSeededDemoContent(post))) {
           seenIds.add(String(post.id));
           likedPosts.push(post);
         }
@@ -13280,7 +13285,9 @@ function syncLikedStateToPosts() {
 
         var savedPosts = [];
         state.savedPostIds.forEach(id => {
-          const p = postMap.get(String(id));
+          let p = postMap.get(String(id));
+          if (!p && typeof getPostById === 'function') p = getPostById(id);
+          if (p && typeof isSeededDemoContent === 'function' && isSeededDemoContent(p)) return;
           if (p && !savedPosts.some(sp => String(sp.id) === String(p.id))) {
             savedPosts.push(p);
           }
@@ -13325,7 +13332,8 @@ function syncLikedStateToPosts() {
 
         var savedNotes = [];
         state.savedNoteIds.forEach(id => {
-          let n = noteMap.get(String(id)) || getNoteById(id);
+          let n = noteMap.get(String(id)) || (typeof getNoteById === 'function' ? getNoteById(id) : null);
+          if (n && typeof isSeededDemoContent === 'function' && isSeededDemoContent(n)) return;
           if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
             savedNotes.push(n);
           }
