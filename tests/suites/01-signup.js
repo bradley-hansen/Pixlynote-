@@ -142,6 +142,57 @@ module.exports = {
         const status = await page.evaluate(() => (document.getElementById('signup-phone-verify-status') || {}).textContent || '');
         a.ok(verified || /verified/i.test(status), 'Phone is verified after the correct code: ' + status);
       }
+    },
+    {
+      name: 'Sign-up: a verified email can create an account and open the app',
+      accounts: ['signed-out'],
+      covers: ['el:#btn-signup-complete', 'el:#btn-signup-direct-submit', 'el:#btn-signup-back-step1', 'el:#signup-step-2', 'el:#signup-bio'],
+      async run(ctx) {
+        const { page, h, a } = ctx;
+        await h.openSignupForm(page);
+        const uname = 'reg_new_' + String(Date.now()).slice(-8);
+        const email = uname + '@example.test';
+        await page.fill('#login-fullname', 'Reg New User');
+        await page.fill('#signup-username', uname);
+        await page.fill('#signup-password', 'TestPass123!');
+        await page.fill('#login-email', email);
+        await page.evaluate(() => {
+          document.getElementById('login-email')?.dispatchEvent(new Event('input', { bubbles: true }));
+          document.getElementById('signup-username')?.dispatchEvent(new Event('input', { bubbles: true }));
+          if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
+          if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
+        });
+        await page.waitForTimeout(100);
+        await page.click('#btn-signup-send-email-code');
+        await page.waitForTimeout(300);
+        await page.fill('#signup-email-code', VERIFY_CODE);
+        await page.click('#btn-signup-verify-email-code');
+        await page.waitForFunction(() => !!(window.state && state.signupVerify && state.signupVerify.emailVerified), null, { timeout: 5000 });
+        await page.evaluate(() => {
+          if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
+        });
+        await page.waitForTimeout(80);
+        await page.evaluate(() => {
+          const btn = document.getElementById('btn-signup-direct-submit');
+          if (btn && !btn.disabled) btn.click();
+          else if (typeof handleCompleteSignUp === 'function') handleCompleteSignUp(true);
+        });
+        await page.waitForFunction((uname) => !!(window.state && state.isLoggedIn && state.currentUser && String(state.currentUser.username).toLowerCase() === uname), uname, { timeout: 8000 }).catch(() => {});
+        const info = await page.evaluate(() => {
+          const main = document.getElementById('main-view');
+          const stored = localStorage.getItem('pixly_account_' + ((state.currentUser && state.currentUser.username) || ''));
+          return {
+            loggedIn: !!(state && state.isLoggedIn),
+            user: state && state.currentUser && state.currentUser.username,
+            email: state && state.currentUser && state.currentUser.email,
+            main: !!(main && !main.classList.contains('hidden') && getComputedStyle(main).display !== 'none'),
+            stored: !!stored
+          };
+        });
+        a.ok(info.loggedIn && info.main, 'New account is signed in to the app: ' + JSON.stringify(info));
+        a.equal(String(info.user || '').toLowerCase(), uname, 'Signed in as the new username');
+        a.ok(info.stored, 'The new account was saved locally');
+      }
     }
   ]
 };

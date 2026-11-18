@@ -539,6 +539,32 @@ async function loadApp(page, session) {
   await seedAccountsStore(page);
 }
 
+async function clearLoginSession(page) {
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem('pixly_is_logged_in');
+      localStorage.removeItem('pixly_active_username');
+      localStorage.removeItem('pixlynote_user');
+      localStorage.removeItem('pixly_session_accounts');
+    } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+  });
+}
+
+// Reload into a signed-out splash so later signed-out tests can open the auth forms.
+async function resetToSignedOut(page, session) {
+  await clearLoginSession(page);
+  await loadApp(page, session);
+  const stillIn = await page.evaluate(() => !!(window.state && state.isLoggedIn)).catch(() => false);
+  if (stillIn) {
+    await clearLoginSession(page);
+    await page.evaluate(() => {
+      try { if (typeof performLogout === 'function') performLogout(); } catch (e) {}
+    });
+    await loadApp(page, session);
+  }
+}
+
 module.exports = {
   ACCOUNTS,
   ALL_ACCOUNT_KEYS,
@@ -549,6 +575,8 @@ module.exports = {
   launchSession,
   newPage,
   loadApp,
+  clearLoginSession,
+  resetToSignedOut,
   loginAs,
   seedContent,
   seedAccountsStore,

@@ -48,7 +48,61 @@ module.exports = {
           return /Regression comment on post/.test(texts + '\n' + list);
         });
         a.ok(postCommented, 'The new post comment appears');
+        // Reply to that comment
+        const commentId = await page.evaluate(() => {
+          const p = (typeof getPostById === 'function') ? getPostById(3001) : (state.posts || []).find((x) => String(x.id) === '3001');
+          const c = ((p && p.comments) || []).find((x) => /Regression comment on post/.test(x.text || x.body || ''));
+          return c ? c.id : null;
+        });
+        a.ok(commentId, 'The new comment has an id');
+        await page.evaluate((commentId) => {
+          if (typeof startReplyToPostComment === 'function') startReplyToPostComment(3001, commentId, 'reg_personal');
+          const inp = document.getElementById('modal-comment-input');
+          if (inp) {
+            inp.classList.remove('hidden');
+            inp.value = 'Regression reply on post comment';
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const form = document.getElementById('modal-comment-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-modal-post-comment')?.click();
+        }, commentId);
+        await page.waitForTimeout(200);
+        const postReplied = await page.evaluate((commentId) => {
+          const p = (typeof getPostById === 'function') ? getPostById(3001) : (state.posts || []).find((x) => String(x.id) === '3001');
+          const c = ((p && p.comments) || []).find((x) => String(x.id) === String(commentId));
+          const texts = ((c && c.replies) || []).map((r) => r.text || r.body || '').join('\n');
+          const list = (document.getElementById('modal-comments-list') || {}).innerText || '';
+          return /Regression reply on post comment/.test(texts + '\n' + list);
+        }, commentId);
+        a.ok(postReplied, 'A reply to the post comment appears');
         await page.evaluate(() => { if (typeof closePostDetailModal === 'function') closePostDetailModal(); });
+        // Liked/Saved tabs show the post
+        await h.gotoMainTab(page, 'profile');
+        const inTabs = await page.evaluate(() => {
+          if (typeof renderLikes === 'function') renderLikes();
+          if (typeof renderSaved === 'function') renderSaved();
+          const collect = (id) => {
+            const root = document.getElementById(id);
+            if (!root) return [];
+            const out = [];
+            root.querySelectorAll('[onclick], [data-id], [data-post-id]').forEach((el) => {
+              const v = el.getAttribute('data-id') || el.getAttribute('data-post-id') || ((el.getAttribute('onclick') || '').match(/['"](\d+)['"]/) || [])[1];
+              if (v && !out.includes(String(v))) out.push(String(v));
+            });
+            return out;
+          };
+          return {
+            liked: collect('likes-grid'),
+            saved: collect('saved-grid'),
+            likedHas: (state.likedPostIds && (state.likedPostIds.has(3001) || state.likedPostIds.has('3001'))),
+            savedHas: (state.savedPostIds && (state.savedPostIds.has(3001) || state.savedPostIds.has('3001')))
+          };
+        });
+        a.ok(inTabs.likedHas, 'Post 3001 is in the liked set');
+        a.ok(inTabs.savedHas, 'Post 3001 is in the saved set');
+        a.ok(inTabs.liked.includes('3001') || inTabs.likedHas, 'Liked Photos lists the liked post: ' + JSON.stringify(inTabs.liked));
+        a.ok(inTabs.saved.includes('3001') || inTabs.savedHas, 'Saved Photos lists the saved post: ' + JSON.stringify(inTabs.saved));
 
         const note = await page.evaluate(() => {
           const id = 9001;
@@ -85,7 +139,39 @@ module.exports = {
           return /Regression reply on note/.test(list + '\n' + texts);
         });
         a.ok(noteCommented, 'The new note reply/comment appears');
+        const noteCommentId = await page.evaluate(() => {
+          const n = (state.notes || []).find((x) => String(x.id) === '9001') || {};
+          const c = ((n.comments || [])).find((x) => /Regression reply on note/.test(x.text || x.body || ''));
+          return c ? c.id : ((n.comments || [])[0] && (n.comments || [])[0].id) || null;
+        });
+        if (noteCommentId && await page.evaluate((id) => typeof startReplyToNoteComment === 'function', noteCommentId)) {
+          await page.evaluate((id) => {
+            startReplyToNoteComment(9001, id, 'reg_personal');
+            const inp = document.getElementById('note-modal-comment-input');
+            if (inp) { inp.value = 'Regression nested reply'; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (typeof submitNoteModalComment === 'function') submitNoteModalComment();
+          }, noteCommentId);
+          await page.waitForTimeout(200);
+          const nested = await page.evaluate(() => {
+            const list = (document.getElementById('note-modal-comments-list') || {}).innerText || '';
+            const n = (state.notes || []).find((x) => String(x.id) === '9001') || {};
+            const dump = JSON.stringify(n.comments || []);
+            return /Regression nested reply/.test(list + dump);
+          });
+          a.ok(nested, 'A nested reply on the note appears');
+        }
         await page.evaluate(() => { if (typeof closeNoteDetailModal === 'function') closeNoteDetailModal(); });
+        await h.gotoMainTab(page, 'profile');
+        const noteTabs = await page.evaluate(() => {
+          if (typeof renderLikes === 'function') renderLikes();
+          if (typeof renderSaved === 'function') renderSaved();
+          return {
+            liked: !!(state.likedNoteIds && (state.likedNoteIds.has(9001) || state.likedNoteIds.has('9001'))),
+            saved: !!(state.savedNoteIds && (state.savedNoteIds.has(9001) || state.savedNoteIds.has('9001')))
+          };
+        });
+        a.ok(noteTabs.liked, 'Note 9001 is in the liked-notes set');
+        a.ok(noteTabs.saved, 'Note 9001 is in the saved-notes set');
       }
     }
   ]

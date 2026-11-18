@@ -135,10 +135,10 @@ async function main() {
     for (const test of tests) {
       if (!normalizeAccountList(test.accounts).includes('signed-out')) continue;
       await runOne(test, 'signed-out', soPage);
-      // Login tests may enter the app; restore a clean signed-out page for the next case.
-      const loggedIn = await soPage.evaluate(() => !!(window.state && state.isLoggedIn && document.getElementById('main-view') && getComputedStyle(document.getElementById('main-view')).display !== 'none')).catch(() => false);
+      // Sign-up/login tests may enter the app and persist pixly_is_logged_in; reload signed-out for the next case.
+      const loggedIn = await soPage.evaluate(() => !!(window.state && state.isLoggedIn)).catch(() => false);
       if (loggedIn) {
-        await h.loadApp(soPage, session);
+        await h.resetToSignedOut(soPage, session);
       }
     }
     await soPage.context().close();

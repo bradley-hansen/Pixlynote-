@@ -122,7 +122,7 @@ module.exports = {
     {
       name: 'Edit Profile: name, bio and website can be saved without a code when contact fields are unchanged',
       accounts: ALL_ACCOUNT_KEYS,
-      covers: ['el:#edit-profile-form', 'el:#edit-profile-name', 'el:#edit-profile-bio', 'el:#edit-profile-website', 'el:#edit-profile-email-verified-badge'],
+      covers: ['el:#edit-profile-form', 'el:#edit-profile-name', 'el:#edit-profile-bio', 'el:#edit-profile-website', 'el:#edit-profile-link', 'el:#btn-save-edit-profile', 'el:#edit-profile-email-verified-badge'],
       async run(ctx) {
         const { page, h, a, account } = ctx;
         await h.openEditProfile(page);
@@ -135,11 +135,57 @@ module.exports = {
           const ids = ['edit-profile-website', 'edit-profile-link', 'edit-profile-url'];
           return ids.find((id) => document.getElementById(id)) || '';
         });
-        if (nameSel) await page.fill('#' + nameSel, account.fullName + ' Edited');
-        if (bioId) await page.fill('#' + bioId, 'Updated bio without a code');
-        if (linkId) await page.fill('#' + linkId, 'https://example.test/updated');
+        const newName = account.fullName + ' Edited';
+        const newBio = 'Updated bio without a code';
+        const newLink = 'https://example.test/updated';
+        if (nameSel) await page.fill('#' + nameSel, newName);
+        if (bioId) await page.fill('#' + bioId, newBio);
+        if (linkId) await page.fill('#' + linkId, newLink);
         const can = await page.evaluate(() => (typeof editProfileCanSave === 'function') ? editProfileCanSave() : !document.getElementById('btn-save-edit-profile')?.disabled);
         a.ok(can, 'Save is enabled when only name/bio/website changed');
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        const isOfficial = String(account.username || '').toLowerCase() === 'pixlynote';
+        const saved = await page.evaluate(() => ({
+          name: state.currentUser && state.currentUser.fullName,
+          bio: state.currentUser && state.currentUser.bio,
+          link: state.currentUser && (state.currentUser.link || state.currentUser.website)
+        }));
+        // renderProfile() locks the official @pixlynote display name and website after save.
+        if (isOfficial) {
+          a.equal(saved.name, 'Pixlynote', 'Official account display name stays Pixlynote after save');
+          a.equal(saved.bio, newBio, 'Bio was saved on the official account');
+        } else {
+          a.equal(saved.name, newName, 'Name was saved on the current user');
+          a.equal(saved.bio, newBio, 'Bio was saved on the current user');
+          a.ok((saved.link || '').includes('example.test/updated'), 'Website was saved on the current user: ' + saved.link);
+        }
+        // Re-open the modal and confirm the fields show the saved (or officially locked) values.
+        await page.evaluate(() => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          const m = document.getElementById('modal-edit-profile');
+          if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+        });
+        await h.openEditProfile(page);
+        const fields = await page.evaluate(({ nameSel, bioId, linkId }) => ({
+          name: nameSel ? ((document.getElementById(nameSel) || {}).value || '') : '',
+          bio: bioId ? ((document.getElementById(bioId) || {}).value || '') : '',
+          link: linkId ? ((document.getElementById(linkId) || {}).value || '') : ''
+        }), { nameSel, bioId, linkId });
+        if (isOfficial) {
+          if (nameSel) a.equal(fields.name, 'Pixlynote', 'Reopened official modal keeps the locked display name');
+          // openEditProfileModal blanks bio and website on @pixlynote so personal data cannot leak into the form.
+          if (bioId) a.equal(fields.bio, '', 'Reopened official modal blanks the bio field');
+          if (linkId) a.equal(fields.link, '', 'Reopened official modal blanks the website field');
+        } else {
+          if (nameSel) a.equal(fields.name, newName, 'Reopened modal shows the saved name');
+          if (bioId) a.equal(fields.bio, newBio, 'Reopened modal shows the saved bio');
+          if (linkId) a.ok((fields.link || '').includes('example.test/updated'), 'Reopened modal shows the saved website');
+        }
       }
     }
   ]

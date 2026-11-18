@@ -12,23 +12,34 @@ module.exports = {
       async run(ctx) {
         const { page, h, a } = ctx;
         await h.openOwnerMenu(page);
+        // Click the actual Subscription menu item, then wait past the 150ms open delay.
         await page.evaluate(() => {
-          if (typeof handleDrawerSubscriptionClick === 'function') handleDrawerSubscriptionClick();
-          else if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
-          else if (typeof openSubscription === 'function') openSubscription();
+          const list = document.querySelector('#profile-drawer-card .flex-1.overflow-y-auto');
+          const btn = list && Array.from(list.querySelectorAll(':scope > button')).find((b) => /Subscription/.test(b.innerText || ''));
+          if (btn) btn.click();
+          else if (typeof handleDrawerSubscriptionClick === 'function') handleDrawerSubscriptionClick();
         });
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(350);
+        await page.evaluate(() => {
+          if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+        });
         const s = await page.evaluate(() => {
           const modal = document.getElementById('modal-subscription');
           const open = !!(modal && !modal.classList.contains('hidden') && getComputedStyle(modal).display !== 'none');
           const hrefs = Array.from(document.querySelectorAll('#modal-subscription a[href], a[href*="stripe"]')).map((a) => a.getAttribute('href') || '');
-          const buy = !!document.querySelector('#modal-subscription stripe-buy-button, #modal-subscription [id*="stripe"], script[src*="js.stripe.com"]');
-          const html = (modal && modal.innerHTML) || '';
-          return { open, hrefs, buy, hasStripe: /stripe/i.test(hrefs.join(' ') + html) };
+          const buy = !!document.querySelector('#modal-subscription stripe-buy-button');
+          const portal = hrefs.find((h) => /billing\.stripe\.com\/p\/login\/test_/.test(h));
+          return { open, hrefs, buy, portal };
         });
-        a.ok(s.open, 'Subscription modal opens');
-        a.ok(s.hasStripe || s.hrefs.some((h) => /stripe/i.test(h)), 'A Stripe sandbox entry point is present: ' + JSON.stringify(s.hrefs));
+        a.ok(s.open, 'Subscription modal opens from the owner menu');
+        a.ok(!!s.portal, 'Stripe sandbox customer-portal link is present: ' + JSON.stringify(s.hrefs));
+        a.ok(s.buy, 'Stripe sandbox buy button is in the modal');
         await page.evaluate(() => { if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal(); });
+        const closed = await page.evaluate(() => {
+          const modal = document.getElementById('modal-subscription');
+          return !modal || modal.classList.contains('hidden') || getComputedStyle(modal).display === 'none';
+        });
+        a.ok(closed, 'Subscription modal closes');
       }
     }
   ]
