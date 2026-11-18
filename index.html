@@ -2668,7 +2668,7 @@
           <svg class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input type="text" id="discover-creators-search-input" placeholder="Search new creators to connect with..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
+          <input type="text" id="discover-creators-search-input" placeholder="Search by name or @username..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400 transition">
         </div>
       </div>
 
@@ -16606,34 +16606,72 @@ function syncLikedStateToPosts() {
     }
     window.renderFollowersList = renderFollowersList;
 
-    // --- Discover Creators Modal Controller (Random / Unfollowed Creators) ---
-    const DISCOVER_CREATORS_POOL = [
-      { id: 501, username: "luna_lens", fullName: "Luna Alvarez", bio: "Golden hour portraits & analog 35mm film 📸✨", avatar: COMMUNITY_IMAGES[0] },
-      { id: 502, username: "solstice_sound", fullName: "Devon Brooks", bio: "Modular synths, vinyl crates & lo-fi beats 🎹🎧", avatar: COMMUNITY_IMAGES[1] },
-      { id: 503, username: "velvet_ink", fullName: "Sora Takahashi", bio: "Botanical linework & minimalist studio prints 🖋️🌿", avatar: COMMUNITY_IMAGES[2] },
-      { id: 504, username: "atlas_rovers", fullName: "Liam O'Connor", bio: "Overland camper builds & mountain passes 🚐🏔️", avatar: COMMUNITY_IMAGES[3] },
-      { id: 505, username: "ceramic_studio", fullName: "Clara Lind", bio: "Wheel-thrown stoneware & matte glazes 🏺🤍", avatar: COMMUNITY_IMAGES[4] },
-      { id: 506, username: "neon_drifter", fullName: "Kai Sato", bio: "Rainy midnight street frames in Osaka 🌃🌧️", avatar: COMMUNITY_IMAGES[5] },
-      { id: 507, username: "ember_kitchen", fullName: "Marco Bellini", bio: "Wood-fired sourdough & rustic Roman pasta 🍕🔥", avatar: COMMUNITY_IMAGES[6] },
-      { id: 508, username: "botanical_lab", fullName: "Nadia Vermeer", bio: "Rare monstera care & sunlit greenhouse notes 🪴☀️", avatar: COMMUNITY_IMAGES[7] },
-      { id: 509, username: "kaito_skates", fullName: "Kaito Nakamura", bio: "Concrete bowls, fisheye clips & street spots 🛹⚡", avatar: COMMUNITY_IMAGES[8] },
-      { id: 510, username: "sienna_prints", fullName: "Sienna Hayes", bio: "Risograph posters & desert color palettes 🎨🏜️", avatar: COMMUNITY_IMAGES[9] },
-      { id: 511, username: "prism_motion", fullName: "Aria Chen", bio: "Kinetic typography & 3D shader experiments 💠✨", avatar: COMMUNITY_IMAGES[10] },
-      { id: 512, username: "cloud_garden", fullName: "Oliver Grant", bio: "Rooftop beehives & urban micro-farming 🐝🌻", avatar: COMMUNITY_IMAGES[0] },
-      { id: 513, username: "milo_roasts", fullName: "Milo Vance", bio: "Single-origin pour overs & espresso dialing ☕🔬", avatar: COMMUNITY_IMAGES[1] },
-      { id: 514, username: "echo_vinyl", fullName: "Zoe Moreau", bio: "Crate digging jazz & ambient tape loops 💿🎶", avatar: COMMUNITY_IMAGES[2] },
-      { id: 515, username: "zephyr_glides", fullName: "Theo Becker", bio: "Paragliding alpine thermals & ridge soaring 🪂🌬️", avatar: COMMUNITY_IMAGES[5] },
-      { id: 516, username: "saffron_table", fullName: "Amira Haddad", bio: "Spiced mezze spreads & heirloom recipes 🍋🫒", avatar: COMMUNITY_IMAGES[6] }
-    ];
-
+    // --- Discover Creators Modal Controller (real Firestore user directory) ---
     let currentDiscoverCreatorsOrder = [];
+    let _discoverCreatorsDirGen = 0;
+
+    function normalizeDiscoverSearchText(s) {
+      let out = String(s == null ? '' : s).trim().toLowerCase();
+      out = out.replace(/^@+/, '');
+      try { out = out.normalize('NFD').replace(/\p{M}+/gu, ''); } catch (e) {}
+      return out.replace(/\s+/g, ' ').trim();
+    }
+
+    function discoverCreatorMatchesQuery(c, rawQuery) {
+      const q = normalizeDiscoverSearchText(rawQuery);
+      if (!q) return true;
+      const username = normalizeDiscoverSearchText(c && c.username);
+      const fullName = normalizeDiscoverSearchText(c && c.fullName);
+      return username.includes(q) || fullName.includes(q);
+    }
+
+    function ensureDiscoverCreatorsDirectory() {
+      const existing = window._exploreUserDir;
+      if (existing && existing.users) return Promise.resolve(existing);
+      if (typeof loadExploreUserDirectory === 'function') return loadExploreUserDirectory();
+      return Promise.resolve(null);
+    }
+
+    function getDiscoverCreatorsSource() {
+      const curU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      const list = [];
+      if (!(dir && typeof dir.forEach === 'function')) return list;
+      dir.forEach((rec, id) => {
+        if (!rec) return;
+        const u = String(rec.username || id || '').toLowerCase().replace(/^@/, '');
+        if (!u || u === curU) return;
+        if (rec.deactivated === true) return;
+        if (typeof getDeactivationRecord === 'function' && getDeactivationRecord(u)) return;
+        if (typeof isBlocked === 'function' && isBlocked(u)) return;
+        if (typeof shouldHideAuthorEverywhere === 'function' && shouldHideAuthorEverywhere(u)) return;
+        const follow = (state.following || []).find(f => {
+          const fu = String((f && f.username) || '').toLowerCase().replace(/^@/, '');
+          return fu === u;
+        });
+        let fullName = rec.fullName ? String(rec.fullName) : '';
+        if (!fullName || fullName.toLowerCase().replace(/^@/, '') === u) {
+          if (follow && follow.fullName) fullName = String(follow.fullName);
+        }
+        list.push({
+          username: u,
+          fullName: fullName || u,
+          bio: rec.bio || (follow && follow.bio) || '',
+          avatar: rec.avatar || (follow && follow.avatar) || '',
+          accountType: rec.accountType === 'business' ? 'business' : 'personal',
+          isVerified: rec.isVerified === true,
+          isPlus: rec.isPlus === true
+        });
+      });
+      return list;
+    }
 
     function shuffleDiscoverCreatorsList() {
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-      const followedSet = new Set((state.following || []).filter(f => f.isFollowing).map(f => (f.username || '').toLowerCase()));
-      const candidates = DISCOVER_CREATORS_POOL.filter(c => c.username.toLowerCase() !== curU);
-      const unfollowed = candidates.filter(c => !followedSet.has(c.username.toLowerCase()));
-      const alreadyFollowed = candidates.filter(c => followedSet.has(c.username.toLowerCase()));
+      const candidates = getDiscoverCreatorsSource();
+      const unfollowed = candidates.filter(c => (typeof isUserFollowingCreator === 'function') ? !isUserFollowingCreator(c.username) : true);
+      const alreadyFollowed = candidates.filter(c => (typeof isUserFollowingCreator === 'function') && isUserFollowingCreator(c.username));
 
       function fisherYates(arr) {
         const copy = arr.slice();
@@ -16649,6 +16687,16 @@ function syncLikedStateToPosts() {
       currentDiscoverCreatorsOrder = fisherYates(unfollowed).concat(fisherYates(alreadyFollowed));
     }
 
+    function paintDiscoverCreatorsLoading() {
+      const container = document.getElementById('discover-creators-list-container');
+      if (!container) return;
+      container.innerHTML = `
+          <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
+            <p class="font-medium text-neutral-700">Loading creators…</p>
+          </div>
+        `;
+    }
+
     function openDiscoverCreatorsModal() {
       const modal = document.getElementById('modal-discover-creators');
       if (!modal) return;
@@ -16656,12 +16704,27 @@ function syncLikedStateToPosts() {
       modal.style.display = 'flex';
       const searchInp = document.getElementById('discover-creators-search-input');
       if (searchInp) searchInp.value = '';
-      shuffleDiscoverCreatorsList();
-      renderDiscoverCreatorsList('');
+      const gen = ++_discoverCreatorsDirGen;
+      const paint = () => {
+        if (gen !== _discoverCreatorsDirGen) return;
+        shuffleDiscoverCreatorsList();
+        renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
+      };
+      if (window._exploreUserDir && window._exploreUserDir.users) {
+        paint();
+        return;
+      }
+      paintDiscoverCreatorsLoading();
+      ensureDiscoverCreatorsDirectory().then(() => {
+        if (gen !== _discoverCreatorsDirGen) return;
+        const stillOpen = modal.style.display === 'flex' && !modal.classList.contains('hidden');
+        if (stillOpen) paint();
+      });
     }
     window.openDiscoverCreatorsModal = openDiscoverCreatorsModal;
 
     function closeDiscoverCreatorsModal() {
+      _discoverCreatorsDirGen++;
       const modal = document.getElementById('modal-discover-creators');
       if (!modal) return;
       modal.classList.add('hidden');
@@ -16674,30 +16737,22 @@ function syncLikedStateToPosts() {
       if (!container) return;
       if (!currentDiscoverCreatorsOrder.length) shuffleDiscoverCreatorsList();
 
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'user').toLowerCase().replace(/^@/, '');
-      const q = (query || '').toLowerCase().trim();
-      let list = currentDiscoverCreatorsOrder;
-
-      if (q) {
-        list = list.filter(u =>
-          u.username.toLowerCase().includes(q) ||
-          u.fullName.toLowerCase().includes(q) ||
-          (u.bio && u.bio.toLowerCase().includes(q))
-        );
-      }
+      const q = query || '';
+      let list = currentDiscoverCreatorsOrder.filter(u => discoverCreatorMatchesQuery(u, q));
 
       if (list.length === 0) {
+        const hasQuery = !!normalizeDiscoverSearchText(q);
         container.innerHTML = `
-          <div class="py-12 text-center text-xs text-neutral-400 space-y-1">
-            <p class="font-medium text-neutral-700">No creators found</p>
-            <p class="text-[11px] text-neutral-400">Try searching another name or tap Shuffle</p>
+          <div class="py-12 text-center text-xs text-neutral-400 space-y-1" data-discover-empty="true">
+            <p class="font-medium text-neutral-700">No creators match that search</p>
+            <p class="text-[11px] text-neutral-400">${hasQuery ? 'Try a different name or username' : 'No creators to show right now'}</p>
           </div>
         `;
         return;
       }
 
       container.innerHTML = list.map(u => {
-        const isFollowing = (state.following || []).some(f => f.username.toLowerCase() === u.username.toLowerCase() && f.isFollowing);
+        const isFollowing = (typeof isUserFollowingCreator === 'function') && isUserFollowingCreator(u.username);
         const btnClasses = isFollowing
           ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
           : 'story-gradient text-white shadow-xs hover:opacity-95';
@@ -16732,36 +16787,7 @@ function syncLikedStateToPosts() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const targetU = btn.dataset.username;
-          const creatorObj = DISCOVER_CREATORS_POOL.find(c => c.username.toLowerCase() === targetU.toLowerCase());
-          state.following = state.following || [];
-          let userObj = state.following.find(u => u.username.toLowerCase() === targetU.toLowerCase());
-          if (userObj) {
-            userObj.isFollowing = !userObj.isFollowing;
-          } else if (creatorObj) {
-            userObj = {
-              id: creatorObj.id,
-              username: creatorObj.username,
-              fullName: creatorObj.fullName,
-              bio: creatorObj.bio,
-              avatar: creatorObj.avatar,
-              isFollowing: true
-            };
-            state.following.push(userObj);
-          }
-
-          try {
-            localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
-          } catch(err) {}
-
-          if (typeof getFollowingDisplayCount === 'function') {
-            const updatedTotal = getFollowingDisplayCount();
-            const profFollowingEl = document.getElementById('profile-following-count');
-            if (profFollowingEl) profFollowingEl.textContent = updatedTotal.toLocaleString();
-            state.currentUser.followingCount = String(updatedTotal);
-          }
-
-          persistState();
-          showToast(userObj && userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
+          if (typeof toggleFollowCreator === 'function') toggleFollowCreator(targetU);
           const searchInp = document.getElementById('discover-creators-search-input');
           renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
         });
