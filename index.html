@@ -2160,7 +2160,7 @@
         <div>
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Username</label>
           <input type="text" id="edit-profile-username" value="" placeholder="username" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
-          <p id="edit-profile-username-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium">Username taken</p>
+          <p id="edit-profile-username-status" class="hidden text-[10px] mt-1 font-medium"></p>
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
@@ -2171,18 +2171,16 @@
             </span>
           </div>
           <div class="relative">
-            <input type="email" id="edit-profile-email" value="" placeholder="name@example.com" class="w-full pr-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <input type="email" id="edit-profile-email" value="" placeholder="name@example.com" class="w-full pr-[5.75rem] py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
             <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             </div>
+            <button type="button" id="btn-edit-send-email-code" class="hidden absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-md transition cursor-pointer z-10">Send code</button>
           </div>
           <p class="text-[10px] text-neutral-400 mt-1">This email or phone is registered for account access & recovery.</p>
           <p id="edit-profile-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
           <div id="edit-profile-email-verify-panel" class="hidden mt-2 space-y-2">
             <p id="edit-profile-email-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
-            <div id="edit-profile-email-send-wrap">
-              <button type="button" id="btn-edit-send-email-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send code</button>
-            </div>
             <div id="edit-profile-email-code-wrap" class="hidden space-y-2">
               <input type="text" id="edit-profile-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
               <div class="flex items-center space-x-2">
@@ -2201,18 +2199,16 @@
             </span>
           </div>
           <div class="relative">
-            <input type="tel" id="edit-profile-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full pr-3 py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 transition">
+            <input type="tel" id="edit-profile-phone" placeholder="e.g. +1 (555) 019-2834" class="w-full pr-[5.75rem] py-2 pl-8 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 transition">
             <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
             </div>
+            <button type="button" id="btn-edit-send-phone-code" class="hidden absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-md transition cursor-pointer z-10">Send code</button>
           </div>
           <p class="text-[10px] text-neutral-400 mt-1" id="edit-profile-phone-hint">Enter your phone number so you can log in with phone or email next time. Either phone or email is required.</p>
           <p id="edit-profile-phone-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
           <div id="edit-profile-phone-verify-panel" class="hidden mt-2 space-y-2">
             <p id="edit-profile-phone-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
-            <div id="edit-profile-phone-send-wrap">
-              <button type="button" id="btn-edit-send-phone-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send code</button>
-            </div>
             <div id="edit-profile-phone-code-wrap" class="hidden space-y-2">
               <input type="text" id="edit-profile-phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit phone code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
               <div class="flex items-center space-x-2">
@@ -3900,10 +3896,17 @@
                     const emailInp = document.getElementById('edit-profile-email');
                     const phoneInp = document.getElementById('edit-profile-phone');
                     const linkInp = document.getElementById('edit-profile-link');
+                    const ev = state.editProfileVerify || {};
+                    const sameEmail = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+                    const digits = (a) => String(a || '').replace(/\D/g, '');
                     if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
                     if (nameInp && document.activeElement !== nameInp) nameInp.value = state.currentUser.fullName || '';
-                    if (emailInp && document.activeElement !== emailInp) emailInp.value = state.currentUser.email || '';
-                    if (phoneInp && document.activeElement !== phoneInp) phoneInp.value = state.currentUser.phone || '';
+                    if (emailInp && document.activeElement !== emailInp) {
+                      if (!ev.savedEmail || sameEmail(emailInp.value, ev.savedEmail)) emailInp.value = state.currentUser.email || '';
+                    }
+                    if (phoneInp && document.activeElement !== phoneInp) {
+                      if (!ev.savedPhone || digits(phoneInp.value) === digits(ev.savedPhone)) phoneInp.value = state.currentUser.phone || '';
+                    }
                     if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
                   }
                 } catch(e) {}
@@ -22260,6 +22263,26 @@ function syncLikedStateToPosts() {
           el.textContent = msg;
           el.classList.remove('hidden');
         }
+        function editUsernameStatusEl() {
+          return document.getElementById('edit-profile-username-status') || document.getElementById('edit-profile-username-error');
+        }
+        function setEditUsernameStatus(msg, kind) {
+          const el = editUsernameStatusEl();
+          if (!el) return;
+          el.classList.remove('text-rose-500', 'text-emerald-600', 'hidden');
+          if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+          el.textContent = msg;
+          el.classList.add(kind === 'available' ? 'text-emerald-600' : 'text-rose-500');
+        }
+        function revealEditSendButton(btn, visible, enabled) {
+          if (!btn) return;
+          const wasHidden = btn.classList.contains('hidden');
+          btn.classList.toggle('hidden', !visible);
+          if (typeof styleSignupSendButton === 'function') styleSignupSendButton(btn, !!enabled);
+          if (visible && wasHidden) {
+            try { btn.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+          }
+        }
         function setEditVerifyStatus(el, msg, isError) {
           if (!el) return;
           if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
@@ -22325,6 +22348,7 @@ function syncLikedStateToPosts() {
             const phCode = document.getElementById('edit-profile-phone-code');
             if (emCode) emCode.value = '';
             if (phCode) phCode.value = '';
+            if (typeof setEditUsernameStatus === 'function') setEditUsernameStatus('');
             setEditVerifyStatus(document.getElementById('edit-profile-email-verify-status'), '');
             setEditVerifyStatus(document.getElementById('edit-profile-phone-verify-status'), '');
           }
@@ -22368,29 +22392,28 @@ function syncLikedStateToPosts() {
           setEditInlineError(phoneErr, (phoneChanged && v.phoneTaken) ? 'This number is already on an account' : '');
 
           const emailPanel = document.getElementById('edit-profile-email-verify-panel');
-          const emailSendWrap = document.getElementById('edit-profile-email-send-wrap');
           const emailCodeWrap = document.getElementById('edit-profile-email-code-wrap');
-          if (emailPanel) emailPanel.classList.toggle('hidden', !emailChanged || !email);
           const emailShowCode = !!(emailChanged && email && v.emailCodeSent && !v.emailTaken && !editProfileEmailVerified());
-          if (emailSendWrap) emailSendWrap.classList.toggle('hidden', emailShowCode || editProfileEmailVerified());
-          if (emailCodeWrap) emailCodeWrap.classList.toggle('hidden', !emailShowCode);
           const emailSendBtn = document.getElementById('btn-edit-send-email-code');
-          const emailCanSend = !!(emailChanged && editEmailLooksValid(email) && !v.emailTaken && !editProfileEmailVerified());
-          styleSignupSendButton(emailSendBtn, emailCanSend);
+          // Show Send code on the field row as soon as the email differs from the saved value.
+          const emailSendVisible = !!(emailChanged && email && !editProfileEmailVerified() && !emailShowCode);
+          const emailCanSend = !!(emailSendVisible && editEmailLooksValid(email) && !v.emailTaken);
+          revealEditSendButton(emailSendBtn, emailSendVisible, emailCanSend);
+          if (emailCodeWrap) emailCodeWrap.classList.toggle('hidden', !emailShowCode);
+          if (emailPanel) emailPanel.classList.toggle('hidden', !emailShowCode && !(editProfileEmailVerified() && emailChanged));
           if (editProfileEmailVerified()) {
             setEditVerifyStatus(document.getElementById('edit-profile-email-verify-status'), 'Email verified.', false);
           }
 
           const phonePanel = document.getElementById('edit-profile-phone-verify-panel');
-          const phoneSendWrap = document.getElementById('edit-profile-phone-send-wrap');
           const phoneCodeWrap = document.getElementById('edit-profile-phone-code-wrap');
-          if (phonePanel) phonePanel.classList.toggle('hidden', !phoneChanged || !phoneRaw);
           const phoneShowCode = !!(phoneChanged && phoneRaw && v.phoneCodeSent && !v.phoneTaken && !editProfilePhoneVerified());
-          if (phoneSendWrap) phoneSendWrap.classList.toggle('hidden', phoneShowCode || editProfilePhoneVerified());
-          if (phoneCodeWrap) phoneCodeWrap.classList.toggle('hidden', !phoneShowCode);
           const phoneSendBtn = document.getElementById('btn-edit-send-phone-code');
-          const phoneCanSend = !!(phoneChanged && editProfilePhoneValue() && !v.phoneTaken && !editProfilePhoneVerified());
-          styleSignupSendButton(phoneSendBtn, phoneCanSend);
+          const phoneSendVisible = !!(phoneChanged && phoneRaw && !editProfilePhoneVerified() && !phoneShowCode);
+          const phoneCanSend = !!(phoneSendVisible && editProfilePhoneValue() && !v.phoneTaken);
+          revealEditSendButton(phoneSendBtn, phoneSendVisible, phoneCanSend);
+          if (phoneCodeWrap) phoneCodeWrap.classList.toggle('hidden', !phoneShowCode);
+          if (phonePanel) phonePanel.classList.toggle('hidden', !phoneShowCode && !(editProfilePhoneVerified() && phoneChanged));
           if (editProfilePhoneVerified()) {
             setEditVerifyStatus(document.getElementById('edit-profile-phone-verify-status'), 'Phone verified.', false);
           }
@@ -22538,12 +22561,11 @@ function syncLikedStateToPosts() {
         async function checkEditUsernameTaken(seq) {
           const selfU = editProfileSelfUsername();
           const nu = editProfileUsernameValue();
-          const err = document.getElementById('edit-profile-username-error');
           const v = state.editProfileVerify || (state.editProfileVerify = {});
           if (!nu || nu === selfU) {
             if (seq === v.usernameCheckSeq) {
               v.usernameTaken = false;
-              setEditInlineError(err, '');
+              setEditUsernameStatus('');
               styleEditSaveButton(editProfileCanSave());
             }
             return;
@@ -22559,27 +22581,25 @@ function syncLikedStateToPosts() {
           }
           if (seq !== (state.editProfileVerify || {}).usernameCheckSeq) return;
           v.usernameTaken = taken;
-          setEditInlineError(err, taken ? 'Username taken' : '');
+          setEditUsernameStatus(taken ? 'Username taken' : 'Username available', taken ? 'taken' : 'available');
           styleEditSaveButton(editProfileCanSave());
         }
         function scheduleEditUsernameCheck() {
           const v = state.editProfileVerify || (state.editProfileVerify = {});
           const selfU = editProfileSelfUsername();
           const nu = editProfileUsernameValue();
-          const err = document.getElementById('edit-profile-username-error');
-          // Instant local taken check so Save disables immediately for known names.
-          if (nu && nu !== selfU && typeof findUsernameOwner === 'function' && findUsernameOwner(nu, selfU)) {
-            v.usernameTaken = true;
-            setEditInlineError(err, 'Username taken');
-            styleEditSaveButton(false);
-          } else if (!nu || nu === selfU) {
+          // Same rules for every account, including reserved names: show taken/available while typing.
+          if (!nu || nu === selfU) {
             v.usernameTaken = false;
-            setEditInlineError(err, '');
+            setEditUsernameStatus('');
             styleEditSaveButton(editProfileCanSave());
+          } else if (typeof findUsernameOwner === 'function' && findUsernameOwner(nu, selfU)) {
+            v.usernameTaken = true;
+            setEditUsernameStatus('Username taken', 'taken');
+            styleEditSaveButton(false);
           } else {
-            // A previously taken value may have been edited; don't leave Save stuck while we debounce.
             v.usernameTaken = false;
-            setEditInlineError(err, '');
+            setEditUsernameStatus('Username available', 'available');
             styleEditSaveButton(editProfileCanSave());
           }
           const seq = (v.usernameCheckSeq = (v.usernameCheckSeq || 0) + 1);
@@ -22590,24 +22610,24 @@ function syncLikedStateToPosts() {
         (function bindEditProfileVerify() {
           if (window._editProfileVerifyBound) return;
           window._editProfileVerifyBound = true;
-          const emailInp = document.getElementById('edit-profile-email');
-          const phoneInp = document.getElementById('edit-profile-phone');
-          const userInp = document.getElementById('edit-profile-username');
-          if (emailInp) emailInp.addEventListener('input', () => syncEditProfileVerifyUi());
-          if (phoneInp) phoneInp.addEventListener('input', () => syncEditProfileVerifyUi());
-          if (userInp) userInp.addEventListener('input', scheduleEditUsernameCheck);
-          const sendEm = document.getElementById('btn-edit-send-email-code');
-          const resendEm = document.getElementById('btn-edit-resend-email-code');
-          const verifyEm = document.getElementById('btn-edit-verify-email-code');
-          if (sendEm) sendEm.addEventListener('click', sendEditEmailCode);
-          if (resendEm) resendEm.addEventListener('click', sendEditEmailCode);
-          if (verifyEm) verifyEm.addEventListener('click', verifyEditEmailCode);
-          const sendPh = document.getElementById('btn-edit-send-phone-code');
-          const resendPh = document.getElementById('btn-edit-resend-phone-code');
-          const verifyPh = document.getElementById('btn-edit-verify-phone-code');
-          if (sendPh) sendPh.addEventListener('click', sendEditPhoneCode);
-          if (resendPh) resendPh.addEventListener('click', sendEditPhoneCode);
-          if (verifyPh) verifyPh.addEventListener('click', verifyEditPhoneCode);
+          const fieldHandler = (e) => {
+            const t = e && e.target;
+            if (!t || !t.id) return;
+            if (t.id === 'edit-profile-email' || t.id === 'edit-profile-phone') syncEditProfileVerifyUi();
+            if (t.id === 'edit-profile-username') scheduleEditUsernameCheck();
+          };
+          document.addEventListener('input', fieldHandler, true);
+          document.addEventListener('change', fieldHandler, true);
+          document.addEventListener('keyup', fieldHandler, true);
+          document.addEventListener('paste', (e) => { setTimeout(() => fieldHandler(e), 0); }, true);
+          document.addEventListener('click', (e) => {
+            const t = e.target && e.target.closest ? e.target.closest('button') : null;
+            if (!t || !t.id) return;
+            if (t.id === 'btn-edit-send-email-code' || t.id === 'btn-edit-resend-email-code') sendEditEmailCode();
+            else if (t.id === 'btn-edit-verify-email-code') verifyEditEmailCode();
+            else if (t.id === 'btn-edit-send-phone-code' || t.id === 'btn-edit-resend-phone-code') sendEditPhoneCode();
+            else if (t.id === 'btn-edit-verify-phone-code') verifyEditPhoneCode();
+          });
         })();
 
 
