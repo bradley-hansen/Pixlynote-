@@ -9795,20 +9795,12 @@ function syncLikedStateToPosts() {
         }
       }
 
-      // Highlights: ONLY display for personal account (@bradley_hansen), NEVER for @pixlynote
+      // Highlights + Add is available on every owner's own profile (any account type).
       const hlContainer = document.getElementById('profile-highlights-container');
-      if (isPixly || state.currentUser.accountType === 'business') {
-        if (hlContainer) {
-          hlContainer.innerHTML = '';
-          hlContainer.classList.add('hidden');
-          hlContainer.style.display = 'none';
-        }
-      } else {
-        if (hlContainer) {
-          hlContainer.classList.remove('hidden');
-          hlContainer.style.display = 'flex';
-          renderHighlights();
-        }
+      if (hlContainer) {
+        hlContainer.classList.remove('hidden');
+        hlContainer.style.display = 'flex';
+        renderHighlights();
       }
 
       // Set avatar: @pixlynote gets PIXLYNOTE_SHUTTER_ICON; @bradley_hansen gets BRADLEY_AVATAR_IMAGE
