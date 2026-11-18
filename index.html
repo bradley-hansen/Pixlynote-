@@ -632,7 +632,7 @@
 
         <!-- Sign Up Flow Container (Step 1 & Step 2) -->
         <div id="auth-signup-container" class="hidden text-left">
-          
+
           <!-- Step 1: Account Information -->
           <div id="signup-step-1" class="space-y-3">
             <div id="signup-name-group" class="space-y-3">
@@ -674,6 +674,19 @@
                   <span id="signup-email-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
                 <p id="signup-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+                <div id="signup-email-verify-panel" class="mt-2 space-y-2">
+                  <p id="signup-email-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+                  <div id="signup-email-send-wrap">
+                    <button type="button" id="btn-signup-send-email-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send email code</button>
+                  </div>
+                  <div id="signup-email-code-wrap" class="hidden space-y-2">
+                    <input type="text" id="signup-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" class="w-full px-3 py-2 text-sm tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                    <div class="flex items-center space-x-2">
+                      <button type="button" id="btn-signup-verify-email-code" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify email</button>
+                      <button type="button" id="btn-signup-resend-email-code" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -687,6 +700,19 @@
                   <span id="signup-phone-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
                 <p id="signup-phone-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+                <div id="signup-phone-verify-panel" class="mt-2 space-y-2">
+                  <p id="signup-phone-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+                  <div id="signup-phone-send-wrap">
+                    <button type="button" id="btn-signup-send-phone-code" class="px-3 py-1.5 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition cursor-pointer">Send phone code</button>
+                  </div>
+                  <div id="signup-phone-code-wrap" class="hidden space-y-2">
+                    <input type="text" id="signup-phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit phone code" class="w-full px-3 py-2 text-sm tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                    <div class="flex items-center space-x-2">
+                      <button type="button" id="btn-signup-verify-phone-code" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify phone</button>
+                      <button type="button" id="btn-signup-resend-phone-code" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -4414,6 +4440,9 @@
     // Pixlynote Worker: typed emails (/email, /email/reset-verify) and Stripe checks (/verify-stripe-session).
     var PIXLYNOTE_API_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
     window.PIXLYNOTE_API_ENDPOINT = PIXLYNOTE_API_ENDPOINT;
+    // Sign-up email/SMS verification lives on the staging Worker until Bradley says Go.
+    var PIXLYNOTE_VERIFY_ENDPOINT = 'https://pixlynote-api-staging.brad-g-hansen.workers.dev';
+    window.PIXLYNOTE_VERIFY_ENDPOINT = PIXLYNOTE_VERIFY_ENDPOINT;
 
     function normalizeUsername(u) {
       if (!u) return '';
@@ -21814,6 +21843,8 @@ function syncLikedStateToPosts() {
             const step2 = document.getElementById('signup-step-2');
             if (step1) { step1.classList.remove('hidden'); step1.style.display = 'block'; }
             if (step2) { step2.classList.add('hidden'); step2.style.display = 'none'; }
+            state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
+            if (typeof resetSignupVerifyPanels === 'function') resetSignupVerifyPanels();
 
             const fnInp = document.getElementById('login-fullname');
             if (fnInp) {
@@ -22020,7 +22051,9 @@ function syncLikedStateToPosts() {
           const hasFullName = ((nameInp ? nameInp.value : '').trim().length > 0);
           const validPassword = ((pwInp ? pwInp.value : '').trim().length >= 4);
 
-          const canSubmit = hasValidEmailOrPhone && noInvalidContact && validUsername && hasFullName && validPassword;
+          const contactsVerified = (typeof isSignupContactVerified === 'function') ? isSignupContactVerified() : false;
+          const canSubmit = hasValidEmailOrPhone && noInvalidContact && validUsername && hasFullName && validPassword && contactsVerified;
+          if (typeof syncSignupVerifyUi === 'function') syncSignupVerifyUi();
 
           const btnStep2 = document.getElementById('btn-signup-to-step2');
           if (btnStep2) {
@@ -22049,9 +22082,289 @@ function syncLikedStateToPosts() {
           return { canSubmit, emRes, phRes, unRes, hasValidEmailOrPhone, noInvalidContact, validUsername };
         }
 
+
+        function signupVerifyApi() {
+          return (window.PIXLYNOTE_VERIFY_ENDPOINT || PIXLYNOTE_VERIFY_ENDPOINT || PIXLYNOTE_API_ENDPOINT);
+        }
+
+        function normalizeSignupPhone(raw) {
+          const compact = String(raw || '').trim().replace(/[\s().-]/g, '');
+          if (!compact) return '';
+          if (compact.startsWith('+') && !compact.startsWith('+1')) return '';
+          let digits = compact.replace(/^\+/, '').replace(/\D/g, '');
+          if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+          if (digits.length !== 10) return '';
+          if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) return '';
+          return '+1' + digits;
+        }
+
+        function currentSignupEmail() {
+          return ((document.getElementById('login-email') || {}).value || '').trim();
+        }
+
+        function currentSignupPhone() {
+          return normalizeSignupPhone((document.getElementById('signup-phone') || {}).value || '');
+        }
+
+        function signupEmailLooksValid() {
+          const em = currentSignupEmail();
+          if (!em) return false;
+          const localPart = em.split('@')[0] || '';
+          return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em) && !em.includes('..') && !localPart.startsWith('.') && !localPart.endsWith('.');
+        }
+
+        function isSignupContactVerified() {
+          const v = state.signupVerify || {};
+          const needsEmail = signupEmailLooksValid();
+          const needsPhone = !!currentSignupPhone();
+          if (!needsEmail && !needsPhone) return false;
+          if (needsEmail && !(v.emailVerified && v.email && v.email.toLowerCase() === currentSignupEmail().toLowerCase())) return false;
+          if (needsPhone && !(v.phoneVerified && v.phone && v.phone === currentSignupPhone())) return false;
+          return true;
+        }
+
+        function setSignupVerifyStatus(el, msg, isError) {
+          if (!el) return;
+          if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+          el.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-emerald-50', 'text-emerald-700');
+          el.classList.add(isError ? 'bg-rose-50' : 'bg-emerald-50', isError ? 'text-rose-700' : 'text-emerald-700');
+          el.textContent = msg;
+        }
+
+        function signupVerifyErrorMessage(err, kind) {
+          const e = err || '';
+          if (e === 'wrong_code') return 'Incorrect 6-digit code. Please try again.';
+          if (e === 'expired') return 'That code has expired. Please request a new one.';
+          if (e === 'too_many_attempts') return 'Too many incorrect tries. Please request a new code.';
+          if (e === 'rate_limited') return 'Too many attempts. Please wait a bit and try again.';
+          if (e === 'invalid_phone') return 'Enter a complete 10-digit US phone number.';
+          if (e === 'country_not_supported') return 'US phone numbers only for now.';
+          if (e === 'number_not_verified_on_trial') return 'This Twilio trial can only text verified numbers. Verify the number in the Twilio console, or upgrade the account.';
+          return kind === 'email' ? 'Could not verify that email code. Please try again.' : 'Could not verify that code. Please try again.';
+        }
+
+        async function postSignupVerify(path, payload) {
+          const res = await fetch(signupVerifyApi() + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload || {})
+          });
+          const data = await res.json().catch(() => ({}));
+          return { ok: res.ok, status: res.status, data };
+        }
+
+        function syncSignupVerifyUi() {
+          state.signupVerify = state.signupVerify || { email: '', emailVerified: false, phone: '', phoneVerified: false };
+          const v = state.signupVerify;
+          const em = currentSignupEmail();
+          const ph = currentSignupPhone();
+          if (v.email && v.email.toLowerCase() !== em.toLowerCase()) {
+            v.emailVerified = false;
+            v.email = '';
+            v.emailCodeSent = false;
+          }
+          if (v.phone && v.phone !== ph) {
+            v.phoneVerified = false;
+            v.phone = '';
+            v.phoneCodeSent = false;
+          }
+
+          const emailSend = document.getElementById('signup-email-send-wrap');
+          const emailCode = document.getElementById('signup-email-code-wrap');
+          const emailStatus = document.getElementById('signup-email-verify-status');
+          const emailSendBtn = document.getElementById('btn-signup-send-email-code');
+          if (v.emailVerified && v.email && v.email.toLowerCase() === em.toLowerCase()) {
+            if (emailSend) emailSend.classList.add('hidden');
+            if (emailCode) emailCode.classList.add('hidden');
+            setSignupVerifyStatus(emailStatus, 'Email verified', false);
+          } else if (v.emailCodeSent && v.email && v.email.toLowerCase() === em.toLowerCase()) {
+            if (emailSend) emailSend.classList.add('hidden');
+            if (emailCode) emailCode.classList.remove('hidden');
+          } else {
+            if (emailSend) emailSend.classList.remove('hidden');
+            if (emailCode) emailCode.classList.add('hidden');
+            if (emailStatus && !signupEmailLooksValid()) setSignupVerifyStatus(emailStatus, '', false);
+          }
+          if (emailSendBtn) emailSendBtn.disabled = !signupEmailLooksValid();
+
+          const phoneSend = document.getElementById('signup-phone-send-wrap');
+          const phoneCode = document.getElementById('signup-phone-code-wrap');
+          const phoneStatus = document.getElementById('signup-phone-verify-status');
+          const phoneSendBtn = document.getElementById('btn-signup-send-phone-code');
+          const rawPhone = ((document.getElementById('signup-phone') || {}).value || '').trim();
+          if (v.phoneVerified && v.phone && v.phone === ph) {
+            if (phoneSend) phoneSend.classList.add('hidden');
+            if (phoneCode) phoneCode.classList.add('hidden');
+            setSignupVerifyStatus(phoneStatus, 'Phone verified', false);
+          } else if (v.phoneCodeSent && v.phone && v.phone === ph) {
+            if (phoneSend) phoneSend.classList.add('hidden');
+            if (phoneCode) phoneCode.classList.remove('hidden');
+          } else {
+            if (phoneSend) phoneSend.classList.remove('hidden');
+            if (phoneCode) phoneCode.classList.add('hidden');
+            if (phoneStatus && !ph) setSignupVerifyStatus(phoneStatus, '', false);
+          }
+          if (phoneSendBtn) phoneSendBtn.disabled = !ph;
+        }
+
+        async function sendSignupEmailCode() {
+          const status = document.getElementById('signup-email-verify-status');
+          const email = currentSignupEmail();
+          if (!signupEmailLooksValid()) {
+            setSignupVerifyStatus(status, 'Enter a valid email address first.', true);
+            return;
+          }
+          const btn = document.getElementById('btn-signup-send-email-code');
+          const resend = document.getElementById('btn-signup-resend-email-code');
+          if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+          if (resend) resend.disabled = true;
+          try {
+            const r = await postSignupVerify('/email', { type: 'signup_code', to: email });
+            if (!r.ok || r.data.error) {
+              const msg = r.data.error === 'rate_limited' ? 'Too many codes sent. Please try again later.'
+                : (r.data.message || 'Could not send the verification code.');
+              setSignupVerifyStatus(status, msg, true);
+              return;
+            }
+            state.signupVerify = Object.assign({}, state.signupVerify || {}, {
+              email: email, emailVerified: false, emailCodeSent: true, debug_email_code: r.data.debug_code || null
+            });
+            const codeInp = document.getElementById('signup-email-code');
+            if (codeInp) { codeInp.value = ''; codeInp.focus(); }
+            setSignupVerifyStatus(status, 'We sent a 6-digit code to ' + email + '. Enter it to continue.', false);
+            syncSignupVerifyUi();
+          } catch (err) {
+            setSignupVerifyStatus(status, 'Could not send the verification code. Please try again.', true);
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Send email code'; }
+            if (resend) resend.disabled = false;
+          }
+        }
+
+        async function verifySignupEmailCode() {
+          const v = state.signupVerify || {};
+          const status = document.getElementById('signup-email-verify-status');
+          const email = currentSignupEmail();
+          const code = ((document.getElementById('signup-email-code') || {}).value || '').trim();
+          if (!/^\d{6}$/.test(code)) {
+            setSignupVerifyStatus(status, 'Enter the 6-digit code from your email.', true);
+            return;
+          }
+          if (!email) {
+            setSignupVerifyStatus(status, 'Please enter your email and request a code first.', true);
+            return;
+          }
+          const btn = document.getElementById('btn-signup-verify-email-code');
+          if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+          try {
+            const r = await postSignupVerify('/email/signup-verify', { to: email, code });
+            if (!r.data || r.data.valid !== true) {
+              setSignupVerifyStatus(status, signupVerifyErrorMessage((r.data && r.data.error) || '', 'email'), true);
+              return;
+            }
+            state.signupVerify = Object.assign({}, v, { email: email, emailVerified: true, emailCodeSent: true });
+            setSignupVerifyStatus(status, 'Email verified', false);
+            if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
+            else syncSignupVerifyUi();
+          } catch (err) {
+            setSignupVerifyStatus(status, 'Could not verify that code. Please try again.', true);
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Verify email'; }
+          }
+        }
+
+        async function sendSignupPhoneCode() {
+          const status = document.getElementById('signup-phone-verify-status');
+          const raw = ((document.getElementById('signup-phone') || {}).value || '').trim();
+          const phone = currentSignupPhone();
+          if (!phone) {
+            const compact = raw.replace(/[\s().-]/g, '');
+            const msg = (compact.startsWith('+') && !compact.startsWith('+1'))
+              ? 'US phone numbers only for now.'
+              : 'Enter a complete 10-digit US phone number first.';
+            setSignupVerifyStatus(status, msg, true);
+            return;
+          }
+          const btn = document.getElementById('btn-signup-send-phone-code');
+          const resend = document.getElementById('btn-signup-resend-phone-code');
+          if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+          if (resend) resend.disabled = true;
+          try {
+            const r = await postSignupVerify('/sms/send', { phone });
+            if (!r.ok || r.data.error) {
+              setSignupVerifyStatus(status, signupVerifyErrorMessage((r.data && r.data.error) || '', 'phone'), true);
+              return;
+            }
+            state.signupVerify = Object.assign({}, state.signupVerify || {}, {
+              phone: phone, phoneVerified: false, phoneCodeSent: true, debug_phone_code: r.data.debug_code || null
+            });
+            const inp = document.getElementById('signup-phone');
+            if (inp) inp.value = phone;
+            const codeInp = document.getElementById('signup-phone-code');
+            if (codeInp) { codeInp.value = ''; codeInp.focus(); }
+            setSignupVerifyStatus(status, 'We sent a 6-digit code to ' + phone + '. Enter it to continue.', false);
+            syncSignupVerifyUi();
+          } catch (err) {
+            setSignupVerifyStatus(status, 'Could not send the verification code. Please try again.', true);
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Send phone code'; }
+            if (resend) resend.disabled = false;
+          }
+        }
+
+        async function verifySignupPhoneCode() {
+          const v = state.signupVerify || {};
+          const status = document.getElementById('signup-phone-verify-status');
+          const phone = currentSignupPhone();
+          const code = ((document.getElementById('signup-phone-code') || {}).value || '').trim();
+          if (!/^\d{6}$/.test(code)) {
+            setSignupVerifyStatus(status, 'Enter the 6-digit code from your text message.', true);
+            return;
+          }
+          if (!phone) {
+            setSignupVerifyStatus(status, 'Please enter your phone number and request a code first.', true);
+            return;
+          }
+          const btn = document.getElementById('btn-signup-verify-phone-code');
+          if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+          try {
+            const r = await postSignupVerify('/sms/check', { phone, code });
+            if (!r.data || r.data.valid !== true) {
+              setSignupVerifyStatus(status, signupVerifyErrorMessage((r.data && r.data.error) || '', 'phone'), true);
+              return;
+            }
+            state.signupVerify = Object.assign({}, v, { phone: phone, phoneVerified: true, phoneCodeSent: true });
+            setSignupVerifyStatus(status, 'Phone verified', false);
+            if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
+            else syncSignupVerifyUi();
+          } catch (err) {
+            setSignupVerifyStatus(status, 'Could not verify that code. Please try again.', true);
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Verify phone'; }
+          }
+        }
+
+        function resetSignupVerifyPanels() {
+          state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
+          const emailCode = document.getElementById('signup-email-code');
+          const phoneCode = document.getElementById('signup-phone-code');
+          if (emailCode) emailCode.value = '';
+          if (phoneCode) phoneCode.value = '';
+          setSignupVerifyStatus(document.getElementById('signup-email-verify-status'), '', false);
+          setSignupVerifyStatus(document.getElementById('signup-phone-verify-status'), '', false);
+          syncSignupVerifyUi();
+        }
+
+        window.isSignupContactVerified = isSignupContactVerified;
+
         function goToSignUpStep(step) {
           const step1 = document.getElementById('signup-step-1');
           const step2 = document.getElementById('signup-step-2');
+
+          if (typeof isSignupContactVerified === 'function' && !isSignupContactVerified()) {
+            showToast('Please verify your email or phone before continuing');
+            return;
+          }
           
           if (step === 2) {
             const isBiz = (state.signUpAccountType === 'business');
@@ -22117,6 +22430,10 @@ function syncLikedStateToPosts() {
         }
 
         async function handleCompleteSignUp(skipStep2 = false) {
+          if (typeof isSignupContactVerified === 'function' && !isSignupContactVerified()) {
+            showToast('Please verify your email or phone before creating an account');
+            return;
+          }
           const isBiz = (state.signUpAccountType === 'business');
           const n = (document.getElementById('login-fullname').value || '').trim();
           const em = (document.getElementById('login-email').value || '').trim();
@@ -22284,6 +22601,7 @@ function syncLikedStateToPosts() {
 
           } catch(err) {}
 
+          state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
           showToast(`🎉 Account created! Welcome, @${u}`);
           performLogin(u, fullName, em, null, phone, accountType);
           try {
@@ -22617,6 +22935,24 @@ function syncLikedStateToPosts() {
         }
 
         // Wire Sign Up Step Navigation
+
+        const btnSignupSendEmail = document.getElementById('btn-signup-send-email-code');
+        if (btnSignupSendEmail) btnSignupSendEmail.addEventListener('click', sendSignupEmailCode);
+        const btnSignupResendEmail = document.getElementById('btn-signup-resend-email-code');
+        if (btnSignupResendEmail) btnSignupResendEmail.addEventListener('click', sendSignupEmailCode);
+        const btnSignupVerifyEmail = document.getElementById('btn-signup-verify-email-code');
+        if (btnSignupVerifyEmail) btnSignupVerifyEmail.addEventListener('click', verifySignupEmailCode);
+        const btnSignupSendPhone = document.getElementById('btn-signup-send-phone-code');
+        if (btnSignupSendPhone) btnSignupSendPhone.addEventListener('click', sendSignupPhoneCode);
+        const btnSignupResendPhone = document.getElementById('btn-signup-resend-phone-code');
+        if (btnSignupResendPhone) btnSignupResendPhone.addEventListener('click', sendSignupPhoneCode);
+        const btnSignupVerifyPhone = document.getElementById('btn-signup-verify-phone-code');
+        if (btnSignupVerifyPhone) btnSignupVerifyPhone.addEventListener('click', verifySignupPhoneCode);
+        const signupEmailCodeInp = document.getElementById('signup-email-code');
+        if (signupEmailCodeInp) signupEmailCodeInp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); verifySignupEmailCode(); } });
+        const signupPhoneCodeInp = document.getElementById('signup-phone-code');
+        if (signupPhoneCodeInp) signupPhoneCodeInp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); verifySignupPhoneCode(); } });
+
         const btnSignupToStep2 = document.getElementById('btn-signup-to-step2');
         if (btnSignupToStep2) {
           btnSignupToStep2.addEventListener('click', () => goToSignUpStep(2));
