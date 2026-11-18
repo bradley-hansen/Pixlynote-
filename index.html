@@ -3600,6 +3600,9 @@
                 }
 
                 // 4. Notes & Liked Notes (respect empty arrays too)
+                if (Array.isArray(data.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
+                  window.applyCustomPostsFromRemote(data.customPosts);
+                }
                 if (Array.isArray(data.notes)) {
                   state.notes = data.notes;
                   if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
@@ -3836,6 +3839,9 @@
                   }
                 } catch(e) {}
               }
+            }
+            if (Array.isArray(d.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
+              window.applyCustomPostsFromRemote(d.customPosts);
             }
             if (Array.isArray(d.notes)) {
               state.notes = d.notes;
@@ -5665,9 +5671,15 @@ function syncLikedStateToPosts() {
           state.posts.unshift(cp);
           changed = true;
         } else {
-          if (cp.image && (!existing.image || existing.image.length < cp.image.length)) {
-            existing.image = cp.image;
-            changed = true;
+          if (cp.image) {
+            const existingImg = existing.image || '';
+            const existingMissing = !existingImg;
+            const existingPlaceholder = typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(existingImg);
+            const remoteReal = !(typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(cp.image));
+            if (existingMissing || (existingPlaceholder && remoteReal) || cp.image.length > existingImg.length) {
+              existing.image = cp.image;
+              changed = true;
+            }
           }
           if (cp.edited && (cp.caption !== existing.caption || (cp.location || '') !== (existing.location || ''))) {
             if (cp.caption !== undefined) existing.caption = cp.caption;
@@ -6163,8 +6175,11 @@ function syncLikedStateToPosts() {
             if (Array.isArray(parsedCustom)) {
               parsedCustom.forEach(cp => {
                 if (!state.deletedPostIds || !state.deletedPostIds.has(String(cp.id))) {
-                  if (!state.posts.some(p => String(p.id) === String(cp.id))) {
+                  const existing = state.posts.find(p => String(p.id) === String(cp.id));
+                  if (!existing) {
                     state.posts.unshift(cp);
+                  } else if (cp.image && (!existing.image || ((typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(existing.image) && !(typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(cp.image))) || cp.image.length > (existing.image || '').length))) {
+                    existing.image = cp.image;
                   }
                 }
               });
@@ -20396,8 +20411,12 @@ function syncLikedStateToPosts() {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                   let added = false;
                   parsed.forEach(cp => {
-                    if (!state.posts.some(p => String(p.id) === String(cp.id))) {
+                    const existing = state.posts.find(p => String(p.id) === String(cp.id));
+                    if (!existing) {
                       state.posts.unshift(cp);
+                      added = true;
+                    } else if (cp.image && (!existing.image || ((typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(existing.image) && !(typeof isDraftPlaceholderImage === 'function' && isDraftPlaceholderImage(cp.image))) || cp.image.length > (existing.image || '').length))) {
+                      existing.image = cp.image;
                       added = true;
                     }
                   });
