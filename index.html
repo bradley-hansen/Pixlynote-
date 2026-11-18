@@ -1548,7 +1548,7 @@
           <div>
             <div class="flex items-center space-x-1.5">
               <span id="note-modal-author-name" class="font-bold text-xs sm:text-sm text-neutral-900">Author</span>
-              <svg class="w-3.5 h-3.5 text-violet-600 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              <svg id="note-modal-verified-badge" class="hidden w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
             </div>
             <div class="text-[11px] text-neutral-400 font-medium">
               <span id="note-modal-author-handle">@handle</span> · <span id="note-modal-time">time</span>
@@ -3400,6 +3400,11 @@
           query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc
         };
         window.firebaseReady = true;
+        try {
+          const q = window._onFirebaseReadyQueue || [];
+          window._onFirebaseReadyQueue = [];
+          q.forEach(fn => { try { fn(); } catch (e) {} });
+        } catch (e) {}
 
         // Function to close all active Firestore snapshot listeners on logout or account switch
         let firestoreListenerAttached = false;
@@ -5648,6 +5653,7 @@ function syncLikedStateToPosts() {
       const delRepSet = state.deletedReplyIds || new Set();
       const isRepDel = (id) => delRepSet.has(String(id)) || (!isNaN(Number(id)) && delRepSet.has(Number(id)));
       customPostsArr.forEach(cp => {
+        if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(cp)) return;
         if (state.deletedPostIds && state.deletedPostIds.has(String(cp.id))) return;
         if (!Array.isArray(cp.comments)) cp.comments = [];
         if (!Array.isArray(cp.tags)) cp.tags = [];
@@ -6299,12 +6305,14 @@ function syncLikedStateToPosts() {
       if (postId === undefined || postId === null || postId === '') return null;
       const strId = String(postId);
       const numId = parseInt(postId, 10);
-      let found = state.posts.find(p => String(p.id) === strId || p.id === numId);
+      const accept = (p) => p && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p));
+      let found = state.posts.find(p => accept(p) && (String(p.id) === strId || p.id === numId));
       if (!found && state.explorePosts) {
-        found = state.explorePosts.find(p => String(p.id) === strId || p.id === numId);
+        found = state.explorePosts.find(p => accept(p) && (String(p.id) === strId || p.id === numId));
       }
       if (!found && state.explorePostsArchive) {
         found = state.explorePostsArchive.get(strId) || state.explorePostsArchive.get(String(numId));
+        if (found && !accept(found)) found = null;
       }
       if (!found && !isNaN(numId) && numId >= 2001 && Array.isArray(window._explorePostBatches) && window._explorePostBatches.length > 0) {
         const offset = numId - 2000;
@@ -6674,6 +6682,7 @@ function syncLikedStateToPosts() {
       notes: [
         {
           id: 1,
+          isSeed: true,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
           authorAvatar: BRADLEY_AVATAR_IMAGE,
@@ -6685,6 +6694,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 2,
+          isSeed: true,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
           authorAvatar: BRADLEY_AVATAR_IMAGE,
@@ -6696,6 +6706,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 3,
+          isSeed: true,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
           authorAvatar: BRADLEY_AVATAR_IMAGE,
@@ -6749,6 +6760,7 @@ function syncLikedStateToPosts() {
       posts: [
         {
           id: 1,
+          isSeed: true,
           author: "nordic_trails",
           authorName: "Freja Hansen",
           authorAvatar: COMMUNITY_IMAGES[5],
@@ -6766,6 +6778,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 2,
+          isSeed: true,
           author: "elena_eats",
           authorName: "Elena Rostova",
           authorAvatar: COMMUNITY_IMAGES[0],
@@ -6782,6 +6795,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 3,
+          isSeed: true,
           author: "arch_digest",
           authorName: "Architecture Daily",
           authorAvatar: COMMUNITY_IMAGES[2],
@@ -6799,6 +6813,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 4,
+          isSeed: true,
           author: "marcus_pups",
           authorName: "Marcus Vance",
           authorAvatar: COMMUNITY_IMAGES[1],
@@ -6816,6 +6831,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 5,
+          isSeed: true,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
           authorAvatar: BRADLEY_AVATAR_IMAGE,
@@ -6832,6 +6848,7 @@ function syncLikedStateToPosts() {
         },
         {
           id: 6,
+          isSeed: true,
           author: "bradley_hansen",
           authorName: "Bradley Hansen",
           authorAvatar: BRADLEY_AVATAR_IMAGE,
@@ -8844,6 +8861,7 @@ function syncLikedStateToPosts() {
       if (Array.isArray(state.posts)) {
         state.posts.forEach(p => {
           const strId = String(p.id);
+          if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
           if ((!state.deletedPostIds || !state.deletedPostIds.has(strId)) && !isAuthorHiddenFromFeed(p.author) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(p))) {
             feedPosts.push(p);
             seenIds.add(strId);
@@ -8855,6 +8873,7 @@ function syncLikedStateToPosts() {
       if (Array.isArray(state.explorePosts)) {
         state.explorePosts.forEach(ep => {
           const strId = String(ep.id);
+          if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(ep)) return;
           if (!seenIds.has(strId) && (!state.deletedPostIds || !state.deletedPostIds.has(strId))) {
             if ((followedUsernames.has(ep.author) || ep.author === state.currentUser.username) && !isAuthorHiddenFromFeed(ep.author) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(ep))) {
               feedPosts.push(ep);
@@ -9450,7 +9469,7 @@ function syncLikedStateToPosts() {
       }
 
       // Update bio & numbers
-      const userPosts = state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username));
+      const userPosts = state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)));
       const postCountEl = document.getElementById('profile-post-count');
       if (postCountEl) postCountEl.textContent = userPosts.length;
       
@@ -9476,11 +9495,10 @@ function syncLikedStateToPosts() {
       // Blue Verified Checkmark (Firestore subscription status)
       const verifiedBadge = document.getElementById('profile-verified-badge');
       if (verifiedBadge) {
-        if (state.currentUser && state.currentUser.isVerified === true) {
-          verifiedBadge.classList.remove('hidden');
-        } else {
-          verifiedBadge.classList.add('hidden');
-        }
+        const showOwnCheck = (typeof isViewedCreatorCheckmarkShown === 'function')
+          ? isViewedCreatorCheckmarkShown(state.currentUser)
+          : Boolean(state.currentUser && state.currentUser.isVerified === true && state.currentUser.isPlus === true);
+        verifiedBadge.classList.toggle('hidden', !showOwnCheck);
       }
 
       // Business Badge
@@ -9787,6 +9805,11 @@ function syncLikedStateToPosts() {
       const avatarSrc = getNoteAuthorAvatar(note);
 
       if (authorNameEl) authorNameEl.textContent = note.authorName || creator.fullName || note.author;
+      const noteBadge = document.getElementById('note-modal-verified-badge');
+      if (noteBadge) {
+        const showNoteCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(creator || { username: note.author });
+        noteBadge.classList.toggle('hidden', !showNoteCheck);
+      }
       if (authorHandleEl) authorHandleEl.textContent = `@${note.author}`;
       if (authorAvatarEl) authorAvatarEl.src = avatarSrc;
       if (timeEl) timeEl.textContent = formatPixlyTimestamp(note, note.time || 'Just now');
@@ -10275,7 +10298,7 @@ function syncLikedStateToPosts() {
       if (!notesList) return;
 
       const currentU = (state.currentUser.username || '').toLowerCase();
-      const myNotes = (state.notes || []).filter(n => (n.author || '').toLowerCase() === currentU);
+      const myNotes = (state.notes || []).filter(n => (n.author || '').toLowerCase() === currentU && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n)));
 
       if (myNotes.length === 0) {
         notesList.innerHTML = `
@@ -14643,6 +14666,42 @@ function syncLikedStateToPosts() {
 
 
 
+    function isSeededDemoContent(item) {
+      if (!item) return false;
+      if (item.isSeed === true) return true;
+      const id = item.id;
+      const n = (typeof id === 'number') ? id : Number(id);
+      // Hardcoded demo posts (ids 1–6) and demo notes (ids 1–3) shipped in the initial state.
+      return Number.isFinite(n) && String(n) === String(id) && n >= 1 && n <= 6;
+    }
+    function isKnownRealAccount(username) {
+      const cleanU = normalizeUsername(username || '');
+      if (!cleanU) return false;
+      if (cleanU === 'bradley_hansen' || cleanU === 'pixlynote' || cleanU === 'digitalassetpro') return true;
+      if (typeof isAccountInAccountCenter === 'function' && isAccountInAccountCenter(cleanU)) return true;
+      if (window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]) return true;
+      if (window._pixlyAccounts && window._pixlyAccounts[cleanU]) return true;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (state.isLoggedIn && curU && curU === cleanU) return true;
+      return false;
+    }
+    function isSeededDemoForRealAccount(item) {
+      if (!isSeededDemoContent(item)) return false;
+      const author = normalizeUsername(item.author || item.username || item.user || '');
+      return !author || isKnownRealAccount(author);
+    }
+    window.isSeededDemoContent = isSeededDemoContent;
+    window.isSeededDemoForRealAccount = isSeededDemoForRealAccount;
+    window.whenFirebaseReady = function(fn) {
+      if (typeof fn !== 'function') return;
+      if (window.firebaseReady && window.firebase) {
+        try { fn(); } catch (e) {}
+        return;
+      }
+      window._onFirebaseReadyQueue = window._onFirebaseReadyQueue || [];
+      window._onFirebaseReadyQueue.push(fn);
+    };
+
     function getCreatorPosts(username) {
       const cleanU = (username || '').toLowerCase().replace(/^@/, '');
       let posts = state.posts.filter(p => (p.author || '').toLowerCase().replace(/^@/, '') === cleanU);
@@ -14688,7 +14747,7 @@ function syncLikedStateToPosts() {
         }
       }
 
-      return posts;
+      return posts.filter(p => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)));
     }
 
     function isUserFollowingCreator(username) {
@@ -14967,6 +15026,16 @@ function syncLikedStateToPosts() {
         if (vc.link) { linkTxt.textContent = vc.link; linkEl.href = vc.link.startsWith('http') ? vc.link : 'https://' + vc.link; linkEl.classList.remove('hidden'); linkEl.style.display = ''; }
         else { linkTxt.textContent = ''; linkEl.classList.add('hidden'); linkEl.style.display = 'none'; }
       }
+      if (d.isVerified === true) vc.isVerified = true;
+      if (d.isPlus === true) vc.isPlus = true;
+      if (d.isVerified === false) vc.isVerified = false;
+      if (d.isPlus === false) vc.isPlus = false;
+      const showCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(vc);
+      const nameBadge = document.getElementById('user-profile-verified-badge');
+      if (nameBadge) nameBadge.classList.toggle('hidden', !showCheck);
+      const headerBadge = document.getElementById('user-profile-header-verified-badge');
+      if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
+      if (typeof renderViewedAccountStatus === 'function') renderViewedAccountStatus(vc);
     }
 
     function renderViewedConnections() {
@@ -15188,6 +15257,143 @@ function syncLikedStateToPosts() {
       }
     }
 
+
+    function archiveViewedPost(post) {
+      if (!post || post.id === undefined || post.id === null) return;
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      state.explorePostsArchive.set(String(post.id), post);
+      const existing = (state.posts || []).find(p => String(p.id) === String(post.id));
+      if (!existing) {
+        // Keep a copy so getPostById / the modal can find this account's real post without mixing it into the viewer's feed.
+        if (!state.explorePosts) state.explorePosts = [];
+        if (!state.explorePosts.some(p => String(p.id) === String(post.id))) state.explorePosts.push(post);
+      }
+    }
+    function collectViewedAccountPosts(cleanU, customPosts, collectionPosts, viewedDeleted) {
+      const out = [];
+      const seen = new Set();
+      const del = new Set((viewedDeleted || []).map(String));
+      const add = (p) => {
+        if (!p) return;
+        if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
+        if (normalizeUsername(p.author || '') !== cleanU) return;
+        if (del.has(String(p.id))) return;
+        if (typeof isContentVisibleToViewer === 'function' && !isContentVisibleToViewer(p)) return;
+        const id = String(p.id);
+        if (seen.has(id)) {
+          const prev = out.find(x => String(x.id) === id);
+          if (prev && !(prev.caption || '').trim() && (p.caption || '').trim()) {
+            Object.assign(prev, p);
+            archiveViewedPost(prev);
+          }
+          return;
+        }
+        seen.add(id);
+        if (p.views == null || isNaN(Number(p.views))) p.views = 0;
+        else p.views = Math.max(0, Math.floor(Number(p.views)));
+        if (!Array.isArray(p.comments)) p.comments = [];
+        out.push(p);
+        archiveViewedPost(p);
+      };
+      (customPosts || []).forEach(add);
+      (collectionPosts || []).forEach(add);
+      return out;
+    }
+    function paintViewedProfilePosts(posts) {
+      const postsCountEl = document.getElementById('user-profile-post-count');
+      const gridContainer = document.getElementById('user-profile-grid');
+      const emptyPosts = document.getElementById('user-profile-empty-posts');
+      const list = Array.isArray(posts) ? posts : [];
+      if (postsCountEl) postsCountEl.textContent = list.length;
+      if (list.length === 0) {
+        if (gridContainer) gridContainer.innerHTML = '';
+        if (emptyPosts) emptyPosts.classList.remove('hidden');
+        return;
+      }
+      if (emptyPosts) emptyPosts.classList.add('hidden');
+      if (!gridContainer) return;
+      gridContainer.innerHTML = list.map(post => `
+            <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-sm cursor-pointer user-grid-item" data-post-id="${post.id}">
+              ${post.image ? `<img src="${post.image}" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden');" class="w-full h-full object-cover transition duration-300 group-hover:scale-105"><div class="hidden w-full h-full flex items-center justify-center bg-neutral-100 text-neutral-400 text-[11px] font-medium">Image unavailable</div>` : `<div class="w-full h-full flex items-center justify-center bg-neutral-100 text-neutral-400 text-[11px] font-medium">Image unavailable</div>`}
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  <span>${(post.likes || 0).toLocaleString()}</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                  <span>${post.comments ? post.comments.length : 0}</span>
+                </div>
+                ${typeof postViewsCountHtml === 'function' ? postViewsCountHtml(post, { compact: true, light: true }) : ''}
+              </div>
+            </div>
+          `).join('');
+      gridContainer.querySelectorAll('.user-grid-item').forEach(item => {
+        item.addEventListener('click', () => openPostDetailModal(item.dataset.postId));
+      });
+      if (typeof observePostViewTargets === 'function') observePostViewTargets();
+    }
+    function hydrateViewedAccountFromCloud(cleanU, renderCreatorNotes) {
+      if (!cleanU) return;
+      const stillViewing = () => state.viewedCreator && normalizeUsername(state.viewedCreator.username) === cleanU;
+      const run = async () => {
+        if (!stillViewing()) return;
+        if (!window.firebase || !window.firebase.db) return;
+        const { db, doc, getDoc, getDocs, collection, query, where } = window.firebase;
+        let userData = null;
+        try {
+          if (getDoc && doc) {
+            const snap = await getDoc(doc(db, 'users', cleanU));
+            if (!stillViewing()) return;
+            if (snap && snap.exists()) {
+              const d = snap.data() || {};
+              userData = d;
+              if (d.deactivated === true) {
+                if (d.scheduledDeletionAt && Date.now() >= d.scheduledDeletionAt) {
+                  permanentlyDeleteAccount(cleanU);
+                  showToast(`@${cleanU} has been permanently deleted.`);
+                  if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
+                  return;
+                }
+                showToast(`@${cleanU}'s account is currently deactivated.`);
+                if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
+                return;
+              }
+              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+              window._remoteUserProfilesCache[cleanU] = d;
+              if (typeof applyViewedProfileDoc === 'function') applyViewedProfileDoc(cleanU, d);
+            }
+          }
+        } catch (e) {}
+        let collectionPosts = [];
+        try {
+          if (getDocs && collection && query && where) {
+            const qs = await getDocs(query(collection(db, 'posts'), where('author', '==', cleanU)));
+            if (!stillViewing()) return;
+            if (qs && typeof qs.forEach === 'function') {
+              qs.forEach(ds => {
+                const data = ds && ds.data ? ds.data() : null;
+                if (data) collectionPosts.push(data);
+              });
+            }
+          }
+        } catch (e) {}
+        if (!stillViewing()) return;
+        const customPosts = userData && Array.isArray(userData.customPosts) ? userData.customPosts : [];
+        const viewedDeleted = userData && Array.isArray(userData.deletedPostIds) ? userData.deletedPostIds : [];
+        const realPosts = collectViewedAccountPosts(cleanU, customPosts, collectionPosts, viewedDeleted);
+        paintViewedProfilePosts(realPosts);
+        if (typeof renderCreatorNotes === 'function') {
+          renderCreatorNotes(userData && Array.isArray(userData.notes) ? userData.notes : null);
+        }
+      };
+      if (window.firebaseReady && window.firebase) {
+        run();
+      } else if (typeof whenFirebaseReady === 'function') {
+        whenFirebaseReady(() => { if (stillViewing()) run(); });
+      }
+    }
+
     function viewUserProfile(username, fromTab = '') {
       if (!username) return;
       const cleanU = (username || '').toLowerCase().replace(/^@/, '');
@@ -15339,7 +15545,7 @@ function syncLikedStateToPosts() {
             }
           });
         }
-        const creatorNotes = Array.from(mergedMap.values());
+        const creatorNotes = Array.from(mergedMap.values()).filter(n => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n)));
         if (creatorNotes.length === 0) {
           notesListEl.innerHTML = '';
           if (emptyNotesEl) emptyNotesEl.classList.remove('hidden');
@@ -15380,66 +15586,9 @@ function syncLikedStateToPosts() {
       window._refreshCreatorNotesUI = () => renderCreatorNotes();
       renderCreatorNotes();
 
-      // Hydrate real posts & notes from Firestore users/<cleanU> so other accounts see real content instead of demo placeholders
-      if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
-        try {
-          const { db, doc, getDoc } = window.firebase;
-          getDoc(doc(db, 'users', cleanU)).then(snap => {
-            if (!snap.exists()) return;
-            const d = snap.data();
-            if (!d) return;
-            if (d.deactivated === true) {
-              if (d.scheduledDeletionAt && Date.now() >= d.scheduledDeletionAt) {
-                permanentlyDeleteAccount(cleanU);
-                showToast(`@${cleanU} has been permanently deleted.`);
-                if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
-                return;
-              }
-              showToast(`@${cleanU}'s account is currently deactivated.`);
-              if (typeof closeUserProfileModal === 'function') closeUserProfileModal();
-              return;
-            }
-            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
-            window._remoteUserProfilesCache[cleanU] = d;
-            if (Array.isArray(d.customPosts)) {
-              const realPosts = d.customPosts.filter(p => p && normalizeUsername(p.author) === cleanU);
-              realPosts.forEach(rp => {
-                if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
-                state.explorePostsArchive.set(String(rp.id), rp);
-              });
-              if (postsCountEl) postsCountEl.textContent = realPosts.length;
-              if (realPosts.length === 0) {
-                if (gridContainer) gridContainer.innerHTML = '';
-                if (emptyPosts) emptyPosts.classList.remove('hidden');
-              } else {
-                if (emptyPosts) emptyPosts.classList.add('hidden');
-                if (gridContainer) {
-                  gridContainer.innerHTML = realPosts.map(post => `
-                    <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-sm cursor-pointer user-grid-item" data-post-id="${post.id}">
-                      ${post.image ? `<img src="${post.image}" alt="" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden');" class="w-full h-full object-cover transition duration-300 group-hover:scale-105"><div class="hidden w-full h-full flex items-center justify-center bg-neutral-100 text-neutral-400 text-[11px] font-medium">Image unavailable</div>` : `<div class="w-full h-full flex items-center justify-center bg-neutral-100 text-neutral-400 text-[11px] font-medium">Image unavailable</div>`}
-                      <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
-                        <div class="flex items-center space-x-1">
-                          <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                          <span>${(post.likes || 0).toLocaleString()}</span>
-                        </div>
-                        <div class="flex items-center space-x-1">
-                          <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-                          <span>${post.comments ? post.comments.length : 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  `).join('');
-                  gridContainer.querySelectorAll('.user-grid-item').forEach(item => {
-                    item.addEventListener('click', () => openPostDetailModal(item.dataset.postId));
-                  });
-                }
-              }
-            }
-            if (Array.isArray(d.notes)) {
-              renderCreatorNotes(d.notes);
-            }
-          }).catch(() => {});
-        } catch(e) {}
+      // Hydrate real posts & notes from Firestore (users/<cleanU>.customPosts + posts collection) so visitors see the same public data as the owner, never seed placeholders.
+      if (typeof hydrateViewedAccountFromCloud === 'function') {
+        hydrateViewedAccountFromCloud(cleanU, renderCreatorNotes);
       }
 
       // Reset to posts tab
