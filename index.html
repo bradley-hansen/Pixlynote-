@@ -16668,23 +16668,37 @@ function syncLikedStateToPosts() {
       return list;
     }
 
-    function shuffleDiscoverCreatorsList() {
-      const candidates = getDiscoverCreatorsSource();
-      const unfollowed = candidates.filter(c => (typeof isUserFollowingCreator === 'function') ? !isUserFollowingCreator(c.username) : true);
-      const alreadyFollowed = candidates.filter(c => (typeof isUserFollowingCreator === 'function') && isUserFollowingCreator(c.username));
+    function isDiscoverViewerConnectedTo(username) {
+      return typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(username);
+    }
 
-      function fisherYates(arr) {
-        const copy = arr.slice();
-        for (let i = copy.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          const tmp = copy[i];
-          copy[i] = copy[j];
-          copy[j] = tmp;
-        }
-        return copy;
+    function fisherYatesDiscoverCreators(arr) {
+      const copy = (arr || []).slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = copy[i];
+        copy[i] = copy[j];
+        copy[j] = tmp;
       }
+      return copy;
+    }
 
-      currentDiscoverCreatorsOrder = fisherYates(unfollowed).concat(fisherYates(alreadyFollowed));
+    // Snapshot of not-yet-connected accounts for this modal session.
+    // Rebuilt only when the modal opens, so a Connect tap can stay visible until reopen.
+    let _discoverCreatorsSessionReady = false;
+
+    function rebuildDiscoverCreatorsSessionList() {
+      const candidates = getDiscoverCreatorsSource().filter(c => !isDiscoverViewerConnectedTo(c.username));
+      currentDiscoverCreatorsOrder = fisherYatesDiscoverCreators(candidates);
+      _discoverCreatorsSessionReady = true;
+    }
+
+    function shuffleDiscoverCreatorsList() {
+      if (!_discoverCreatorsSessionReady) {
+        rebuildDiscoverCreatorsSessionList();
+        return;
+      }
+      currentDiscoverCreatorsOrder = fisherYatesDiscoverCreators(currentDiscoverCreatorsOrder);
     }
 
     function paintDiscoverCreatorsLoading() {
@@ -16707,7 +16721,7 @@ function syncLikedStateToPosts() {
       const gen = ++_discoverCreatorsDirGen;
       const paint = () => {
         if (gen !== _discoverCreatorsDirGen) return;
-        shuffleDiscoverCreatorsList();
+        rebuildDiscoverCreatorsSessionList();
         renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
       };
       if (window._exploreUserDir && window._exploreUserDir.users) {
@@ -16725,6 +16739,8 @@ function syncLikedStateToPosts() {
 
     function closeDiscoverCreatorsModal() {
       _discoverCreatorsDirGen++;
+      _discoverCreatorsSessionReady = false;
+      currentDiscoverCreatorsOrder = [];
       const modal = document.getElementById('modal-discover-creators');
       if (!modal) return;
       modal.classList.add('hidden');
@@ -16735,7 +16751,7 @@ function syncLikedStateToPosts() {
     function renderDiscoverCreatorsList(query = '') {
       const container = document.getElementById('discover-creators-list-container');
       if (!container) return;
-      if (!currentDiscoverCreatorsOrder.length) shuffleDiscoverCreatorsList();
+      if (!_discoverCreatorsSessionReady) rebuildDiscoverCreatorsSessionList();
 
       const q = query || '';
       let list = currentDiscoverCreatorsOrder.filter(u => discoverCreatorMatchesQuery(u, q));
@@ -16744,8 +16760,8 @@ function syncLikedStateToPosts() {
         const hasQuery = !!normalizeDiscoverSearchText(q);
         container.innerHTML = `
           <div class="py-12 text-center text-xs text-neutral-400 space-y-1" data-discover-empty="true">
-            <p class="font-medium text-neutral-700">No creators match that search</p>
-            <p class="text-[11px] text-neutral-400">${hasQuery ? 'Try a different name or username' : 'No creators to show right now'}</p>
+            <p class="font-medium text-neutral-700">${hasQuery ? 'No new creators match that search' : 'No new creators to show right now'}</p>
+            <p class="text-[11px] text-neutral-400">${hasQuery ? 'Try a different name or username' : 'Connect with someone new when they join Pixlynote'}</p>
           </div>
         `;
         return;
