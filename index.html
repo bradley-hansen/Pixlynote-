@@ -13292,6 +13292,8 @@ function syncLikedStateToPosts() {
             savedPosts.push(p);
           }
         });
+        // savedPostIds is an append-only list (newest last). Reverse so Saved Photos is newest-first.
+        savedPosts.reverse();
 
         if (savedPosts.length === 0) {
           savedGrid.innerHTML = '';
