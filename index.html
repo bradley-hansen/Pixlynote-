@@ -1306,33 +1306,8 @@
 
           </div>
 
-          <!-- Story Highlights Row -->
-          <div class="mt-6 pt-5 border-t border-neutral-100 flex items-center space-x-4 overflow-x-auto hide-scrollbar">
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">✨</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Highlights</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">📷</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Shots</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">🌿</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Studio</span>
-            </div>
-            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item">
-              <div class="w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition">
-                <span class="text-lg">💬</span>
-              </div>
-              <span class="text-[11px] font-medium text-neutral-700">Q&A</span>
-            </div>
-          </div>
+          <!-- Story Highlights Row: only stored highlights for the viewed account (never hardcoded defaults) -->
+          <div id="user-profile-highlights-container" class="hidden mt-6 pt-5 border-t border-neutral-100 flex items-center space-x-4 overflow-x-auto hide-scrollbar"></div>
         </div>
 
         <!-- Creator Tabs: Photos vs About/Info -->
@@ -1662,7 +1637,7 @@
             </div>
             <div>
               <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 group-hover:underline transition" id="modal-post-author">bradley_hansen</div>
-              <div class="text-[10px] text-neutral-400" id="modal-post-location">Lake Moraine, Banff</div>
+              <div class="text-[10px] text-neutral-400 hidden" id="modal-post-location"></div>
             </div>
           </div>
           <div class="flex items-center space-x-2">
@@ -3518,9 +3493,12 @@
                     renderSaved();
                     renderNotes();
                   }
+                  if (Array.isArray(data.customPosts) && typeof rememberPublishedCustomPostIds === 'function') {
+                    rememberPublishedCustomPostIds(data.customPosts);
+                  }
                   if (Array.isArray(data.deletedPostIds)) {
                     state.deletedPostIds = new Set(data.deletedPostIds.map(String));
-                    state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
+                    state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
                   }
                   if (Array.isArray(data.deletedNoteIds)) {
                     state.deletedNoteIds = new Set(data.deletedNoteIds.map(String));
@@ -3600,8 +3578,9 @@
                 }
 
                 // 4. Notes & Liked Notes (respect empty arrays too)
-                if (Array.isArray(data.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
-                  window.applyCustomPostsFromRemote(data.customPosts);
+                if (Array.isArray(data.customPosts)) {
+                  if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(data.customPosts);
+                  if (typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(data.customPosts, { published: true });
                 }
                 if (Array.isArray(data.notes)) {
                   state.notes = data.notes;
@@ -3629,7 +3608,7 @@
                 if (Array.isArray(data.deletedPostIds)) {
                   if (!state.deletedPostIds) state.deletedPostIds = new Set();
                   data.deletedPostIds.forEach(id => state.deletedPostIds.add(String(id)));
-                  state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
+                  state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
                   renderProfile();
                   renderFeed();
                 }
@@ -3840,8 +3819,9 @@
                 } catch(e) {}
               }
             }
-            if (Array.isArray(d.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
-              window.applyCustomPostsFromRemote(d.customPosts);
+            if (Array.isArray(d.customPosts)) {
+              if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(d.customPosts);
+              if (typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(d.customPosts, { published: true });
             }
             if (Array.isArray(d.notes)) {
               state.notes = d.notes;
@@ -3870,7 +3850,7 @@
               if (Array.isArray(d.deletedPostIds)) {
                 if (!state.deletedPostIds) state.deletedPostIds = new Set();
                 d.deletedPostIds.forEach(id => { const k = String(id); if (!state.deletedPostIds.has(k)) { state.deletedPostIds.add(k); tombChanged = true; } });
-                if (tombChanged && Array.isArray(state.posts)) state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
+                if (tombChanged && Array.isArray(state.posts)) state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
               }
               if (tombChanged) {
                 if (typeof renderFeed === 'function') renderFeed();
@@ -5653,14 +5633,18 @@ function syncLikedStateToPosts() {
       syncAllLikesToFirestore();
     }
 
-    window.applyCustomPostsFromRemote = function(customPostsArr) {
-      if (!Array.isArray(customPostsArr) || customPostsArr.length === 0) return;
+    window.applyCustomPostsFromRemote = function(customPostsArr, opts) {
+      if (!Array.isArray(customPostsArr)) return;
+      if (opts && opts.published && typeof rememberPublishedCustomPostIds === 'function') {
+        rememberPublishedCustomPostIds(customPostsArr);
+      }
+      if (customPostsArr.length === 0) return;
       let changed = false;
       const delRepSet = state.deletedReplyIds || new Set();
       const isRepDel = (id) => delRepSet.has(String(id)) || (!isNaN(Number(id)) && delRepSet.has(Number(id)));
       customPostsArr.forEach(cp => {
         if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(cp)) return;
-        if (state.deletedPostIds && state.deletedPostIds.has(String(cp.id))) return;
+        if (typeof isTombstonedPostId === 'function' ? isTombstonedPostId(cp.id) : (state.deletedPostIds && state.deletedPostIds.has(String(cp.id)))) return;
         if (!Array.isArray(cp.comments)) cp.comments = [];
         if (!Array.isArray(cp.tags)) cp.tags = [];
         cp.comments = cp.comments.filter(c => c && !isRepDel(c.id));
@@ -5681,12 +5665,25 @@ function syncLikedStateToPosts() {
               changed = true;
             }
           }
-          if (cp.edited && (cp.caption !== existing.caption || (cp.location || '') !== (existing.location || ''))) {
-            if (cp.caption !== undefined) existing.caption = cp.caption;
-            if (cp.location !== undefined) existing.location = cp.location;
-            existing.edited = true;
+          // Cloud is the stored source of truth, including blank caption/location/tags.
+          // Do not keep a stale local canned caption when Firestore has an empty string.
+          if (cp.caption !== undefined && existing.caption !== cp.caption) {
+            existing.caption = cp.caption;
             changed = true;
           }
+          if (cp.location !== undefined && (existing.location || '') !== (cp.location || '')) {
+            existing.location = cp.location;
+            changed = true;
+          }
+          if (cp.tags !== undefined) {
+            const remoteTags = Array.isArray(cp.tags) ? cp.tags : [];
+            const localTags = Array.isArray(existing.tags) ? existing.tags : [];
+            if (JSON.stringify(remoteTags) !== JSON.stringify(localTags)) {
+              existing.tags = remoteTags;
+              changed = true;
+            }
+          }
+          if (cp.edited) existing.edited = true;
           if (cp.views != null && !isNaN(Number(cp.views))) {
             const remoteViews = Math.max(0, Math.floor(Number(cp.views)));
             const localViews = Math.max(0, Math.floor(Number(existing.views) || 0));
@@ -6161,7 +6158,7 @@ function syncLikedStateToPosts() {
             const parsedDel = JSON.parse(savedDel);
             if (Array.isArray(parsedDel)) {
               state.deletedPostIds = new Set(parsedDel.map(String));
-              state.posts = state.posts.filter(p => !state.deletedPostIds.has(String(p.id)));
+              state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
             }
           }
         } catch(e) {}
@@ -6173,8 +6170,9 @@ function syncLikedStateToPosts() {
           if (savedCustom) {
             const parsedCustom = JSON.parse(savedCustom);
             if (Array.isArray(parsedCustom)) {
+              if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(parsedCustom);
               parsedCustom.forEach(cp => {
-                if (!state.deletedPostIds || !state.deletedPostIds.has(String(cp.id))) {
+                if (!(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(cp.id) : (state.deletedPostIds && state.deletedPostIds.has(String(cp.id))))) {
                   const existing = state.posts.find(p => String(p.id) === String(cp.id));
                   if (!existing) {
                     state.posts.unshift(cp);
@@ -9024,7 +9022,7 @@ function syncLikedStateToPosts() {
                     <span class="font-bold text-xs text-neutral-900 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>
                     ${post.author === state.currentUser.username ? '<span class="text-[10px] text-neutral-400 font-medium">• You</span>' : ''}
                   </div>
-                  <div class="text-[11px] text-neutral-500">${post.location || ''}</div>
+                  ${(typeof displayPostLocation === 'function' ? displayPostLocation(post.location) : String(post.location || '').trim()) ? `<div class="text-[11px] text-neutral-500">${(typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : post.location}</div>` : ''}
                 </div>
               </div>
               <button type="button" class="text-neutral-400 hover:text-neutral-700 p-1 btn-post-options" data-post-id="${post.id}">
@@ -9097,10 +9095,10 @@ function syncLikedStateToPosts() {
               ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(post) : ''}
 
               <!-- Caption (omitted entirely when the post has no caption) -->
-              ${(post.caption && String(post.caption).trim()) ? `
+              ${((typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : String(post.caption || '').trim()) ? `
               <div class="post-caption-row text-xs text-neutral-900 leading-relaxed">
                 <span class="font-bold mr-1.5 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>
-                <span>${post.caption}</span>
+                <span>${(typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : post.caption}</span>
               </div>` : ''}
 
               <!-- Tags -->
@@ -9484,7 +9482,7 @@ function syncLikedStateToPosts() {
       }
 
       // Update bio & numbers
-      const userPosts = state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)));
+      const userPosts = sortNewestFirst(state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p))));
       const postCountEl = document.getElementById('profile-post-count');
       if (postCountEl) postCountEl.textContent = userPosts.length;
       
@@ -10313,7 +10311,7 @@ function syncLikedStateToPosts() {
       if (!notesList) return;
 
       const currentU = (state.currentUser.username || '').toLowerCase();
-      const myNotes = (state.notes || []).filter(n => (n.author || '').toLowerCase() === currentU && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n)));
+      const myNotes = sortNewestFirst((state.notes || []).filter(n => (n.author || '').toLowerCase() === currentU && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n))));
 
       if (myNotes.length === 0) {
         notesList.innerHTML = `
@@ -10875,7 +10873,7 @@ function syncLikedStateToPosts() {
           post = state.posts.find(p => p.id === numId);
         }
 
-        if (post && !seenIds.has(String(post.id))) {
+        if (post && !seenIds.has(String(post.id)) && !(typeof isFabricatedFeedItem === 'function' && isFabricatedFeedItem(post))) {
           seenIds.add(String(post.id));
           likedPosts.push(post);
         }
@@ -10940,7 +10938,7 @@ function syncLikedStateToPosts() {
 
         if (state.likedNoteIds.has(strId) || state.likedNoteIds.has(numId)) {
           const note = getNoteById(id);
-          if (note && !seenNoteIds.has(String(note.id))) {
+          if (note && !seenNoteIds.has(String(note.id)) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(note))) {
             seenNoteIds.add(String(note.id));
             likedNotes.push(note);
           }
@@ -11694,7 +11692,13 @@ function syncLikedStateToPosts() {
       const authorAvatarSrc = getPostAuthorAvatar(post);
       document.getElementById('modal-post-img').src = post.image;
       document.getElementById('modal-post-author').textContent = post.author;
-      document.getElementById('modal-post-location').textContent = post.location || '';
+      const locEl = document.getElementById('modal-post-location');
+      if (locEl) {
+        const loc = (typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : String(post.location || '').trim();
+        locEl.textContent = loc;
+        locEl.classList.toggle('hidden', !loc);
+        locEl.style.display = loc ? '' : 'none';
+      }
       document.getElementById('modal-post-author-avatar').src = authorAvatarSrc;
       const authorTriggerEl = document.getElementById('modal-post-author-trigger');
       if (authorTriggerEl) {
@@ -11777,17 +11781,22 @@ function syncLikedStateToPosts() {
       const list = document.getElementById('modal-comments-list');
       list.innerHTML = `
         <!-- Main Post Caption (omitted when there is no caption and no tags) -->
-        ${((post.caption && String(post.caption).trim()) || (Array.isArray(post.tags) && post.tags.length)) ? `
+        ${(() => {
+          const cap = (typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : String(post.caption || '').trim();
+          const tags = (typeof displayPostTags === 'function') ? displayPostTags(post.tags) : (Array.isArray(post.tags) ? post.tags : []);
+          if (!cap && !tags.length) return '';
+          return `
         <div id="modal-post-caption-row" class="flex items-start space-x-2.5 pb-2 border-b border-neutral-100">
           <div class="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 cursor-pointer" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">
             <img src="${authorAvatarSrc}" alt="${post.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
           </div>
           <div>
             <span class="font-bold text-neutral-900 mr-1.5 cursor-pointer hover:underline hover:text-violet-700 transition" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">${post.author}</span>
-            <span>${post.caption || ''}</span>
-            <div class="text-[11px] text-sky-700 font-medium mt-1">${(Array.isArray(post.tags) ? post.tags : []).join(' ')}</div>
+            ${cap ? `<span>${cap}</span>` : ''}
+            ${tags.length ? `<div class="text-[11px] text-sky-700 font-medium mt-1">${tags.join(' ')}</div>` : ''}
           </div>
-        </div>` : ''}
+        </div>`;
+        })()}
 
         <!-- Comments (excluding Spam) -->
         ${(post.comments || []).filter(c => !c.isSpam).map(c => {
@@ -13726,7 +13735,12 @@ function syncLikedStateToPosts() {
     window.renderHighlights = renderHighlights;
 
     function openHighlightViewer(highlightId) {
-      const h = (state.highlights || []).find(item => item.id === highlightId || String(item.id) === String(highlightId));
+      const pools = [(state.highlights || []), (state.viewedHighlights || [])];
+      let h = null;
+      for (const pool of pools) {
+        h = pool.find(item => item.id === highlightId || String(item.id) === String(highlightId));
+        if (h) break;
+      }
       if (!h) return;
 
       const modal = document.getElementById('modal-story-viewer');
@@ -14707,6 +14721,80 @@ function syncLikedStateToPosts() {
     }
     window.isSeededDemoContent = isSeededDemoContent;
     window.isSeededDemoForRealAccount = isSeededDemoForRealAccount;
+    function getContentSortTime(item) {
+      if (!item) return 0;
+      const created = item.createdAt || item.created_at;
+      if (created != null && created !== '') {
+        if (typeof created === 'number' && isFinite(created)) return created > 1e12 ? created : created * 1000;
+        const parsed = Date.parse(created);
+        if (!isNaN(parsed)) return parsed;
+      }
+      const ts = item.timestamp;
+      if (typeof ts === 'number' && isFinite(ts)) return ts > 1e12 ? ts : ts * 1000;
+      if (typeof ts === 'string' && ts) {
+        const parsed = Date.parse(ts);
+        if (!isNaN(parsed)) return parsed;
+      }
+      const n = (typeof item.id === 'number') ? item.id : Number(item.id);
+      if (Number.isFinite(n) && n > 1e12) return n;
+      return 0;
+    }
+    function sortNewestFirst(list) {
+      return (list || []).slice().sort((a, b) => {
+        const dt = getContentSortTime(b) - getContentSortTime(a);
+        if (dt !== 0) return dt;
+        return String(b && b.id != null ? b.id : '').localeCompare(String(a && a.id != null ? a.id : ''));
+      });
+    }
+    function isFabricatedFeedItem(item) {
+      if (!item) return false;
+      if (typeof isSeededDemoContent === 'function' && isSeededDemoContent(item)) return true;
+      const n = (typeof item.id === 'number') ? item.id : Number(item.id);
+      if (!Number.isFinite(n)) return false;
+      if (n >= 201 && n <= 212) return true;
+      if (n >= 2001 && n <= 2999) return true;
+      if (n >= 8000 && n <= 8999) return true;
+      return false;
+    }
+    // Stock text the composer used to insert when the user left caption/location blank.
+    // Never show these as if the user wrote them. Stored empty stays empty.
+    function isCannedPostCaption(caption) {
+      const s = String(caption || '').replace(/\s+/g, ' ').trim();
+      if (!s) return false;
+      return /^new visual post(?:[\s\u{1F4F8}\u{2728}\uFE0F]*)$/iu.test(s);
+    }
+    function displayPostCaption(caption) {
+      const s = String(caption || '').trim();
+      if (!s || isCannedPostCaption(s)) return '';
+      return s;
+    }
+    function displayPostLocation(location) {
+      return String(location || '').trim();
+    }
+    function displayPostTags(tags) {
+      if (!Array.isArray(tags)) return [];
+      return tags.map(t => String(t || '').trim()).filter(Boolean);
+    }
+    window.isCannedPostCaption = isCannedPostCaption;
+    window.displayPostCaption = displayPostCaption;
+    window.displayPostLocation = displayPostLocation;
+    window.displayPostTags = displayPostTags;
+    function rememberPublishedCustomPostIds(arr) {
+      window._publishedCustomPostIds = new Set();
+      (arr || []).forEach(p => {
+        if (p && p.id != null && p.id !== '') window._publishedCustomPostIds.add(String(p.id));
+      });
+    }
+    function isTombstonedPostId(id) {
+      const s = String(id);
+      if (window._publishedCustomPostIds && window._publishedCustomPostIds.has(s)) return false;
+      return !!(state.deletedPostIds && state.deletedPostIds.has(s));
+    }
+    window.getContentSortTime = getContentSortTime;
+    window.sortNewestFirst = sortNewestFirst;
+    window.isFabricatedFeedItem = isFabricatedFeedItem;
+    window.rememberPublishedCustomPostIds = rememberPublishedCustomPostIds;
+    window.isTombstonedPostId = isTombstonedPostId;
     window.whenFirebaseReady = function(fn) {
       if (typeof fn !== 'function') return;
       if (window.firebaseReady && window.firebase) {
@@ -14762,7 +14850,7 @@ function syncLikedStateToPosts() {
         }
       }
 
-      return posts.filter(p => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)));
+      return sortNewestFirst(posts.filter(p => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p))));
     }
 
     function isUserFollowingCreator(username) {
@@ -15020,6 +15108,41 @@ function syncLikedStateToPosts() {
     }
     window.detachViewedConnections = detachViewedConnections;
 
+    function renderViewedHighlights(highlights) {
+      const container = document.getElementById('user-profile-highlights-container');
+      const list = Array.isArray(highlights) ? highlights.filter(h => h && (h.title || h.icon || h.cover)) : [];
+      state.viewedHighlights = list;
+      if (!container) return;
+      if (list.length === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+      }
+      container.classList.remove('hidden');
+      container.innerHTML = list.map(h => {
+        const title = h.title || h.name || 'Highlight';
+        const coverContent = h.cover
+          ? `<div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white"><img src="${h.cover}" alt="${title}" class="w-full h-full object-cover"></div>`
+          : `<span class="text-lg">${h.icon || '✨'}</span>`;
+        const ringClass = h.cover
+          ? "w-14 h-14 rounded-full p-0.5 story-gradient flex items-center justify-center overflow-hidden hover:scale-105 transition shadow-xs"
+          : "w-14 h-14 rounded-full p-0.5 border border-neutral-300 bg-neutral-50 flex items-center justify-center overflow-hidden hover:scale-105 transition";
+        return `
+            <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer user-highlight-item" data-id="${h.id != null ? h.id : ''}" data-title="${title}" title="View ${title} highlight">
+              <div class="${ringClass}">
+                ${coverContent}
+              </div>
+              <span class="text-[11px] font-medium text-neutral-700 max-w-[64px] truncate text-center">${title}</span>
+            </div>`;
+      }).join('');
+      container.querySelectorAll('.user-highlight-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (typeof openHighlightViewer === 'function') openHighlightViewer(item.dataset.id);
+        });
+      });
+    }
+    window.renderViewedHighlights = renderViewedHighlights;
+
     function applyViewedProfileDoc(u, d) {
       const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       const vc = state.viewedCreator;
@@ -15051,6 +15174,7 @@ function syncLikedStateToPosts() {
       const headerBadge = document.getElementById('user-profile-header-verified-badge');
       if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
       if (typeof renderViewedAccountStatus === 'function') renderViewedAccountStatus(vc);
+      if (typeof renderViewedHighlights === 'function') renderViewedHighlights(Array.isArray(d.highlights) ? d.highlights : []);
     }
 
     function renderViewedConnections() {
@@ -15287,12 +15411,13 @@ function syncLikedStateToPosts() {
     function collectViewedAccountPosts(cleanU, customPosts, collectionPosts, viewedDeleted) {
       const out = [];
       const seen = new Set();
+      const published = new Set((customPosts || []).map(p => p && p.id != null ? String(p.id) : '').filter(Boolean));
       const del = new Set((viewedDeleted || []).map(String));
-      const add = (p) => {
+      const add = (p, fromPublishedCustom) => {
         if (!p) return;
         if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
         if (normalizeUsername(p.author || '') !== cleanU) return;
-        if (del.has(String(p.id))) return;
+        if (!fromPublishedCustom && (del.has(String(p.id)) && !published.has(String(p.id)))) return;
         if (typeof isContentVisibleToViewer === 'function' && !isContentVisibleToViewer(p)) return;
         const id = String(p.id);
         if (seen.has(id)) {
@@ -15310,15 +15435,15 @@ function syncLikedStateToPosts() {
         out.push(p);
         archiveViewedPost(p);
       };
-      (customPosts || []).forEach(add);
-      (collectionPosts || []).forEach(add);
-      return out;
+      (customPosts || []).forEach(p => add(p, true));
+      (collectionPosts || []).forEach(p => add(p, false));
+      return sortNewestFirst(out);
     }
     function paintViewedProfilePosts(posts) {
       const postsCountEl = document.getElementById('user-profile-post-count');
       const gridContainer = document.getElementById('user-profile-grid');
       const emptyPosts = document.getElementById('user-profile-empty-posts');
-      const list = Array.isArray(posts) ? posts : [];
+      const list = sortNewestFirst(Array.isArray(posts) ? posts : []);
       if (postsCountEl) postsCountEl.textContent = list.length;
       if (list.length === 0) {
         if (gridContainer) gridContainer.innerHTML = '';
@@ -15432,6 +15557,7 @@ function syncLikedStateToPosts() {
 
       const creator = getCreatorInfo(cleanU);
       state.viewedCreator = creator;
+      if (typeof renderViewedHighlights === 'function') renderViewedHighlights([]);
 
       // Update header elements
       const headerUsername = document.getElementById('user-profile-header-username');
@@ -15560,7 +15686,7 @@ function syncLikedStateToPosts() {
             }
           });
         }
-        const creatorNotes = Array.from(mergedMap.values()).filter(n => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n)));
+        const creatorNotes = sortNewestFirst(Array.from(mergedMap.values()).filter(n => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n))));
         if (creatorNotes.length === 0) {
           notesListEl.innerHTML = '';
           if (emptyNotesEl) emptyNotesEl.classList.remove('hidden');
@@ -20409,6 +20535,7 @@ function syncLikedStateToPosts() {
               try {
                 const parsed = JSON.parse(idbPosts);
                 if (Array.isArray(parsed) && parsed.length > 0) {
+                  if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(parsed);
                   let added = false;
                   parsed.forEach(cp => {
                     const existing = state.posts.find(p => String(p.id) === String(cp.id));
