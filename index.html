@@ -3493,9 +3493,6 @@
                     renderSaved();
                     renderNotes();
                   }
-                  if (Array.isArray(data.customPosts) && typeof rememberPublishedCustomPostIds === 'function') {
-                    rememberPublishedCustomPostIds(data.customPosts);
-                  }
                   if (Array.isArray(data.deletedPostIds)) {
                     state.deletedPostIds = new Set(data.deletedPostIds.map(String));
                     state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
@@ -3578,9 +3575,8 @@
                 }
 
                 // 4. Notes & Liked Notes (respect empty arrays too)
-                if (Array.isArray(data.customPosts)) {
-                  if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(data.customPosts);
-                  if (typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(data.customPosts, { published: true });
+                if (Array.isArray(data.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
+                  window.applyCustomPostsFromRemote(data.customPosts);
                 }
                 if (Array.isArray(data.notes)) {
                   state.notes = data.notes;
@@ -3819,9 +3815,8 @@
                 } catch(e) {}
               }
             }
-            if (Array.isArray(d.customPosts)) {
-              if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(d.customPosts);
-              if (typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(d.customPosts, { published: true });
+            if (Array.isArray(d.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
+              window.applyCustomPostsFromRemote(d.customPosts);
             }
             if (Array.isArray(d.notes)) {
               state.notes = d.notes;
@@ -5633,12 +5628,8 @@ function syncLikedStateToPosts() {
       syncAllLikesToFirestore();
     }
 
-    window.applyCustomPostsFromRemote = function(customPostsArr, opts) {
-      if (!Array.isArray(customPostsArr)) return;
-      if (opts && opts.published && typeof rememberPublishedCustomPostIds === 'function') {
-        rememberPublishedCustomPostIds(customPostsArr);
-      }
-      if (customPostsArr.length === 0) return;
+    window.applyCustomPostsFromRemote = function(customPostsArr) {
+      if (!Array.isArray(customPostsArr) || customPostsArr.length === 0) return;
       let changed = false;
       const delRepSet = state.deletedReplyIds || new Set();
       const isRepDel = (id) => delRepSet.has(String(id)) || (!isNaN(Number(id)) && delRepSet.has(Number(id)));
@@ -6170,7 +6161,6 @@ function syncLikedStateToPosts() {
           if (savedCustom) {
             const parsedCustom = JSON.parse(savedCustom);
             if (Array.isArray(parsedCustom)) {
-              if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(parsedCustom);
               parsedCustom.forEach(cp => {
                 if (!(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(cp.id) : (state.deletedPostIds && state.deletedPostIds.has(String(cp.id))))) {
                   const existing = state.posts.find(p => String(p.id) === String(cp.id));
@@ -9482,7 +9472,7 @@ function syncLikedStateToPosts() {
       }
 
       // Update bio & numbers
-      const userPosts = sortNewestFirst(state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p))));
+      const userPosts = sortNewestFirst(state.posts.filter(p => normalizeUsername(p.author) === normalizeUsername(state.currentUser.username) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) && !(typeof isTombstonedPostId === 'function' && isTombstonedPostId(p.id))));
       const postCountEl = document.getElementById('profile-post-count');
       if (postCountEl) postCountEl.textContent = userPosts.length;
       
@@ -14779,21 +14769,13 @@ function syncLikedStateToPosts() {
     window.displayPostCaption = displayPostCaption;
     window.displayPostLocation = displayPostLocation;
     window.displayPostTags = displayPostTags;
-    function rememberPublishedCustomPostIds(arr) {
-      window._publishedCustomPostIds = new Set();
-      (arr || []).forEach(p => {
-        if (p && p.id != null && p.id !== '') window._publishedCustomPostIds.add(String(p.id));
-      });
-    }
     function isTombstonedPostId(id) {
       const s = String(id);
-      if (window._publishedCustomPostIds && window._publishedCustomPostIds.has(s)) return false;
       return !!(state.deletedPostIds && state.deletedPostIds.has(s));
     }
     window.getContentSortTime = getContentSortTime;
     window.sortNewestFirst = sortNewestFirst;
     window.isFabricatedFeedItem = isFabricatedFeedItem;
-    window.rememberPublishedCustomPostIds = rememberPublishedCustomPostIds;
     window.isTombstonedPostId = isTombstonedPostId;
     window.whenFirebaseReady = function(fn) {
       if (typeof fn !== 'function') return;
@@ -14850,7 +14832,7 @@ function syncLikedStateToPosts() {
         }
       }
 
-      return sortNewestFirst(posts.filter(p => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p))));
+      return sortNewestFirst(posts.filter(p => !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) && !(typeof isTombstonedPostId === 'function' && isTombstonedPostId(p.id))));
     }
 
     function isUserFollowingCreator(username) {
@@ -15411,13 +15393,12 @@ function syncLikedStateToPosts() {
     function collectViewedAccountPosts(cleanU, customPosts, collectionPosts, viewedDeleted) {
       const out = [];
       const seen = new Set();
-      const published = new Set((customPosts || []).map(p => p && p.id != null ? String(p.id) : '').filter(Boolean));
       const del = new Set((viewedDeleted || []).map(String));
-      const add = (p, fromPublishedCustom) => {
+      const add = (p) => {
         if (!p) return;
         if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
         if (normalizeUsername(p.author || '') !== cleanU) return;
-        if (!fromPublishedCustom && (del.has(String(p.id)) && !published.has(String(p.id)))) return;
+        if (del.has(String(p.id))) return;
         if (typeof isContentVisibleToViewer === 'function' && !isContentVisibleToViewer(p)) return;
         const id = String(p.id);
         if (seen.has(id)) {
@@ -15435,8 +15416,8 @@ function syncLikedStateToPosts() {
         out.push(p);
         archiveViewedPost(p);
       };
-      (customPosts || []).forEach(p => add(p, true));
-      (collectionPosts || []).forEach(p => add(p, false));
+      (customPosts || []).forEach(add);
+      (collectionPosts || []).forEach(add);
       return sortNewestFirst(out);
     }
     function paintViewedProfilePosts(posts) {
@@ -20535,9 +20516,9 @@ function syncLikedStateToPosts() {
               try {
                 const parsed = JSON.parse(idbPosts);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                  if (typeof rememberPublishedCustomPostIds === 'function') rememberPublishedCustomPostIds(parsed);
                   let added = false;
                   parsed.forEach(cp => {
+                    if (typeof isTombstonedPostId === 'function' ? isTombstonedPostId(cp.id) : (state.deletedPostIds && state.deletedPostIds.has(String(cp.id)))) return;
                     const existing = state.posts.find(p => String(p.id) === String(cp.id));
                     if (!existing) {
                       state.posts.unshift(cp);
