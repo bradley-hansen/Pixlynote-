@@ -69,6 +69,32 @@ module.exports = {
         });
         a.ok(about.open, 'Info & about content opens: ' + about.sel + ' ' + about.text.slice(0, 160));
       }
+    },
+    {
+      name: 'Terms and Privacy describe billing, SMS, deactivation, and business association',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#policy-section-privacy', 'el:#policy-section-tos'],
+      async run(ctx) {
+        const { page, a } = ctx;
+        const t = await page.evaluate(() => {
+          if (typeof openTermsPoliciesModal === 'function') openTermsPoliciesModal();
+          const modal = document.getElementById('modal-terms-policies');
+          const text = (modal && modal.innerText) || '';
+          return {
+            open: !!(modal && !modal.classList.contains('hidden')),
+            text
+          };
+        });
+        a.ok(t.open, 'Terms & policies modal opens');
+        a.ok(/November 18, 2026/.test(t.text), 'Last updated November 18, 2026 is shown');
+        a.ok(/Stripe/.test(t.text) && /Business Plus/.test(t.text), 'Stripe subscriptions and Business Plus are described');
+        a.ok(/Twilio/.test(t.text) && /sign-in verification/i.test(t.text), 'Twilio SMS phone verification is described');
+        a.ok(!/optional\/for 2FA/i.test(t.text) && !/2FA and account recovery/i.test(t.text), 'Stale optional/2FA phone wording is gone');
+        a.ok(/30 days/.test(t.text) && /deactivat/i.test(t.text), '30-day deactivation then deletion is described');
+        a.ok(/associate/i.test(t.text) && /leave/i.test(t.text), 'Business association and leaving first are described');
+        a.ok(/personal or business|another business/i.test(t.text), 'Invitees may be a personal or business account');
+        await page.evaluate(() => { if (typeof closeTermsPoliciesModal === 'function') closeTermsPoliciesModal(); });
+      }
     }
   ]
 };

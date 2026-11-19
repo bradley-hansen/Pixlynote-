@@ -41,6 +41,67 @@ module.exports = {
         });
         a.ok(closed, 'Subscription modal closes');
       }
+    },
+    {
+      name: 'Business Plus is offered to business accounts and paints a yellow check, never Plus blue',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#pixly-stripe-business-buy-btn', 'el:#sub-business-plus-box', 'el:#sub-business-active-pill'],
+      async run(ctx) {
+        const { page, a, account } = ctx;
+        const info = await page.evaluate(() => {
+          if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+          const plusBtn = document.getElementById('pixly-stripe-buy-btn');
+          const bizBtn = document.getElementById('pixly-stripe-business-buy-btn');
+          const bizBox = document.getElementById('sub-business-plus-box');
+          const hidden = (el) => !el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none';
+          const isBiz = typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser);
+          const before = {
+            isBiz,
+            plusHidden: hidden(plusBtn),
+            bizBtnHidden: hidden(bizBtn),
+            bizBoxHidden: hidden(bizBox),
+            bizBtnId: bizBtn ? bizBtn.getAttribute('buy-button-id') : '',
+            plusId: plusBtn ? plusBtn.getAttribute('buy-button-id') : '',
+            isPlus: !!(state.currentUser && state.currentUser.isPlus),
+            isBusinessPlus: !!(state.currentUser && state.currentUser.isBusinessPlus)
+          };
+          if (isBiz && typeof applyBusinessPlusVerification === 'function') {
+            applyBusinessPlusVerification(state.currentUser.username, 'cs_test_businessplus1234567890');
+          }
+          const html = (typeof creatorStatusBadgesHtml === 'function' && state.currentUser)
+            ? creatorStatusBadgesHtml(state.currentUser)
+            : '';
+          const badge = document.getElementById('profile-verified-badge');
+          return {
+            before,
+            afterPlus: !!(state.currentUser && state.currentUser.isPlus),
+            afterBiz: !!(state.currentUser && state.currentUser.isBusinessPlus),
+            html,
+            badgeAmber: !!(badge && (badge.classList.contains('text-amber-400') || badge.classList.contains('text-amber-500'))),
+            badgeSky: !!(badge && badge.classList.contains('text-sky-500') && !badge.classList.contains('hidden'))
+          };
+        });
+        a.ok(info.before.plusId === 'buy_btn_1UbNOvFSVMbdmupThAC2iczu', 'Plus buy-button-id is unchanged');
+        a.ok(info.before.bizBtnId === 'buy_btn_1UdKTrFSVMbdmupTOj95P7R5', 'Business Plus buy-button-id is present');
+        if (info.before.isBiz) {
+          a.ok(!info.before.bizBtnHidden && !info.before.bizBoxHidden, 'Business accounts see the Business Plus plan and button');
+          a.ok(info.before.plusHidden, 'Business accounts do not see the personal Plus buy button');
+          a.ok(info.afterBiz, 'applyBusinessPlusVerification sets isBusinessPlus');
+          a.ok(!info.afterPlus, 'Business Plus does not set isPlus / blue');
+          a.ok(/text-amber-400/.test(info.html) || info.badgeAmber, 'Business Plus uses a yellow/amber check');
+          a.ok(!info.badgeSky, 'Business Plus does not show the blue check');
+        } else {
+          a.ok(info.before.bizBtnHidden && info.before.bizBoxHidden, 'Personal accounts do not see Business Plus');
+          a.ok(!info.before.plusHidden, 'Personal accounts still see the Plus buy button when not subscribed');
+        }
+        await page.evaluate(() => {
+          if (state.currentUser && state.currentUser.isBusinessPlus && typeof applyBusinessPlusCancellation === 'function') {
+            applyBusinessPlusCancellation(state.currentUser.username);
+          }
+          if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal();
+        });
+
+      }
     }
   ]
 };

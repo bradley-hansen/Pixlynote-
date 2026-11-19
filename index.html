@@ -975,7 +975,8 @@
                 <div class="space-y-0.5">
                   <div class="flex items-center justify-center sm:justify-start space-x-1.5">
                     <h1 class="text-xl font-bold text-neutral-900" id="profile-page-username">bradley_hansen</h1>
-                    <!-- Pixlynote Verified Badge (Blue - driven by Firestore isVerified) -->
+                    <img id="profile-associated-avatar" class="hidden w-4 h-4 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
+                    <!-- Pixlynote Verified Badge (Blue Plus / amber Business Plus) -->
                     <svg id="profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" title="Verified Subscriber" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
@@ -1275,6 +1276,7 @@
           </button>
           <div class="flex items-center space-x-1">
             <span class="font-bold text-xs text-neutral-900" id="user-profile-header-username">username</span>
+            <img id="user-profile-header-associated-avatar" class="hidden w-3.5 h-3.5 rounded-full object-cover border border-white flex-shrink-0" alt="">
             <svg id="user-profile-header-verified-badge" class="hidden w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
           </div>
           <button type="button" id="btn-share-user-profile" class="p-1 text-neutral-500 hover:text-neutral-900 transition cursor-pointer" title="Share Profile">
@@ -1299,6 +1301,7 @@
                 <div>
                   <div class="flex items-center justify-center sm:justify-start space-x-1.5">
                     <h2 class="text-xl font-bold text-neutral-900" id="user-profile-username">username</h2>
+                    <img id="user-profile-associated-avatar" class="hidden w-4 h-4 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
                     <svg id="user-profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                   </div>
                   <div class="text-[11px] text-neutral-500 font-medium hidden" id="user-profile-category"></div>
@@ -1593,6 +1596,7 @@
           <div>
             <div class="flex items-center space-x-1.5">
               <span id="note-modal-author-name" class="font-bold text-xs sm:text-sm text-neutral-900">Author</span>
+              <img id="note-modal-associated-avatar" class="hidden w-3.5 h-3.5 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
               <svg id="note-modal-verified-badge" class="hidden w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
             </div>
             <div class="text-[11px] text-neutral-400 font-medium">
@@ -2006,6 +2010,7 @@
             </div>
             <div>
               <span class="text-xs font-bold" id="story-viewer-username">username</span>
+              <span id="story-viewer-cf-label" class="hidden ml-1.5 align-middle"></span>
               <span class="text-[10px] text-white/60 ml-2" id="story-viewer-time">2h ago</span>
             </div>
           </div>
@@ -2902,6 +2907,19 @@
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
+        <button type="button" id="btn-ac-tab-associate" class="hidden w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-amber-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900" id="ac-tab-associate-title">Associate an account</div>
+              <div class="text-[10px] text-neutral-500" id="ac-tab-associate-sub">Invite a personal or business account to appear with your business</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
         <div class="pt-2 border-t border-neutral-100">
           <button type="button" id="btn-ac-deactivate-account" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-rose-200 bg-rose-50/70 hover:bg-rose-50 hover:border-rose-300 transition cursor-pointer group">
             <div class="flex items-center space-x-3">
@@ -3287,6 +3305,31 @@
           <div id="ac-privileged-received-list" class="space-y-2">
             <!-- Rendered dynamically -->
           </div>
+        </div>
+      </div>
+
+      <!-- VIEW 12: BUSINESS ASSOCIATION -->
+      <div id="ac-view-associate" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
+        <div id="ac-associate-business-panel" class="hidden p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100 space-y-1.5">
+          <div class="text-xs font-bold text-amber-950">Associate an account</div>
+          <p class="text-[11px] text-amber-900/80 leading-relaxed">
+            Invite a personal or business account to associate with <span id="ac-assoc-owner-handle" class="font-bold">@account</span>. They must accept from their notifications. An account can be associated with only one business at a time, and a business cannot associate with itself.
+          </p>
+          <div class="flex items-center space-x-2 pt-1">
+            <input type="text" id="ac-associate-username-input" placeholder="Enter @username" class="flex-1 px-3 py-2 text-xs rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <button type="button" id="btn-ac-invite-associate" class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0">
+              Invite
+            </button>
+          </div>
+        </div>
+        <div id="ac-associate-personal-panel" class="hidden p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100 space-y-2">
+          <div class="text-xs font-bold text-amber-950">Business association</div>
+          <p id="ac-associate-personal-status" class="text-[11px] text-amber-900/80 leading-relaxed">You are not associated with a business.</p>
+          <button type="button" id="btn-ac-leave-associated-business" class="hidden px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition cursor-pointer">Leave business</button>
+        </div>
+        <div class="space-y-1.5">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1">Associated accounts</div>
+          <div id="ac-associates-list" class="space-y-2"></div>
         </div>
       </div>
 
@@ -3717,11 +3760,17 @@
                 } else if (pendingSidBH && typeof applyStripeSessionVerification === 'function') {
                   applyStripeSessionVerification('bradley_hansen', pendingSidBH);
                 } else {
-                  const isVer = data.isVerified === true;
-                  const isPl = Boolean(isVer && data.isPlus === true);
-                  state.currentUser.isVerified = isVer && isPl;
-                  state.currentUser.isPlus = isVer && isPl;
-                  state.currentUser.subscriptionStatus = (isVer && isPl) ? (data.subscriptionStatus || 'active') : (data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
+                  if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(data);
+                  else {
+                    const isVer = data.isVerified === true;
+                    const isPl = Boolean(isVer && data.isPlus === true);
+                    state.currentUser.isVerified = isVer && isPl;
+                    state.currentUser.isPlus = isVer && isPl;
+                    state.currentUser.subscriptionStatus = (isVer && isPl) ? (data.subscriptionStatus || 'active') : (data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
+                  }
+                  if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
+                    recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
+                  }
                   if (typeof renderProfile === 'function') renderProfile();
                   if (typeof renderNotes === 'function') renderNotes();
                   if (typeof renderFeed === 'function') renderFeed();
@@ -4027,7 +4076,7 @@
             }
             if (Array.isArray(d.following) && (!Array.isArray(state.following) || state.following.length === 0 || !hasPendingWrites || !followingWasHydrated)) {
               window._pendingFollowingSync = null;
-              state.following = d.following;
+              state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(d.following) : d.following;
               if (typeof snapshotFollowSyncCache === 'function') snapshotFollowSyncCache();
               if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
               safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(d.following));
@@ -4067,13 +4116,19 @@
             } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
               applyStripeSessionVerification(cleanU, pendingSid);
             } else {
-              const isVer = d.isVerified === true;
-              const isPl = Boolean(isVer && d.isPlus === true);
-              state.currentUser.isVerified = isVer && isPl;
-              state.currentUser.isPlus = isVer && isPl;
-              if (isPl && d.stripeSessionId && typeof recheckStripeSubscription === 'function') {
-                state.currentUser.stripeSessionId = d.stripeSessionId;
-                recheckStripeSubscription(state.currentUser.username, d.stripeSessionId);
+              if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
+              else {
+                const isVer = d.isVerified === true;
+                const isPl = Boolean(isVer && d.isPlus === true);
+                state.currentUser.isVerified = isVer && isPl;
+                state.currentUser.isPlus = isVer && isPl;
+                if (isPl && d.stripeSessionId) state.currentUser.stripeSessionId = d.stripeSessionId;
+              }
+              if (state.currentUser && state.currentUser.isPlus && state.currentUser.stripeSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId, { kind: 'plus' });
+              }
+              if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
               }
               state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
@@ -5885,10 +5940,18 @@ function syncLikedStateToPosts() {
             isLiked: false,
             comments: Array.isArray(post.comments) ? post.comments : [],
             timestamp: post.timestamp,
+            audience: post.audience || 'public',
             createdAt: serverTimestamp()
           };
           // merge so we never overwrite posts/{id}.views; increments own that field
           await setDoc(postDocRef, postPayload, { merge: true });
+          const curU = (typeof getActiveFirestoreUsername === 'function' && getActiveFirestoreUsername())
+            || (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser && state.currentUser.username) : '')
+            || (state.currentUser && state.currentUser.username) || '';
+          if (curU) {
+            const myCustomPosts = (state.posts || []).filter(p => normalizeUsername(p.author) === normalizeUsername(curU));
+            setDoc(doc(db, 'users', curU), { customPosts: myCustomPosts, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+          }
           console.log("Saved post to Firestore posts/" + post.id);
         } catch(e) {
           console.warn("Firestore post save notice:", e);
@@ -5944,6 +6007,14 @@ function syncLikedStateToPosts() {
               existing.tags = remoteTags;
               changed = true;
             }
+          }
+          // A cloud post without audience must not wipe a local Close Friends audience.
+          if (cp.audience) {
+            if (existing.audience !== cp.audience) { existing.audience = cp.audience; changed = true; }
+          } else if (cp.closeFriendsOnly === true && !existing.audience) {
+            existing.audience = 'closeFriends';
+            existing.closeFriendsOnly = true;
+            changed = true;
           }
           if (cp.edited) existing.edited = true;
           if (cp.views != null && !isNaN(Number(cp.views))) {
@@ -6153,6 +6224,7 @@ function syncLikedStateToPosts() {
         saveAccountLikes(curU);
         saveAccountNotifications(curU);
         if (Array.isArray(state.following)) {
+          if (typeof sanitizeFollowingList === 'function') state.following = sanitizeFollowingList(state.following);
           safeLocalStorageSet(k('pixly_following'), JSON.stringify(state.following));
           if (window.firebaseReady && window.firebase && curU !== 'guest' && window._followingHydratedFor === curU) {
             try {
@@ -8102,6 +8174,29 @@ function syncLikedStateToPosts() {
         closeFriendsStarSvg('cf-star-emblem w-3.5 h-3.5 flex-shrink-0', 14) +
         'Close Friends</span>';
     }
+    var OFFICIAL_ACCOUNT_USERNAMES = { bradley_hansen: true, pixlynote: true, digitalassetpro: true, pixai: true };
+    function isOfficialAccountUsername(u) {
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(u || '') : String(u || '').toLowerCase().replace(/^@/, '');
+      return !!(n && OFFICIAL_ACCOUNT_USERNAMES[n]);
+    }
+    function isSeedDemoUsername(u) {
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(u || '') : String(u || '').toLowerCase().replace(/^@/, '');
+      if (!n || isOfficialAccountUsername(n)) return false;
+      return !!(typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[n]);
+    }
+    function sanitizeFollowingList(list) {
+      if (!Array.isArray(list)) return [];
+      const seen = {};
+      const out = [];
+      list.forEach(function (f) {
+        if (!f) return;
+        const n = (typeof normalizeUsername === 'function') ? normalizeUsername(f.username || '') : String(f.username || '').toLowerCase().replace(/^@/, '');
+        if (!n || isSeedDemoUsername(n) || seen[n]) return;
+        seen[n] = true;
+        out.push(Object.assign({}, f, { username: n }));
+      });
+      return out;
+    }
     function pixaiContentIconSvg() {
       return '<svg class="pixai-content-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>';
     }
@@ -9242,7 +9337,7 @@ function syncLikedStateToPosts() {
                         <div class="min-w-0">
                           <div class="flex items-center space-x-1 min-w-0">
                             <span class="font-bold text-xs text-neutral-900 truncate">${creator.fullName}</span>
-                            ${isViewedCreatorCheckmarkShown(creator) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                            ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(creator) : (isViewedCreatorCheckmarkShown(creator) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                           </div>
                           <div class="text-[11px] text-neutral-500 truncate">@${creator.username}</div>
                           <div class="text-[10px] text-neutral-400 truncate mt-0.5">${creator.bio || ''}</div>
@@ -9774,12 +9869,16 @@ function syncLikedStateToPosts() {
       if (nameEl) nameEl.textContent = isPixly ? 'Pixlynote' : (state.currentUser.fullName || state.currentUser.username);
       
       // Blue Verified Checkmark (Firestore subscription status)
-      const verifiedBadge = document.getElementById('profile-verified-badge');
-      if (verifiedBadge) {
-        const showOwnCheck = (typeof isViewedCreatorCheckmarkShown === 'function')
-          ? isViewedCreatorCheckmarkShown(state.currentUser)
-          : Boolean(state.currentUser && state.currentUser.isVerified === true && state.currentUser.isPlus === true);
-        verifiedBadge.classList.toggle('hidden', !showOwnCheck);
+      if (typeof paintStatusBadgesForUser === 'function') {
+        paintStatusBadgesForUser(state.currentUser, ['profile-verified-badge'], ['profile-associated-avatar']);
+      } else {
+        const verifiedBadge = document.getElementById('profile-verified-badge');
+        if (verifiedBadge) {
+          const showOwnCheck = (typeof isViewedCreatorCheckmarkShown === 'function')
+            ? isViewedCreatorCheckmarkShown(state.currentUser)
+            : Boolean(state.currentUser && state.currentUser.isVerified === true && state.currentUser.isPlus === true);
+          verifiedBadge.classList.toggle('hidden', !showOwnCheck);
+        }
       }
 
       // Business Badge
@@ -10076,10 +10175,14 @@ function syncLikedStateToPosts() {
       const avatarSrc = getNoteAuthorAvatar(note);
 
       if (authorNameEl) authorNameEl.textContent = note.authorName || creator.fullName || note.author;
-      const noteBadge = document.getElementById('note-modal-verified-badge');
-      if (noteBadge) {
-        const showNoteCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(creator || { username: note.author });
-        noteBadge.classList.toggle('hidden', !showNoteCheck);
+      if (typeof paintStatusBadgesForUser === 'function') {
+        paintStatusBadgesForUser(creator || { username: note.author }, ['note-modal-verified-badge'], ['note-modal-associated-avatar']);
+      } else {
+        const noteBadge = document.getElementById('note-modal-verified-badge');
+        if (noteBadge) {
+          const showNoteCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(creator || { username: note.author });
+          noteBadge.classList.toggle('hidden', !showNoteCheck);
+        }
       }
       if (authorHandleEl) authorHandleEl.textContent = `@${note.author}`;
       if (authorAvatarEl) authorAvatarEl.src = avatarSrc;
@@ -11198,8 +11301,12 @@ function syncLikedStateToPosts() {
         // filler out of a real account's own Posts/Feed, not to empty Likes.
         // Still hide hardcoded seed demo posts (ids 1–6 / isSeed).
         if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoContent === 'function' && isSeededDemoContent(post))) {
-          seenIds.add(String(post.id));
-          likedPosts.push(post);
+          if (typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(post)) {
+            // hide Close Friends posts the viewer cannot see
+          } else {
+            seenIds.add(String(post.id));
+            likedPosts.push(post);
+          }
         }
       }
 
@@ -11263,8 +11370,12 @@ function syncLikedStateToPosts() {
         if (state.likedNoteIds.has(strId) || state.likedNoteIds.has(numId)) {
           const note = getNoteById(id);
           if (note && !seenNoteIds.has(String(note.id)) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(note))) {
-            seenNoteIds.add(String(note.id));
-            likedNotes.push(note);
+            if (typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(note)) {
+              // hide Close Friends notes the viewer cannot see
+            } else {
+              seenNoteIds.add(String(note.id));
+              likedNotes.push(note);
+            }
           }
         }
       });
@@ -11861,7 +11972,7 @@ function syncLikedStateToPosts() {
                           <div class="min-w-0 flex-1">
                             <div class="flex items-center space-x-1.5">
                               <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${exploreEsc(c.fullName)}</span>
-                              ${isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                              ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(c) : (isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                               <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${exploreEsc(String(chip).split('&')[0].trim())}</span>
                             </div>
                             <div class="text-[11px] font-medium text-neutral-500 truncate">@${u}${isSelf ? ' · You' : ''}</div>
@@ -11900,7 +12011,7 @@ function syncLikedStateToPosts() {
                       <div class="w-full min-w-0">
                         <div class="flex items-center justify-center gap-0.5 min-w-0">
                           <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc(c.fullName)}</div>
-                          ${isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                          ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(c) : (isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                         </div>
                         <div class="text-[10px] text-neutral-500 font-medium truncate">@${u}</div>
                         <div class="explore-account-counts text-[10px] text-neutral-400 truncate">${exploreFmtCount(c.followersCount)} ${exploreFollowersWord(c.followersCount)}</div>
@@ -12112,7 +12223,8 @@ function syncLikedStateToPosts() {
         ${(() => {
           const cap = (typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : String(post.caption || '').trim();
           const tags = (typeof displayPostTags === 'function') ? displayPostTags(post.tags) : (Array.isArray(post.tags) ? post.tags : []);
-          if (!cap && !tags.length) return '';
+          const cf = (typeof closeFriendsLabelHtml === 'function') ? closeFriendsLabelHtml(post) : '';
+          if (!cap && !tags.length && !cf) return '';
           return `
         <div id="modal-post-caption-row" class="flex items-start space-x-2.5 pb-2 border-b border-neutral-100">
           <div class="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 cursor-pointer" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">
@@ -12120,6 +12232,7 @@ function syncLikedStateToPosts() {
           </div>
           <div>
             <span class="font-bold text-neutral-900 mr-1.5 cursor-pointer hover:underline hover:text-violet-700 transition" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">${post.author}</span>
+            ${cf}
             ${cap ? `<span>${cap}</span>` : ''}
             ${tags.length ? `<div class="text-[11px] text-sky-700 font-medium mt-1">${tags.join(' ')}</div>` : ''}
           </div>
@@ -13321,6 +13434,7 @@ function syncLikedStateToPosts() {
           let p = postMap.get(String(id));
           if (!p && typeof getPostById === 'function') p = getPostById(id);
           if (p && typeof isSeededDemoContent === 'function' && isSeededDemoContent(p)) return;
+          if (p && typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(p)) return;
           if (p && !savedPosts.some(sp => String(sp.id) === String(p.id))) {
             savedPosts.push(p);
           }
@@ -13369,6 +13483,7 @@ function syncLikedStateToPosts() {
         state.savedNoteIds.forEach(id => {
           let n = noteMap.get(String(id)) || (typeof getNoteById === 'function' ? getNoteById(id) : null);
           if (n && typeof isSeededDemoContent === 'function' && isSeededDemoContent(n)) return;
+          if (n && typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(n)) return;
           if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
             savedNotes.push(n);
           }
@@ -15528,11 +15643,15 @@ function syncLikedStateToPosts() {
       vc.followersCount = String(followersN);
       if (typeof paintPublicConnectionCounts === 'function') paintPublicConnectionCounts('user-profile-', followersN, connectedN);
       if (typeof refreshViewedProfileStoryRing === 'function') refreshViewedProfileStoryRing();
-      const showCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(vc);
-      const nameBadge = document.getElementById('user-profile-verified-badge');
-      if (nameBadge) nameBadge.classList.toggle('hidden', !showCheck);
-      const headerBadge = document.getElementById('user-profile-header-verified-badge');
-      if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
+      if (typeof paintStatusBadgesForUser === 'function') {
+        paintStatusBadgesForUser(vc, ['user-profile-verified-badge', 'user-profile-header-verified-badge'], ['user-profile-associated-avatar', 'user-profile-header-associated-avatar']);
+      } else {
+        const showCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(vc);
+        const nameBadge = document.getElementById('user-profile-verified-badge');
+        if (nameBadge) nameBadge.classList.toggle('hidden', !showCheck);
+        const headerBadge = document.getElementById('user-profile-header-verified-badge');
+        if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
+      }
       if (typeof renderViewedAccountStatus === 'function') renderViewedAccountStatus(vc);
       if (typeof renderViewedHighlights === 'function') renderViewedHighlights(Array.isArray(d.highlights) ? d.highlights : []);
     }
@@ -15759,6 +15878,90 @@ function syncLikedStateToPosts() {
       }
       return Boolean(isVerified && isPlus);
     }
+    var BUSINESS_PLUS_VERIFIED_SVG = '<svg class="w-3.5 h-3.5 text-amber-400 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true" title="Business Plus"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+    function isBusinessAccount(user) {
+      const u = user || (state.currentUser || null);
+      if (!u) return false;
+      if (u.accountType === 'business') return true;
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username || '') : String(u.username || '').toLowerCase().replace(/^@/, '');
+      return n === 'pixlynote';
+    }
+    function lookupCreatorFlags(creator) {
+      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
+      const cleanU = (typeof normalizeUsername === 'function') ? normalizeUsername(src.username || src.user || '') : String(src.username || src.user || '').toLowerCase().replace(/^@/, '');
+      const flags = {
+        username: cleanU,
+        isVerified: src.isVerified === true,
+        isPlus: src.isPlus === true,
+        isBusinessPlus: src.isBusinessPlus === true,
+        associatedBusiness: src.associatedBusiness || null
+      };
+      function merge(d) {
+        if (!d) return;
+        if (d.isVerified === true) flags.isVerified = true;
+        if (d.isPlus === true) flags.isPlus = true;
+        if (d.isBusinessPlus === true) flags.isBusinessPlus = true;
+        if (d.associatedBusiness && !flags.associatedBusiness) flags.associatedBusiness = d.associatedBusiness;
+      }
+      if (cleanU) {
+        merge(window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU));
+        merge(window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]);
+        if (window._viewedConn && window._viewedConn.user === cleanU) merge(window._viewedConn.doc);
+        if (typeof getCreatorInfo === 'function') merge(getCreatorInfo(cleanU));
+        if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) merge(state.currentUser);
+      }
+      return flags;
+    }
+    function isBusinessPlusShown(creator) {
+      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
+      const cleanU = normalizeUsername(src.username || src.user || '');
+      if (!cleanU || cleanU.includes('bot') || cleanU.includes('test')) return false;
+      return lookupCreatorFlags(src).isBusinessPlus === true;
+    }
+    function getAssociatedBusinessFor(creator) {
+      const flags = lookupCreatorFlags(creator);
+      const assoc = flags.associatedBusiness;
+      if (!assoc || !assoc.username) return null;
+      return assoc;
+    }
+    function creatorStatusBadgesHtml(creator) {
+      const assoc = getAssociatedBusinessFor(creator);
+      const assocHtml = assoc
+        ? '<img class="associated-business-avatar w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-neutral-200" src="' + escapeHtml(assoc.avatar || '') + '" alt="@' + escapeHtml(assoc.username) + '" title="Associated with @' + escapeHtml(assoc.username) + '">'
+        : '';
+      if (isBusinessPlusShown(creator)) return assocHtml + (BUSINESS_PLUS_VERIFIED_SVG || '');
+      if (typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(creator)) {
+        return assocHtml + (typeof EXPLORE_VERIFIED_SVG !== 'undefined' ? EXPLORE_VERIFIED_SVG : '');
+      }
+      return assocHtml;
+    }
+    function paintStatusBadgesForUser(user, svgIds, assocIds) {
+      const showYellow = isBusinessPlusShown(user);
+      const showBlue = !showYellow && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
+      (svgIds || []).forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('hidden', !(showYellow || showBlue));
+        el.classList.toggle('text-sky-500', !!showBlue);
+        el.classList.toggle('text-amber-400', !!showYellow);
+        el.classList.toggle('text-amber-500', !!showYellow);
+        if (showYellow) el.setAttribute('title', 'Business Plus');
+        else if (showBlue) el.setAttribute('title', 'Verified Subscriber');
+      });
+      const assoc = getAssociatedBusinessFor(user);
+      (assocIds || []).forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (assoc && assoc.username) {
+          el.src = assoc.avatar || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : '');
+          el.alt = '@' + assoc.username;
+          el.title = 'Associated with @' + assoc.username;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+    }
     function renderViewedAccountStatus(creator) {
       const el = document.getElementById('info-account-status');
       if (!el) return;
@@ -15953,11 +16156,15 @@ function syncLikedStateToPosts() {
       
       const profileUsername = document.getElementById('user-profile-username');
       if (profileUsername) profileUsername.textContent = creator.username;
-      const showCheck = isViewedCreatorCheckmarkShown(creator);
-      const verifiedBadge = document.getElementById('user-profile-verified-badge');
-      if (verifiedBadge) verifiedBadge.classList.toggle('hidden', !showCheck);
-      const headerBadge = document.getElementById('user-profile-header-verified-badge');
-      if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
+      if (typeof paintStatusBadgesForUser === 'function') {
+        paintStatusBadgesForUser(creator, ['user-profile-verified-badge', 'user-profile-header-verified-badge'], ['user-profile-associated-avatar', 'user-profile-header-associated-avatar']);
+      } else {
+        const showCheck = isViewedCreatorCheckmarkShown(creator);
+        const verifiedBadge = document.getElementById('user-profile-verified-badge');
+        if (verifiedBadge) verifiedBadge.classList.toggle('hidden', !showCheck);
+        const headerBadge = document.getElementById('user-profile-header-verified-badge');
+        if (headerBadge) headerBadge.classList.toggle('hidden', !showCheck);
+      }
 
       const profileAvatar = document.getElementById('user-profile-avatar');
       if (profileAvatar) profileAvatar.src = creator.avatar;
@@ -16381,7 +16588,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                  ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(u) : (isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
@@ -16561,7 +16768,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                  ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(u) : (isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
@@ -16853,7 +17060,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1">
                   <span class="font-bold text-xs text-neutral-900 truncate">@${u.username}</span>
-                  ${isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : ''}
+                  ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(u) : (isViewedCreatorCheckmarkShown(u) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                 </div>
                 <div class="text-[11px] text-neutral-500 truncate">${u.fullName || u.username}</div>
                 <div class="text-[10px] text-neutral-400 truncate">${u.bio || ''}</div>
@@ -17391,7 +17598,8 @@ function syncLikedStateToPosts() {
         closeFriends: document.getElementById('ac-view-close-friends'),
         blockedList: document.getElementById('ac-view-blocked-list'),
         mutedList: document.getElementById('ac-view-muted-list'),
-        privilegedAccess: document.getElementById('ac-view-privileged-access')
+        privilegedAccess: document.getElementById('ac-view-privileged-access'),
+        associate: document.getElementById('ac-view-associate')
       };
       Object.entries(views).forEach(([k, el]) => {
         if (!el) return;
@@ -17505,7 +17713,14 @@ function syncLikedStateToPosts() {
         if (titleEl) titleEl.textContent = 'Privileged Access';
         if (subEl) subEl.textContent = '@' + curU;
         if (typeof renderPrivilegedAccessView === 'function') renderPrivilegedAccessView();
+      } else if (viewName === 'associate') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = (typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser)) ? 'Associate an account' : 'Business association';
+        if (subEl) subEl.textContent = '@' + curU;
+        if (typeof renderAssociateView === 'function') renderAssociateView();
       }
+      if (viewName === 'main' && typeof updateAssociateTabVisibility === 'function') updateAssociateTabVisibility();
     }
     window.setAccountCenterView = setAccountCenterView;
 
@@ -18468,6 +18683,7 @@ function syncLikedStateToPosts() {
       const modal = document.getElementById('modal-account-center');
       if (!modal) return;
       setAccountCenterView('main');
+      if (typeof updateAssociateTabVisibility === 'function') updateAssociateTabVisibility();
       fetchCloudAccountCenter();
       renderAccountCenterList();
       modal.classList.remove('hidden');
@@ -18801,13 +19017,25 @@ function syncLikedStateToPosts() {
 
     function openStoryQueue(queueArr) {
       if (!Array.isArray(queueArr) || queueArr.length === 0) return;
-      state.activeStoryQueue = queueArr;
+      const visible = queueArr.filter(s => !(typeof isStoryVisibleToViewer === 'function') || isStoryVisibleToViewer(s));
+      if (!visible.length) {
+        if (typeof showToast === 'function') showToast('This Close Friends story is only visible to Close Friends.');
+        return;
+      }
+      state.activeStoryQueue = visible;
       state.activeStorySlideIdx = 0;
-      displayStorySlide(queueArr[0]);
+      displayStorySlide(visible[0]);
     }
 
     function displayStorySlide(story) {
       if (!story) return;
+      if (typeof isStoryVisibleToViewer === 'function' && !isStoryVisibleToViewer(story)) {
+        const q = Array.isArray(state.activeStoryQueue) ? state.activeStoryQueue : [];
+        const next = q.find(s => s && s !== story && isStoryVisibleToViewer(s));
+        if (next) { displayStorySlide(next); return; }
+        if (typeof closeStoryViewer === 'function') closeStoryViewer();
+        return;
+      }
       state.activeStory = story;
       state.storyPaused = false;
       state.activeStoryProgress = 0;
@@ -18819,6 +19047,12 @@ function syncLikedStateToPosts() {
       const modal = document.getElementById('modal-story-viewer');
       document.getElementById('story-viewer-avatar').src = story.avatar || (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
       document.getElementById('story-viewer-username').textContent = story.username || 'Your Story';
+      const storyCfEl = document.getElementById('story-viewer-cf-label');
+      if (storyCfEl) {
+        const cfHtml = (typeof closeFriendsLabelHtml === 'function') ? closeFriendsLabelHtml(story) : '';
+        storyCfEl.innerHTML = cfHtml;
+        storyCfEl.classList.toggle('hidden', !cfHtml);
+      }
       document.getElementById('story-viewer-time').textContent = story.timestamp ? formatStoryRelativeTime(story.timestamp) : (story.time || 'Just now');
       document.getElementById('story-viewer-image').src = story.image;
 
@@ -19010,6 +19244,7 @@ function syncLikedStateToPosts() {
                     <button type="button" class="notif-priv-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Decline</button>
                   </div>
                 ` : ''}
+                ${n.type === 'business_associate_invite' && n.status !== 'accepted' && n.status !== 'declined' && typeof associateInviteActionsHtml === 'function' ? associateInviteActionsHtml(n, idx) : ''}
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -19047,6 +19282,26 @@ function syncLikedStateToPosts() {
           if (typeof respondToPrivilegedAccessInvite === 'function') {
             respondToPrivilegedAccessInvite(idx, false);
           }
+        });
+      });
+      list.querySelectorAll('.notif-assoc-accept').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.idx, 10);
+          if (typeof respondToBusinessAssociateInvite === 'function') respondToBusinessAssociateInvite(idx, true);
+        });
+      });
+      list.querySelectorAll('.notif-assoc-decline').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.idx, 10);
+          if (typeof respondToBusinessAssociateInvite === 'function') respondToBusinessAssociateInvite(idx, false);
+        });
+      });
+      list.querySelectorAll('.notif-assoc-leave').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (typeof leaveAssociatedBusiness === 'function') leaveAssociatedBusiness();
         });
       });
 
@@ -19644,49 +19899,110 @@ function syncLikedStateToPosts() {
     }
     window.filterDmCreators = filterDmCreators;
 
-    function renderDmCreatorsList(query) {
+    async function lookupAccountForDm(query) {
+      const raw = String(query || '').trim().replace(/^@/, '');
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(raw) : raw.toLowerCase();
+      if (!n || n.length < 2) return null;
+      if (!(window.firebaseReady && window.firebase && window.firebase.getDoc)) return null;
+      try {
+        const { db, doc, getDoc } = window.firebase;
+        const snap = await getDoc(doc(db, 'users', n));
+        if (!snap.exists()) return null;
+        const d = snap.data() || {};
+        if (d.deactivated === true) return null;
+        return {
+          username: n,
+          fullName: d.fullName || d.displayName || n,
+          avatar: d.avatar || d.photoURL || '',
+          bio: d.bio || '',
+          accountType: d.accountType
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+    function collectDmCreatorPool(query, extraAccounts) {
+      const q = (query || '').toLowerCase().trim();
+      const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const pool = [];
+      const seen = new Set();
+      function add(c, pinned) {
+        if (!c || !c.username) return;
+        const n = normalizeUsername(c.username);
+        if (!n || n === me || seen.has(n) || isSeedDemoUsername(n)) return;
+        seen.add(n);
+        pool.push({
+          username: n,
+          fullName: c.fullName || c.name || n,
+          bio: c.bio || '',
+          avatar: c.avatar || '',
+          subtitle: n === 'pixai' ? 'AI assistant' : ('@' + n),
+          pinned: !!pinned
+        });
+      }
+      add({ username: 'pixai', fullName: 'Pixai', bio: 'AI assistant', avatar: typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined' ? PIXLYNOTE_SHUTTER_ICON : '' }, true);
+      add({ username: 'pixlynote', fullName: 'Pixlynote Support', bio: 'Official Pixlynote updates & support', avatar: typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined' ? PIXLYNOTE_SHUTTER_ICON : '' }, true);
+      (state.following || []).forEach(function (f) {
+        if (f && f.isFollowing !== false) add(f, false);
+      });
+      (extraAccounts || []).forEach(function (a) { add(a, false); });
+      if (q) {
+        const dir = window._exploreUserDir && window._exploreUserDir.users;
+        if (dir && typeof dir.forEach === 'function') {
+          dir.forEach(function (rec, uname) {
+            const recName = (rec && (rec.fullName || rec.displayName || rec.name)) || '';
+            if (String(uname).toLowerCase().includes(q) || String(recName).toLowerCase().includes(q)) {
+              add({ username: uname, fullName: recName || uname, avatar: (rec && (rec.avatar || rec.photoURL)) || '', bio: (rec && rec.bio) || '' }, false);
+            }
+          });
+        }
+      }
+      if (!q) return pool.filter(function (c) { return c.pinned || true; }).filter(function (c) {
+        return c.pinned || (state.following || []).some(function (f) { return f && f.isFollowing !== false && normalizeUsername(f.username) === c.username; });
+      });
+      return pool.filter(function (c) {
+        return c.username.includes(q) || (c.fullName && c.fullName.toLowerCase().includes(q)) || (c.subtitle && c.subtitle.toLowerCase().includes(q));
+      });
+    }
+    function paintDmCreatorsList(filtered, query) {
       const list = document.getElementById('dm-creators-list');
       if (!list) return;
-
       const q = (query || '').toLowerCase().trim();
-
-      const pool = [
-        { username: 'pixai', fullName: 'Pixai AI Assistant', bio: 'Intelligent photography & caption assistant ✨', avatar: PIXLYNOTE_SHUTTER_ICON },
-        { username: 'pixlynote', fullName: 'Pixlynote Support', bio: 'Official Pixlynote updates & support 📸', avatar: PIXLYNOTE_SHUTTER_ICON },
-        ...(state.following || [])
-      ];
-
-      const seen = new Set();
-      const filtered = pool.filter(c => {
-        if (c.username === state.currentUser.username) return false;
-        if (seen.has(c.username.toLowerCase())) return false;
-        seen.add(c.username.toLowerCase());
-        if (!q) return true;
-        return c.username.toLowerCase().includes(q) || (c.fullName && c.fullName.toLowerCase().includes(q));
-      });
-
-      if (filtered.length === 0) {
-        list.innerHTML = `<div class="p-6 text-center text-xs text-neutral-400">No creators found matching "${escapeHtml(q)}"</div>`;
+      if (!filtered.length) {
+        list.innerHTML = `<div class="p-6 text-center text-xs text-neutral-400">No accounts found matching "${escapeHtml(q)}"</div>`;
         return;
       }
-
       list.innerHTML = filtered.map(c => {
         const av = resolveDmAvatar(c.username, c.avatar);
         return `
-        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '')">
+        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition dm-new-chat-row" data-username="${escapeHtml(c.username)}" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '')">
           <div class="flex items-center space-x-2.5 min-w-0">
             <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">
               <img src="${av}" alt="${c.fullName}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
             </div>
             <div class="min-w-0">
-              <div class="font-bold text-xs text-neutral-900 truncate leading-tight">${c.fullName}</div>
-              <div class="text-[11px] text-neutral-500 truncate">@${c.username}</div>
+              <div class="font-bold text-xs text-neutral-900 truncate leading-tight">${escapeHtml(c.fullName)}</div>
+              <div class="text-[11px] text-neutral-500 truncate">${c.username === 'pixai' ? 'AI assistant' : ('@' + c.username)}</div>
             </div>
           </div>
           <button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>
         </div>
       `;
       }).join('');
+    }
+    function renderDmCreatorsList(query) {
+      const q = query || '';
+      paintDmCreatorsList(collectDmCreatorPool(q, window._dmSearchExtras || []), q);
+      if (String(q).trim() && window.firebaseReady && window.firebase && window.firebase.getDoc) {
+        const token = (window._dmSearchToken = (window._dmSearchToken || 0) + 1);
+        lookupAccountForDm(q).then(function (acc) {
+          if (token !== window._dmSearchToken) return;
+          window._dmSearchExtras = acc ? [acc] : [];
+          paintDmCreatorsList(collectDmCreatorPool(q, window._dmSearchExtras), q);
+        });
+      } else {
+        window._dmSearchExtras = [];
+      }
     }
 
     function selectCreatorForDm(username, fullName, avatar) {
@@ -20539,10 +20855,9 @@ function syncLikedStateToPosts() {
           if (raw) pixlyFollow = JSON.parse(raw);
         } catch(e) {}
         if (Array.isArray(pixlyFollow)) {
-          state.following = pixlyFollow;
+          state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(pixlyFollow) : pixlyFollow;
         } else {
-          // Initialize fresh following list for Pixlynote where all are un-followed initially
-          state.following = (state.following || []).map(u => ({ ...u, isFollowing: false }));
+          state.following = [];
         }
         state.currentUser.followingCount = String(state.following.filter(u => u.isFollowing).length);
       } else if (cleanUsername.toLowerCase() === 'bradley_hansen') {
@@ -20552,9 +20867,9 @@ function syncLikedStateToPosts() {
           if (raw) bradleyFollow = JSON.parse(raw);
         } catch(e) {}
         if (Array.isArray(bradleyFollow)) {
-          state.following = bradleyFollow;
+          state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(bradleyFollow) : bradleyFollow;
         } else {
-          state.following = (state.following || []).map(u => ({ ...u, isFollowing: true }));
+          state.following = [];
         }
         const activeCount = state.following.filter(u => u.isFollowing).length;
         state.currentUser.followingCount = String(activeCount);
@@ -20566,7 +20881,7 @@ function syncLikedStateToPosts() {
           if (raw) otherFollow = JSON.parse(raw);
         } catch(e) {}
         if (Array.isArray(otherFollow)) {
-          state.following = otherFollow;
+          state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(otherFollow) : otherFollow;
         } else {
           state.following = [];
         }
@@ -20674,13 +20989,19 @@ function syncLikedStateToPosts() {
             if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
             } else {
-              const isVer = d.isVerified === true;
-              const isPl = Boolean(isVer && d.isPlus === true);
-              state.currentUser.isVerified = isVer && isPl;
-              state.currentUser.isPlus = isVer && isPl;
-              if (isPl && d.stripeSessionId && typeof recheckStripeSubscription === 'function') {
-                state.currentUser.stripeSessionId = d.stripeSessionId;
-                recheckStripeSubscription(state.currentUser.username, d.stripeSessionId);
+              if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
+              else {
+                const isVer = d.isVerified === true;
+                const isPl = Boolean(isVer && d.isPlus === true);
+                state.currentUser.isVerified = isVer && isPl;
+                state.currentUser.isPlus = isVer && isPl;
+                if (isPl && d.stripeSessionId) state.currentUser.stripeSessionId = d.stripeSessionId;
+              }
+              if (state.currentUser && state.currentUser.isPlus && state.currentUser.stripeSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId, { kind: 'plus' });
+              }
+              if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
               }
               state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
@@ -21190,6 +21511,14 @@ function syncLikedStateToPosts() {
         bind('btn-ac-tab-change-password', 'click', () => setAccountCenterView('changePassword'));
         bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
         bind('btn-ac-tab-privileged-access', 'click', () => setAccountCenterView('privilegedAccess'));
+        bind('btn-ac-tab-associate', 'click', () => setAccountCenterView('associate'));
+        bind('btn-ac-invite-associate', 'click', () => {
+          const inp = document.getElementById('ac-associate-username-input');
+          if (typeof inviteBusinessAssociate === 'function') inviteBusinessAssociate(inp ? inp.value : '');
+        });
+        bind('btn-ac-leave-associated-business', 'click', () => {
+          if (typeof leaveAssociatedBusiness === 'function') leaveAssociatedBusiness();
+        });
         bind('btn-ac-tab-privacy-safety', 'click', () => setAccountCenterView('privacySafety'));
         bind('btn-ac-deactivate-account', 'click', openDeactivateConfirmModal);
         bind('btn-cancel-deactivate', 'click', closeDeactivateConfirmModal);
@@ -21736,7 +22065,9 @@ function syncLikedStateToPosts() {
           const savedFollowing = localStorage.getItem('pixly_following_' + bootFollowU) || (bootFollowU === 'bradley_hansen' ? localStorage.getItem('pixly_following') : null);
           if (savedFollowing) {
             const parsed = JSON.parse(savedFollowing);
-            if (Array.isArray(parsed) && parsed.length > 0) state.following = parsed;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(parsed) : parsed;
+            }
           }
         } catch(e) {}
 
@@ -25823,6 +26154,28 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return !ref || !username || ref === normalizeUsername(username);
     }
     window.stripeSessionGrantsPlus = stripeSessionGrantsPlus;
+    function stripeSessionConfirmsPaid(data, username) {
+      if (!data) return false;
+      const paid = data.payment_status === 'paid' || data.status === 'complete' || data.session_paid === true;
+      if (!paid) return false;
+      const ref = data.client_reference_id ? normalizeUsername(data.client_reference_id) : '';
+      return !ref || !username || ref === normalizeUsername(username);
+    }
+    window.stripeSessionConfirmsPaid = stripeSessionConfirmsPaid;
+    function applyRemoteSubscriptionFields(data) {
+      if (!state.currentUser || !data) return;
+      const isVer = data.isVerified === true;
+      const isPl = Boolean(isVer && data.isPlus === true);
+      state.currentUser.isVerified = isVer && isPl;
+      state.currentUser.isPlus = isVer && isPl;
+      state.currentUser.subscriptionStatus = (isVer && isPl) ? (data.subscriptionStatus || 'active') : (data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
+      state.currentUser.isBusinessPlus = data.isBusinessPlus === true;
+      if (data.stripeSessionId) state.currentUser.stripeSessionId = data.stripeSessionId;
+      if (data.stripeBusinessSessionId) state.currentUser.stripeBusinessSessionId = data.stripeBusinessSessionId;
+      if (data.associatedBusiness !== undefined) state.currentUser.associatedBusiness = data.associatedBusiness || null;
+      if (Array.isArray(data.businessAssociates)) state.currentUser.businessAssociates = data.businessAssociates;
+    }
+    window.applyRemoteSubscriptionFields = applyRemoteSubscriptionFields;
     async function verifyStripeSessionWithServer(sessionId, username) {
       try { return stripeSessionGrantsPlus(await fetchStripeSessionStatus(sessionId), username || (state.currentUser && state.currentUser.username)); }
       catch(e) { return false; }
@@ -25832,14 +26185,23 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     // Cancellation happens in the Stripe billing portal, which does not call back into the app. So a Plus account
     // re-checks its subscription with the Worker at most every 6 hours and downgrades only on a definite answer
     // (subscription canceled / unpaid / ended). Network errors never downgrade anyone.
-    function recheckStripeSubscription(username, sessionId) {
+    function recheckStripeSubscription(username, sessionId, opts) {
       const cleanU = normalizeUsername(username || '');
       if (!cleanU || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId))) return;
-      const key = 'pixly_stripe_recheck_' + cleanU;
+      const kind = (opts && opts.kind) || 'plus';
+      const key = 'pixly_stripe_recheck_' + kind + '_' + cleanU;
       try { if (Date.now() - Number(localStorage.getItem(key) || 0) < 6 * 3600 * 1000) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
       fetchStripeSessionStatus(sessionId).then(data => {
-        if (!data || data.verified !== true || !data.subscription) return;
-        if (data.plus_active === false && ['canceled', 'unpaid', 'incomplete_expired'].includes(data.subscription_status)) {
+        if (!data) return;
+        const canceled = data.subscription && ['canceled', 'unpaid', 'incomplete_expired'].includes(data.subscription_status);
+        if (kind === 'business') {
+          if (canceled && state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+            applyBusinessPlusCancellation(cleanU);
+          }
+          return;
+        }
+        if (data.verified !== true || !data.subscription) return;
+        if (data.plus_active === false && canceled) {
           if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) applyStripeSubscriptionCancellation(cleanU);
         }
       }).catch(() => {});
@@ -25939,6 +26301,406 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
     }
     window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
+
+    function applyBusinessPlusVerification(username, sessionId) {
+      if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+        state.currentUser.isBusinessPlus = true;
+        state.currentUser.stripeBusinessSessionId = sessionId;
+      }
+      try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
+      const writeBiz = () => {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanU), {
+            isBusinessPlus: true,
+            stripeBusinessSessionId: sessionId,
+            businessPlusUpdatedAt: Date.now()
+          }, { merge: true }).catch(() => {});
+          return true;
+        }
+        return false;
+      };
+      if (!writeBiz()) {
+        const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
+        setTimeout(() => clearInterval(retryTimer), 12000);
+      }
+      if (typeof showToast === 'function') showToast('Business Plus activated! Yellow badge enabled ✓');
+    }
+    window.applyBusinessPlusVerification = applyBusinessPlusVerification;
+
+    function applyBusinessPlusCancellation(username) {
+      if (!username) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+        state.currentUser.isBusinessPlus = false;
+      }
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
+      const writeBiz = () => {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', cleanU), {
+            isBusinessPlus: false,
+            businessPlusCanceledAt: Date.now()
+          }, { merge: true }).catch(() => {});
+          return true;
+        }
+        return false;
+      };
+      if (!writeBiz()) {
+        const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
+        setTimeout(() => clearInterval(retryTimer), 12000);
+      }
+      if (typeof showToast === 'function') showToast('Business Plus membership canceled.');
+    }
+    window.applyBusinessPlusCancellation = applyBusinessPlusCancellation;
+
+    // --- Business association (separate from Privileged Access) ---
+    function getBusinessAssociatesList(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return [];
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === u && Array.isArray(state.currentUser.businessAssociates)) {
+        return state.currentUser.businessAssociates.slice();
+      }
+      try {
+        const raw = localStorage.getItem('pixly_business_associates_' + u);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch(e) {}
+      return [];
+    }
+    function saveBusinessAssociatesList(username, list) {
+      const u = normalizeUsername(username || '');
+      if (!u) return;
+      const next = Array.isArray(list) ? list : [];
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === u) {
+        state.currentUser.businessAssociates = next;
+      }
+      safeLocalStorageSet('pixly_business_associates_' + u, JSON.stringify(next));
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { businessAssociates: next }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+    }
+    function getAssociatedBusiness(username) {
+      const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+      if (!u) return null;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === u && state.currentUser.associatedBusiness) {
+        return state.currentUser.associatedBusiness;
+      }
+      try {
+        const raw = localStorage.getItem('pixly_associated_business_' + u);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.username) return parsed;
+        }
+      } catch(e) {}
+      return null;
+    }
+    function saveAssociatedBusiness(username, assoc) {
+      const u = normalizeUsername(username || '');
+      if (!u) return;
+      const next = assoc && assoc.username ? assoc : null;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === u) {
+        state.currentUser.associatedBusiness = next;
+      }
+      if (next) safeLocalStorageSet('pixly_associated_business_' + u, JSON.stringify(next));
+      else {
+        try { localStorage.removeItem('pixly_associated_business_' + u); } catch(e) {}
+      }
+      if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', u), { associatedBusiness: next }, { merge: true }).catch(() => {});
+        } catch(e) {}
+      }
+      if (window._remoteUserProfilesCache && window._remoteUserProfilesCache[u]) {
+        window._remoteUserProfilesCache[u].associatedBusiness = next;
+      }
+    }
+    function associateInviteBlockedByExisting(notifOrBusinessU) {
+      const cur = getAssociatedBusiness();
+      if (!cur || !cur.username) return false;
+      const biz = (notifOrBusinessU && typeof notifOrBusinessU === 'object')
+        ? normalizeUsername(notifOrBusinessU.fromUser || notifOrBusinessU.username || '')
+        : normalizeUsername(notifOrBusinessU || '');
+      return normalizeUsername(cur.username) !== biz;
+    }
+    function associateInviteActionsHtml(n, idx) {
+      const blocked = associateInviteBlockedByExisting(n);
+      if (blocked) {
+        const cur = getAssociatedBusiness();
+        return '<div class="space-y-1.5 pt-1.5 assoc-invite-blocked">'
+          + '<div class="text-[11px] text-amber-800 leading-snug assoc-invite-leave-first-msg" id="assoc-invite-leave-first-msg">You\'re already associated with @'
+          + escapeHtml(cur.username) + '. Leave that business first to accept this invite.</div>'
+          + '<div class="flex items-center space-x-2">'
+          + '<button type="button" class="notif-assoc-leave px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '" id="btn-leave-associated-business">Leave business</button>'
+          + '<button type="button" class="notif-assoc-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '">Decline</button>'
+          + '</div></div>';
+      }
+      return '<div class="flex items-center space-x-2 pt-1.5">'
+        + '<button type="button" class="notif-assoc-accept px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '">Accept</button>'
+        + '<button type="button" class="notif-assoc-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '">Decline</button>'
+        + '</div>';
+    }
+    async function inviteBusinessAssociate(rawUsername) {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(rawUsername);
+      if (!isBusinessAccount(state.currentUser)) {
+        if (typeof showToast === 'function') showToast('Only a business account can send this invite.');
+        return;
+      }
+      if (!targetU) {
+        if (typeof showToast === 'function') showToast('Enter a username to invite');
+        return;
+      }
+      if (targetU === curU) {
+        if (typeof showToast === 'function') showToast('You cannot associate your business with itself');
+        return;
+      }
+      const list = getBusinessAssociatesList(curU);
+      const existing = list.find(g => normalizeUsername(g.username) === targetU && g.status !== 'left' && g.status !== 'declined' && g.status !== 'removed');
+      if (existing) {
+        if (typeof showToast === 'function') showToast(existing.status === 'accepted' ? ('@' + targetU + ' is already associated') : ('Invite already pending for @' + targetU));
+        return;
+      }
+      list.unshift({ username: targetU, status: 'pending', invitedAt: Date.now() });
+      saveBusinessAssociatesList(curU, list);
+      if (typeof addNotificationForUser === 'function') {
+        await addNotificationForUser(targetU, {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: 'business_associate_invite',
+          status: 'pending',
+          fromUser: curU,
+          fromFullName: (state.currentUser && state.currentUser.fullName) || curU,
+          fromAvatar: (state.currentUser && state.currentUser.avatar) || '',
+          fromAccountType: 'business',
+          text: 'invited you to associate with their business.',
+          time: 'Just now',
+          timestamp: Date.now(),
+          read: false
+        });
+      }
+      const inp = document.getElementById('ac-associate-username-input');
+      if (inp) inp.value = '';
+      if (typeof showToast === 'function') showToast('Association invite sent to @' + targetU + ' ✓');
+      renderAssociateView();
+    }
+    async function removeBusinessAssociate(rawTarget) {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(rawTarget);
+      if (!curU || !targetU) return;
+      const updated = getBusinessAssociatesList(curU).filter(g => normalizeUsername(g.username) !== targetU);
+      saveBusinessAssociatesList(curU, updated);
+      saveAssociatedBusiness(targetU, null);
+      if (typeof showToast === 'function') showToast('Removed @' + targetU + ' from this business');
+      renderAssociateView();
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderFeed === 'function') renderFeed();
+    }
+    async function leaveAssociatedBusiness() {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const cur = getAssociatedBusiness(curU);
+      if (!cur || !cur.username) {
+        if (typeof showToast === 'function') showToast('You are not associated with a business.');
+        return;
+      }
+      const bizU = normalizeUsername(cur.username);
+      saveAssociatedBusiness(curU, null);
+      const list = getBusinessAssociatesList(bizU).filter(g => normalizeUsername(g.username) !== curU);
+      // If we are not the business, still try to write their list in the cloud.
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === bizU) {
+        saveBusinessAssociatesList(bizU, list);
+      } else if (window.firebaseReady && window.firebase && window.firebase.db) {
+        try {
+          const { db, doc, getDoc, setDoc } = window.firebase;
+          const snap = await getDoc(doc(db, 'users', bizU));
+          const existing = (snap.exists() && Array.isArray((snap.data() || {}).businessAssociates)) ? snap.data().businessAssociates : [];
+          const next = existing.filter(g => normalizeUsername(g && g.username) !== curU);
+          await setDoc(doc(db, 'users', bizU), { businessAssociates: next }, { merge: true }).catch(() => {});
+          safeLocalStorageSet('pixly_business_associates_' + bizU, JSON.stringify(next));
+        } catch(e) {
+          safeLocalStorageSet('pixly_business_associates_' + bizU, JSON.stringify(list));
+        }
+      } else {
+        safeLocalStorageSet('pixly_business_associates_' + bizU, JSON.stringify(list));
+      }
+      if (typeof showToast === 'function') showToast('You left @' + bizU + '. You can now accept another invite.');
+      if (typeof renderAssociateView === 'function') renderAssociateView();
+      if (typeof renderNotifications === 'function') renderNotifications(true);
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateAssociateTabVisibility === 'function') updateAssociateTabVisibility();
+    }
+    async function respondToBusinessAssociateInvite(idx, accept) {
+      const notif = state.notifications && state.notifications[idx];
+      if (!notif) return;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const bizU = normalizeUsername(notif.fromUser);
+      notif.read = true;
+      if (accept) {
+        if (associateInviteBlockedByExisting(notif)) {
+          const cur = getAssociatedBusiness(curU);
+          if (typeof showToast === 'function') {
+            showToast('You\'re already associated with @' + (cur && cur.username ? cur.username : 'another business') + '. Leave that business first to accept this invite.');
+          }
+          if (typeof renderNotifications === 'function') renderNotifications(true);
+          return;
+        }
+        notif.status = 'accepted';
+        notif.text = 'accepted your invitation to associate with @' + bizU + '.';
+        const assoc = {
+          username: bizU,
+          avatar: notif.fromAvatar || '',
+          acceptedAt: Date.now()
+        };
+        saveAssociatedBusiness(curU, assoc);
+        const list = getBusinessAssociatesList(bizU);
+        const next = list.some(g => normalizeUsername(g.username) === curU)
+          ? list.map(g => normalizeUsername(g.username) === curU ? Object.assign({}, g, { status: 'accepted', acceptedAt: Date.now() }) : g)
+          : ([{ username: curU, status: 'accepted', invitedAt: Date.now(), acceptedAt: Date.now() }].concat(list));
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, getDoc, setDoc } = window.firebase;
+            const snap = await getDoc(doc(db, 'users', bizU));
+            const existing = (snap.exists() && Array.isArray((snap.data() || {}).businessAssociates)) ? snap.data().businessAssociates : list;
+            const merged = existing.some(g => normalizeUsername(g && g.username) === curU)
+              ? existing.map(g => normalizeUsername(g.username) === curU ? Object.assign({}, g, { status: 'accepted', acceptedAt: Date.now() }) : g)
+              : ([{ username: curU, status: 'accepted', invitedAt: Date.now(), acceptedAt: Date.now() }].concat(existing));
+            await setDoc(doc(db, 'users', bizU), { businessAssociates: merged }, { merge: true }).catch(() => {});
+            safeLocalStorageSet('pixly_business_associates_' + bizU, JSON.stringify(merged));
+          } catch(e) {
+            saveBusinessAssociatesList(bizU, next);
+          }
+        } else {
+          saveBusinessAssociatesList(bizU, next);
+        }
+        if (typeof showToast === 'function') showToast('You are now associated with @' + bizU + ' ✓');
+      } else {
+        notif.status = 'declined';
+        notif.text = 'declined the invitation to associate with @' + bizU + '.';
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          try {
+            const { db, doc, getDoc, setDoc } = window.firebase;
+            const snap = await getDoc(doc(db, 'users', bizU));
+            if (snap.exists()) {
+              const existing = Array.isArray((snap.data() || {}).businessAssociates) ? snap.data().businessAssociates : [];
+              const merged = existing.map(g => normalizeUsername(g && g.username) === curU ? Object.assign({}, g, { status: 'declined' }) : g);
+              await setDoc(doc(db, 'users', bizU), { businessAssociates: merged }, { merge: true }).catch(() => {});
+            }
+          } catch(e) {}
+        }
+        if (typeof showToast === 'function') showToast('Declined the business association invite');
+      }
+      if (typeof saveAccountNotifications === 'function') saveAccountNotifications(curU, true);
+      if (typeof renderNotifications === 'function') renderNotifications(true);
+      if (typeof renderAssociateView === 'function') renderAssociateView();
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateChatHeadBadge === 'function') updateChatHeadBadge();
+      if (typeof updateAssociateTabVisibility === 'function') updateAssociateTabVisibility();
+    }
+    function updateAssociateTabVisibility() {
+      const btn = document.getElementById('btn-ac-tab-associate');
+      if (!btn) return;
+      const isBiz = typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser);
+      const assoc = getAssociatedBusiness();
+      const pendingInvite = Array.isArray(state.notifications) && state.notifications.some(n => n && n.type === 'business_associate_invite' && n.status !== 'accepted' && n.status !== 'declined');
+      const show = isBiz || !!(assoc && assoc.username) || pendingInvite;
+      btn.classList.toggle('hidden', !show);
+      const title = document.getElementById('ac-tab-associate-title');
+      const sub = document.getElementById('ac-tab-associate-sub');
+      if (isBiz) {
+        if (title) title.textContent = 'Associate an account';
+        if (sub) sub.textContent = 'Invite a personal or business account to appear with your business';
+      } else {
+        if (title) title.textContent = 'Business association';
+        if (sub) sub.textContent = (assoc && assoc.username) ? ('Associated with @' + assoc.username) : 'Review or leave a business association';
+      }
+    }
+    function renderAssociateView() {
+      updateAssociateTabVisibility();
+      const isBiz = typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser);
+      const bizPanel = document.getElementById('ac-associate-business-panel');
+      const personalPanel = document.getElementById('ac-associate-personal-panel');
+      const handleEl = document.getElementById('ac-assoc-owner-handle');
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (handleEl) handleEl.textContent = '@' + curU;
+      const assoc = getAssociatedBusiness(curU);
+      const showStatus = !isBiz || !!(assoc && assoc.username);
+      if (bizPanel) bizPanel.classList.toggle('hidden', !isBiz);
+      if (personalPanel) personalPanel.classList.toggle('hidden', !showStatus);
+      const statusEl = document.getElementById('ac-associate-personal-status');
+      const leaveBtn = document.getElementById('btn-ac-leave-associated-business');
+      if (showStatus) {
+        if (statusEl) {
+          statusEl.textContent = (assoc && assoc.username)
+            ? ('You are associated with @' + assoc.username + '.')
+            : 'You are not associated with a business.';
+        }
+        if (leaveBtn) leaveBtn.classList.toggle('hidden', !(assoc && assoc.username));
+      }
+      const listEl = document.getElementById('ac-associates-list');
+      if (listEl) {
+        if (isBiz) {
+          const list = getBusinessAssociatesList(curU).filter(g => g && g.status !== 'left' && g.status !== 'removed');
+          if (!list.length) {
+            listEl.innerHTML = '<div class="text-[11px] text-neutral-400 px-1">No associated accounts yet.</div>';
+          } else {
+            listEl.innerHTML = list.map(g => {
+              const u = normalizeUsername(g.username);
+              const st = g.status || 'pending';
+              return '<div class="flex items-center justify-between p-2.5 rounded-xl border border-neutral-200 bg-white">'
+                + '<div class="text-xs"><div class="font-bold text-neutral-900">@' + escapeHtml(u) + '</div>'
+                + '<div class="text-[10px] text-neutral-500">' + escapeHtml(st) + '</div></div>'
+                + '<button type="button" class="ac-remove-associate px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold cursor-pointer" data-username="' + escapeHtml(u) + '">Remove</button></div>';
+            }).join('');
+            listEl.querySelectorAll('.ac-remove-associate').forEach(btn => {
+              btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeBusinessAssociate(btn.dataset.username);
+              });
+            });
+          }
+        } else {
+          listEl.innerHTML = (assoc && assoc.username)
+            ? ('<div class="flex items-center justify-between p-2.5 rounded-xl border border-neutral-200 bg-white"><div class="text-xs font-bold text-neutral-900">@' + escapeHtml(assoc.username) + '</div></div>')
+            : '<div class="text-[11px] text-neutral-400 px-1">No business association.</div>';
+        }
+      }
+    }
+    window.getBusinessAssociatesList = getBusinessAssociatesList;
+    window.saveBusinessAssociatesList = saveBusinessAssociatesList;
+    window.getAssociatedBusiness = getAssociatedBusiness;
+    window.saveAssociatedBusiness = saveAssociatedBusiness;
+    window.inviteBusinessAssociate = inviteBusinessAssociate;
+    window.removeBusinessAssociate = removeBusinessAssociate;
+    window.leaveAssociatedBusiness = leaveAssociatedBusiness;
+    window.respondToBusinessAssociateInvite = respondToBusinessAssociateInvite;
+    window.renderAssociateView = renderAssociateView;
+    window.updateAssociateTabVisibility = updateAssociateTabVisibility;
+    window.associateInviteBlockedByExisting = associateInviteBlockedByExisting;
+    window.associateInviteActionsHtml = associateInviteActionsHtml;
+    window.isBusinessAccount = isBusinessAccount;
+    window.isBusinessPlusShown = isBusinessPlusShown;
+    window.creatorStatusBadgesHtml = creatorStatusBadgesHtml;
+    window.isSeedDemoUsername = isSeedDemoUsername;
+    window.sanitizeFollowingList = sanitizeFollowingList;
+
 
 
     // --- Privileged Access & Password-Verified Account Switching Controller ---
@@ -26315,6 +27077,21 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           grantPrivilegedAccessToUser(inp ? inp.value : '');
         });
       }
+      const assocInviteBtn = document.getElementById('btn-ac-invite-associate');
+      if (assocInviteBtn && !assocInviteBtn.dataset.wired) {
+        assocInviteBtn.dataset.wired = '1';
+        assocInviteBtn.addEventListener('click', () => {
+          const inp = document.getElementById('ac-associate-username-input');
+          if (typeof inviteBusinessAssociate === 'function') inviteBusinessAssociate(inp ? inp.value : '');
+        });
+      }
+      const assocLeaveBtn = document.getElementById('btn-ac-leave-associated-business');
+      if (assocLeaveBtn && !assocLeaveBtn.dataset.wired) {
+        assocLeaveBtn.dataset.wired = '1';
+        assocLeaveBtn.addEventListener('click', () => {
+          if (typeof leaveAssociatedBusiness === 'function') leaveAssociatedBusiness();
+        });
+      }
       const closeSw = document.getElementById('btn-close-switch-password');
       if (closeSw) closeSw.addEventListener('click', closeSwitchPasswordModal);
       const cancelSw = document.getElementById('btn-cancel-switch-password');
@@ -26348,9 +27125,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
           setTimeout(() => {
-            if (state.isLoggedIn && state.currentUser && state.currentUser.username && state.currentUser.stripeSessionId) {
-              try { localStorage.removeItem('pixly_stripe_recheck_' + normalizeUsername(state.currentUser.username)); } catch(e) {}
-              recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId);
+            if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+              try {
+                const u = normalizeUsername(state.currentUser.username);
+                localStorage.removeItem('pixly_stripe_recheck_plus_' + u);
+                localStorage.removeItem('pixly_stripe_recheck_business_' + u);
+              } catch(e) {}
+              if (state.currentUser.stripeSessionId) recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId, { kind: 'plus' });
+              if (state.currentUser.stripeBusinessSessionId) recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
             }
           }, 1500);
         } else if (isValidStripeToken && hasRecentCheckout) {
@@ -26364,7 +27146,16 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               const data = await fetchStripeSessionStatus(token);
               if (!data) throw new Error('Stripe verification endpoint error');
               const forUser = state.isLoggedIn && state.currentUser ? state.currentUser.username : '';
-              if (stripeSessionGrantsPlus(data, forUser)) {
+              let checkoutKind = '';
+              try { checkoutKind = localStorage.getItem('pixly_stripe_checkout_kind') || sessionStorage.getItem('pixly_stripe_checkout_kind') || ''; } catch(e) {}
+              const isBusinessCheckout = subscribed === 'business' || checkoutKind === 'business';
+              try { localStorage.removeItem('pixly_stripe_checkout_kind'); sessionStorage.removeItem('pixly_stripe_checkout_kind'); } catch(e) {}
+              if (isBusinessCheckout && typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser) && stripeSessionConfirmsPaid(data, forUser)) {
+                localStorage.setItem('pixly_pending_stripe_session', token);
+                if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+                  applyBusinessPlusVerification(state.currentUser.username, token);
+                }
+              } else if (!isBusinessCheckout && stripeSessionGrantsPlus(data, forUser)) {
                 localStorage.setItem('pixly_pending_stripe_session', token);
                 if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
                   applyStripeSessionVerification(state.currentUser.username, token, true);
@@ -26509,38 +27300,61 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
     function updateSubscriptionModalUI() {
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
+      const bizBuyBtn = document.getElementById('pixly-stripe-business-buy-btn');
       const activePill = document.getElementById('sub-active-pill');
+      const bizPill = document.getElementById('sub-business-active-pill');
+      const bizBox = document.getElementById('sub-business-plus-box');
       const cancelSection = document.getElementById('sub-cancel-section');
+      const cancelCopy = document.getElementById('sub-cancel-copy');
       const isActive = typeof isPlusUser === 'function' && isPlusUser();
+      const isBizAcct = typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser);
+      const isBizPlus = !!(state.currentUser && state.currentUser.isBusinessPlus === true);
 
       if (activePill) activePill.classList.toggle('hidden', !isActive);
-      if (cancelSection) cancelSection.classList.toggle('hidden', !isActive);
-      if (buyBtn) buyBtn.classList.toggle('hidden', isActive);
+      if (bizPill) bizPill.classList.toggle('hidden', !isBizPlus);
+      if (bizBox) bizBox.classList.toggle('hidden', !isBizAcct);
+      if (buyBtn) buyBtn.classList.toggle('hidden', isActive || isBizAcct);
+      if (bizBuyBtn) bizBuyBtn.classList.toggle('hidden', !isBizAcct || isBizPlus);
+      if (cancelSection) cancelSection.classList.toggle('hidden', !(isActive || isBizPlus));
+      if (cancelCopy) {
+        cancelCopy.textContent = isBizPlus
+          ? 'Your Business Plus subscription is currently active. Cancel anytime through the Stripe billing portal.'
+          : 'Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.';
+      }
     }
     window.updateSubscriptionModalUI = updateSubscriptionModalUI;
 
+    function wireStripeBuyButton(buyBtn, kind) {
+      if (!buyBtn || buyBtn.dataset.checkoutWired) return;
+      buyBtn.dataset.checkoutWired = '1';
+      ['pointerdown', 'click'].forEach(evt => {
+        buyBtn.addEventListener(evt, () => {
+          const nowStr = String(Date.now());
+          try {
+            sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr);
+            sessionStorage.setItem('pixly_stripe_checkout_kind', kind || 'plus');
+          } catch(e) {}
+          safeLocalStorageSet('pixly_stripe_checkout_initiated', nowStr);
+          safeLocalStorageSet('pixly_stripe_checkout_kind', kind || 'plus');
+        });
+      });
+    }
+    function stampStripeBuyButton(buyBtn) {
+      if (!buyBtn || !(state.currentUser && state.currentUser.username)) return;
+      const cleanU = normalizeUsername(state.currentUser.username);
+      if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
+      if (state.currentUser.email && state.currentUser.email.includes('@')) {
+        buyBtn.setAttribute('customer-email', state.currentUser.email.trim());
+      }
+    }
     function openSubscriptionModal() {
       const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
-      if (buyBtn && !buyBtn.dataset.checkoutWired) {
-        buyBtn.dataset.checkoutWired = '1';
-        ['pointerdown', 'click'].forEach(evt => {
-          buyBtn.addEventListener(evt, () => {
-            const nowStr = String(Date.now());
-            try { sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr); } catch(e) {}
-            safeLocalStorageSet('pixly_stripe_checkout_initiated', nowStr);
-          });
-        });
-      }
-      if (buyBtn && state.currentUser && state.currentUser.username) {
-        const cleanU = normalizeUsername(state.currentUser.username);
-        if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);
-        if (state.currentUser.email && state.currentUser.email.includes('@')) {
-          buyBtn.setAttribute('customer-email', state.currentUser.email.trim());
-        } else {
-          buyBtn.removeAttribute('customer-email');
-        }
-      }
+      const bizBuyBtn = document.getElementById('pixly-stripe-business-buy-btn');
+      wireStripeBuyButton(buyBtn, 'plus');
+      wireStripeBuyButton(bizBuyBtn, 'business');
+      stampStripeBuyButton(buyBtn);
+      stampStripeBuyButton(bizBuyBtn);
       updateSubscriptionModalUI();
       if (modal) {
         modal.classList.remove('hidden');
@@ -26711,10 +27525,32 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </ul>
         </div>
 
+        <div id="sub-business-plus-box" class="hidden w-full rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-3.5 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-4 h-4 text-amber-400 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <h4 class="text-xs font-extrabold text-neutral-900">Business Plus Benefits</h4>
+            </div>
+            <span id="sub-business-active-pill" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Active ✓</span>
+          </div>
+          <ul class="space-y-2 text-[11px] text-neutral-700">
+            <li class="flex items-start space-x-2">
+              <span class="text-amber-500 font-bold leading-4">✓</span>
+              <span><strong>Business Plus Checkmark</strong> — Display a yellow verification badge next to your business handle.</span>
+            </li>
+            <li class="flex items-start space-x-2">
+              <span class="text-amber-500 font-bold leading-4">✓</span>
+              <span><strong>$29.99</strong> — Business Plus membership billed through Stripe.</span>
+            </li>
+          </ul>
+        </div>
+
         <div id="sub-cancel-section" class="hidden w-full rounded-2xl border border-rose-200 bg-white p-4 shadow-2xs space-y-3 text-center">
           <div class="space-y-1">
             <h4 class="text-xs font-extrabold text-neutral-900">Manage Membership</h4>
-            <p class="text-[11px] text-neutral-500 leading-relaxed">Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.</p>
+            <p id="sub-cancel-copy" class="text-[11px] text-neutral-500 leading-relaxed">Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.</p>
           </div>
           <a
             id="btn-stripe-cancel-membership"
@@ -26730,6 +27566,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         <stripe-buy-button
           id="pixly-stripe-buy-btn"
           buy-button-id="buy_btn_1UbNOvFSVMbdmupThAC2iczu"
+          publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
+        >
+        </stripe-buy-button>
+        <stripe-buy-button
+          id="pixly-stripe-business-buy-btn"
+          buy-button-id="buy_btn_1UdKTrFSVMbdmupTOj95P7R5"
           publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
         >
         </stripe-buy-button>
@@ -26994,7 +27836,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <span class="text-xl">🛡️</span>
             <div>
               <h3 class="text-base font-bold text-neutral-900">1. Pixlynote Privacy Policy</h3>
-              <p class="text-[11px] text-neutral-400">Compliant with GDPR, CCPA/CPRA, CalOPPA, and International Data Protection Regulations</p>
+              <p class="text-[11px] text-neutral-400">Last updated: November 18, 2026 · Compliant with GDPR, CCPA/CPRA, CalOPPA, and International Data Protection Regulations</p>
             </div>
           </div>
           
@@ -27005,7 +27847,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Information We Collect</h4>
             <ul class="list-disc pl-5 space-y-1 text-neutral-600">
-              <li><strong>Account Identifiers:</strong> Username, full name, email address, phone number (optional/for 2FA and account recovery), hashed passwords, profile photo (avatar), and public bio.</li>
+              <li><strong>Account Identifiers:</strong> Username, full name, email address, phone number (collected for SMS sign-in verification via Twilio), hashed passwords, profile photo (avatar), and public bio.</li>
               <li><strong>User Content:</strong> Photos, images, vibe notes, written comments, replies, like reactions, and saved/bookmarked collections.</li>
               <li><strong>Post view counts:</strong> When a post stays on screen (about half visible for about a second), we increment a view count on that post document only (posts/{id}.views), not on your user profile. This device remembers which posts you have already counted so the same view is not counted twice. We do not count a creator's views of their own posts.</li>
               <li><strong>Technical & Device Telemetry:</strong> IP addresses, browser user-agent, device characteristics, timestamps, referral domains, and crash reports necessary to deliver secure real-time services.</li>
@@ -27016,6 +27858,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">How We Use Your Data</h4>
             <p>Your data is strictly utilized to operate, maintain, and personalize the Pixlynote service: authenticating sessions, synchronizing profile updates across devices via Google Cloud Firestore, delivering the Explore feeds, showing post view counts, and protecting against spam, bots, or unauthorized access.</p>
+            <p>Phone numbers are used only to send SMS verification codes through Twilio so you can sign in and prove you control that number. They are not used as a marketing channel.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Payments &amp; Subscriptions</h4>
+            <p>Paid memberships (Pixlynote Plus and Business Plus) are processed by Stripe. When you check out, Stripe handles card details. We receive payment status, a checkout session identifier, and the username we sent as a client reference so we can confirm your membership. We do not store full card numbers on Pixlynote.</p>
           </div>
 
           <div class="space-y-2">
@@ -27039,7 +27887,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <span class="text-xl">📜</span>
             <div>
               <h3 class="text-base font-bold text-neutral-900">2. Terms of Service & User Agreement</h3>
-              <p class="text-[11px] text-neutral-400">Rules governing account usage, intellectual property, and platform liability</p>
+              <p class="text-[11px] text-neutral-400">Last updated: November 18, 2026 · Rules governing account usage, intellectual property, and platform liability</p>
             </div>
           </div>
 
@@ -27051,6 +27899,21 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">2. Eligibility & Account Security</h4>
             <p>You must be at least 13 years of age (or 16 years of age in jurisdictions where required by law) to create an account. You are responsible for safeguarding your credentials and for all activities that occur under your username.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Subscriptions &amp; Billing</h4>
+            <p>Pixlynote Plus and Business Plus ($29.99) are paid subscriptions billed through Stripe. Benefits apply while the subscription remains active. You can manage or cancel through the Stripe billing portal. Canceling stops future charges; access ends when the current period ends or when Pixlynote confirms the cancellation.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Account Deactivation &amp; Deletion</h4>
+            <p>You may deactivate your account at any time from Account Center. After you deactivate, the account stays reserved for 30 days. If you sign back in during that window, deactivation is canceled and the account is restored. If you do not, the account and its content are permanently deleted after 30 days.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Business Accounts &amp; Association</h4>
+            <p>You may register a Business account and optionally subscribe to Business Plus for a yellow verification check. A business can invite a personal account or another business account to associate with it. An account may be associated with only one business at a time, and a business cannot associate with itself. The inviting business&apos;s avatar can appear next to the associated account&apos;s name, whether that account is personal or business. Either party may end the association. To accept a new invite, leave (unaffiliate from) the current business first.</p>
           </div>
 
           <div class="space-y-2">
@@ -27165,7 +28028,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       <!-- Modal Footer -->
       <div class="p-4 border-t border-neutral-200 bg-neutral-50/90 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
         <div class="text-[11px] text-neutral-500">
-          Last revised: November 11, 2026 · Pixlynote Inc.
+          Last updated: November 18, 2026 · Pixlynote Inc.
         </div>
         <button type="button" onclick="closeTermsPoliciesModal()" class="w-full sm:w-auto py-2 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
           Close Terms & Policies

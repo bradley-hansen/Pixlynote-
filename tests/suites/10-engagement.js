@@ -173,6 +173,75 @@ module.exports = {
         a.ok(noteTabs.liked, 'Note 9001 is in the liked-notes set');
         a.ok(noteTabs.saved, 'Note 9001 is in the saved-notes set');
       }
+    },
+    {
+      name: 'Close Friends audience is kept, badged, and filtered from Likes and Saved',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#modal-post-detail', 'el:#story-viewer-cf-label'],
+      async run(ctx) {
+        const { page, a } = ctx;
+        const r = await page.evaluate(() => {
+          const me = (state.currentUser && state.currentUser.username) || 'me';
+          const own = {
+            id: 'cf_own_reg_1',
+            author: me,
+            authorName: me,
+            image: (state.posts && state.posts[0] && state.posts[0].image) || '',
+            caption: 'CF own caption',
+            tags: [],
+            comments: [],
+            likes: 0,
+            audience: 'closeFriends'
+          };
+          const hidden = {
+            id: 'cf_hidden_reg_1',
+            author: 'not_a_close_friend_xyz',
+            authorName: 'Hidden',
+            image: own.image,
+            caption: 'secret cf post',
+            tags: [],
+            comments: [],
+            likes: 0,
+            audience: 'closeFriends'
+          };
+          state.posts = (state.posts || []).filter((p) => String(p.id) !== own.id && String(p.id) !== hidden.id).concat([own, hidden]);
+          if (!state.likedPostIds) state.likedPostIds = new Set();
+          if (!state.savedPostIds) state.savedPostIds = new Set();
+          state.likedPostIds.add(hidden.id);
+          state.savedPostIds.add(hidden.id);
+          state.likedPostIds.add(own.id);
+          state.savedPostIds.add(own.id);
+          if (typeof renderLikes === 'function') renderLikes();
+          if (typeof renderSaved === 'function') renderSaved();
+          const likesHtml = (document.getElementById('likes-grid') || {}).innerHTML || '';
+          const savedHtml = (document.getElementById('saved-grid') || {}).innerHTML || '';
+          if (typeof openPostDetailModal === 'function') openPostDetailModal(own.id);
+          const modal = (document.getElementById('modal-comments-list') || {}).innerHTML || '';
+          const canSeeOwn = typeof canSeeAudienceContent === 'function' ? canSeeAudienceContent(own) : true;
+          const canSeeHidden = typeof canSeeAudienceContent === 'function' ? canSeeAudienceContent(hidden) : false;
+          // Cloud post missing audience must not wipe a local Close Friends audience.
+          let kept = true;
+          if (typeof applyCustomPostsFromRemote === 'function') {
+            applyCustomPostsFromRemote([{ id: own.id, author: me, caption: 'CF own caption', image: own.image }]);
+            const after = (typeof getPostById === 'function') ? getPostById(own.id) : (state.posts || []).find((p) => String(p.id) === String(own.id));
+            kept = !!(after && after.audience === 'closeFriends');
+          }
+          return {
+            canSeeOwn,
+            canSeeHidden,
+            likesHasHidden: likesHtml.includes('cf_hidden_reg_1'),
+            savedHasHidden: savedHtml.includes('cf_hidden_reg_1'),
+            modalHasBadge: /Close Friends/.test(modal) || /cf-content-label/.test(modal),
+            kept
+          };
+        });
+        a.ok(r.canSeeOwn, 'The author can see their own Close Friends post');
+        a.ok(!r.canSeeHidden, 'A viewer who is not a Close Friend cannot see that post');
+        a.ok(!r.likesHasHidden, 'Hidden Close Friends posts are filtered out of Likes');
+        a.ok(!r.savedHasHidden, 'Hidden Close Friends posts are filtered out of Saved');
+        a.ok(r.modalHasBadge, 'Post detail shows the Close Friends star badge');
+        a.ok(r.kept, 'A cloud post missing audience does not overwrite a local Close Friends audience');
+      }
     }
   ]
 };

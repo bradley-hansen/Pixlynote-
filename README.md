@@ -1,25 +1,35 @@
 # Pixlynote
 
-Pixlynote is a self-contained, single-file social photo and notes web application built with HTML, Tailwind-style utility CSS, and vanilla JavaScript. It runs directly in any modern browser with no build step required and persists user state locally via localStorage (with optional Firebase and Gemini API integration)[span_3](start_span)[span_3](end_span).
+Pixlynote is a self-contained, single-file social photo and notes app (`index.html`). It runs in a modern browser with no build step. Live site: [https://bradley-hansen.github.io/Pixlynote-/](https://bradley-hansen.github.io/Pixlynote-/).
+
+The app stores session and draft state in `localStorage` and syncs accounts, posts, notes, stories, and notifications through Google Cloud Firestore. Email, SMS, Pixai, and Stripe session checks go through the Pixlynote Worker.
 
 ## Features
 
-- **Home Feed & Stories:** Browse photo posts and interactive stories, like/save/comment/share posts, create new photo posts or Vibe Notes, and use Find Creators to Follow to open the Discover Creators modal with search and random shuffle[span_4](start_span)[span_4](end_span).
-- **Explore:** Search and browse community posts and Vibe Notes across[span_5](start_span)[span_5](end_span)
-- **Profile & Multi-Account Switching:**[span_6](start_span)[span_6](end_span)
-  - Switch between accounts (personal and business)[span_7](start_span)[span_7](end_span)
-  - Browse Posts, Notes, Replies, Saved (Photos[span_8](start_span)[span_8](end_span)
-  - Tap Followers or Following on any profile to[span_9](start_span)[span_9](end_span)
-  - Interactive note cards with an outline heart[span_10](start_span)[span_10](end_span)
-- **Notifications & Direct Messages:** Cross-account[span_11](start_span)[span_11](end_span)
-- **Highlights & PixAI:** Story highlight creation[span_12](start_span)[span_12](end_span)
+- **Feed, Explore, and Stories** — Photo posts, vibe notes, and 24-hour stories, with likes, saves, comments, replies, and share.
+- **Close Friends** — Limit a post, note, or story to Close Friends. A star badge marks that audience on the feed, post detail, and story viewer. Other people only see that content if they are on the author's Close Friends list.
+- **Profile** — Personal and business accounts, Edit Profile, Posts / Notes / Replies / Saved / Likes tabs, and a visitor view that matches the owner's public profile.
+- **Direct messages** — New Chat lists Pixai (AI assistant), Pixlynote Support, and real connections. Search finds real accounts by username or name. Seed demo creators are not used as a real account's following list.
+- **Notifications** — Likes, comments, story activity, Privileged Access invites, and business association invites.
+- **Account Center** — Password, sessions, privacy lists, Close Friends, Privileged Access, business association, and 30-day deactivation then deletion.
+- **Subscriptions** — Pixlynote Plus (blue check) and Business Plus ($29.99, yellow check for business accounts), billed through Stripe. Recheck and cancel clear the matching badge.
+- **Business association** — A business can invite a personal account or another business. An account can be associated with only one business at a time; leave the current business before accepting a new invite. The inviting business's avatar appears next to the associated account's name.
 
-## Getting Started
+## Tests
 
-1. Download or extract `index.html` from `index`[span_13](start_span)[span_13](end_span)
-2. Open `index.html` directly in your browser—[span_14](start_span)[span_14](end_span)
-3. (Optional) Add your Google Gemini API key[span_15](start_span)[span_15](end_span)
+The standing regression suite lives in `tests/`. See [tests/README.md](tests/README.md) for how it works and how to add coverage.
 
-## Project Structure
+From the repo root:
 
-- `index.html` — Complete single-file application (HTML, CSS, JS)
+```bash
+npm install
+npm test
+```
+
+`npm test` runs `node tests/run.js`. It serves this `index.html` locally, stubs Firebase and Worker calls, and never writes to production Firestore. The coverage check fails if an interactive control in `index.html` has no test.
+
+## Project structure
+
+- `index.html` — The complete app (HTML, CSS, and JavaScript)
+- `tests/` — Regression suite (`npm test`)
+- `package.json` — Test scripts and local dev dependencies

@@ -81,6 +81,67 @@ module.exports = {
           a.ok(controls.close, 'Story viewer has a close control');
         }
       }
+    },
+    {
+      name: 'New Chat lists real connections, labels Pixai as AI assistant, and the story viewer badges Close Friends',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#dm-new-chat-picker', 'el:#dm-new-chat-search', 'el:#dm-creators-list', 'handler:toggleDmNewChatPicker', 'handler:filterDmCreators'],
+      async run(ctx) {
+        const { page, a } = ctx;
+        const r = await page.evaluate(() => {
+          const seed = { username: 'elena_eats', fullName: 'Elena Eats', isFollowing: true };
+          const real = { username: 'real_friend_reg', fullName: 'Real Friend', isFollowing: true };
+          state.following = [seed, real];
+          const cleaned = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(state.following) : state.following;
+          state.following = cleaned;
+          if (typeof toggleDmNewChatPicker === 'function') toggleDmNewChatPicker(true);
+          if (typeof renderDmCreatorsList === 'function') renderDmCreatorsList('');
+          const list = (document.getElementById('dm-creators-list') || {}).innerText || '';
+          const html = (document.getElementById('dm-creators-list') || {}).innerHTML || '';
+          const story = {
+            id: 'cf_story_reg_1',
+            username: (state.currentUser && state.currentUser.username) || 'me',
+            avatar: (state.currentUser && state.currentUser.avatar) || '',
+            image: (state.posts && state.posts[0] && state.posts[0].image) || '',
+            caption: 'cf story',
+            audience: 'closeFriends',
+            isUser: true,
+            timestamp: Date.now()
+          };
+          if (typeof openStoryQueue === 'function') openStoryQueue([story]);
+          const cfEl = document.getElementById('story-viewer-cf-label');
+          const cfHtml = cfEl ? cfEl.innerHTML : '';
+          const cfVisible = !!(cfEl && !cfEl.classList.contains('hidden') && /Close Friends|cf-content-label/.test(cfHtml));
+          const hiddenStory = Object.assign({}, story, { id: 'cf_story_hidden', username: 'not_a_close_friend_xyz', isUser: false });
+          let blocked = false;
+          if (typeof openStoryQueue === 'function') {
+            const before = state.activeStory && state.activeStory.id;
+            openStoryQueue([hiddenStory]);
+            blocked = !state.activeStory || state.activeStory.id !== hiddenStory.id;
+          }
+          return {
+            me: (state.currentUser && state.currentUser.username) || '',
+            cleaned: cleaned.map((f) => f.username),
+            seedKept: cleaned.some((f) => f.username === 'elena_eats'),
+            realKept: cleaned.some((f) => f.username === 'real_friend_reg'),
+            list,
+            hasPixai: /pixai/i.test(list + html),
+            pixaiAi: /AI assistant/i.test(list + html),
+            hasSupport: /pixlynote/i.test(list + html),
+            hasElena: /elena_eats/.test(list + html),
+            cfVisible,
+            blocked
+          };
+        });
+        a.ok(!r.seedKept, 'Seed demo usernames are stripped from following');
+        a.ok(r.realKept, 'Real follows are kept');
+        a.ok(r.hasPixai && r.pixaiAi, 'Pixai is pinned and labeled AI assistant');
+        const isPixly = String(r.me || '').toLowerCase().replace(/^@/, '') === 'pixlynote';
+        a.ok(isPixly || r.hasSupport, 'Pixlynote Support stays pinned (hidden only when you are @pixlynote)');
+        a.ok(!r.hasElena, 'New Chat does not list seed demo creators');
+        a.ok(r.cfVisible, 'Story viewer shows the Close Friends badge');
+        a.ok(r.blocked, 'A Close Friends story from someone else does not open in the viewer');
+      }
     }
   ]
 };
