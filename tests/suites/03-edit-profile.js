@@ -71,7 +71,8 @@ module.exports = {
           const err = (document.getElementById('edit-profile-email-error') || {}).textContent || '';
           return { disabled: !!(b && (b.disabled || b.classList.contains('cursor-not-allowed'))), err, hidden: !b || b.classList.contains('hidden') };
         });
-        a.ok(emailState.disabled || /taken|already/i.test(emailState.err), 'Taken email blocks Send code: ' + JSON.stringify(emailState));
+        a.ok(/already used by another account/i.test(emailState.err) && /use your phone instead/i.test(emailState.err), 'Taken email shows the email conflict message: ' + JSON.stringify(emailState));
+        a.ok(emailState.disabled || /already used by another account/i.test(emailState.err), 'Taken email blocks Send code: ' + JSON.stringify(emailState));
 
         await page.fill('#edit-profile-phone', '6092896702');
         await page.evaluate(() => {
@@ -84,7 +85,8 @@ module.exports = {
           const err = (document.getElementById('edit-profile-phone-error') || {}).textContent || '';
           return { disabled: !!(b && (b.disabled || b.classList.contains('cursor-not-allowed'))), err };
         });
-        a.ok(phoneState.disabled || /taken|already/i.test(phoneState.err), 'Taken phone blocks Send code: ' + JSON.stringify(phoneState));
+        a.ok(/already used by another account/i.test(phoneState.err) && /use your email instead/i.test(phoneState.err), 'Taken phone shows the phone conflict message: ' + JSON.stringify(phoneState));
+        a.ok(phoneState.disabled || /already used by another account/i.test(phoneState.err), 'Taken phone blocks Send code: ' + JSON.stringify(phoneState));
       }
     },
     {
@@ -155,15 +157,14 @@ module.exports = {
           bio: state.currentUser && state.currentUser.bio,
           link: state.currentUser && (state.currentUser.link || state.currentUser.website)
         }));
-        // renderProfile() locks the official @pixlynote display name and website after save.
+        // renderProfile() keeps the official @pixlynote display name, but bio and website must persist like every other account.
         if (isOfficial) {
           a.equal(saved.name, 'Pixlynote', 'Official account display name stays Pixlynote after save');
-          a.equal(saved.bio, newBio, 'Bio was saved on the official account');
         } else {
           a.equal(saved.name, newName, 'Name was saved on the current user');
-          a.equal(saved.bio, newBio, 'Bio was saved on the current user');
-          a.ok((saved.link || '').includes('example.test/updated'), 'Website was saved on the current user: ' + saved.link);
         }
+        a.equal(saved.bio, newBio, 'Bio was saved on the current user');
+        a.ok((saved.link || '').includes('example.test/updated'), 'Website was saved on the current user: ' + saved.link);
         // Re-open the modal and confirm the fields show the saved (or officially locked) values.
         await page.evaluate(() => {
           if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
@@ -178,14 +179,11 @@ module.exports = {
         }), { nameSel, bioId, linkId });
         if (isOfficial) {
           if (nameSel) a.equal(fields.name, 'Pixlynote', 'Reopened official modal keeps the locked display name');
-          // openEditProfileModal blanks bio and website on @pixlynote so personal data cannot leak into the form.
-          if (bioId) a.equal(fields.bio, '', 'Reopened official modal blanks the bio field');
-          if (linkId) a.equal(fields.link, '', 'Reopened official modal blanks the website field');
         } else {
           if (nameSel) a.equal(fields.name, newName, 'Reopened modal shows the saved name');
-          if (bioId) a.equal(fields.bio, newBio, 'Reopened modal shows the saved bio');
-          if (linkId) a.ok((fields.link || '').includes('example.test/updated'), 'Reopened modal shows the saved website');
         }
+        if (bioId) a.equal(fields.bio, newBio, 'Reopened modal shows the saved bio');
+        if (linkId) a.ok((fields.link || '').includes('example.test/updated'), 'Reopened modal shows the saved website');
       }
     },
     {
@@ -292,6 +290,221 @@ module.exports = {
           if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
         });
       }
+    }    ,
+    {
+      name: 'Edit Profile: a conflicting phone or email keeps other typed fields and uses a clear message',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: [
+        'el:#edit-profile-email',
+        'el:#edit-profile-phone',
+        'el:#edit-profile-bio',
+        'el:#edit-profile-link',
+        'el:#edit-profile-email-error',
+        'el:#edit-profile-phone-error',
+        'el:#btn-save-edit-profile',
+        'handler:editProfilePhoneConflictMessage',
+        'handler:editProfileEmailConflictMessage'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        const originalEmail = await page.evaluate(() => ((document.getElementById('edit-profile-email') || {}).value || ''));
+        const typedBio = 'Keep this bio after a phone conflict';
+        const typedLink = 'https://example.test/keep-after-conflict';
+        await page.fill('#edit-profile-bio', typedBio);
+        await page.fill('#edit-profile-link', typedLink);
+        await page.fill('#edit-profile-phone', '6092896702');
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-phone')?.dispatchEvent(new Event('input', { bubbles: true }));
+          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+        });
+        await page.waitForTimeout(80);
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(150);
+        const afterPhone = await page.evaluate(() => {
+          const toast = (document.getElementById('toast-text') || {}).textContent || '';
+          const err = (document.getElementById('edit-profile-phone-error') || {}).textContent || '';
+          return {
+            toast,
+            err,
+            email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+            bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+            link: ((document.getElementById('edit-profile-link') || {}).value || ''),
+            phone: ((document.getElementById('edit-profile-phone') || {}).value || '')
+          };
+        });
+        a.ok(/This number is already used by another account\. Remove it and use your email instead\./.test(afterPhone.err + ' ' + afterPhone.toast), 'Phone conflict uses the clear Remove it and use your email message');
+        a.equal(afterPhone.email, originalEmail, 'A phone conflict does not clear the email the user already had');
+        a.equal(afterPhone.bio, typedBio, 'A phone conflict does not wipe a typed bio');
+        a.ok((afterPhone.link || '').includes('example.test/keep-after-conflict'), 'A phone conflict does not wipe a typed website');
+        a.ok(/609/.test(afterPhone.phone.replace(/\D/g, '')) || afterPhone.phone.length > 0, 'The conflicting phone stays in the field so the user can delete it');
+
+        await page.fill('#edit-profile-email', 'bradley.g.hansen@hotmail.com');
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-email')?.dispatchEvent(new Event('input', { bubbles: true }));
+          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+        });
+        await page.waitForTimeout(80);
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(150);
+        const afterEmail = await page.evaluate(() => {
+          const toast = (document.getElementById('toast-text') || {}).textContent || '';
+          const err = (document.getElementById('edit-profile-email-error') || {}).textContent || '';
+          return {
+            toast,
+            err,
+            bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+            link: ((document.getElementById('edit-profile-link') || {}).value || '')
+          };
+        });
+        a.ok(/This email is already used by another account\. Remove it and use your phone instead\./.test(afterEmail.err + ' ' + afterEmail.toast), 'Email conflict uses the matching Remove it and use your phone message');
+        a.equal(afterEmail.bio, typedBio, 'An email conflict does not wipe a typed bio');
+        a.ok((afterEmail.link || '').includes('example.test/keep-after-conflict'), 'An email conflict does not wipe a typed website');
+      }
+    },
+    {
+      name: 'Edit Profile: removing a phone saves and stays gone when an email remains',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#edit-profile-phone', 'el:#edit-profile-email', 'el:#btn-save-edit-profile', 'handler:openEditProfileModal'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        const before = await page.evaluate(() => ({
+          email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+          phone: ((document.getElementById('edit-profile-phone') || {}).value || '')
+        }));
+        a.ok(before.email, 'The account already has an email so the phone can be removed');
+        await page.fill('#edit-profile-phone', '');
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-phone')?.dispatchEvent(new Event('input', { bubbles: true }));
+          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+        });
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        const afterSave = await page.evaluate(() => ({
+          phone: state.currentUser && (state.currentUser.phone || ''),
+          email: state.currentUser && (state.currentUser.email || '')
+        }));
+        a.equal(afterSave.phone, '', 'The saved profile does not keep the removed phone');
+        a.equal(afterSave.email, before.email, 'The existing email is still on the profile after the phone is removed');
+        if (typeof afterSave.email === 'string' && afterSave.email) {
+          // already asserted
+        }
+        await page.evaluate(() => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          if (typeof renderProfile === 'function') renderProfile();
+        });
+        await h.openEditProfile(page);
+        const reopened = await page.evaluate(() => ({
+          phone: ((document.getElementById('edit-profile-phone') || {}).value || ''),
+          email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+          statePhone: state.currentUser && (state.currentUser.phone || '')
+        }));
+        a.equal(reopened.phone, '', 'Reopening Edit Profile does not bring the removed phone back');
+        a.equal(reopened.statePhone, '', 'renderProfile does not restore a deleted phone');
+        a.equal(reopened.email, before.email, 'The email is still in the form after reopen');
+      }
+    },
+    {
+      name: 'Edit Profile: a changed email requires a code, then saves after the code is accepted',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: [
+        'el:#edit-profile-email',
+        'el:#btn-edit-send-email-code',
+        'el:#edit-profile-email-code',
+        'el:#btn-edit-verify-email-code',
+        'el:#btn-save-edit-profile',
+        'handler:sendEditEmailCode',
+        'handler:verifyEditEmailCode'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        const newEmail = 'verify.' + account.username + '@example.test';
+        const typedBio = 'Bio typed with a new email';
+        await page.fill('#edit-profile-bio', typedBio);
+        await page.fill('#edit-profile-email', newEmail);
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-email')?.dispatchEvent(new Event('input', { bubbles: true }));
+          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+        });
+        await page.waitForTimeout(80);
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(150);
+        const blocked = await page.evaluate(() => {
+          const toast = (document.getElementById('toast-text') || {}).textContent || '';
+          const send = document.getElementById('btn-edit-send-email-code');
+          const cs = send ? getComputedStyle(send) : null;
+          return {
+            toast,
+            sendVisible: !!(send && !send.classList.contains('hidden') && cs && cs.display !== 'none'),
+            email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+            bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+            savedEmail: state.currentUser && (state.currentUser.email || '')
+          };
+        });
+        a.ok(/Send code|Verify the new email/i.test(blocked.toast), 'Saving a changed email without a code asks the user to verify it: ' + blocked.toast);
+        a.ok(blocked.sendVisible, 'Send code stays visible so the user can verify the new email');
+        a.equal(blocked.email, newEmail, 'The typed email is still in the field after a blocked save');
+        a.equal(blocked.bio, typedBio, 'The typed bio is still in the field after a blocked email save');
+        a.ok(blocked.savedEmail !== newEmail, 'The new email is not saved until the code is accepted');
+
+        await page.click('#btn-edit-send-email-code');
+        await page.waitForTimeout(200);
+        const codeVisible = await page.evaluate(() => {
+          const wrap = document.getElementById('edit-profile-email-code-wrap');
+          return !!(wrap && !wrap.classList.contains('hidden'));
+        });
+        a.ok(codeVisible, 'The email code field appears after Send code');
+        await page.fill('#edit-profile-email-code', VERIFY_CODE);
+        await page.click('#btn-edit-verify-email-code');
+        await page.waitForTimeout(200);
+        const verified = await page.evaluate(() => {
+          const status = (document.getElementById('edit-profile-email-verify-status') || {}).textContent || '';
+          const can = (typeof editProfileCanSave === 'function') ? editProfileCanSave() : false;
+          return { status, can };
+        });
+        a.ok(/Email verified/i.test(verified.status), 'The form confirms the email code was accepted: ' + verified.status);
+        a.ok(verified.can, 'Save is enabled after the email code is accepted');
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        await page.evaluate(() => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          if (typeof renderProfile === 'function') renderProfile();
+        });
+        await h.openEditProfile(page);
+        const saved = await page.evaluate(() => ({
+          email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+          bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+          stateEmail: state.currentUser && (state.currentUser.email || ''),
+          stateBio: state.currentUser && (state.currentUser.bio || '')
+        }));
+        a.equal(saved.email, newEmail, 'The verified email is in the form after reopen');
+        a.equal(saved.stateEmail, newEmail, 'The verified email stayed on the profile after render');
+        a.equal(saved.bio, typedBio, 'The bio typed with the email change is still in the form');
+        a.equal(saved.stateBio, typedBio, 'The bio typed with the email change stayed on the profile');
+      }
     }
+
   ]
 };

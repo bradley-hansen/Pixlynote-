@@ -11170,10 +11170,6 @@ function syncLikedStateToPosts() {
         state.currentUser.accountType = 'business';
         state.currentUser.fullName = 'Pixlynote';
         state.currentUser.username = 'pixlynote';
-        state.currentUser.email = '';
-        state.currentUser.phone = state.currentUser.phone || '+1 (609) 289-6702';
-        state.currentUser.link = '';
-        state.currentUser.bio = (state.currentUser.bio && !state.currentUser.bio.includes('Fitness')) ? state.currentUser.bio : '';
       } else if (isBradley) {
         // Defaults fill only missing values so Bradley's saved edits are not overwritten on every render.
         state.currentUser.avatar = state.currentUser.avatar || BRADLEY_AVATAR_IMAGE;
@@ -13705,10 +13701,6 @@ function syncLikedStateToPosts() {
         state.currentUser.accountType = 'business';
         state.currentUser.fullName = 'Pixlynote';
         state.currentUser.username = 'pixlynote';
-        state.currentUser.email = '';
-        state.currentUser.phone = state.currentUser.phone || '+1 (609) 289-6702';
-        state.currentUser.bio = (state.currentUser.bio && !state.currentUser.bio.includes('Fitness')) ? state.currentUser.bio : '';
-        state.currentUser.link = '';
       } else if (isBradley) {
         // Defaults fill only missing values so Bradley's saved edits are not overwritten on every render.
         state.currentUser.avatar = state.currentUser.avatar || BRADLEY_AVATAR_IMAGE;
@@ -13741,7 +13733,7 @@ function syncLikedStateToPosts() {
       if (userInp) userInp.value = state.currentUser.username || '';
       
       const emailInp = document.getElementById('edit-profile-email');
-      if (emailInp) emailInp.value = isPixly ? '' : (state.currentUser.email || '');
+      if (emailInp) emailInp.value = state.currentUser.email || '';
       
       const phoneInp = document.getElementById('edit-profile-phone');
       const phonePrompt = document.getElementById('edit-profile-phone-prompt');
@@ -13759,10 +13751,10 @@ function syncLikedStateToPosts() {
       if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
 
       const bioInp = document.getElementById('edit-profile-bio');
-      if (bioInp) bioInp.value = isPixly ? '' : (state.currentUser.bio || '');
+      if (bioInp) bioInp.value = state.currentUser.bio || '';
       
       const linkInp = document.getElementById('edit-profile-link');
-      if (linkInp) linkInp.value = isPixly ? '' : (state.currentUser.link || '');
+      if (linkInp) linkInp.value = state.currentUser.link || '';
       if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser);
       if (typeof updateBusinessInfoPromptUi === 'function') updateBusinessInfoPromptUi();
 
@@ -22978,10 +22970,10 @@ function syncLikedStateToPosts() {
         state.currentUser.fullName = isPixly ? 'Pixlynote' : (isDAP ? ((accData && accData.fullName) ? accData.fullName : 'Digital AssetPro') : ((accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername))));
         
         if (isPixly) {
-          state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : '';
-          state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : '+1 (609) 289-6702';
-          state.currentUser.bio = (accData && accData.bio !== undefined && !accData.bio.includes('Fitness')) ? accData.bio : '';
-          state.currentUser.link = (accData && accData.link !== undefined && !accData.link.includes('bradley_hansen')) ? accData.link : '';
+          state.currentUser.email = (accData && accData.email !== undefined) ? accData.email : (email || '');
+          state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '');
+          state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : '';
+          state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : '';
           state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : PIXLYNOTE_SHUTTER_ICON;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
@@ -24965,6 +24957,14 @@ function syncLikedStateToPosts() {
         window.closeAccountTypeSwitchConfirm = closeAccountTypeSwitchConfirm;
         window.confirmAccountTypeSwitch = confirmAccountTypeSwitch;
 
+        function editProfileEmailConflictMessage() {
+          return 'This email is already used by another account. Remove it and use your phone instead.';
+        }
+        function editProfilePhoneConflictMessage() {
+          return 'This number is already used by another account. Remove it and use your email instead.';
+        }
+        window.editProfileEmailConflictMessage = editProfileEmailConflictMessage;
+        window.editProfilePhoneConflictMessage = editProfilePhoneConflictMessage;
         function editProfileCanSave() {
           const nameVal = ((document.getElementById('edit-profile-name') || {}).value || '').trim();
           if (!nameVal) return false;
@@ -25039,8 +25039,8 @@ function syncLikedStateToPosts() {
 
           const emailErr = document.getElementById('edit-profile-email-error');
           const phoneErr = document.getElementById('edit-profile-phone-error');
-          setEditInlineError(emailErr, (emailChanged && v.emailTaken) ? 'This email is already on an account' : '');
-          setEditInlineError(phoneErr, (phoneChanged && v.phoneTaken) ? 'This number is already on an account' : '');
+          setEditInlineError(emailErr, (emailChanged && v.emailTaken) ? editProfileEmailConflictMessage() : '');
+          setEditInlineError(phoneErr, (phoneChanged && v.phoneTaken) ? editProfilePhoneConflictMessage() : '');
 
           const emailPanel = document.getElementById('edit-profile-email-verify-panel');
           const emailCodeWrap = document.getElementById('edit-profile-email-code-wrap');
@@ -25089,13 +25089,13 @@ function syncLikedStateToPosts() {
               const err = (r.data && r.data.error) || '';
               if (err === 'email_taken' || err === 'contact_taken') {
                 v.emailTaken = true;
-                setEditInlineError(document.getElementById('edit-profile-email-error'), 'This email is already on an account');
+                setEditInlineError(document.getElementById('edit-profile-email-error'), editProfileEmailConflictMessage());
                 styleSignupSendButton(btn, false);
               }
               const msg = (typeof signupVerifyErrorMessage === 'function')
                 ? signupVerifyErrorMessage(err, 'email')
                 : ((r.data && r.data.message) || 'Could not send the verification code.');
-              setEditVerifyStatus(status, err === 'email_taken' ? 'This email is already on an account' : msg, true);
+              setEditVerifyStatus(status, err === 'email_taken' ? editProfileEmailConflictMessage() : msg, true);
               return;
             }
             state.editProfileVerify = Object.assign({}, v, {
@@ -25160,10 +25160,12 @@ function syncLikedStateToPosts() {
               const err = (r.data && r.data.error) || '';
               if (err === 'phone_taken' || err === 'contact_taken') {
                 v.phoneTaken = true;
-                setEditInlineError(document.getElementById('edit-profile-phone-error'), 'This number is already on an account');
+                setEditInlineError(document.getElementById('edit-profile-phone-error'), editProfilePhoneConflictMessage());
                 styleSignupSendButton(btn, false);
               }
-              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'phone') : 'Could not send the verification code.', true);
+              setEditVerifyStatus(status, (err === 'phone_taken' || err === 'contact_taken')
+                ? editProfilePhoneConflictMessage()
+                : ((typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'phone') : 'Could not send the verification code.'), true);
               return;
             }
             state.editProfileVerify = Object.assign({}, v, {
@@ -26015,12 +26017,12 @@ function syncLikedStateToPosts() {
           const accRec = {
             username: targetUsername,
             fullName: isPixlynote ? 'Pixlynote' : targetFullName,
-            email: isPixlynote ? (matchedAccount && matchedAccount.email && matchedAccount.email !== 'bradley.g.hansen@hotmail.com' ? matchedAccount.email : '') : targetEmail,
-            phone: isPixlynote ? (matchedAccount && matchedAccount.phone && !matchedAccount.phone.includes('609') ? matchedAccount.phone : '') : targetPhone,
+            email: isPixlynote ? ((matchedAccount && matchedAccount.email !== undefined) ? (matchedAccount.email || '') : '') : targetEmail,
+            phone: isPixlynote ? ((matchedAccount && matchedAccount.phone !== undefined) ? (matchedAccount.phone || '') : '') : targetPhone,
             accountType: targetType,
             passwordHash: pwHash,
-            bio: isBradley ? (state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (isPixlynote ? (matchedAccount && matchedAccount.bio && !matchedAccount.bio.includes('Fitness') ? matchedAccount.bio : '') : (matchedAccount ? (matchedAccount.bio || '') : '')),
-            link: isBradley ? 't.me/bradley_hansen' : (isPixlynote ? (matchedAccount && matchedAccount.link && !matchedAccount.link.includes('bradley_hansen') ? matchedAccount.link : '') : (matchedAccount ? (matchedAccount.link || '') : '')),
+            bio: isBradley ? (state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (isPixlynote ? ((matchedAccount && matchedAccount.bio !== undefined) ? (matchedAccount.bio || '') : '') : (matchedAccount ? (matchedAccount.bio || '') : '')),
+            link: isBradley ? 't.me/bradley_hansen' : (isPixlynote ? ((matchedAccount && matchedAccount.link !== undefined) ? (matchedAccount.link || '') : '') : (matchedAccount ? (matchedAccount.link || '') : '')),
             avatar: isBradley ? (state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '')) : (isPixlynote ? PIXLYNOTE_SHUTTER_ICON : (matchedAccount ? matchedAccount.avatar : PIXLYNOTE_SHUTTER_ICON)),
             postsCount: isBradley ? 6 : 0,
             followersCount: "0",
@@ -26716,21 +26718,49 @@ function syncLikedStateToPosts() {
 
             if (typeof window.syncEditProfileVerifyUi === 'function') window.syncEditProfileVerifyUi();
             if (typeof window.editProfileCanSave === 'function' && !window.editProfileCanSave()) {
-              showToast('Verify any changed email or phone, and choose a free username, before saving.');
+              const selfU = state.currentUser && state.currentUser.username;
+              const emailOwner = (email && typeof findEmailOwner === 'function') ? findEmailOwner(email, selfU) : null;
+              const phoneOwner = (phone && typeof findPhoneOwner === 'function') ? findPhoneOwner(phone, selfU) : null;
+              const emailConflict = (typeof editProfileEmailConflictMessage === 'function')
+                ? editProfileEmailConflictMessage()
+                : 'This email is already used by another account. Remove it and use your phone instead.';
+              const phoneConflict = (typeof editProfilePhoneConflictMessage === 'function')
+                ? editProfilePhoneConflictMessage()
+                : 'This number is already used by another account. Remove it and use your email instead.';
+              if (emailOwner) {
+                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-email-error'), emailConflict);
+                showToast(emailConflict);
+                const emailEl = document.getElementById('edit-profile-email');
+                if (emailEl && typeof emailEl.focus === 'function') emailEl.focus();
+              } else if (phoneOwner) {
+                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-phone-error'), phoneConflict);
+                showToast(phoneConflict);
+                if (phoneInp) phoneInp.focus();
+              } else {
+                showToast('Verify the new email or phone with the code, or tap Send code, before saving.');
+              }
               return;
             }
 
-            let authenticatedViaAccountCenter = false;
+            if (email && typeof findEmailOwner === 'function') {
+              const emailOwner = findEmailOwner(email, state.currentUser.username);
+              if (emailOwner) {
+                const msg = editProfileEmailConflictMessage();
+                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-email-error'), msg);
+                showToast(msg);
+                const emailEl = document.getElementById('edit-profile-email');
+                if (emailEl && typeof emailEl.focus === 'function') emailEl.focus();
+                return;
+              }
+            }
             if (phone && typeof findPhoneOwner === 'function') {
               const phoneOwner = findPhoneOwner(phone, state.currentUser.username);
               if (phoneOwner) {
-                if (typeof isAccountInAccountCenter === 'function' && isAccountInAccountCenter(phoneOwner.username)) {
-                  authenticatedViaAccountCenter = true;
-                } else {
-                  showToast(`That phone number belongs to @${phoneOwner.username}. Add that account in Account Center first to authenticate it.`);
-                  if (phoneInp) phoneInp.focus();
-                  return;
-                }
+                const msg = editProfilePhoneConflictMessage();
+                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-phone-error'), msg);
+                showToast(msg);
+                if (phoneInp) phoneInp.focus();
+                return;
               }
             }
 
@@ -26894,9 +26924,7 @@ function syncLikedStateToPosts() {
                 : 'Business Plus was canceled. Pixlynote Plus is available below.');
             } else {
               showToast(
-                authenticatedViaAccountCenter
-                  ? 'Phone number authenticated via Account Center & saved! ✓'
-                  : (phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!')
+                phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!'
               );
             }
           });
