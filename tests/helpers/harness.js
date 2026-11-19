@@ -144,6 +144,27 @@ function mockWorker(req) {
   if (/\/cancel-subscription/i.test(pathPart)) {
     return { ok: true, canceled: true, status: 'canceled', test: true };
   }
+  if (/\/business-verification\/submit/i.test(pathPart)) {
+    return { ok: true, status: 'pending', submittedAt: Date.now(), einCheck: { checked: true, match: false, nameMatch: false, formatOk: true, source: 'propublica' } };
+  }
+  if (/\/business-verification\/status/i.test(pathPart)) {
+    return { status: 'pending', adminNote: '', submittedAt: Date.now(), updatedAt: Date.now() };
+  }
+  if (/\/business-verification\/admin\/list/i.test(pathPart)) {
+    return { ok: true, applications: [] };
+  }
+  if (/\/business-verification\/admin\/view/i.test(pathPart)) {
+    return { ok: true, application: { username: 'reg_business', status: 'pending', einCheck: { checked: true, match: false, nameMatch: false } } };
+  }
+  if (/\/business-verification\/admin\/decision/i.test(pathPart)) {
+    let dec = 'pending';
+    try { dec = (json.decision || 'approve'); } catch (e) {}
+    const status = dec === 'approve' ? 'approved' : (dec === 'reject' ? 'rejected' : 'more_info');
+    return { ok: true, status, username: json.username || '' };
+  }
+  if (/\/business-verification\/ein-check/i.test(pathPart)) {
+    return { ok: true, einCheck: { checked: true, match: true, nameMatch: true, formatOk: true, source: 'propublica', organizationName: 'Example Org' } };
+  }
   return { ok: true, debug_code: VERIFY_CODE };
 }
 

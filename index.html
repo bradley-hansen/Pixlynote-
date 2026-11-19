@@ -664,6 +664,30 @@
                 <input type="text" id="login-fullname" placeholder="e.g. John Doe" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
               </div>
 
+              <div id="signup-business-fields" class="hidden space-y-3">
+                <p id="signup-dba-note" class="text-[10px] text-neutral-500 leading-relaxed">Your public profile shows your DBA / brand name by default. The legal entity name is collected later for verification and stays private.</p>
+                <div>
+                  <label for="signup-dba-name" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">DBA / Trade Name</label>
+                  <input type="text" id="signup-dba-name" maxlength="120" placeholder="Brand name shown on your public profile" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                </div>
+                <div>
+                  <label for="signup-business-industry" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Industry / Category</label>
+                  <select id="signup-business-industry" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400" onchange="if (typeof syncBusinessIndustryOther === 'function') syncBusinessIndustryOther('signup');">
+                    <option value="">Select industry</option>
+                    <option value="software_tech">Software &amp; Tech</option>
+                    <option value="retail">Retail</option>
+                    <option value="local_restaurant">Local Restaurant</option>
+                    <option value="creator_media">Creator/Media</option>
+                    <option value="services">Services</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <div id="signup-business-industry-other-wrap" class="hidden mt-2">
+                    <input type="text" id="signup-business-industry-other" maxlength="80" placeholder="Short description (optional)" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                  </div>
+                  <p class="text-[10px] text-neutral-400 mt-1">Search filters use these six buckets. If you choose Other, the optional note is not used for filtering.</p>
+                </div>
+              </div>
+
               <div>
                 <div class="flex items-center justify-between mb-1">
                   <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider">Email Address</label>
@@ -716,7 +740,7 @@
               </div>
 
               <div>
-                <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Choose Username</label>
+                <label id="lbl-signup-username" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Choose Username</label>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium">@</span>
                   <input type="text" id="signup-username" placeholder="johndoe_creates" class="w-full pl-7 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
@@ -775,6 +799,12 @@
             <div>
               <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Bio / Tagline</label>
               <textarea id="signup-bio" rows="2" placeholder="Tell others about your profile or brand..." class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+            </div>
+
+            <div id="signup-website-group" class="hidden">
+              <label for="signup-link" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Website <span class="font-normal text-neutral-400">(optional)</span></label>
+              <input type="text" id="signup-link" placeholder="https://example.com" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+              <p class="text-[10px] text-neutral-400 mt-1">Shown as a clickable link in the Contact section of your profile. We’ll add https:// if needed.</p>
             </div>
 
             <!-- Action Buttons -->
@@ -1049,6 +1079,16 @@
                     <span id="profile-link-text"></span>
                   </a>
                 </div>
+
+                <div id="profile-contact" class="hidden mt-2 text-left sm:text-left space-y-1 text-xs text-neutral-600">
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contact</p>
+                  <a id="profile-contact-website" href="" target="_blank" rel="noopener nofollow" class="hidden text-violet-700 hover:underline font-medium break-all"></a>
+                  <p id="profile-contact-hours" class="hidden"></p>
+                  <p id="profile-contact-address" class="hidden"></p>
+                  <a id="profile-contact-support" href="" class="hidden text-violet-700 hover:underline break-all"></a>
+                </div>
+                <button type="button" id="btn-profile-complete-business-info" class="hidden mt-2 text-[11px] font-semibold text-violet-700 hover:underline cursor-pointer">Complete your business info</button>
+
               </div>
 
             </div>
@@ -1364,6 +1404,15 @@
                     <span id="user-profile-link-text"></span>
                   </a>
                 </div>
+
+                <div id="user-profile-contact" class="hidden mt-2 text-left sm:text-left space-y-1 text-xs text-neutral-600">
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Contact</p>
+                  <a id="user-profile-contact-website" href="" target="_blank" rel="noopener nofollow" class="hidden text-violet-700 hover:underline font-medium break-all"></a>
+                  <p id="user-profile-contact-hours" class="hidden"></p>
+                  <p id="user-profile-contact-address" class="hidden"></p>
+                  <a id="user-profile-contact-support" href="" class="hidden text-violet-700 hover:underline break-all"></a>
+                </div>
+
               </div>
 
             </div>
@@ -2248,6 +2297,64 @@
           <input type="text" id="edit-profile-link" value="" placeholder="website or link" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
         </div>
 
+        <div id="edit-profile-business-info-banner" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-semibold">Complete your business info</p>
+              <p class="mt-0.5 text-amber-800/90">Add your industry, DBA, and any public contact details so customers can find you.</p>
+              <button type="button" id="btn-edit-complete-business-info" class="mt-1 text-amber-900 font-bold underline cursor-pointer">Fill out the form</button>
+            </div>
+            <button type="button" id="btn-dismiss-business-info-banner" class="p-1 text-amber-700 hover:text-amber-900 rounded-md cursor-pointer" title="Dismiss" aria-label="Dismiss">✕</button>
+          </div>
+        </div>
+        <div id="edit-profile-business-fields" class="hidden space-y-3 pt-1">
+          <p class="text-[10px] text-neutral-500 leading-relaxed">Your public profile shows your DBA / brand name by default. Your legal entity name is only collected on the Business Plus verification application and stays private.</p>
+          <div>
+            <label for="edit-profile-dba-name" class="block text-xs font-semibold text-neutral-700 mb-1">DBA / Trade Name</label>
+            <input type="text" id="edit-profile-dba-name" maxlength="120" placeholder="Brand name shown on your public profile" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+          </div>
+          <div>
+            <label for="edit-profile-business-industry" class="block text-xs font-semibold text-neutral-700 mb-1">Industry / Category</label>
+            <select id="edit-profile-business-industry" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400" onchange="if (typeof syncBusinessIndustryOther === 'function') syncBusinessIndustryOther('edit');">
+              <option value="">Select industry</option>
+              <option value="software_tech">Software &amp; Tech</option>
+              <option value="retail">Retail</option>
+              <option value="local_restaurant">Local Restaurant</option>
+              <option value="creator_media">Creator/Media</option>
+              <option value="services">Services</option>
+              <option value="other">Other</option>
+            </select>
+            <div id="edit-profile-business-industry-other-wrap" class="hidden mt-2">
+              <input type="text" id="edit-profile-business-industry-other" maxlength="80" placeholder="Short description (optional)" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            </div>
+          </div>
+          <div>
+            <label for="edit-profile-business-street" class="block text-xs font-semibold text-neutral-700 mb-1">Street address <span class="font-normal text-neutral-400">(optional)</span></label>
+            <input type="text" id="edit-profile-business-street" maxlength="160" placeholder="123 Main St" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <input type="text" id="edit-profile-business-city" maxlength="80" placeholder="City" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+              <input type="text" id="edit-profile-business-state" maxlength="80" placeholder="State / region" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            </div>
+            <input type="text" id="edit-profile-business-postal" maxlength="20" placeholder="Postal code (optional)" class="mt-2 w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <label for="edit-profile-address-visibility" class="block text-[11px] font-semibold text-neutral-600 mt-2 mb-1">Address visibility</label>
+            <select id="edit-profile-address-visibility" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+              <option value="city_state">City &amp; state only</option>
+              <option value="full">Full address</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-profile-business-hours" class="block text-xs font-semibold text-neutral-700 mb-1">Hours of operation <span class="font-normal text-neutral-400">(optional)</span></label>
+            <input type="text" id="edit-profile-business-hours" maxlength="160" placeholder="Mon–Fri 9am–5pm EST" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <p class="text-[10px] text-neutral-400 mt-1">Shown below the bio on your public profile.</p>
+          </div>
+          <div>
+            <label for="edit-profile-support-email" class="block text-xs font-semibold text-neutral-700 mb-1">Support email <span class="font-normal text-neutral-400">(optional, shown publicly)</span></label>
+            <input type="email" id="edit-profile-support-email" maxlength="190" placeholder="support@example.com" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+            <p id="edit-profile-support-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium">Enter a valid email address</p>
+          </div>
+        </div>
+
         <div class="pt-3 border-t border-neutral-100 flex space-x-2 flex-shrink-0">
           <button type="button" id="btn-cancel-edit-profile" class="flex-1 py-2.5 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 active:scale-95 rounded-xl transition cursor-pointer">Cancel</button>
           <button type="submit" id="btn-save-edit-profile" class="flex-1 py-2.5 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-95 transition shadow-sm shadow-pink-500/25 cursor-pointer">Save Changes</button>
@@ -2321,6 +2428,13 @@
           <input type="url" id="verification-website-url" placeholder="https://www.agency.gov" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
           <p class="text-[10px] text-neutral-400 mt-1">A website can be submitted without an email code and is flagged for manual review.</p>
         </div>
+
+        <div id="verification-org-ein-wrap" class="hidden">
+          <label for="verification-org-ein" class="block text-xs font-semibold text-neutral-700 mb-1">EIN / Federal TIN <span class="font-normal text-neutral-400">(optional, for Non-Profit legitimacy check)</span></label>
+          <input type="text" id="verification-org-ein" maxlength="20" placeholder="XX-XXXXXXX" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <p class="text-[10px] text-neutral-400 mt-1">Used only to check IRS tax-exempt records. It is not saved to your public profile or Firestore.</p>
+        </div>
+
         <div>
           <label for="verification-notes" class="block text-xs font-semibold text-neutral-700 mb-1">Supporting Proof / Notes</label>
           <textarea id="verification-notes" rows="3" placeholder="Link to a staff directory or agency page listing your @handle" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 resize-none"></textarea>
@@ -2351,6 +2465,14 @@
           <button type="button" id="btn-gov-badge-navy" onclick="setGovernmentBadgeColor('navy')" class="flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg border border-transparent hover:bg-white/80 cursor-pointer text-blue-900">Deep Navy</button>
         </div>
       </div>
+
+      <div id="business-verification-status-panel" class="mt-4 pt-3 border-t border-neutral-100">
+        <p class="text-[11px] font-semibold text-neutral-700 mb-1">Business verification</p>
+        <p id="business-verification-status-label" class="text-xs font-bold text-neutral-900">Not Submitted</p>
+        <p id="business-verification-status-note" class="hidden mt-1 text-[11px] text-neutral-600 leading-relaxed"></p>
+        <button type="button" id="btn-open-business-verification" onclick="openBusinessVerificationModal()" class="mt-2 w-full py-2 px-3 text-[11px] font-bold text-violet-800 bg-violet-50 hover:bg-violet-100 rounded-lg cursor-pointer">Apply for Business verification</button>
+      </div>
+
     </div>
   </div>
 
@@ -2369,7 +2491,115 @@
     </div>
   </div>
 
-  <div id="menu-user-profile-cf" class="hidden" role="menu">
+
+  <div id="modal-business-verification" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4 overflow-y-auto" style="display: none;" onclick="if(event.target === this) closeBusinessVerificationModal();">
+    <div class="relative bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-neutral-200 my-auto">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-bold text-neutral-900">Business verification application</h3>
+          <p class="text-[10px] text-neutral-500">Required before Business Plus checkout. The green check appears only after approval and an active Business Plus plan.</p>
+        </div>
+        <button type="button" id="btn-close-business-verification" onclick="closeBusinessVerificationModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p id="business-verification-form-banner" class="hidden mb-3 text-[11px] font-medium rounded-lg px-3 py-2 bg-amber-50 text-amber-800 border border-amber-100"></p>
+      <form id="business-verification-form" class="space-y-3" onsubmit="return false;">
+        <div>
+          <label for="bizver-legal-name" class="block text-xs font-semibold text-neutral-700 mb-1">Legal Business Name</label>
+          <input type="text" id="bizver-legal-name" maxlength="200" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+        </div>
+        <div>
+          <label for="bizver-dba-name" class="block text-xs font-semibold text-neutral-700 mb-1">DBA / Trade Name</label>
+          <input type="text" id="bizver-dba-name" maxlength="200" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+        </div>
+        <div>
+          <label for="bizver-entity-type" class="block text-xs font-semibold text-neutral-700 mb-1">Entity Type</label>
+          <select id="bizver-entity-type" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400" onchange="if (typeof syncBizVerTaxLabel === 'function') syncBizVerTaxLabel();">
+            <option value="">Select type</option>
+            <option value="llc">LLC</option>
+            <option value="corporation">Corporation</option>
+            <option value="sole_proprietorship">Sole Proprietorship</option>
+            <option value="partnership">Partnership</option>
+            <option value="non_profit">Non-Profit</option>
+          </select>
+        </div>
+        <div>
+          <label for="bizver-country" class="block text-xs font-semibold text-neutral-700 mb-1">Country</label>
+          <select id="bizver-country" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400" onchange="if (typeof syncBizVerTaxLabel === 'function') syncBizVerTaxLabel();">
+            <option value="US">United States</option>
+            <option value="CA">Canada</option>
+            <option value="GB">United Kingdom</option>
+            <option value="AU">Australia</option>
+            <option value="DE">Germany</option>
+            <option value="FR">France</option>
+            <option value="IN">India</option>
+            <option value="MX">Mexico</option>
+            <option value="BR">Brazil</option>
+            <option value="JP">Japan</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="bizver-tax-id" id="lbl-bizver-tax-id" class="block text-xs font-semibold text-neutral-700 mb-1">EIN / Federal TIN <span class="font-normal text-neutral-400">(optional)</span></label>
+          <input type="text" id="bizver-tax-id" maxlength="40" autocomplete="off" placeholder="XX-XXXXXXX" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <p id="bizver-tax-hint" class="text-[10px] text-neutral-400 mt-1">US EIN must use XX-XXXXXXX format. Non-US tax IDs are optional and not format-locked.</p>
+        </div>
+        <div>
+          <label for="bizver-registration-number" class="block text-xs font-semibold text-neutral-700 mb-1">State / Local Registration Number <span class="font-normal text-neutral-400">(optional)</span></label>
+          <input type="text" id="bizver-registration-number" maxlength="80" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+        </div>
+        <div class="space-y-2">
+          <p class="text-xs font-semibold text-neutral-700">Official documentation</p>
+          <div>
+            <label for="bizver-file-articles" class="block text-[11px] font-medium text-neutral-600 mb-1">Articles of Organization / Incorporation or Certificate of Good Standing</label>
+            <input type="file" id="bizver-file-articles" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+          </div>
+          <div>
+            <label for="bizver-file-tax-letter" class="block text-[11px] font-medium text-neutral-600 mb-1">IRS CP 575 or W-9 <span class="font-normal text-neutral-400">(optional)</span></label>
+            <input type="file" id="bizver-file-tax-letter" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+          </div>
+          <div>
+            <label for="bizver-file-address-proof" class="block text-[11px] font-medium text-neutral-600 mb-1">Utility bill or bank statement (within 60–90 days) <span class="font-normal text-neutral-400">(optional)</span></label>
+            <input type="file" id="bizver-file-address-proof" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+          </div>
+          <p class="text-[10px] text-neutral-400">PDF, JPG, PNG, or HEIC. 10 MB max each. Photos are compressed on your device to about 1.5 MB (long edge up to 2000px) before upload so they stay legible; PDFs are sent unchanged. Files are not kept in your browser after submit.</p>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-neutral-700 mb-1">Domain &amp; brand proof</p>
+          <p class="text-[10px] text-neutral-500 mb-2">Verify a business email with a one-time code (same flow as sign-up). Trademark number is optional.</p>
+          <label for="bizver-domain-email" class="block text-[11px] font-medium text-neutral-600 mb-1">Business email</label>
+          <div class="relative">
+            <input type="email" id="bizver-domain-email" maxlength="190" class="w-full pr-[5.75rem] py-2 pl-3 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+            <button type="button" id="btn-bizver-send-email-code" onclick="sendBusinessVerificationEmailCode()" class="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-md transition cursor-pointer z-10">Send code</button>
+          </div>
+          <div id="bizver-email-code-wrap" class="hidden mt-2 space-y-2">
+            <input type="text" id="bizver-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+            <div class="flex items-center space-x-2">
+              <button type="button" id="btn-bizver-verify-email-code" onclick="verifyBusinessVerificationEmailCode()" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify email</button>
+              <button type="button" id="btn-bizver-resend-email-code" onclick="sendBusinessVerificationEmailCode()" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+            </div>
+          </div>
+          <p id="bizver-email-status" class="hidden mt-1 text-[10px] font-medium"></p>
+          <label for="bizver-trademark" class="block text-[11px] font-medium text-neutral-600 mt-2 mb-1">Trademark Registration Number <span class="font-normal text-neutral-400">(optional)</span></label>
+          <input type="text" id="bizver-trademark" maxlength="80" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-neutral-700 mb-1">Authorized representative</p>
+          <label for="bizver-rep-name" class="block text-[11px] font-medium text-neutral-600 mb-1">Full legal name</label>
+          <input type="text" id="bizver-rep-name" maxlength="200" autocomplete="off" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <label for="bizver-rep-title" class="block text-[11px] font-medium text-neutral-600 mt-2 mb-1">Title</label>
+          <input type="text" id="bizver-rep-title" maxlength="120" autocomplete="off" placeholder="e.g. Owner, CEO, Managing Member" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <label for="bizver-file-photo-id" class="block text-[11px] font-medium text-neutral-600 mt-2 mb-1">Government-issued photo ID</label>
+          <input type="file" id="bizver-file-photo-id" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic">
+        </div>
+        <p id="business-verification-form-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+        <button type="button" id="btn-submit-business-verification" onclick="submitBusinessVerificationApplication()" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Submit application</button>
+      </form>
+    </div>
+  </div>
+
+    <div id="menu-user-profile-cf" class="hidden" role="menu">
     <button type="button" id="btn-cf-menu-toggle" class="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-emerald-50 cursor-pointer" role="menuitem">Add to Close Friends</button>
   </div>
   <div id="menu-user-profile-more" class="hidden" role="menu">
@@ -4456,6 +4686,10 @@
       const c = String(raw || '').trim();
       if (!c) return '';
       if (/^pixlynote\.com\/@/i.test(c)) return '';
+      if (typeof normalizeWebsiteUrl === 'function') {
+        const n = normalizeWebsiteUrl(c);
+        return (n && n.ok && !n.empty) ? n.href : '';
+      }
       return c;
     }
     function paintPublicSubtitle(elId, raw) {
@@ -4519,6 +4753,896 @@
     window.paintProfileBio = paintProfileBio;
     window.paintProfileLocation = paintProfileLocation;
     window.paintProfileLink = paintProfileLink;
+
+    var BUSINESS_INDUSTRY_OPTIONS = [
+      { id: 'software_tech', label: 'Software & Tech' },
+      { id: 'retail', label: 'Retail' },
+      { id: 'local_restaurant', label: 'Local Restaurant' },
+      { id: 'creator_media', label: 'Creator/Media' },
+      { id: 'services', label: 'Services' },
+      { id: 'other', label: 'Other' }
+    ];
+    var BUSINESS_INDUSTRY_IDS = BUSINESS_INDUSTRY_OPTIONS.map(function (o) { return o.id; });
+    var SENSITIVE_VERIFICATION_FIELDS = [
+      'ein', 'taxId', 'taxID', 'federalTin', 'vat', 'gst', 'nationalBusinessNumber',
+      'legalBusinessName', 'legalName', 'authorizedRepName', 'authorizedRepTitle',
+      'authorizedRepresentativeName', 'authorizedRepresentativeTitle',
+      'stateRegistrationNumber', 'localRegistrationNumber', 'registrationNumber',
+      'trademarkRegistrationNumber', 'trademarkNumber', 'trademark',
+      'photoId', 'photoID', 'governmentId', 'idDocument', 'idPhoto',
+      'articlesOfOrganization', 'certificateOfGoodStanding', 'irsLetter', 'cp575', 'w9',
+      'utilityBill', 'bankStatement', 'legalDocs', 'verificationDocuments',
+      'einFull', 'taxIdFull', 'businessLegalName', 'govIdFile', 'articlesFile',
+      'taxLetterFile', 'addressProofFile', 'photoIdFile'
+    ];
+    function businessIndustryLabel(id) {
+      const found = BUSINESS_INDUSTRY_OPTIONS.find(function (o) { return o.id === id; });
+      return found ? found.label : '';
+    }
+    function normalizeBusinessIndustry(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return '';
+      if (BUSINESS_INDUSTRY_IDS.indexOf(s) !== -1) return s;
+      const lower = s.toLowerCase();
+      const found = BUSINESS_INDUSTRY_OPTIONS.find(function (o) { return o.label.toLowerCase() === lower; });
+      return found ? found.id : '';
+    }
+    function isValidSupportEmail(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return { ok: true, empty: true, value: '' };
+      if (!/^[^\s@<>"',;:()\[\]\\]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/.test(s)) return { ok: false, empty: false, value: s };
+      return { ok: true, empty: false, value: s };
+    }
+    function normalizeWebsiteUrl(raw) {
+      const input = String(raw == null ? '' : raw).trim();
+      if (!input) return { ok: true, empty: true, href: '', label: '' };
+      const trimmed = input.replace(/[\u0000-\u001F\u007F]/g, '').trim();
+      if (!trimmed) return { ok: true, empty: true, href: '', label: '' };
+      const lower = trimmed.toLowerCase();
+      const blocked = /^(javascript|data|vbscript|file|about|blob|filesystem|intent|view-source|mailto|tel):/i;
+      if (blocked.test(lower) || lower.indexOf('javascript:') !== -1 || lower.indexOf('data:') !== -1) {
+        return { ok: false, empty: false, href: '', label: '', error: 'blocked_scheme' };
+      }
+      let candidate = trimmed;
+      if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(candidate)) candidate = 'https://' + candidate.replace(/^\/+/, '');
+      let url;
+      try { url = new URL(candidate); } catch (e) { return { ok: false, empty: false, href: '', label: '', error: 'invalid_url' }; }
+      const protocol = String(url.protocol || '').toLowerCase();
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        return { ok: false, empty: false, href: '', label: '', error: 'blocked_scheme' };
+      }
+      if (!url.hostname || url.hostname.indexOf('.') === -1 && url.hostname !== 'localhost') {
+        if (!url.hostname) return { ok: false, empty: false, href: '', label: '', error: 'invalid_url' };
+      }
+      if (url.username || url.password) {
+        url.username = '';
+        url.password = '';
+      }
+      const href = url.toString();
+      let label = href.replace(/^https:\/\//i, '').replace(/\/$/, '');
+      if (label.length > 60) label = label.slice(0, 57) + '…';
+      return { ok: true, empty: false, href: href, label: label };
+    }
+    function publicProfileDisplayName(user) {
+      const u = user || {};
+      const dba = String(u.dbaName || '').trim();
+      const name = String(u.fullName || u.name || '').trim();
+      return dba || name;
+    }
+    function normalizeAddressVisibility(raw) {
+      const s = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (s === 'full' || s === 'hidden' || s === 'city_state') return s;
+      return 'city_state';
+    }
+    function visibleBusinessAddress(user) {
+      const u = user || {};
+      const vis = normalizeAddressVisibility(u.businessAddressVisibility);
+      if (vis === 'hidden') return '';
+      const street = String(u.businessStreet || '').trim();
+      const city = String(u.businessCity || '').trim();
+      const state = String(u.businessState || '').trim();
+      const postal = String(u.businessPostal || '').trim();
+      const cityState = [city, state].filter(Boolean).join(', ');
+      if (vis === 'city_state') return cityState;
+      return [street, cityState, postal].filter(Boolean).join(', ');
+    }
+    function normalizeBusinessVerificationStatus(raw) {
+      const s = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (s === 'pending' || s === 'pending_review') return 'pending';
+      if (s === 'more_info' || s === 'more_info_needed' || s === 'info_needed') return 'more_info';
+      if (s === 'approved' || s === 'verified') return 'approved';
+      if (s === 'rejected' || s === 'denied') return 'rejected';
+      return 'not_submitted';
+    }
+    function businessVerificationStatusLabel(status) {
+      const s = normalizeBusinessVerificationStatus(status);
+      return ({
+        not_submitted: 'Not Submitted',
+        pending: 'Pending Review',
+        more_info: 'More Info Needed',
+        approved: 'Approved / Verified',
+        rejected: 'Rejected'
+      })[s] || 'Not Submitted';
+    }
+    function businessVerificationAllowsCheckout(user) {
+      const s = normalizeBusinessVerificationStatus(user && user.businessVerificationStatus);
+      return s === 'pending' || s === 'approved' || s === 'more_info';
+    }
+    function isBusinessInfoIncomplete(user) {
+      if (!user || (user.accountType !== 'business' && String(user.username || '').toLowerCase() !== 'pixlynote')) return false;
+      return !normalizeBusinessIndustry(user.businessIndustry);
+    }
+    function businessInfoPromptDismissedKey(username) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || '') : String(username || '').toLowerCase();
+      return 'pixly_biz_info_prompt_dismissed_' + u;
+    }
+    function isBusinessInfoPromptDismissed(username) {
+      try { return localStorage.getItem(businessInfoPromptDismissedKey(username)) === '1'; } catch (e) { return false; }
+    }
+    function dismissBusinessInfoPrompt(username) {
+      try { localStorage.setItem(businessInfoPromptDismissedKey(username), '1'); } catch (e) {}
+    }
+    function stripSensitiveVerificationFields(obj) {
+      if (!obj || typeof obj !== 'object') return obj;
+      const out = Array.isArray(obj) ? obj.slice() : Object.assign({}, obj);
+      SENSITIVE_VERIFICATION_FIELDS.forEach(function (k) {
+        if (Object.prototype.hasOwnProperty.call(out, k)) delete out[k];
+      });
+      return out;
+    }
+    function publicSafeUserFields(user, extra) {
+      const u = user || {};
+      const linkN = normalizeWebsiteUrl(u.link);
+      const support = isValidSupportEmail(u.businessSupportEmail);
+      const rec = {
+        username: u.username,
+        fullName: u.fullName,
+        dbaName: String(u.dbaName || '').trim(),
+        email: u.email || '',
+        phone: u.phone || '',
+        accountType: u.accountType || 'personal',
+        bio: u.bio || '',
+        link: linkN.ok && !linkN.empty ? linkN.href : (linkN.empty ? '' : (u.link || '')),
+        avatar: u.avatar,
+        businessIndustry: normalizeBusinessIndustry(u.businessIndustry),
+        businessIndustryOther: normalizeBusinessIndustry(u.businessIndustry) === 'other' ? String(u.businessIndustryOther || '').trim().slice(0, 80) : '',
+        businessStreet: String(u.businessStreet || '').trim(),
+        businessCity: String(u.businessCity || '').trim(),
+        businessState: String(u.businessState || '').trim(),
+        businessPostal: String(u.businessPostal || '').trim(),
+        businessAddressVisibility: normalizeAddressVisibility(u.businessAddressVisibility),
+        businessHours: String(u.businessHours || '').trim().slice(0, 160),
+        businessSupportEmail: support.ok ? support.value : '',
+        businessVerificationStatus: normalizeBusinessVerificationStatus(u.businessVerificationStatus),
+        businessVerificationUpdatedAt: u.businessVerificationUpdatedAt || null,
+        businessVerificationSubmittedAt: u.businessVerificationSubmittedAt || null,
+        businessVerificationLegacyExempt: u.businessVerificationLegacyExempt === true
+      };
+      if (extra && typeof extra === 'object') Object.assign(rec, extra);
+      return stripSensitiveVerificationFields(rec);
+    }
+    function recordUserDocWrite(payload, source) {
+      try {
+        window.__pixlyUserDocWrites = window.__pixlyUserDocWrites || [];
+        window.__pixlyUserDocWrites.push({ source: source || 'unknown', data: JSON.parse(JSON.stringify(payload || {})) });
+      } catch (e) {}
+    }
+    function persistPublicUserFields(user, extra) {
+      if (!user || !user.username) return;
+      const normU = (typeof normalizeUsername === 'function') ? normalizeUsername(user.username) : String(user.username || '').toLowerCase();
+      const payload = publicSafeUserFields(Object.assign({}, user, extra || {}));
+      recordUserDocWrite(payload, 'persistPublicUserFields');
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
+          const { db, doc, setDoc } = window.firebase;
+          setDoc(doc(db, 'users', normU), payload, { merge: true }).catch(function () {});
+        }
+      } catch (e) {}
+    }
+    function maybeMarkBusinessVerificationLegacyExempt(user) {
+      if (!user) return false;
+      const isBiz = user.accountType === 'business' || String(user.username || '').toLowerCase() === 'pixlynote';
+      if (!isBiz || user.isBusinessPlus !== true) return false;
+      const status = normalizeBusinessVerificationStatus(user.businessVerificationStatus);
+      if (status !== 'not_submitted') return false;
+      if (user.businessVerificationLegacyExempt === true) return false;
+      user.businessVerificationLegacyExempt = true;
+      persistPublicUserFields(user, { businessVerificationLegacyExempt: true });
+      return true;
+    }
+    function syncBusinessIndustryOther(which) {
+      const selectId = which === 'signup' ? 'signup-business-industry' : 'edit-profile-business-industry';
+      const wrapId = which === 'signup' ? 'signup-business-industry-other-wrap' : 'edit-profile-business-industry-other-wrap';
+      const sel = document.getElementById(selectId);
+      const wrap = document.getElementById(wrapId);
+      const show = !!(sel && sel.value === 'other');
+      if (wrap) {
+        wrap.classList.toggle('hidden', !show);
+        wrap.style.display = show ? '' : 'none';
+      }
+    }
+    function collectEditProfileBusinessFields() {
+      const industry = normalizeBusinessIndustry((document.getElementById('edit-profile-business-industry') || {}).value);
+      const other = ((document.getElementById('edit-profile-business-industry-other') || {}).value || '').trim().slice(0, 80);
+      const supportRaw = ((document.getElementById('edit-profile-support-email') || {}).value || '').trim();
+      const support = isValidSupportEmail(supportRaw);
+      const linkRaw = ((document.getElementById('edit-profile-link') || {}).value || '').trim();
+      const linkN = normalizeWebsiteUrl(linkRaw);
+      return {
+        dbaName: ((document.getElementById('edit-profile-dba-name') || {}).value || '').trim(),
+        businessIndustry: industry,
+        businessIndustryOther: industry === 'other' ? other : '',
+        businessStreet: ((document.getElementById('edit-profile-business-street') || {}).value || '').trim(),
+        businessCity: ((document.getElementById('edit-profile-business-city') || {}).value || '').trim(),
+        businessState: ((document.getElementById('edit-profile-business-state') || {}).value || '').trim(),
+        businessPostal: ((document.getElementById('edit-profile-business-postal') || {}).value || '').trim(),
+        businessAddressVisibility: normalizeAddressVisibility((document.getElementById('edit-profile-address-visibility') || {}).value),
+        businessHours: ((document.getElementById('edit-profile-business-hours') || {}).value || '').trim().slice(0, 160),
+        businessSupportEmail: support,
+        link: linkN
+      };
+    }
+    function fillEditProfileBusinessFields(user) {
+      const u = user || (state && state.currentUser) || {};
+      const setVal = function (id, v) { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      setVal('edit-profile-dba-name', u.dbaName);
+      setVal('edit-profile-business-industry', normalizeBusinessIndustry(u.businessIndustry));
+      setVal('edit-profile-business-industry-other', u.businessIndustryOther);
+      setVal('edit-profile-business-street', u.businessStreet);
+      setVal('edit-profile-business-city', u.businessCity);
+      setVal('edit-profile-business-state', u.businessState);
+      setVal('edit-profile-business-postal', u.businessPostal);
+      setVal('edit-profile-address-visibility', normalizeAddressVisibility(u.businessAddressVisibility));
+      setVal('edit-profile-business-hours', u.businessHours);
+      setVal('edit-profile-support-email', u.businessSupportEmail);
+      syncBusinessIndustryOther('edit');
+    }
+    function updateBusinessInfoPromptUi() {
+      const user = state && state.currentUser;
+      const incomplete = isBusinessInfoIncomplete(user);
+      const dismissed = user && isBusinessInfoPromptDismissed(user.username);
+      const show = !!(incomplete && !dismissed);
+      const banner = document.getElementById('edit-profile-business-info-banner');
+      if (banner) {
+        banner.classList.toggle('hidden', !show);
+        banner.style.display = show ? '' : 'none';
+      }
+      const link = document.getElementById('btn-profile-complete-business-info');
+      if (link) {
+        const showLink = !!(incomplete && user);
+        link.classList.toggle('hidden', !showLink);
+        link.style.display = showLink ? '' : 'none';
+      }
+    }
+    function openCompleteBusinessInfo() {
+      if (typeof openEditProfileModal === 'function') openEditProfileModal();
+      setTimeout(function () {
+        const el = document.getElementById('edit-profile-business-fields') || document.getElementById('edit-profile-business-industry');
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        const industry = document.getElementById('edit-profile-business-industry');
+        if (industry && industry.focus) industry.focus();
+      }, 80);
+    }
+    function paintProfileContact(prefix, user) {
+      const wrap = document.getElementById(prefix + '-contact');
+      if (!wrap) return;
+      const linkN = normalizeWebsiteUrl(user && user.link);
+      const hours = String((user && user.businessHours) || '').trim();
+      const addr = visibleBusinessAddress(user);
+      const support = isValidSupportEmail(user && user.businessSupportEmail);
+      const supportVal = support.ok && !support.empty ? support.value : '';
+      const web = document.getElementById(prefix + '-contact-website');
+      if (web) {
+        if (linkN.ok && !linkN.empty) {
+          web.href = linkN.href;
+          web.textContent = linkN.label || linkN.href;
+          web.setAttribute('target', '_blank');
+          web.setAttribute('rel', 'noopener nofollow');
+          web.classList.remove('hidden');
+          web.style.display = '';
+        } else {
+          web.removeAttribute('href');
+          web.textContent = '';
+          web.classList.add('hidden');
+          web.style.display = 'none';
+        }
+      }
+      const hoursEl = document.getElementById(prefix + '-contact-hours');
+      if (hoursEl) {
+        hoursEl.textContent = hours ? ('Hours: ' + hours) : '';
+        hoursEl.classList.toggle('hidden', !hours);
+        hoursEl.style.display = hours ? '' : 'none';
+      }
+      const addrEl = document.getElementById(prefix + '-contact-address');
+      if (addrEl) {
+        addrEl.textContent = addr;
+        addrEl.classList.toggle('hidden', !addr);
+        addrEl.style.display = addr ? '' : 'none';
+      }
+      const sup = document.getElementById(prefix + '-contact-support');
+      if (sup) {
+        if (supportVal) {
+          sup.href = 'mailto:' + supportVal;
+          sup.textContent = supportVal;
+          sup.classList.remove('hidden');
+          sup.style.display = '';
+        } else {
+          sup.removeAttribute('href');
+          sup.textContent = '';
+          sup.classList.add('hidden');
+          sup.style.display = 'none';
+        }
+      }
+      const has = (linkN.ok && !linkN.empty) || !!hours || !!addr || !!supportVal;
+      wrap.classList.toggle('hidden', !has);
+      wrap.style.display = has ? '' : 'none';
+    }
+    function paintBusinessVerificationStatusUi(user) {
+      const u = user || (state && state.currentUser) || {};
+      const status = normalizeBusinessVerificationStatus(u.businessVerificationStatus);
+      const label = businessVerificationStatusLabel(status);
+      const el = document.getElementById('business-verification-status-label');
+      if (el) el.textContent = label;
+      const noteEl = document.getElementById('business-verification-status-note');
+      const note = String(u.businessVerificationAdminNote || window._businessVerificationAdminNote || '').trim();
+      if (noteEl) {
+        const showNote = !!(note && (status === 'more_info' || status === 'rejected' || status === 'pending'));
+        noteEl.textContent = note;
+        noteEl.classList.toggle('hidden', !showNote);
+      }
+      const btn = document.getElementById('btn-open-business-verification');
+      if (btn) {
+        if (status === 'approved') btn.textContent = 'View application';
+        else if (status === 'pending') btn.textContent = 'Application submitted';
+        else if (status === 'more_info') btn.textContent = 'Update and resubmit';
+        else if (status === 'rejected') btn.textContent = 'Submit a new application';
+        else btn.textContent = 'Apply for Business verification';
+      }
+      const panel = document.getElementById('business-verification-status-panel');
+      const isBiz = (u.accountType === 'business') || (String(u.username || '').toLowerCase() === 'pixlynote');
+      if (panel) {
+        panel.classList.toggle('hidden', !isBiz);
+        panel.style.display = isBiz ? '' : 'none';
+      }
+    }
+    function syncBizVerTaxLabel() {
+      const country = ((document.getElementById('bizver-country') || {}).value || 'US').toUpperCase();
+      const lbl = document.getElementById('lbl-bizver-tax-id');
+      const hint = document.getElementById('bizver-tax-hint');
+      const inp = document.getElementById('bizver-tax-id');
+      const isUS = country === 'US' || country === 'USA';
+      if (lbl) lbl.innerHTML = isUS
+        ? 'EIN / Federal TIN <span class="font-normal text-neutral-400">(optional)</span>'
+        : 'VAT / GST / National Business Number <span class="font-normal text-neutral-400">(optional)</span>';
+      if (hint) hint.textContent = isUS
+        ? 'US EIN must use XX-XXXXXXX format. Non-US tax IDs are optional and not format-locked.'
+        : 'Optional. No specific format is required outside the United States.';
+      if (inp) inp.placeholder = isUS ? 'XX-XXXXXXX' : 'Tax / business number';
+    }
+    function isValidUsEin(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return { ok: true, empty: true, value: '' };
+      const digits = s.replace(/\D/g, '');
+      if (digits.length !== 9) return { ok: false, empty: false, value: s };
+      const formatted = digits.slice(0, 2) + '-' + digits.slice(2);
+      if (!/^\d{2}-\d{7}$/.test(formatted)) return { ok: false, empty: false, value: s };
+      return { ok: true, empty: false, value: formatted };
+    }
+    function setBusinessVerificationFormStatus(msg, isError) {
+      const el = document.getElementById('business-verification-form-status');
+      if (!el) return;
+      if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      el.className = 'text-[11px] font-medium rounded-lg px-3 py-2 ' + (isError ? 'bg-rose-50 text-rose-800 border border-rose-100' : 'bg-emerald-50 text-emerald-800 border border-emerald-100');
+    }
+    function clearBusinessVerificationSensitiveFields() {
+      ['bizver-legal-name','bizver-tax-id','bizver-registration-number','bizver-trademark','bizver-rep-name','bizver-rep-title','bizver-email-code'].forEach(function (id) {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      ['bizver-file-articles','bizver-file-tax-letter','bizver-file-address-proof','bizver-file-photo-id'].forEach(function (id) {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      const orgEin = document.getElementById('verification-org-ein');
+      if (orgEin) orgEin.value = '';
+      window._businessVerificationDraft = null;
+    }
+    function applyBusinessVerificationPublicStatus(user, status, timestamps) {
+      if (!user) return;
+      user.businessVerificationStatus = normalizeBusinessVerificationStatus(status);
+      if (timestamps && timestamps.updatedAt) user.businessVerificationUpdatedAt = timestamps.updatedAt;
+      else user.businessVerificationUpdatedAt = Date.now();
+      if (timestamps && timestamps.submittedAt) user.businessVerificationSubmittedAt = timestamps.submittedAt;
+      persistPublicUserFields(user, {
+        businessVerificationStatus: user.businessVerificationStatus,
+        businessVerificationUpdatedAt: user.businessVerificationUpdatedAt,
+        businessVerificationSubmittedAt: user.businessVerificationSubmittedAt || null
+      });
+      paintBusinessVerificationStatusUi(user);
+    }
+    function openBusinessVerificationModal(opts) {
+      const modal = document.getElementById('modal-business-verification');
+      window._businessVerificationFromCheckout = !!(opts && opts.fromCheckout);
+      const user = state && state.currentUser;
+      const dba = document.getElementById('bizver-dba-name');
+      if (dba && user && !dba.value) dba.value = user.dbaName || '';
+      const banner = document.getElementById('business-verification-form-banner');
+      const status = normalizeBusinessVerificationStatus(user && user.businessVerificationStatus);
+      if (banner) {
+        if (status === 'pending') {
+          banner.textContent = 'Your application is pending review. You can check out for Business Plus now. The green check appears after approval.';
+          banner.classList.remove('hidden');
+        } else if (status === 'more_info') {
+          banner.textContent = (window._businessVerificationAdminNote ? ('More info needed: ' + window._businessVerificationAdminNote) : 'More information is needed. Update your documents and resubmit.');
+          banner.classList.remove('hidden');
+        } else if (status === 'rejected') {
+          banner.textContent = (window._businessVerificationAdminNote ? ('Rejected: ' + window._businessVerificationAdminNote) : 'Your previous application was rejected. You may submit a new one.');
+          banner.classList.remove('hidden');
+        } else if (status === 'approved') {
+          banner.textContent = 'Your business is verified. Keep Business Plus active to show the green check.';
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+          banner.textContent = '';
+        }
+      }
+      setBusinessVerificationFormStatus('', false);
+      syncBizVerTaxLabel();
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+      }
+      refreshBusinessVerificationStatusFromWorker();
+    }
+    function closeBusinessVerificationModal() {
+      const modal = document.getElementById('modal-business-verification');
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+    }
+    async function refreshBusinessVerificationStatusFromWorker() {
+      const user = state && state.currentUser;
+      if (!user || !user.username) return;
+      const base = (typeof PIXLYNOTE_API_ENDPOINT === 'string' && PIXLYNOTE_API_ENDPOINT) ? PIXLYNOTE_API_ENDPOINT : '';
+      if (!base) return;
+      try {
+        const res = await fetch(base + '/business-verification/status?username=' + encodeURIComponent(String(user.username).toLowerCase()));
+        const data = await res.json().catch(function () { return {}; });
+        if (data && data.status) {
+          window._businessVerificationAdminNote = String(data.adminNote || '');
+          if (user) user.businessVerificationAdminNote = window._businessVerificationAdminNote;
+          applyBusinessVerificationPublicStatus(user, data.status, { updatedAt: data.updatedAt, submittedAt: data.submittedAt });
+        }
+      } catch (e) {}
+    }
+    async function sendBusinessVerificationEmailCode() {
+      const email = ((document.getElementById('bizver-domain-email') || {}).value || '').trim();
+      const status = document.getElementById('bizver-email-status');
+      if (!email || !isValidSupportEmail(email).ok || isValidSupportEmail(email).empty) {
+        if (status) { status.textContent = 'Enter a valid business email first.'; status.classList.remove('hidden'); }
+        return;
+      }
+      const wrap = document.getElementById('bizver-email-code-wrap');
+      if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
+      const base = PIXLYNOTE_API_ENDPOINT;
+      try {
+        await fetch(base + '/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'signup_code', to: email, username: (state.currentUser && state.currentUser.username) || '' })
+        });
+      } catch (e) {}
+      if (status) { status.textContent = 'Code sent. Check your email.'; status.classList.remove('hidden'); }
+      window._bizverEmailState = { email: email.toLowerCase(), verified: false, codeSent: true };
+    }
+    async function verifyBusinessVerificationEmailCode() {
+      const email = ((document.getElementById('bizver-domain-email') || {}).value || '').trim();
+      const code = ((document.getElementById('bizver-email-code') || {}).value || '').trim();
+      const status = document.getElementById('bizver-email-status');
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/email/signup-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: email, code: code })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (data && data.valid) {
+          window._bizverEmailState = { email: email.toLowerCase(), verified: true, codeSent: true };
+          if (status) { status.textContent = 'Email verified.'; status.classList.remove('hidden'); }
+        } else if (status) { status.textContent = 'That code was not valid.'; status.classList.remove('hidden'); }
+      } catch (e) {
+        if (status) { status.textContent = 'Could not verify the code.'; status.classList.remove('hidden'); }
+      }
+    }
+    function fileTooLarge(file) {
+      return !!(file && file.size > 10 * 1024 * 1024);
+    }
+    var VERIFICATION_IMAGE_MAX_BYTES = Math.round(1.5 * 1024 * 1024);
+    var VERIFICATION_IMAGE_MAX_EDGE = 2000;
+    function isVerificationPdf(file) {
+      const t = String((file && file.type) || '').toLowerCase();
+      const n = String((file && file.name) || '').toLowerCase();
+      return t === 'application/pdf' || /\.pdf$/.test(n);
+    }
+    function isVerificationImage(file) {
+      const t = String((file && file.type) || '').toLowerCase();
+      const n = String((file && file.name) || '').toLowerCase();
+      return /image\/(jpeg|jpg|pjpeg|png|heic|heif|webp)/.test(t) || /\.(jpe?g|png|heic|heif|webp)$/.test(n);
+    }
+    function verificationUploadBasename(name, ext) {
+      const base = String(name || 'document').replace(/\.[a-z0-9]+$/i, '').replace(/[^\w.\-]+/g, '_') || 'document';
+      return base + '.' + ext;
+    }
+    async function loadVerificationImageSource(file) {
+      if (typeof createImageBitmap === 'function') {
+        try { return { source: await createImageBitmap(file), close: true }; } catch (e) {}
+      }
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise(function (resolve, reject) {
+          const im = new Image();
+          im.onload = function () { resolve(im); };
+          im.onerror = function () { reject(new Error('decode_failed')); };
+          im.src = url;
+        });
+        return { source: img, close: false, url: url };
+      } catch (e) {
+        try { URL.revokeObjectURL(url); } catch (err) {}
+        return null;
+      }
+    }
+    async function canvasToBlob(canvas, type, quality) {
+      return await new Promise(function (resolve) {
+        canvas.toBlob(function (blob) { resolve(blob || null); }, type, quality);
+      });
+    }
+    async function compressVerificationImage(file, opts) {
+      if (!file) return file;
+      if (isVerificationPdf(file)) return file;
+      if (!isVerificationImage(file)) return file;
+      const maxBytes = (opts && opts.maxBytes) || VERIFICATION_IMAGE_MAX_BYTES;
+      const maxEdge = (opts && opts.maxEdge) || VERIFICATION_IMAGE_MAX_EDGE;
+      const loaded = await loadVerificationImageSource(file);
+      if (!loaded || !loaded.source) return file;
+      const src = loaded.source;
+      const w = src.width || src.naturalWidth || 0;
+      const h = src.height || src.naturalHeight || 0;
+      if (!w || !h) {
+        if (loaded.close && src.close) src.close();
+        if (loaded.url) try { URL.revokeObjectURL(loaded.url); } catch (e) {}
+        return file;
+      }
+      let scale = 1;
+      const long = Math.max(w, h);
+      if (long > maxEdge) scale = maxEdge / long;
+      let tw = Math.max(1, Math.round(w * scale));
+      let th = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(src, 0, 0, tw, th);
+      }
+      if (loaded.close && src.close) src.close();
+      if (loaded.url) try { URL.revokeObjectURL(loaded.url); } catch (e) {}
+      const preferPng = /image\/png/.test(String(file.type || '')) || /\.png$/i.test(String(file.name || ''));
+      if (preferPng) {
+        const png = await canvasToBlob(canvas, 'image/png');
+        if (png && png.size <= maxBytes) {
+          return new File([png], verificationUploadBasename(file.name, 'png'), { type: 'image/png', lastModified: Date.now() });
+        }
+      }
+      let quality = 0.88;
+      let best = null;
+      for (let i = 0; i < 10; i++) {
+        const jpeg = await canvasToBlob(canvas, 'image/jpeg', quality);
+        if (jpeg && (!best || jpeg.size < best.size)) best = jpeg;
+        if (jpeg && jpeg.size <= maxBytes) {
+          return new File([jpeg], verificationUploadBasename(file.name, 'jpg'), { type: 'image/jpeg', lastModified: Date.now() });
+        }
+        quality = Math.max(0.5, quality - 0.08);
+        if (quality <= 0.52 && canvas.width > 640) {
+          const nw = Math.max(640, Math.round(canvas.width * 0.85));
+          const nh = Math.max(1, Math.round(canvas.height * (nw / canvas.width)));
+          const tmp = document.createElement('canvas');
+          tmp.width = nw;
+          tmp.height = nh;
+          tmp.getContext('2d').drawImage(canvas, 0, 0, nw, nh);
+          canvas.width = nw;
+          canvas.height = nh;
+          canvas.getContext('2d').drawImage(tmp, 0, 0);
+          quality = 0.76;
+        }
+      }
+      if (!best) return file;
+      return new File([best], verificationUploadBasename(file.name, 'jpg'), { type: 'image/jpeg', lastModified: Date.now() });
+    }
+    async function prepareVerificationUpload(file) {
+      if (!file) return file;
+      if (isVerificationPdf(file)) return file;
+      return await compressVerificationImage(file);
+    }
+    async function submitBusinessVerificationApplication() {
+      const user = state && state.currentUser;
+      if (!user || !user.username) { setBusinessVerificationFormStatus('You need to be signed in.', true); return false; }
+      if ((user.accountType !== 'business') && String(user.username).toLowerCase() !== 'pixlynote') {
+        setBusinessVerificationFormStatus('Business verification is for Business accounts.', true);
+        return false;
+      }
+      const legal = ((document.getElementById('bizver-legal-name') || {}).value || '').trim();
+      const dba = ((document.getElementById('bizver-dba-name') || {}).value || '').trim();
+      const entityType = ((document.getElementById('bizver-entity-type') || {}).value || '').trim();
+      const country = ((document.getElementById('bizver-country') || {}).value || 'US').trim();
+      const taxId = ((document.getElementById('bizver-tax-id') || {}).value || '').trim();
+      const reg = ((document.getElementById('bizver-registration-number') || {}).value || '').trim();
+      const trademark = ((document.getElementById('bizver-trademark') || {}).value || '').trim();
+      const repName = ((document.getElementById('bizver-rep-name') || {}).value || '').trim();
+      const repTitle = ((document.getElementById('bizver-rep-title') || {}).value || '').trim();
+      const domainEmail = ((document.getElementById('bizver-domain-email') || {}).value || '').trim();
+      const articles = (document.getElementById('bizver-file-articles') || {}).files;
+      const taxLetter = (document.getElementById('bizver-file-tax-letter') || {}).files;
+      const addressProof = (document.getElementById('bizver-file-address-proof') || {}).files;
+      const photoId = (document.getElementById('bizver-file-photo-id') || {}).files;
+      if (!legal) { setBusinessVerificationFormStatus('Legal Business Name is required.', true); return false; }
+      if (!entityType) { setBusinessVerificationFormStatus('Choose an entity type.', true); return false; }
+      if (!repName || !repTitle) { setBusinessVerificationFormStatus('Authorized representative name and title are required.', true); return false; }
+      if (!articles || !articles[0]) { setBusinessVerificationFormStatus('Upload Articles of Organization / Incorporation or a Certificate of Good Standing.', true); return false; }
+      if (!photoId || !photoId[0]) { setBusinessVerificationFormStatus('Upload a government-issued photo ID.', true); return false; }
+      const files = [articles[0], taxLetter && taxLetter[0], addressProof && addressProof[0], photoId[0]].filter(Boolean);
+      for (let i = 0; i < files.length; i++) {
+        if (fileTooLarge(files[i])) { setBusinessVerificationFormStatus('Each file must be 10 MB or smaller.', true); return false; }
+      }
+      const isUS = /^US|USA|UNITED STATES$/i.test(country);
+      if (isUS && taxId) {
+        const ein = isValidUsEin(taxId);
+        if (!ein.ok) { setBusinessVerificationFormStatus('US EIN must use the XX-XXXXXXX format.', true); return false; }
+      }
+      let articlesFile = articles[0];
+      let taxLetterFile = taxLetter && taxLetter[0] ? taxLetter[0] : null;
+      let addressProofFile = addressProof && addressProof[0] ? addressProof[0] : null;
+      let photoIdFile = photoId[0];
+      try {
+        articlesFile = await prepareVerificationUpload(articlesFile);
+        if (taxLetterFile) taxLetterFile = await prepareVerificationUpload(taxLetterFile);
+        if (addressProofFile) addressProofFile = await prepareVerificationUpload(addressProofFile);
+        photoIdFile = await prepareVerificationUpload(photoIdFile);
+      } catch (compressErr) {}
+      const form = new FormData();
+      form.append('username', String(user.username).toLowerCase());
+      form.append('legalBusinessName', legal);
+      form.append('dbaName', dba || user.dbaName || '');
+      form.append('entityType', entityType);
+      form.append('country', country);
+      form.append('taxId', taxId);
+      form.append('registrationNumber', reg);
+      form.append('trademarkNumber', trademark);
+      form.append('authorizedRepName', repName);
+      form.append('authorizedRepTitle', repTitle);
+      form.append('domainEmail', domainEmail);
+      form.append('domainEmailVerified', (window._bizverEmailState && window._bizverEmailState.verified && window._bizverEmailState.email === domainEmail.toLowerCase()) ? 'true' : 'false');
+      form.append('articles', articlesFile);
+      if (taxLetterFile) form.append('tax_letter', taxLetterFile);
+      if (addressProofFile) form.append('address_proof', addressProofFile);
+      form.append('photo_id', photoIdFile);
+      const btn = document.getElementById('btn-submit-business-verification');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/submit', { method: 'POST', body: form });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.ok) {
+          const err = data.error || 'submit_failed';
+          if (err === 'storage_not_configured') setBusinessVerificationFormStatus('Verification storage is not available yet. Your form was not saved. Please try again later.', true);
+          else if (err === 'invalid_ein_format') setBusinessVerificationFormStatus('US EIN must use the XX-XXXXXXX format.', true);
+          else setBusinessVerificationFormStatus('Could not submit the application. Please check the form and try again.', true);
+          return false;
+        }
+        applyBusinessVerificationPublicStatus(user, 'pending', { submittedAt: data.submittedAt || Date.now(), updatedAt: Date.now() });
+        window._lastBizVerEinCheck = data.einCheck || null;
+        clearBusinessVerificationSensitiveFields();
+        setBusinessVerificationFormStatus('Application submitted and pending review. You can continue to Business Plus checkout.', false);
+        if (window._businessVerificationFromCheckout && typeof openSubscriptionModal === 'function') {
+          setTimeout(function () { closeBusinessVerificationModal(); openSubscriptionModal(); }, 400);
+        }
+        return true;
+      } catch (e) {
+        setBusinessVerificationFormStatus('Could not submit the application. Please try again.', true);
+        return false;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+    function sessionAdminToken() {
+      const inp = document.getElementById('business-verification-admin-token');
+      const typed = inp ? String(inp.value || '').trim() : '';
+      if (typed) {
+        window._adminTokenSession = typed;
+        return typed;
+      }
+      return String(window._adminTokenSession || '');
+    }
+    async function refreshBusinessVerificationAdmin() {
+      const list = document.getElementById('drawer-business-verification-list');
+      const count = document.getElementById('business-verification-admin-count');
+      const token = sessionAdminToken();
+      if (!token) {
+        if (list) list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Enter the admin token to load applications. It is kept in this session only.</div>';
+        return;
+      }
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/admin/list', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json().catch(function () { return {}; });
+        const apps = (data && data.applications) || [];
+        if (count) count.textContent = String(apps.length);
+        if (!list) return;
+        if (!apps.length) {
+          list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No business verification applications</div>';
+          return;
+        }
+        list.innerHTML = apps.map(function (app) {
+          const u = String(app.username || '');
+          const st = businessVerificationStatusLabel(app.status);
+          const ein = app.einCheck ? ('EIN check: ' + (app.einCheck.match ? 'match' : 'no match') + (app.einCheck.nameMatch ? ', name match' : '')) : '';
+          return '<div class="p-2 rounded-xl bg-white border border-slate-100 text-[10px] space-y-1" data-bizver-admin-user="' + u.replace(/"/g, '') + '">'
+            + '<div class="flex items-center justify-between"><span class="font-bold text-neutral-900">@' + u + '</span><span>' + st + '</span></div>'
+            + (app.dbaName ? ('<div>DBA: ' + String(app.dbaName) + '</div>') : '')
+            + (ein ? ('<div>' + ein + '</div>') : '')
+            + '<div class="flex flex-wrap gap-1 pt-1">'
+            + '<button type="button" class="px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 font-semibold cursor-pointer" onclick="decideBusinessVerification(\'' + u + '\',\'approve\')">Approve</button>'
+            + '<button type="button" class="px-2 py-1 rounded-md bg-amber-50 text-amber-800 font-semibold cursor-pointer" onclick="promptBusinessVerificationMoreInfo(\'' + u + '\')">More Info Needed</button>'
+            + '<button type="button" class="px-2 py-1 rounded-md bg-rose-50 text-rose-800 font-semibold cursor-pointer" onclick="promptBusinessVerificationReject(\'' + u + '\')">Reject</button>'
+            + '</div></div>';
+        }).join('');
+      } catch (e) {
+        if (list) list.innerHTML = '<div class="text-[10px] text-rose-600 text-center py-2">Could not load applications</div>';
+      }
+    }
+    function promptBusinessVerificationMoreInfo(username) {
+      const note = window.prompt('Note for the applicant (required):') || '';
+      if (!note.trim()) return;
+      decideBusinessVerification(username, 'more_info', note.trim());
+    }
+    function promptBusinessVerificationReject(username) {
+      const note = window.prompt('Optional note for the applicant:') || '';
+      decideBusinessVerification(username, 'reject', note.trim());
+    }
+    async function decideBusinessVerification(username, decision, note) {
+      const token = sessionAdminToken();
+      if (!token) { if (typeof showToast === 'function') showToast('Enter the admin token first.'); return; }
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/admin/decision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ username: username, decision: decision, note: note || '' })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!data.ok) { if (typeof showToast === 'function') showToast('Decision was not saved.'); return; }
+        const status = data.status || (decision === 'approve' ? 'approved' : (decision === 'reject' ? 'rejected' : 'more_info'));
+        notifyBusinessVerificationApplicant(username, status, note || '');
+        if (state && state.currentUser && normalizeUsername(state.currentUser.username) === normalizeUsername(username)) {
+          applyBusinessVerificationPublicStatus(state.currentUser, status, { updatedAt: Date.now() });
+        }
+        refreshBusinessVerificationAdmin();
+      } catch (e) {
+        if (typeof showToast === 'function') showToast('Decision was not saved.');
+      }
+    }
+    function notifyBusinessVerificationApplicant(username, status, note) {
+      if (typeof addNotificationForUser !== 'function') return;
+      const label = businessVerificationStatusLabel(status);
+      let text = 'Your business verification is now ' + label + '.';
+      if (status === 'more_info') text = 'More information is needed for your business verification' + (note ? (': ' + note) : '.');
+      if (status === 'approved') text = 'Your business verification was approved.';
+      if (status === 'rejected') text = 'Your business verification was rejected' + (note ? (': ' + note) : '.');
+      addNotificationForUser(username, {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: 'business_verification',
+        fromUser: 'pixlynote',
+        text: text,
+        time: 'Just now',
+        timestamp: Date.now(),
+        read: false
+      });
+    }
+    async function checkOrganizationEinAndStrip() {
+      const inp = document.getElementById('verification-org-ein');
+      const raw = inp ? String(inp.value || '').trim() : '';
+      if (inp) inp.value = '';
+      if (!raw) return null;
+      const ein = isValidUsEin(raw);
+      if (!ein.ok) return { error: 'invalid_ein_format' };
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/ein-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ein: ein.value,
+            name: ((document.getElementById('verification-entity-name') || {}).value || '').trim(),
+            username: (state.currentUser && state.currentUser.username) || '',
+            kind: 'organization',
+            country: 'US'
+          })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        return data && data.einCheck ? data.einCheck : { formatOk: true };
+      } catch (e) {
+        return { formatOk: true, checked: false };
+      }
+    }
+    function updateBusinessPlusCheckoutGate() {
+      const user = state && state.currentUser;
+      const gate = document.getElementById('business-plus-verification-gate');
+      const buy = document.getElementById('pixly-stripe-business-buy-btn');
+      const isBiz = !!(user && (user.accountType === 'business' || String(user.username || '').toLowerCase() === 'pixlynote'));
+      const alreadyPlus = !!(user && user.isBusinessPlus);
+      const allow = !isBiz || alreadyPlus || businessVerificationAllowsCheckout(user);
+      if (gate) {
+        gate.classList.toggle('hidden', allow);
+        gate.style.display = allow ? 'none' : '';
+      }
+      if (buy) {
+        buy.style.pointerEvents = allow ? '' : 'none';
+        buy.style.opacity = allow ? '' : '0.4';
+        if (allow) buy.removeAttribute('aria-disabled');
+        else buy.setAttribute('aria-disabled', 'true');
+      }
+      return allow;
+    }
+    function interceptBusinessPlusCheckout(ev) {
+      const user = state && state.currentUser;
+      if (!user) return;
+      const isBiz = user.accountType === 'business' || String(user.username || '').toLowerCase() === 'pixlynote';
+      if (!isBiz) return;
+      if (user.isBusinessPlus) return;
+      if (businessVerificationAllowsCheckout(user)) return;
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); }
+      openBusinessVerificationModal({ fromCheckout: true });
+      if (typeof showToast === 'function') showToast('Submit a business verification application before checkout.');
+    }
+
+    window.BUSINESS_INDUSTRY_OPTIONS = BUSINESS_INDUSTRY_OPTIONS;
+    window.SENSITIVE_VERIFICATION_FIELDS = SENSITIVE_VERIFICATION_FIELDS;
+    window.normalizeWebsiteUrl = normalizeWebsiteUrl;
+    window.isValidSupportEmail = isValidSupportEmail;
+    window.publicProfileDisplayName = publicProfileDisplayName;
+    window.normalizeBusinessIndustry = normalizeBusinessIndustry;
+    window.businessIndustryLabel = businessIndustryLabel;
+    window.normalizeAddressVisibility = normalizeAddressVisibility;
+    window.visibleBusinessAddress = visibleBusinessAddress;
+    window.normalizeBusinessVerificationStatus = normalizeBusinessVerificationStatus;
+    window.businessVerificationStatusLabel = businessVerificationStatusLabel;
+    window.businessVerificationAllowsCheckout = businessVerificationAllowsCheckout;
+    window.isBusinessInfoIncomplete = isBusinessInfoIncomplete;
+    window.stripSensitiveVerificationFields = stripSensitiveVerificationFields;
+    window.publicSafeUserFields = publicSafeUserFields;
+    window.syncBusinessIndustryOther = syncBusinessIndustryOther;
+    window.paintProfileContact = paintProfileContact;
+    window.paintBusinessVerificationStatusUi = paintBusinessVerificationStatusUi;
+    window.openBusinessVerificationModal = openBusinessVerificationModal;
+    window.closeBusinessVerificationModal = closeBusinessVerificationModal;
+    window.submitBusinessVerificationApplication = submitBusinessVerificationApplication;
+    window.sendBusinessVerificationEmailCode = sendBusinessVerificationEmailCode;
+    window.verifyBusinessVerificationEmailCode = verifyBusinessVerificationEmailCode;
+    window.syncBizVerTaxLabel = syncBizVerTaxLabel;
+    window.refreshBusinessVerificationAdmin = refreshBusinessVerificationAdmin;
+    window.decideBusinessVerification = decideBusinessVerification;
+    window.promptBusinessVerificationMoreInfo = promptBusinessVerificationMoreInfo;
+    window.promptBusinessVerificationReject = promptBusinessVerificationReject;
+    window.openCompleteBusinessInfo = openCompleteBusinessInfo;
+    window.isValidUsEin = isValidUsEin;
+    window.updateBusinessPlusCheckoutGate = updateBusinessPlusCheckoutGate;
+    window.interceptBusinessPlusCheckout = interceptBusinessPlusCheckout;
+    window.maybeMarkBusinessVerificationLegacyExempt = maybeMarkBusinessVerificationLegacyExempt;
+    window.checkOrganizationEinAndStrip = checkOrganizationEinAndStrip;
+    window.compressVerificationImage = compressVerificationImage;
+    window.prepareVerificationUpload = prepareVerificationUpload;
+    window.isVerificationPdf = isVerificationPdf;
+    window.isVerificationImage = isVerificationImage;
+    window.VERIFICATION_IMAGE_MAX_BYTES = VERIFICATION_IMAGE_MAX_BYTES;
+    window.VERIFICATION_IMAGE_MAX_EDGE = VERIFICATION_IMAGE_MAX_EDGE;
+
     function setOwnerAvatarEditorVisible(show) {
       const label = document.getElementById('btn-profile-avatar-edit') || document.querySelector('label[for="profile-avatar-direct-upload"]');
       if (!label) return;
@@ -10011,7 +11135,11 @@ function syncLikedStateToPosts() {
       if (userEl) userEl.textContent = state.currentUser.username;
       
       const nameEl = document.getElementById('profile-full-name');
-      if (nameEl) nameEl.textContent = isPixly ? 'Pixlynote' : (state.currentUser.fullName || state.currentUser.username);
+      if (nameEl) {
+        const display = (typeof publicProfileDisplayName === 'function') ? publicProfileDisplayName(state.currentUser) : (state.currentUser.fullName || state.currentUser.username);
+        nameEl.textContent = isPixly ? 'Pixlynote' : (display || state.currentUser.username);
+      }
+      if (typeof maybeMarkBusinessVerificationLegacyExempt === 'function') maybeMarkBusinessVerificationLegacyExempt(state.currentUser);
       
       // Blue Verified Checkmark (Firestore subscription status)
       if (typeof paintStatusBadgesForUser === 'function') {
@@ -10087,7 +11215,9 @@ function syncLikedStateToPosts() {
       if (typeof paintProfileLocation === 'function') paintProfileLocation('profile-location', 'profile-location-text', state.currentUser.location);
       // Website Link: NEVER shown for Pixlynote unless custom link; shown for Bradley
       const ownerLink = (isPixly && !(state.currentUser.link || '').trim()) ? '' : (state.currentUser.link || '');
-      if (typeof paintProfileLink === 'function') paintProfileLink('profile-link', 'profile-link-text', ownerLink);
+      if (typeof paintProfileLink === 'function') paintProfileLink('profile-link', 'profile-link-text', '');
+      if (typeof paintProfileContact === 'function') paintProfileContact('profile', Object.assign({}, state.currentUser, { link: ownerLink }));
+      if (typeof updateBusinessInfoPromptUi === 'function') updateBusinessInfoPromptUi();
       if (typeof paintInfoAboutFields === 'function') {
         paintInfoAboutFields(
           { username: 'own-info-username', joined: 'own-info-joined', category: 'own-info-category' },
@@ -12560,6 +13690,8 @@ function syncLikedStateToPosts() {
       
       const linkInp = document.getElementById('edit-profile-link');
       if (linkInp) linkInp.value = isPixly ? '' : (state.currentUser.link || '');
+      if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser);
+      if (typeof updateBusinessInfoPromptUi === 'function') updateBusinessInfoPromptUi();
 
       if (typeof window.hydrateActiveAccountFromFirestore === 'function' && state.currentUser && state.currentUser.username) {
         window.hydrateActiveAccountFromFirestore(state.currentUser.username);
@@ -15756,7 +16888,15 @@ function syncLikedStateToPosts() {
       // Contact buttons come ONLY from this profile's own users/{u} doc (never the viewer's or Bradley's record).
       vc._contact = { user: u, email: typeof d.email === 'string' ? d.email : '', phone: typeof d.phone === 'string' ? d.phone : '', prefs: normalizeContactPrefs(d.contactPrefs) };
       renderViewedContactButtons();
-      if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; setText('user-profile-fullname', d.fullName); }
+      if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; }
+      if (typeof d.dbaName === 'string') vc.dbaName = d.dbaName;
+      ['businessIndustry','businessIndustryOther','businessStreet','businessCity','businessState','businessPostal','businessAddressVisibility','businessHours','businessSupportEmail','businessVerificationStatus','businessVerificationLegacyExempt'].forEach(function (k) {
+        if (d[k] !== undefined) vc[k] = d[k];
+      });
+      if (typeof SENSITIVE_VERIFICATION_FIELDS !== 'undefined') {
+        SENSITIVE_VERIFICATION_FIELDS.forEach(function (k) { if (k in vc) delete vc[k]; });
+      }
+      setText('user-profile-fullname', (typeof publicProfileDisplayName === 'function') ? publicProfileDisplayName(vc) : (vc.fullName || ''));
       if (typeof d.bio === 'string') { vc.bio = d.bio; if (typeof paintProfileBio === 'function') paintProfileBio('user-profile-bio', d.bio); else setText('user-profile-bio', d.bio); }
       const av = d.photoURL || d.avatar;
       if (typeof av === 'string' && av) { vc.avatar = av; const img = document.getElementById('user-profile-avatar'); if (img) img.src = av; }
@@ -15766,7 +16906,8 @@ function syncLikedStateToPosts() {
       vc.location = (typeof d.location === 'string') ? d.location : '';
       if (typeof paintProfileLocation === 'function') paintProfileLocation('user-profile-location', 'user-profile-location-text', vc.location);
       vc.link = typeof d.link === 'string' ? d.link : '';
-      if (typeof paintProfileLink === 'function') paintProfileLink('user-profile-link', 'user-profile-link-text', vc.link);
+      if (typeof paintProfileLink === 'function') paintProfileLink('user-profile-link', 'user-profile-link-text', '');
+      if (typeof paintProfileContact === 'function') paintProfileContact('user-profile', vc);
       if (typeof d.joined === 'string') vc.joined = d.joined;
       if (typeof paintInfoAboutFields === 'function') paintInfoAboutFields({ username: 'info-username', joined: 'info-joined', category: 'info-category' }, vc);
       vc.isVerified = d.isVerified === true;
@@ -16023,7 +17164,9 @@ function syncLikedStateToPosts() {
         accountType: '',
         verificationType: '',
         verificationStatus: '',
-        governmentBadgeColor: ''
+        governmentBadgeColor: '',
+        businessVerificationStatus: '',
+        businessVerificationLegacyExempt: false
       };
       function assign(d) {
         if (!d) return;
@@ -16035,6 +17178,8 @@ function syncLikedStateToPosts() {
         if (d.verificationType !== undefined) flags.verificationType = d.verificationType || '';
         if (d.verificationStatus !== undefined) flags.verificationStatus = d.verificationStatus || '';
         if (d.governmentBadgeColor) flags.governmentBadgeColor = d.governmentBadgeColor;
+        if (d.businessVerificationStatus !== undefined) flags.businessVerificationStatus = d.businessVerificationStatus || '';
+        if (d.businessVerificationLegacyExempt !== undefined) flags.businessVerificationLegacyExempt = d.businessVerificationLegacyExempt === true;
       }
       if (cleanU) {
         // Weak default from the caller (may be a stale post/comment), then live user docs overwrite.
@@ -16052,7 +17197,19 @@ function syncLikedStateToPosts() {
       const cleanU = flags.username || '';
       const isSelf = !!(state && state.currentUser && (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase()) === cleanU);
       if (!cleanU || (!isSelf && (cleanU.includes('bot') || cleanU.includes('test')))) return false;
-      return flags.isBusinessPlus === true;
+      if (flags.isBusinessPlus !== true) return false;
+      const status = (typeof normalizeBusinessVerificationStatus === 'function')
+        ? normalizeBusinessVerificationStatus(flags.businessVerificationStatus)
+        : String(flags.businessVerificationStatus || '').toLowerCase();
+      // New rule: green check only when Business Plus is active AND the application is approved.
+      // Legacy subscribers who already had Business Plus with no application keep the check and
+      // are prompted to submit. After they submit, legacyExempt keeps the check while pending /
+      // more_info; a rejection hides it. Existing tests that set isBusinessPlus without a status
+      // still see the check (status is treated as not_submitted).
+      if (status === 'approved') return true;
+      if (status === 'rejected') return false;
+      if (status === 'pending' || status === 'more_info') return flags.businessVerificationLegacyExempt === true;
+      return true;
     }
     function getAssociatedBusinessFor(creator) {
       const flags = lookupCreatorFlags(creator);
@@ -16220,9 +17377,13 @@ function syncLikedStateToPosts() {
       window._verificationRequests = window._verificationRequests || {};
       window._verificationWrites = window._verificationWrites || [];
       if (requestData) {
-        window._verificationRequests[u] = Object.assign({}, window._verificationRequests[u] || {}, requestData, { username: u });
+        const safeReq = (typeof stripSensitiveVerificationFields === 'function') ? stripSensitiveVerificationFields(requestData) : requestData;
+        window._verificationRequests[u] = Object.assign({}, window._verificationRequests[u] || {}, safeReq, { username: u });
       }
       const record = window._verificationRequests[u] || requestData;
+      if (typeof stripSensitiveVerificationFields === 'function' && record) {
+        SENSITIVE_VERIFICATION_FIELDS.forEach(function (k) { if (k in record) delete record[k]; });
+      }
       window._verificationWrites.push({ collection: 'verificationRequests', id: u, data: record });
       if (userFields) window._verificationWrites.push({ collection: 'users', id: u, data: userFields });
       const canWrite = window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc;
@@ -16362,6 +17523,12 @@ function syncLikedStateToPosts() {
       const off = 'flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 cursor-pointer';
       if (gov) gov.className = t === 'government' ? on : off;
       if (org) org.className = t === 'organization' ? on : off;
+      const einWrap = document.getElementById('verification-org-ein-wrap');
+      if (einWrap) {
+        const show = t === 'organization';
+        einWrap.classList.toggle('hidden', !show);
+        einWrap.style.display = show ? '' : 'none';
+      }
     }
     function fillVerificationRequestForm(prefill, requestedType) {
       const p = prefill || storedVerificationPrefill();
@@ -16496,6 +17663,8 @@ function syncLikedStateToPosts() {
     function openVerificationBadgesModal() {
       closeVerificationPaywall();
       closeVerificationRequestModal();
+      if (typeof paintBusinessVerificationStatusUi === 'function') paintBusinessVerificationStatusUi(state && state.currentUser);
+      if (typeof refreshBusinessVerificationStatusFromWorker === 'function') refreshBusinessVerificationStatusFromWorker();
       const v = getVerificationState(state && state.currentUser);
       const title = document.getElementById('verification-badges-title');
       const sub = document.getElementById('verification-badges-copy');
@@ -16613,6 +17782,19 @@ function syncLikedStateToPosts() {
         }
         if (!emailVerified) needsManualReview = true;
       }
+      let orgEinCheck = null;
+      if (type === 'organization' && typeof checkOrganizationEinAndStrip === 'function') {
+        const rawEin = ((document.getElementById('verification-org-ein') || {}).value || '').trim();
+        if (rawEin && typeof isValidUsEin === 'function' && !isValidUsEin(rawEin).ok) {
+          setVerificationFormStatus('EIN must use the XX-XXXXXXX format, or leave it blank.', true);
+          return false;
+        }
+        orgEinCheck = await checkOrganizationEinAndStrip();
+        if (orgEinCheck && orgEinCheck.error === 'invalid_ein_format') {
+          setVerificationFormStatus('EIN must use the XX-XXXXXXX format, or leave it blank.', true);
+          return false;
+        }
+      }
       const u = (typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase();
       const now = Date.now();
       const baseType = (state.currentUser.accountType === 'business' || u === 'pixlynote') ? 'business' : 'personal';
@@ -16629,7 +17811,10 @@ function syncLikedStateToPosts() {
         governmentBadgeColor: (state.currentUser.governmentBadgeColor === 'navy') ? 'navy' : 'slate',
         baseAccountType: state.currentUser.verificationBaseAccountType || baseType,
         requestedAt: state.currentUser.verificationRequestedAt || now,
-        updatedAt: now
+        updatedAt: now,
+        organizationEinSubmitted: !!(orgEinCheck && (orgEinCheck.checked || orgEinCheck.formatOk || orgEinCheck.match === true || orgEinCheck.match === false)),
+        organizationEinMatch: !!(orgEinCheck && orgEinCheck.match),
+        organizationEinNameMatch: !!(orgEinCheck && orgEinCheck.nameMatch)
       };
       const userFields = {
         verificationType: type,
@@ -16680,6 +17865,7 @@ function syncLikedStateToPosts() {
       if (orgPending) orgPending.classList.toggle('hidden', !(v.status === 'pending' && v.type === 'organization'));
     }
     async function refreshVerificationRequests(manualRefresh) {
+      if (typeof refreshBusinessVerificationAdmin === 'function') refreshBusinessVerificationAdmin(true);
       const list = document.getElementById('drawer-verification-requests-list');
       const countEl = document.getElementById('verification-requests-count');
       const loadFromCloud = async () => {
@@ -17052,7 +18238,7 @@ function syncLikedStateToPosts() {
       }
 
       const profileFullName = document.getElementById('user-profile-fullname');
-      if (profileFullName) profileFullName.textContent = creator.fullName || '';
+      if (profileFullName) profileFullName.textContent = (typeof publicProfileDisplayName === 'function') ? (publicProfileDisplayName(creator) || '') : (creator.fullName || '');
 
       if (typeof paintProfileBio === 'function') paintProfileBio('user-profile-bio', creator.bio);
       else {
@@ -17062,7 +18248,8 @@ function syncLikedStateToPosts() {
 
       if (typeof paintPublicSubtitle === 'function') paintPublicSubtitle('user-profile-category', (typeof officialCategorySubtitle === 'function') ? officialCategorySubtitle(creator, creator.category) : creator.category);
       if (typeof paintProfileLocation === 'function') paintProfileLocation('user-profile-location', 'user-profile-location-text', creator.location);
-      if (typeof paintProfileLink === 'function') paintProfileLink('user-profile-link', 'user-profile-link-text', creator.link);
+      if (typeof paintProfileLink === 'function') paintProfileLink('user-profile-link', 'user-profile-link-text', '');
+      if (typeof paintProfileContact === 'function') paintProfileContact('user-profile', creator);
 
       if (typeof paintInfoAboutFields === 'function') {
         paintInfoAboutFields({ username: 'info-username', joined: 'info-joined', category: 'info-category' }, creator);
@@ -23024,6 +24211,9 @@ function syncLikedStateToPosts() {
           const userInp = document.getElementById('signup-username');
           const bioInp = document.getElementById('signup-bio');
 
+          const bizFields = document.getElementById('signup-business-fields');
+          const webGroup = document.getElementById('signup-website-group');
+          const userLbl = document.getElementById('lbl-signup-username');
           if (type === 'business') {
             if (btnPersonal) {
               btnPersonal.className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5";
@@ -23031,13 +24221,16 @@ function syncLikedStateToPosts() {
             if (btnBusiness) {
               btnBusiness.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
             }
-            if (nameLbl) nameLbl.textContent = "Business Name";
+            if (nameLbl) nameLbl.textContent = "Display Name";
             if (nameInp) nameInp.placeholder = "e.g. Pixlynote";
             if (userInp) userInp.placeholder = "pixlynote";
+            if (userLbl) userLbl.textContent = "Handle";
             if (bioInp) {
               bioInp.placeholder = "Tell others about your brand, company, or mission...";
               bioInp.value = "";
             }
+            if (bizFields) { bizFields.classList.remove('hidden'); bizFields.style.display = ''; }
+            if (webGroup) { webGroup.classList.remove('hidden'); webGroup.style.display = ''; }
           } else {
             if (btnPersonal) {
               btnPersonal.className = "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5";
@@ -23048,11 +24241,15 @@ function syncLikedStateToPosts() {
             if (nameLbl) nameLbl.textContent = "Full Name";
             if (nameInp) nameInp.placeholder = "e.g. John Doe";
             if (userInp) userInp.placeholder = "johndoe_creates";
+            if (userLbl) userLbl.textContent = "Choose Username";
             if (bioInp) {
               bioInp.placeholder = "Tell other creators about yourself...";
               bioInp.value = "";
             }
+            if (bizFields) { bizFields.classList.add('hidden'); bizFields.style.display = 'none'; }
+            if (webGroup) { webGroup.classList.add('hidden'); webGroup.style.display = 'none'; }
           }
+          if (typeof syncBusinessIndustryOther === 'function') syncBusinessIndustryOther('signup');
         }
 
         function setAuthMode(mode) {
@@ -23574,7 +24771,7 @@ function syncLikedStateToPosts() {
           if (btnP) btnP.className = isBiz ? idle : selected;
           if (btnB) btnB.className = isBiz ? selected : idle;
           if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
-          if (lbl) lbl.textContent = isBiz ? 'Business Name' : 'Full Name';
+          if (lbl) lbl.textContent = isBiz ? 'Display Name' : 'Full Name';
           if (nameInp) {
             nameInp.placeholder = isBiz ? 'e.g. Pixlynote' : 'e.g. John Doe';
             nameInp.value = getEditProfileSavedName(isBiz ? 'business' : 'personal');
@@ -23587,6 +24784,13 @@ function syncLikedStateToPosts() {
             const el = document.getElementById(id);
             if (el) el.value = u[key] || '';
           });
+          const bizWrap = document.getElementById('edit-profile-business-fields');
+          if (bizWrap) {
+            bizWrap.classList.toggle('hidden', !isBiz);
+            bizWrap.style.display = isBiz ? '' : 'none';
+          }
+          if (isBiz && typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(u);
+          if (typeof updateBusinessInfoPromptUi === 'function') updateBusinessInfoPromptUi();
           if (typeof styleEditSaveButton === 'function') styleEditSaveButton(typeof editProfileCanSave === 'function' && editProfileCanSave());
         }
         function applyEditProfileAccountCategoryChange(next) {
@@ -24250,7 +25454,7 @@ function syncLikedStateToPosts() {
             const v = updateSignUpValidationState();
 
             if (!n) {
-              showToast(isBiz ? 'Business Name is required' : 'Full Name is required');
+              showToast(isBiz ? 'Display Name is required' : 'Full Name is required');
               const el = document.getElementById('login-fullname');
               if (el) el.focus();
               return;
@@ -24290,6 +25494,27 @@ function syncLikedStateToPosts() {
               return;
             }
 
+            if (isBiz) {
+              const industry = typeof normalizeBusinessIndustry === 'function'
+                ? normalizeBusinessIndustry((document.getElementById('signup-business-industry') || {}).value)
+                : ((document.getElementById('signup-business-industry') || {}).value || '');
+              if (!industry) {
+                showToast('Please choose an industry / category');
+                const el = document.getElementById('signup-business-industry');
+                if (el) el.focus();
+                return;
+              }
+              const linkEl = document.getElementById('signup-link');
+              if (linkEl && linkEl.value && typeof normalizeWebsiteUrl === 'function') {
+                const n = normalizeWebsiteUrl(linkEl.value);
+                if (!n.ok) {
+                  showToast('Enter a valid http(s) website URL');
+                  linkEl.focus();
+                  return;
+                }
+              }
+            }
+
             state.signUpStep = 2;
             if (step1) { step1.classList.add('hidden'); step1.style.display = 'none'; }
             if (step2) { step2.classList.remove('hidden'); step2.style.display = 'block'; }
@@ -24321,7 +25546,7 @@ function syncLikedStateToPosts() {
           const v = updateSignUpValidationState();
 
           if (!n) {
-            showToast(isBiz ? 'Business Name is required' : 'Full Name is required');
+            showToast(isBiz ? 'Display Name is required' : 'Full Name is required');
             goToSignUpStep(1);
             const el = document.getElementById('login-fullname');
             if (el) el.focus();
@@ -24367,6 +25592,41 @@ function syncLikedStateToPosts() {
             return;
           }
 
+          let signupIndustry = '';
+          let signupIndustryOther = '';
+          let signupDba = '';
+          let signupLink = '';
+          if (isBiz) {
+            signupIndustry = typeof normalizeBusinessIndustry === 'function'
+              ? normalizeBusinessIndustry((document.getElementById('signup-business-industry') || {}).value)
+              : ((document.getElementById('signup-business-industry') || {}).value || '');
+            if (!signupIndustry) {
+              showToast('Please choose an industry / category');
+              goToSignUpStep(1);
+              const el = document.getElementById('signup-business-industry');
+              if (el) el.focus();
+              return;
+            }
+            signupIndustryOther = signupIndustry === 'other'
+              ? (((document.getElementById('signup-business-industry-other') || {}).value || '').trim().slice(0, 80))
+              : '';
+            signupDba = ((document.getElementById('signup-dba-name') || {}).value || '').trim();
+            const rawLink = ((document.getElementById('signup-link') || {}).value || '').trim();
+            if (rawLink && typeof normalizeWebsiteUrl === 'function') {
+              const n = normalizeWebsiteUrl(rawLink);
+              if (!n.ok) {
+                showToast('Enter a valid http(s) website URL');
+                goToSignUpStep(2);
+                const el = document.getElementById('signup-link');
+                if (el) el.focus();
+                return;
+              }
+              signupLink = n.href;
+            } else {
+              signupLink = rawLink;
+            }
+          }
+
           const fullName = n;
           const accountType = isBiz ? 'business' : 'personal';
 
@@ -24374,16 +25634,19 @@ function syncLikedStateToPosts() {
           const newAccount = {
             username: u,
             fullName: fullName,
+            dbaName: isBiz ? signupDba : '',
             email: em,
             phone: phone,
             accountType: accountType,
             password: pw,
             bio: bio,
-            link: '',
+            link: signupLink,
             avatar: avatar,
             postsCount: 0,
             followersCount: "0",
-            followingCount: "0"
+            followingCount: "0",
+            businessIndustry: isBiz ? signupIndustry : '',
+            businessIndustryOther: isBiz ? signupIndustryOther : ''
           };
 
           // Save into global in-memory account directory
@@ -24449,9 +25712,10 @@ function syncLikedStateToPosts() {
             if (window.firebaseReady && window.firebase && window.firebase.db) {
               try {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', u.toLowerCase()), {
+                const signupDoc = {
                   username: u.toLowerCase(),
                   fullName: fullName,
+                  dbaName: newAccount.dbaName || '',
                   email: em,
                   phone: phone,
                   accountType: accountType,
@@ -24461,9 +25725,14 @@ function syncLikedStateToPosts() {
                   isVerified: false,
                   isPlus: false,
                   subscriptionStatus: 'inactive',
+                  bio: newAccount.bio || '',
+                  link: newAccount.link || '',
+                  businessIndustry: newAccount.businessIndustry || '',
+                  businessIndustryOther: newAccount.businessIndustryOther || '',
                   createdAt: Date.now(),
                   lastUpdated: Date.now()
-                }, { merge: true }).then(() => {
+                };
+                setDoc(doc(db, 'users', u.toLowerCase()), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(signupDoc) : signupDoc), { merge: true }).then(() => {
                   if (em && typeof window.sendPixlynoteEmail === 'function') {
                     window.sendPixlynoteEmail('welcome', { to: em, username: u.toLowerCase() }).catch(() => {});
                   }
@@ -25301,6 +26570,17 @@ function syncLikedStateToPosts() {
         }
 
         // Edit Profile Form Submit
+        const btnCompleteBizInfo = document.getElementById('btn-edit-complete-business-info');
+        if (btnCompleteBizInfo) btnCompleteBizInfo.addEventListener('click', function (e) { e.preventDefault(); if (typeof openCompleteBusinessInfo === 'function') openCompleteBusinessInfo(); });
+        const btnDismissBizBanner = document.getElementById('btn-dismiss-business-info-banner');
+        if (btnDismissBizBanner) btnDismissBizBanner.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (state && state.currentUser && typeof dismissBusinessInfoPrompt === 'function') dismissBusinessInfoPrompt(state.currentUser.username);
+          if (typeof updateBusinessInfoPromptUi === 'function') updateBusinessInfoPromptUi();
+        });
+        const btnProfileCompleteBiz = document.getElementById('btn-profile-complete-business-info');
+        if (btnProfileCompleteBiz) btnProfileCompleteBiz.addEventListener('click', function (e) { e.preventDefault(); if (typeof openCompleteBusinessInfo === 'function') openCompleteBusinessInfo(); });
+
         const editProfileForm = document.getElementById('edit-profile-form');
         if (editProfileForm) {
           editProfileForm.addEventListener('submit', (e) => {
@@ -25311,7 +26591,34 @@ function syncLikedStateToPosts() {
             const phoneInp = document.getElementById('edit-profile-phone');
             const phone = phoneInp ? phoneInp.value.trim() : '';
             const bio = document.getElementById('edit-profile-bio').value.trim();
-            const link = document.getElementById('edit-profile-link').value.trim();
+            let link = document.getElementById('edit-profile-link').value.trim();
+            const editingBiz = window._editingAccountType === 'business';
+            let bizFields = null;
+            if (typeof normalizeWebsiteUrl === 'function' && link) {
+              const n = normalizeWebsiteUrl(link);
+              if (!n.ok) {
+                showToast('Enter a valid http(s) website URL. javascript: and data: links are blocked.');
+                const linkEl = document.getElementById('edit-profile-link');
+                if (linkEl) linkEl.focus();
+                return;
+              }
+              link = n.href;
+            } else if (typeof normalizeWebsiteUrl === 'function') {
+              link = '';
+            }
+            if (editingBiz && typeof collectEditProfileBusinessFields === 'function') {
+              bizFields = collectEditProfileBusinessFields();
+              if (bizFields.businessSupportEmail && !bizFields.businessSupportEmail.ok) {
+                const err = document.getElementById('edit-profile-support-email-error');
+                if (err) { err.classList.remove('hidden'); err.style.display = ''; }
+                showToast('Enter a valid support email, or leave it blank.');
+                const el = document.getElementById('edit-profile-support-email');
+                if (el) el.focus();
+                return;
+              }
+              const err = document.getElementById('edit-profile-support-email-error');
+              if (err) err.classList.add('hidden');
+            }
 
             if (!email && !phone) {
               showToast('Please provide either an email or phone number');
@@ -25319,7 +26626,7 @@ function syncLikedStateToPosts() {
               return;
             }
             if (!name) {
-              showToast((window._editingAccountType === 'business') ? 'Business Name is required' : 'Full Name is required');
+              showToast((window._editingAccountType === 'business') ? 'Display Name is required' : 'Full Name is required');
               const nameEl = document.getElementById('edit-profile-name');
               if (nameEl) nameEl.focus();
               return;
@@ -25399,12 +26706,26 @@ function syncLikedStateToPosts() {
             if (offerAfter === 'business' || offerAfter === 'plus') window._offerSubscriptionAfterSave = offerAfter;
             if (bio !== undefined) state.currentUser.bio = bio;
             if (link !== undefined) state.currentUser.link = link;
+            if (editingBiz && bizFields) {
+              state.currentUser.dbaName = bizFields.dbaName || '';
+              state.currentUser.businessIndustry = bizFields.businessIndustry || '';
+              state.currentUser.businessIndustryOther = bizFields.businessIndustryOther || '';
+              state.currentUser.businessStreet = bizFields.businessStreet || '';
+              state.currentUser.businessCity = bizFields.businessCity || '';
+              state.currentUser.businessState = bizFields.businessState || '';
+              state.currentUser.businessPostal = bizFields.businessPostal || '';
+              state.currentUser.businessAddressVisibility = bizFields.businessAddressVisibility || 'city_state';
+              state.currentUser.businessHours = bizFields.businessHours || '';
+              state.currentUser.businessSupportEmail = (bizFields.businessSupportEmail && bizFields.businessSupportEmail.value) || '';
+            }
 
             try {
               if (phone) localStorage.setItem('pixly_user_phone', phone);
               localStorage.setItem('pixly_user_email', email || '');
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-              const rec = {
+              const rec = (typeof publicSafeUserFields === 'function')
+                ? publicSafeUserFields(state.currentUser)
+                : {
                 username: state.currentUser.username,
                 fullName: state.currentUser.fullName,
                 email: state.currentUser.email,
@@ -25414,6 +26735,8 @@ function syncLikedStateToPosts() {
                 link: state.currentUser.link || '',
                 avatar: state.currentUser.avatar
               };
+              rec.phone = phone;
+              rec.avatar = state.currentUser.avatar;
               const uKey = state.currentUser.username.toLowerCase();
               accts[uKey] = rec;
               if (email) accts[email.toLowerCase()] = rec;
@@ -25451,7 +26774,9 @@ function syncLikedStateToPosts() {
               }
               if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', normUKey), {
+                const userDoc = (typeof publicSafeUserFields === 'function')
+                  ? Object.assign(publicSafeUserFields(state.currentUser), { photoURL: state.currentUser.avatar, lastUpdated: Date.now() })
+                  : {
                   username: state.currentUser.username,
                   fullName: state.currentUser.fullName,
                   email: state.currentUser.email || '',
@@ -25462,7 +26787,9 @@ function syncLikedStateToPosts() {
                   photoURL: state.currentUser.avatar,
                   avatar: state.currentUser.avatar,
                   lastUpdated: Date.now()
-                }, { merge: true }).catch(() => {});
+                };
+                if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
+                setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }).catch(() => {});
               }
             } catch(fbErr) {}
             try {
@@ -28397,14 +29724,26 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           ? 'Your Business Plus subscription is currently active. Cancel anytime through the Stripe billing portal.'
           : 'Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.';
       }
+      if (typeof updateBusinessPlusCheckoutGate === 'function') updateBusinessPlusCheckoutGate();
     }
     window.updateSubscriptionModalUI = updateSubscriptionModalUI;
 
     function wireStripeBuyButton(buyBtn, kind) {
       if (!buyBtn || buyBtn.dataset.checkoutWired) return;
       buyBtn.dataset.checkoutWired = '1';
+      if (kind === 'business') {
+        ['pointerdown', 'click'].forEach(evt => {
+          buyBtn.addEventListener(evt, function (e) {
+            if (typeof interceptBusinessPlusCheckout === 'function') interceptBusinessPlusCheckout(e);
+          }, true);
+        });
+      }
       ['pointerdown', 'click'].forEach(evt => {
         buyBtn.addEventListener(evt, () => {
+          if (kind === 'business' && typeof businessVerificationAllowsCheckout === 'function') {
+            const u = state && state.currentUser;
+            if (u && !u.isBusinessPlus && !businessVerificationAllowsCheckout(u)) return;
+          }
           const nowStr = String(Date.now());
           try {
             sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr);
@@ -28651,6 +29990,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           publishable-key="pk_test_51Ub5h1FSVMbdmupTf8a43UX74oE9Gt1zUY3VWtOOvjrFR1xcn0lg1Y7mkYPBvq5o0PxHrnj8ubU4P0Ct8WZz95Yt00PJMOJKbD"
         >
         </stripe-buy-button>
+
+            <div id="business-plus-verification-gate" class="hidden mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+              <p class="font-semibold">Business verification is required before checkout</p>
+              <p class="mt-1 leading-relaxed">Submit a Business verification application first. You can check out for Business Plus once it is submitted (pending review is enough). The green check appears only after the application is approved and Business Plus is active.</p>
+              <button type="button" id="btn-subscription-open-business-verification" onclick="openBusinessVerificationModal({ fromCheckout: true })" class="mt-2 w-full py-2 px-3 text-[11px] font-bold text-white rounded-lg story-gradient cursor-pointer">Open application</button>
+            </div>
+
       </div>
     </div>
   </div>
@@ -28774,6 +30120,29 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div id="drawer-verification-requests-list" class="max-h-44 overflow-y-auto space-y-1.5 pr-0.5">
             <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No pending verification requests</div>
           </div>
+
+          <div id="drawer-business-verification-admin" class="mt-3 pt-3 border-t border-slate-200/80">
+            <div class="flex items-center justify-between mb-1.5">
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-extrabold text-xs text-neutral-900 leading-tight">Business Verification</span>
+                  <span id="business-verification-admin-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0</span>
+                </div>
+                <div class="text-[10px] font-medium text-slate-600 leading-tight">Manual review only — no auto-approval</div>
+              </div>
+              <button type="button" id="btn-refresh-business-verifications" onclick="refreshBusinessVerificationAdmin(true)" class="p-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh business verifications">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              </button>
+            </div>
+            <div id="business-verification-admin-token-wrap" class="mb-2">
+              <label for="business-verification-admin-token" class="block text-[10px] font-semibold text-neutral-500 mb-1">Admin token (session only, never stored)</label>
+              <input type="password" id="business-verification-admin-token" autocomplete="off" placeholder="Paste ADMIN_TOKEN" class="w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400">
+            </div>
+            <div id="drawer-business-verification-list" class="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
+              <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No business verification applications</div>
+            </div>
+          </div>
+
         </div>
 
         <!-- Profile Option -->
@@ -28936,7 +30305,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <span class="text-xl">🛡️</span>
             <div>
               <h3 class="text-base font-bold text-neutral-900">1. Pixlynote Privacy Policy</h3>
-              <p class="text-[11px] text-neutral-400">Last updated: November 18, 2026 · Compliant with GDPR, CCPA/CPRA, CalOPPA, and International Data Protection Regulations</p>
+              <p class="text-[11px] text-neutral-400">Last updated: November 19, 2026 · Compliant with GDPR, CCPA/CPRA, CalOPPA, and International Data Protection Regulations</p>
             </div>
           </div>
           
@@ -28964,6 +30333,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Payments &amp; Subscriptions</h4>
             <p>Paid memberships (Pixlynote Plus and Business Plus) are processed by Stripe. When you check out, Stripe handles card details. We receive payment status, a checkout session identifier, and the username we sent as a client reference so we can confirm your membership. We do not store full card numbers on Pixlynote.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Business Verification Records</h4>
+            <p>If you apply for Business verification (required before a new Business Plus checkout), you may submit a legal business name, tax identification number (such as a US EIN or a VAT/GST/national business number), registration or trademark numbers, the legal name and title of an authorized representative, and official documents including formation papers, tax letters, recent utility bills or bank statements, and a government-issued photo ID. These are restricted verification records. They are not written to Firestore (which is used for public profile data) and they are not kept in your browser after you submit the application. They are stored in a private Cloudflare R2 bucket and related metadata, accessible only to Pixlynote administrators for manual review. Your public profile may show a business verification status (Not Submitted, Pending Review, More Info Needed, Approved/Verified, or Rejected) and, if an administrator asks for more information, a review note — never the underlying tax IDs, legal documents, or photo ID. Public business profile fields such as DBA/trade name, industry category, website, hours, support email, and an address according to the visibility you choose are stored with your account so they can appear on your profile.</p>
           </div>
 
           <div class="space-y-2">
@@ -29019,6 +30393,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Government &amp; Organization Verification</h4>
             <p>Personal and Business accounts may apply for Government / Public Official or Organization / Non-Profit verification after they have an active Pixlynote Plus or Business Plus subscription. Government and Organization are badges on top of your Personal or Business plan, not a separate plan: Personal with Plus is $9.99, and Business with Business Plus is $29.99, with the official badge added once you are approved. Apply from Verification &amp; badges in Account Center, or from the Government and Organization tabs in Edit Profile. You must verify an official .gov or .mil email with a one-time code, or submit a public website URL for manual review. Approved Government accounts show a Civic Slate Gray or Deep Navy check (you can choose the color); approved Organization accounts show a teal check (#14B8A6). Plus editing perks stay active. If the matching Plus subscription lapses, or you switch between Personal and Business (which cancels the old plan), the official check is hidden, but the approval stays on file and the badge returns automatically when you subscribe to the matching new plan. You only need to reapply if a request was rejected or an approval was revoked. Requests with a verified official email are typically reviewed within 24 hours.</p>
+            <p>Business accounts may also apply for Business verification, which is required before a new Business Plus checkout. Submitting an application (pending review is enough) unlocks checkout. The green Business Plus check is shown only when Business Plus is active and the application has been approved, except that accounts that already had Business Plus before this requirement keep their check and are prompted to complete an application. A later rejection hides that check. Applications are reviewed manually by Pixlynote (there is no automatic approval). Status is shown in Verification &amp; badges as Not Submitted, Pending Review, More Info Needed, Approved/Verified, or Rejected. Restricted records such as tax IDs, legal entity names, registration numbers, legal documents, and government-issued photo IDs are stored only in a private verification store and are not placed on public profiles or in Firestore. Organization verification applications may include an optional EIN, which we check against free IRS tax-exempt organization data (via the ProPublica Nonprofit Explorer API) and report as a match or name match to administrators; the EIN itself is not saved to your public profile.</p>
           </div>
 
           <div class="space-y-2">

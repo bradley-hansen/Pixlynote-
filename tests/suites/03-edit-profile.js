@@ -212,7 +212,7 @@ module.exports = {
         const savedName = start.name;
         a.ok(savedName, 'Current category opens with the saved name: ' + savedName);
         a.ok(start.canSave && !start.saveDisabled, 'Save is enabled when the saved name for this category is present');
-        a.equal(start.label, isBiz ? 'Business Name' : 'Full Name', 'Label matches the current category');
+        a.equal(start.label, isBiz ? 'Display Name' : 'Full Name', 'Label matches the current category');
 
         const otherBtn = isBiz ? '#btn-edit-account-personal' : '#btn-edit-account-business';
         const backBtn = isBiz ? '#btn-edit-account-business' : '#btn-edit-account-personal';
@@ -241,7 +241,7 @@ module.exports = {
         a.equal(switched.type, isBiz ? 'personal' : 'business', 'Switcher selected the other category');
         a.equal(switched.name, '', 'The other category\'s name is not copied from the current name (got "' + switched.name + '")');
         a.ok((switched.placeholder || '').trim(), 'Empty name field shows a placeholder: ' + switched.placeholder);
-        a.equal(switched.label, isBiz ? 'Full Name' : 'Business Name', 'Label updates for the other category');
+        a.equal(switched.label, isBiz ? 'Full Name' : 'Display Name', 'Label updates for the other category');
         a.ok(!switched.canSave && switched.saveDisabled, 'Save is disabled until the new category name is filled');
         switched.extras.forEach((f) => {
           a.equal(f.value, '', 'Type-only field #' + f.id + ' starts empty');
