@@ -5461,21 +5461,91 @@
       }
       return String(window._adminTokenSession || '');
     }
-    async function refreshBusinessVerificationAdmin() {
-      const list = document.getElementById('drawer-business-verification-list');
-      const count = document.getElementById('business-verification-admin-count');
-      const token = sessionAdminToken();
-      if (!token) {
-        if (list) list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Enter the admin token to load applications. It is kept in this session only.</div>';
+    function adminRefreshSyncingHtml() {
+      return '<div class="text-[10px] text-slate-600 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Syncing...</div>';
+    }
+    function formatAdminRefreshClock(d) {
+      return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    function setAdminRefreshBusy(btn, busy) {
+      if (!btn) return;
+      btn.disabled = !!busy;
+      const svg = btn.querySelector('svg');
+      if (svg) svg.classList.toggle('animate-spin', !!busy);
+    }
+    function showAdminRefreshedAt(id, when) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = 'Refreshed · ' + formatAdminRefreshClock(when);
+      el.classList.remove('hidden');
+    }
+    function showBusinessVerificationAdminTokenError(msg) {
+      const el = document.getElementById('business-verification-admin-token-error');
+      if (!el) return;
+      const text = String(msg || '').trim();
+      el.textContent = text;
+      if (text) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+    function syncBusinessVerificationAdminLoadBtn(busy) {
+      const btn = document.getElementById('btn-load-business-verifications');
+      const tokenInp = document.getElementById('business-verification-admin-token');
+      if (!btn) return;
+      const hasToken = !!(tokenInp && String(tokenInp.value || '').trim());
+      if (busy) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
         return;
       }
+      btn.disabled = !hasToken;
+      btn.removeAttribute('aria-busy');
+    }
+    window.adminRefreshSyncingHtml = adminRefreshSyncingHtml;
+    window.formatAdminRefreshClock = formatAdminRefreshClock;
+    window.setAdminRefreshBusy = setAdminRefreshBusy;
+    window.showAdminRefreshedAt = showAdminRefreshedAt;
+    window.showBusinessVerificationAdminTokenError = showBusinessVerificationAdminTokenError;
+    window.syncBusinessVerificationAdminLoadBtn = syncBusinessVerificationAdminLoadBtn;
+    async function refreshBusinessVerificationAdmin(manualRefresh) {
+      if (manualRefresh === undefined) manualRefresh = false;
+      const list = document.getElementById('drawer-business-verification-list');
+      const count = document.getElementById('business-verification-admin-count');
+      const btn = document.getElementById('btn-refresh-business-verifications');
+      const tokenInp = document.getElementById('business-verification-admin-token');
+      const token = sessionAdminToken();
+      showBusinessVerificationAdminTokenError('');
+      if (!token) {
+        if (list) list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Enter the admin token to load applications. It is kept in this session only.</div>';
+        if (manualRefresh) {
+          if (typeof showToast === 'function') showToast('Enter the admin token first');
+          if (tokenInp && typeof tokenInp.focus === 'function') {
+            tokenInp.focus();
+            if (typeof tokenInp.select === 'function') tokenInp.select();
+          }
+        }
+        syncBusinessVerificationAdminLoadBtn(false);
+        return;
+      }
+      if (manualRefresh && list) list.innerHTML = adminRefreshSyncingHtml();
+      if (manualRefresh) setAdminRefreshBusy(btn, true);
+      if (manualRefresh) syncBusinessVerificationAdminLoadBtn(true);
       try {
         const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/admin/list', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json().catch(function () { return {}; });
+        if (res.status === 401) {
+          showBusinessVerificationAdminTokenError('Wrong admin token');
+          if (list) list.innerHTML = '<div class="text-[10px] text-rose-600 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">Wrong admin token</div>';
+          return;
+        }
+        if (!res.ok) {
+          if (list) list.innerHTML = '<div class="text-[10px] text-rose-600 text-center py-2">Could not load applications</div>';
+          return;
+        }
         const apps = (data && data.applications) || [];
         if (count) count.textContent = String(apps.length);
+        showAdminRefreshedAt('business-verification-admin-refreshed', Date.now());
         if (!list) return;
         if (!apps.length) {
           list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No business verification applications</div>';
@@ -5497,6 +5567,9 @@
         }).join('');
       } catch (e) {
         if (list) list.innerHTML = '<div class="text-[10px] text-rose-600 text-center py-2">Could not load applications</div>';
+      } finally {
+        if (manualRefresh) setAdminRefreshBusy(btn, false);
+        syncBusinessVerificationAdminLoadBtn(false);
       }
     }
     function promptBusinessVerificationMoreInfo(username) {
@@ -17865,9 +17938,14 @@ function syncLikedStateToPosts() {
       if (orgPending) orgPending.classList.toggle('hidden', !(v.status === 'pending' && v.type === 'organization'));
     }
     async function refreshVerificationRequests(manualRefresh) {
-      if (typeof refreshBusinessVerificationAdmin === 'function') refreshBusinessVerificationAdmin(true);
+      if (manualRefresh === undefined) manualRefresh = false;
+      if (typeof refreshBusinessVerificationAdmin === 'function') refreshBusinessVerificationAdmin(false);
       const list = document.getElementById('drawer-verification-requests-list');
       const countEl = document.getElementById('verification-requests-count');
+      const btn = document.getElementById('btn-refresh-verification-requests');
+      if (manualRefresh && list) list.innerHTML = (typeof adminRefreshSyncingHtml === 'function') ? adminRefreshSyncingHtml() : '<div class="text-[10px] text-slate-600 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Syncing...</div>';
+      if (manualRefresh && typeof setAdminRefreshBusy === 'function') setAdminRefreshBusy(btn, true);
+      try {
       const loadFromCloud = async () => {
         if (!(window.firebaseReady && window.firebase && window.firebase.getDocs && window.firebase.collection && window.firebase.db)) return;
         try {
@@ -17884,6 +17962,7 @@ function syncLikedStateToPosts() {
       const recs = Object.values(window._verificationRequests || {}).filter((r) => r && normalizeVerificationType(r.type || r.verificationType) && String(r.status || r.verificationStatus || '').toLowerCase() === 'pending');
       recs.sort((a, b) => (b.updatedAt || b.requestedAt || 0) - (a.updatedAt || a.requestedAt || 0));
       if (countEl) countEl.textContent = String(recs.length);
+      if (manualRefresh && typeof showAdminRefreshedAt === 'function') showAdminRefreshedAt('verification-requests-refreshed', Date.now());
       if (!list) return;
       if (!recs.length) {
         list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No pending verification requests</div>';
@@ -17906,6 +17985,9 @@ function syncLikedStateToPosts() {
           '<button type="button" class="flex-1 py-1 text-[10px] font-bold rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 cursor-pointer" onclick="rejectVerificationRequest(\'' + u + '\')">Reject</button>' +
           '</div></div>';
       }).join('');
+      } finally {
+        if (manualRefresh && typeof setAdminRefreshBusy === 'function') setAdminRefreshBusy(btn, false);
+      }
     }
     function notifyVerificationDecision(username, approved, type) {
       const label = type === 'organization' ? 'Organization' : 'Government';
@@ -30111,6 +30193,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
                   <span id="verification-requests-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-800">0</span>
                 </div>
                 <div class="text-[10px] font-medium text-slate-600 leading-tight">Government and Organization applications</div>
+                <div id="verification-requests-refreshed" class="hidden text-[10px] font-medium text-slate-500 leading-tight"></div>
               </div>
             </div>
             <button type="button" id="btn-refresh-verification-requests" onclick="refreshVerificationRequests(true)" class="p-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh verification requests">
@@ -30129,6 +30212,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
                   <span id="business-verification-admin-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0</span>
                 </div>
                 <div class="text-[10px] font-medium text-slate-600 leading-tight">Manual review only — no auto-approval</div>
+                <div id="business-verification-admin-refreshed" class="hidden text-[10px] font-medium text-slate-500 leading-tight"></div>
               </div>
               <button type="button" id="btn-refresh-business-verifications" onclick="refreshBusinessVerificationAdmin(true)" class="p-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh business verifications">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -30136,7 +30220,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             </div>
             <div id="business-verification-admin-token-wrap" class="mb-2">
               <label for="business-verification-admin-token" class="block text-[10px] font-semibold text-neutral-500 mb-1">Admin token (session only, never stored)</label>
-              <input type="password" id="business-verification-admin-token" autocomplete="off" placeholder="Paste ADMIN_TOKEN" class="w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400">
+              <div class="flex items-stretch gap-1.5 min-w-0">
+                <input type="password" id="business-verification-admin-token" autocomplete="off" placeholder="Paste ADMIN_TOKEN" class="flex-1 min-w-0 px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400" oninput="syncBusinessVerificationAdminLoadBtn()" onkeydown="if(event.key==='Enter'){event.preventDefault();refreshBusinessVerificationAdmin(true);}" onpaste="setTimeout(function(){syncBusinessVerificationAdminLoadBtn();refreshBusinessVerificationAdmin(true);},0)">
+                <button type="button" id="btn-load-business-verifications" onclick="refreshBusinessVerificationAdmin(true)" disabled class="flex-shrink-0 whitespace-nowrap px-3 py-1.5 text-[11px] font-bold rounded-lg bg-neutral-900 text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 cursor-pointer transition" title="Load applications">Load</button>
+              </div>
+              <div id="business-verification-admin-token-error" class="hidden mt-1 text-[10px] font-semibold text-rose-600 leading-tight" role="alert"></div>
             </div>
             <div id="drawer-business-verification-list" class="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
               <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No business verification applications</div>

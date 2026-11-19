@@ -77,9 +77,13 @@ function coversAll() {
     'el:#drawer-business-verification-admin',
     'el:#business-verification-admin-count',
     'el:#btn-refresh-business-verifications',
+    'el:#business-verification-admin-refreshed',
     'el:#business-verification-admin-token-wrap',
     'el:#business-verification-admin-token',
+    'el:#btn-load-business-verifications',
+    'el:#business-verification-admin-token-error',
     'el:#drawer-business-verification-list',
+    'el:#verification-requests-refreshed',
     'el:#business-plus-verification-gate',
     'el:#btn-subscription-open-business-verification',
     'handler:normalizeWebsiteUrl',
@@ -103,6 +107,12 @@ function coversAll() {
     'handler:verifyBusinessVerificationEmailCode',
     'handler:syncBizVerTaxLabel',
     'handler:refreshBusinessVerificationAdmin',
+    'handler:adminRefreshSyncingHtml',
+    'handler:formatAdminRefreshClock',
+    'handler:setAdminRefreshBusy',
+    'handler:showAdminRefreshedAt',
+    'handler:showBusinessVerificationAdminTokenError',
+    'handler:syncBusinessVerificationAdminLoadBtn',
     'handler:decideBusinessVerification',
     'handler:promptBusinessVerificationMoreInfo',
     'handler:promptBusinessVerificationReject',
@@ -144,7 +154,7 @@ module.exports = {
             'publicSafeUserFields', 'syncBusinessIndustryOther', 'paintProfileContact', 'paintBusinessVerificationStatusUi',
             'openBusinessVerificationModal', 'closeBusinessVerificationModal', 'submitBusinessVerificationApplication',
             'sendBusinessVerificationEmailCode', 'verifyBusinessVerificationEmailCode', 'syncBizVerTaxLabel',
-            'refreshBusinessVerificationAdmin', 'decideBusinessVerification', 'openCompleteBusinessInfo', 'isValidUsEin',
+            'refreshBusinessVerificationAdmin', 'adminRefreshSyncingHtml', 'formatAdminRefreshClock', 'setAdminRefreshBusy', 'showAdminRefreshedAt', 'showBusinessVerificationAdminTokenError', 'syncBusinessVerificationAdminLoadBtn', 'decideBusinessVerification', 'openCompleteBusinessInfo', 'isValidUsEin',
             'updateBusinessPlusCheckoutGate', 'interceptBusinessPlusCheckout', 'maybeMarkBusinessVerificationLegacyExempt',
             'checkOrganizationEinAndStrip', 'isBusinessPlusShown', 'compressVerificationImage', 'prepareVerificationUpload'
           ];
@@ -491,6 +501,331 @@ module.exports = {
         a.ok(r.w >= 640 && r.h >= 500, 'The photo stays large enough to remain legible');
         a.ok(/image\/(jpeg|png)/.test(r.outType || ''), 'Compressed output is a regular image type');
       }
+    }    ,
+    {
+      name: 'Admin verification refresh buttons spin, show Syncing and Refreshed time, and require a token',
+      accounts: ['pixlynote'],
+      covers: [
+        'el:#btn-refresh-verification-requests',
+        'el:#btn-refresh-business-verifications',
+        'el:#verification-requests-refreshed',
+        'el:#business-verification-admin-refreshed',
+        'el:#business-verification-admin-token',
+        'el:#drawer-business-verification-list',
+        'el:#drawer-verification-requests-list',
+        'handler:refreshVerificationRequests',
+        'handler:refreshBusinessVerificationAdmin',
+        'handler:setAdminRefreshBusy',
+        'handler:showAdminRefreshedAt'
+      ],
+      async run(ctx) {
+        const { page, a, h } = ctx;
+        await h.openOwnerMenu(page);
+        const noToken = await page.evaluate(async () => {
+          const token = document.getElementById('business-verification-admin-token');
+          const list = document.getElementById('drawer-business-verification-list');
+          const stamp = document.getElementById('business-verification-admin-refreshed');
+          const toast = document.getElementById('toast-text');
+          if (token) token.value = '';
+          window._adminTokenSession = '';
+          if (stamp) { stamp.textContent = ''; stamp.classList.add('hidden'); }
+          await refreshBusinessVerificationAdmin(true);
+          return {
+            listText: (list && list.textContent) || '',
+            toast: (toast && toast.textContent) || '',
+            focused: document.activeElement && document.activeElement.id === 'business-verification-admin-token',
+            stampHidden: !stamp || stamp.classList.contains('hidden') || !stamp.textContent
+          };
+        });
+        a.ok(/Enter the admin token/i.test(noToken.listText), 'Empty token leaves the enter-token message in the list');
+        a.ok(/Enter the admin token first/.test(noToken.toast), 'Empty-token refresh shows Enter the admin token first');
+        a.ok(noToken.focused, 'Empty-token refresh focuses the admin token field');
+        a.ok(noToken.stampHidden, 'Empty-token refresh does not mark the list as refreshed');
+
+        const ver = await page.evaluate(async () => {
+          const btn = document.getElementById('btn-refresh-verification-requests');
+          const list = document.getElementById('drawer-verification-requests-list');
+          const stamp = document.getElementById('verification-requests-refreshed');
+          if (stamp) { stamp.textContent = ''; stamp.classList.add('hidden'); }
+          window.firebaseReady = true;
+          window.firebase = window.firebase || {};
+          window.firebase.db = window.firebase.db || {};
+          window.firebase.collection = function () { return {}; };
+          window.firebase.getDocs = function () {
+            return new Promise(function (resolve) {
+              setTimeout(function () { resolve({ forEach: function () {} }); }, 180);
+            });
+          };
+          const p = refreshVerificationRequests(true);
+          await new Promise(function (r) { setTimeout(r, 30); });
+          const svg = btn && btn.querySelector('svg');
+          const mid = {
+            spinning: !!(svg && svg.classList.contains('animate-spin')),
+            syncing: !!(list && /Syncing/.test(list.textContent || ''))
+          };
+          await p;
+          const afterSvg = btn && btn.querySelector('svg');
+          return {
+            mid: mid,
+            afterSpin: !!(afterSvg && afterSvg.classList.contains('animate-spin')),
+            stamp: (stamp && stamp.textContent) || '',
+            stampHidden: !!(stamp && stamp.classList.contains('hidden')),
+            listText: (list && list.textContent) || ''
+          };
+        });
+        a.ok(ver.mid.spinning, 'Verification Requests refresh icon spins while loading');
+        a.ok(ver.mid.syncing, 'Verification Requests list shows Syncing... on manual refresh');
+        a.ok(!ver.afterSpin, 'Verification Requests icon stops spinning after the load');
+        a.ok(/^Refreshed · /.test(ver.stamp) && !ver.stampHidden, 'Verification Requests shows a Refreshed · h:mm line');
+        a.ok(/No pending verification requests/i.test(ver.listText), 'Verification Requests returns to the empty list after sync');
+
+        const biz = await page.evaluate(async () => {
+          const token = document.getElementById('business-verification-admin-token');
+          const btn = document.getElementById('btn-refresh-business-verifications');
+          const list = document.getElementById('drawer-business-verification-list');
+          const stamp = document.getElementById('business-verification-admin-refreshed');
+          const count = document.getElementById('business-verification-admin-count');
+          if (stamp) { stamp.textContent = ''; stamp.classList.add('hidden'); }
+          if (token) token.value = 'test-admin-token';
+          const origFetch = window.fetch;
+          window.fetch = function (url, opts) {
+            if (String(url).indexOf('/business-verification/admin/list') !== -1) {
+              return new Promise(function (resolve) {
+                setTimeout(function () {
+                  resolve(new Response(JSON.stringify({
+                    ok: true,
+                    applications: [{ username: 'acme', status: 'pending', dbaName: 'Acme Co' }]
+                  }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+                }, 180);
+              });
+            }
+            return origFetch.apply(this, arguments);
+          };
+          const p = refreshBusinessVerificationAdmin(true);
+          await new Promise(function (r) { setTimeout(r, 30); });
+          const svg = btn && btn.querySelector('svg');
+          const mid = {
+            spinning: !!(svg && svg.classList.contains('animate-spin')),
+            syncing: !!(list && /Syncing/.test(list.textContent || ''))
+          };
+          await p;
+          window.fetch = origFetch;
+          const afterSvg = btn && btn.querySelector('svg');
+          return {
+            mid: mid,
+            afterSpin: !!(afterSvg && afterSvg.classList.contains('animate-spin')),
+            stamp: (stamp && stamp.textContent) || '',
+            listText: (list && list.textContent) || '',
+            count: (count && count.textContent) || ''
+          };
+        });
+        a.ok(biz.mid.spinning, 'Business Verification refresh icon spins while loading');
+        a.ok(biz.mid.syncing, 'Business Verification list shows Syncing... on manual refresh');
+        a.ok(!biz.afterSpin, 'Business Verification icon stops spinning after the load');
+        a.ok(/^Refreshed · /.test(biz.stamp), 'Business Verification shows a Refreshed · h:mm line');
+        a.ok(/@acme/.test(biz.listText) && /Acme Co/.test(biz.listText), 'Business Verification list loads applications after a token is set');
+        a.equal(biz.count, '1', 'Business Verification count updates after refresh');
+
+        const typed = await page.evaluate(async () => {
+          const token = document.getElementById('business-verification-admin-token');
+          const list = document.getElementById('drawer-business-verification-list');
+          if (token) token.value = '';
+          window._adminTokenSession = '';
+          if (list) list.innerHTML = '';
+          if (token) token.value = 'pasted-admin-token';
+          token.dispatchEvent(new Event('paste', { bubbles: true }));
+          await new Promise(function (r) { setTimeout(r, 80); });
+          const afterPaste = (list && list.textContent) || '';
+          if (list) list.innerHTML = '';
+          if (token) token.value = 'enter-admin-token';
+          token.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+          await new Promise(function (r) { setTimeout(r, 80); });
+          const afterEnter = (list && list.textContent) || '';
+          return { afterPaste: afterPaste, afterEnter: afterEnter };
+        });
+        a.ok(/No business verification applications|@acme|Syncing/i.test(typed.afterPaste), 'Pasting a token loads the business verification list');
+        a.ok(/No business verification applications|@acme|Syncing/i.test(typed.afterEnter), 'Pressing Enter in the token field loads the business verification list');
+      }
+    }    ,
+    {
+      name: 'Business Verification Load button submits the token, shows a 401 error, and fits narrow widths',
+      accounts: ['pixlynote'],
+      covers: [
+        'el:#btn-load-business-verifications',
+        'el:#business-verification-admin-token',
+        'el:#business-verification-admin-token-error',
+        'el:#business-verification-admin-token-wrap',
+        'el:#drawer-business-verification-list',
+        'el:#btn-refresh-business-verifications',
+        'handler:refreshBusinessVerificationAdmin',
+        'handler:syncBusinessVerificationAdminLoadBtn',
+        'handler:showBusinessVerificationAdminTokenError'
+      ],
+      async run(ctx) {
+        const { page, a, h } = ctx;
+        await h.openOwnerMenu(page);
+        const enable = await page.evaluate(() => {
+          const token = document.getElementById('business-verification-admin-token');
+          const load = document.getElementById('btn-load-business-verifications');
+          const label = (load && (load.textContent || '').trim()) || '';
+          if (token) token.value = '';
+          window._adminTokenSession = '';
+          if (typeof syncBusinessVerificationAdminLoadBtn === 'function') syncBusinessVerificationAdminLoadBtn();
+          const emptyDisabled = !!(load && load.disabled);
+          if (token) {
+            token.value = 'sample-token';
+            token.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const filledDisabled = !!(load && load.disabled);
+          if (token) {
+            token.value = '';
+            token.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const clearedDisabled = !!(load && load.disabled);
+          return {
+            hasButton: !!load,
+            label: label,
+            emptyDisabled: emptyDisabled,
+            filledDisabled: filledDisabled,
+            clearedDisabled: clearedDisabled
+          };
+        });
+        a.ok(enable.hasButton, 'Load button is present beside the admin token field');
+        a.equal(enable.label, 'Load', 'The button is labeled Load');
+        a.ok(enable.emptyDisabled, 'Load stays disabled while the token field is empty');
+        a.ok(!enable.filledDisabled, 'Load enables once a token is entered');
+        a.ok(enable.clearedDisabled, 'Load disables again when the token is cleared');
+
+        const loaded = await page.evaluate(async () => {
+          const token = document.getElementById('business-verification-admin-token');
+          const load = document.getElementById('btn-load-business-verifications');
+          const refresh = document.getElementById('btn-refresh-business-verifications');
+          const list = document.getElementById('drawer-business-verification-list');
+          const stamp = document.getElementById('business-verification-admin-refreshed');
+          const err = document.getElementById('business-verification-admin-token-error');
+          if (stamp) { stamp.textContent = ''; stamp.classList.add('hidden'); }
+          if (err) { err.textContent = ''; err.classList.add('hidden'); }
+          if (token) {
+            token.value = 'sample-token';
+            token.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const origFetch = window.fetch;
+          window.fetch = function (url, opts) {
+            if (String(url).indexOf('/business-verification/admin/list') !== -1) {
+              return new Promise(function (resolve) {
+                setTimeout(function () {
+                  resolve(new Response(JSON.stringify({
+                    ok: true,
+                    applications: [{ username: 'acme', status: 'pending', dbaName: 'Acme Co' }]
+                  }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+                }, 180);
+              });
+            }
+            return origFetch.apply(this, arguments);
+          };
+          load.click();
+          await new Promise(function (r) { setTimeout(r, 30); });
+          const svg = refresh && refresh.querySelector('svg');
+          const mid = {
+            spinning: !!(svg && svg.classList.contains('animate-spin')),
+            syncing: !!(list && /Syncing/.test(list.textContent || '')),
+            loadBusy: !!(load && (load.disabled || load.getAttribute('aria-busy') === 'true'))
+          };
+          await new Promise(function (r) { setTimeout(r, 250); });
+          window.fetch = origFetch;
+          const afterSvg = refresh && refresh.querySelector('svg');
+          return {
+            mid: mid,
+            afterSpin: !!(afterSvg && afterSvg.classList.contains('animate-spin')),
+            loadDisabledAfter: !!(load && load.disabled),
+            stamp: (stamp && stamp.textContent) || '',
+            listText: (list && list.textContent) || '',
+            errHidden: !err || err.classList.contains('hidden') || !err.textContent
+          };
+        });
+        a.ok(loaded.mid.spinning, 'Load uses the same refresh spinner while loading');
+        a.ok(loaded.mid.syncing, 'Load shows Syncing... while loading');
+        a.ok(loaded.mid.loadBusy, 'Load is not clickable again while the request is in flight');
+        a.ok(!loaded.afterSpin, 'The refresh icon stops spinning after Load finishes');
+        a.ok(!loaded.loadDisabledAfter, 'Load is enabled again after a successful load');
+        a.ok(/^Refreshed · /.test(loaded.stamp), 'Load shows a Refreshed · h:mm line');
+        a.ok(/@acme/.test(loaded.listText) && /Acme Co/.test(loaded.listText), 'Load fetches and renders applications');
+        a.ok(loaded.errHidden, 'A successful Load does not leave a token error visible');
+
+        const bad = await page.evaluate(async () => {
+          const token = document.getElementById('business-verification-admin-token');
+          const load = document.getElementById('btn-load-business-verifications');
+          const list = document.getElementById('drawer-business-verification-list');
+          const stamp = document.getElementById('business-verification-admin-refreshed');
+          const err = document.getElementById('business-verification-admin-token-error');
+          if (stamp) { stamp.textContent = ''; stamp.classList.add('hidden'); }
+          if (token) {
+            token.value = 'bad-token';
+            token.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          const origFetch = window.fetch;
+          window.fetch = function (url, opts) {
+            if (String(url).indexOf('/business-verification/admin/list') !== -1) {
+              return Promise.resolve(new Response(JSON.stringify({ error: 'unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            return origFetch.apply(this, arguments);
+          };
+          load.click();
+          await new Promise(function (r) { setTimeout(r, 80); });
+          window.fetch = origFetch;
+          return {
+            errText: (err && err.textContent) || '',
+            errHidden: !!(err && err.classList.contains('hidden')),
+            listText: (list && list.textContent) || '',
+            stamp: (stamp && stamp.textContent) || '',
+            stampHidden: !!(stamp && stamp.classList.contains('hidden'))
+          };
+        });
+        a.equal(bad.errText, 'Wrong admin token', 'A 401 shows an inline Wrong admin token error');
+        a.ok(!bad.errHidden, 'The 401 error is visible under the token field');
+        a.ok(/Wrong admin token/.test(bad.listText), 'The list also shows Wrong admin token on a 401');
+        a.ok(bad.stampHidden || !/^Refreshed · /.test(bad.stamp), 'A 401 does not mark the list as refreshed');
+
+        async function layoutAt(width) {
+          await page.setViewportSize({ width: width, height: 844 });
+          await h.openOwnerMenu(page);
+          return page.evaluate(() => {
+            const card = document.getElementById('drawer-pixlynote-verifications');
+            if (card) card.classList.remove('hidden');
+            const wrap = document.getElementById('business-verification-admin-token-wrap');
+            const inp = document.getElementById('business-verification-admin-token');
+            const btn = document.getElementById('btn-load-business-verifications');
+            const drawer = document.getElementById('profile-drawer-card');
+            if (wrap) wrap.scrollIntoView({ block: 'center' });
+            const ir = inp.getBoundingClientRect();
+            const br = btn.getBoundingClientRect();
+            const dr = drawer.getBoundingClientRect();
+            const wr = wrap.getBoundingClientRect();
+            const sameRow = Math.abs(ir.top - br.top) <= 4 && Math.abs(ir.bottom - br.bottom) <= 8;
+            const overflow = br.right > dr.right + 1 || ir.left < dr.left - 1 || wr.right > dr.right + 1;
+            return {
+              sameRow: sameRow,
+              overflow: overflow,
+              beside: br.left >= ir.right - 1,
+              btnW: br.width,
+              btnH: br.height,
+              inpW: ir.width,
+              inpH: ir.height,
+              drawerW: dr.width
+            };
+          });
+        }
+        const at390 = await layoutAt(390);
+        const at360 = await layoutAt(360);
+        a.ok(at390.sameRow && at390.beside && at390.btnW > 0 && at390.inpW > 0, 'At 390px the Load button sits on the same row beside the field');
+        a.ok(!at390.overflow, 'At 390px the token row stays inside the owner menu');
+        a.ok(at360.sameRow && at360.beside && at360.btnW > 0 && at360.inpW > 0, 'At 360px the Load button sits on the same row beside the field');
+        a.ok(!at360.overflow, 'At 360px the token row stays inside the owner menu');
+      }
     }
+
   ]
 };
