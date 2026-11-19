@@ -1710,7 +1710,10 @@
               <img id="modal-post-author-avatar" src="" alt="" class="w-full h-full object-cover">
             </div>
             <div>
-              <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 group-hover:underline transition" id="modal-post-author">bradley_hansen</div>
+              <div class="flex items-center gap-0.5 min-w-0">
+                <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 group-hover:underline transition truncate" id="modal-post-author">bradley_hansen</div>
+                <span id="modal-post-author-badges" class="inline-flex items-center gap-0.5 flex-shrink-0"></span>
+              </div>
               <div class="text-[10px] text-neutral-400 hidden" id="modal-post-location"></div>
             </div>
           </div>
@@ -2010,6 +2013,7 @@
             </div>
             <div>
               <span class="text-xs font-bold" id="story-viewer-username">username</span>
+              <span id="story-viewer-badges" class="inline-flex items-center gap-0.5 ml-1 align-middle"></span>
               <span id="story-viewer-cf-label" class="hidden ml-1.5 align-middle"></span>
               <span class="text-[10px] text-white/60 ml-2" id="story-viewer-time">2h ago</span>
             </div>
@@ -2150,14 +2154,25 @@
         <!-- Account Type Switcher in Edit Profile -->
         <div>
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Account Category</label>
-          <div class="flex p-0.5 bg-neutral-100 rounded-xl border border-neutral-200/60">
-            <button type="button" id="btn-edit-account-personal" class="flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex items-center justify-center space-x-1.5">
-              <span>👤</span><span>Personal</span>
+          <div id="edit-profile-category-tabs" class="flex p-0.5 bg-neutral-100 rounded-xl border border-neutral-200/60 gap-0.5">
+            <button type="button" id="btn-edit-account-personal" class="flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex flex-col items-center justify-center leading-tight">
+              <span>Personal</span>
             </button>
-            <button type="button" id="btn-edit-account-business" class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex items-center justify-center space-x-1.5">
-              <span>🏢</span><span>Business</span>
+            <button type="button" id="btn-edit-account-business" class="flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex flex-col items-center justify-center leading-tight">
+              <span>Business</span>
+            </button>
+            <button type="button" id="btn-edit-account-government" class="flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex flex-col items-center justify-center leading-tight">
+              <span>Government</span>
+              <span id="edit-gov-pending-pill" class="hidden mt-0.5 px-1 py-px rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wide">Pending</span>
+            </button>
+            <button type="button" id="btn-edit-account-organization" class="flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex flex-col items-center justify-center leading-tight">
+              <span>Organization</span>
+              <span id="edit-org-pending-pill" class="hidden mt-0.5 px-1 py-px rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wide">Pending</span>
             </button>
           </div>
+          <p class="text-[10px] text-neutral-500 mt-1">
+            <button type="button" id="btn-edit-request-verification" class="text-violet-700 font-semibold hover:underline cursor-pointer">Request verification →</button>
+          </p>
         </div>
         <div>
           <label id="lbl-edit-profile-name" class="block text-xs font-semibold text-neutral-700 mb-1">Full Name</label>
@@ -2241,6 +2256,118 @@
     </div>
   </div>
 
+
+  <!-- Government / Organization verification paywall -->
+  <div id="modal-verification-paywall" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeVerificationPaywall();">
+    <div class="relative bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-neutral-200">
+      <button type="button" id="btn-close-verification-paywall" onclick="closeVerificationPaywall()" class="absolute top-3 right-3 p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 cursor-pointer" title="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-3">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      </div>
+      <h3 class="text-sm font-bold text-neutral-900 mb-1.5">Verification &amp; badges</h3>
+      <p id="verification-paywall-message" class="text-xs text-neutral-600 leading-relaxed">An active Pixlynote Plus or Business Plus subscription is required before applying for Government or Organization verification</p>
+      <button type="button" id="btn-verification-paywall-subscribe" onclick="goToSubscriptionFromVerificationPaywall()" class="mt-4 w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Go to Subscription</button>
+    </div>
+  </div>
+
+  <!-- Government / Organization Verification Request modal -->
+  <div id="modal-verification-request" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4 overflow-y-auto" style="display: none;" onclick="if(event.target === this) closeVerificationRequestModal();">
+    <div class="relative bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-neutral-200 my-auto">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-bold text-neutral-900">Government / Organization Verification Request</h3>
+          <p class="text-[10px] text-neutral-500">Plus members can apply for an official check</p>
+        </div>
+        <button type="button" id="btn-close-verification-request" onclick="closeVerificationRequestModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p id="verification-pending-banner" class="hidden mb-3 text-[11px] font-medium rounded-lg px-3 py-2 bg-amber-50 text-amber-800 border border-amber-100"></p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-neutral-700 mb-1">Account Type Requested</label>
+          <div id="verification-type-tabs" class="flex p-0.5 bg-neutral-100 rounded-xl border border-neutral-200/60 gap-0.5">
+            <button type="button" id="btn-verification-type-government" onclick="setVerificationRequestType('government')" class="flex-1 py-2 px-2 text-[11px] font-bold rounded-lg bg-white text-neutral-900 shadow-xs border border-neutral-200 cursor-pointer">Government / Public Official</button>
+            <button type="button" id="btn-verification-type-organization" onclick="setVerificationRequestType('organization')" class="flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 cursor-pointer">Organization / Non-Profit</button>
+          </div>
+        </div>
+        <div>
+          <label for="verification-entity-name" class="block text-xs font-semibold text-neutral-700 mb-1">Official Entity / Agency Name</label>
+          <input type="text" id="verification-entity-name" placeholder="e.g. City of Galloway or Department of Transportation" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="verification-official-email" class="block text-xs font-semibold text-neutral-700">Official .gov / .mil Email</label>
+            <span id="verification-email-verified-badge" class="hidden text-[10px] text-emerald-600 font-medium">Verified</span>
+          </div>
+          <div class="relative">
+            <input type="email" id="verification-official-email" placeholder="name@agency.gov" class="w-full pr-[5.75rem] py-2 pl-3 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400" oninput="if (typeof syncVerificationEmailUi === 'function') syncVerificationEmailUi();">
+            <button type="button" id="btn-verification-send-email-code" class="hidden absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-md transition cursor-pointer z-10" onclick="sendVerificationEmailCode()">Send code</button>
+          </div>
+          <div id="verification-email-verify-panel" class="hidden mt-2 space-y-2">
+            <div id="verification-email-code-wrap" class="hidden space-y-2">
+              <input type="text" id="verification-email-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" class="w-full px-3 py-2 text-xs tracking-[0.3em] text-center bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+              <div class="flex items-center space-x-2">
+                <button type="button" id="btn-verification-verify-email-code" onclick="verifyVerificationEmailCode()" class="flex-1 py-1.5 px-3 text-[11px] font-bold text-white rounded-lg story-gradient hover:opacity-95 transition cursor-pointer">Verify email</button>
+                <button type="button" id="btn-verification-resend-email-code" onclick="sendVerificationEmailCode()" class="px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer">Resend</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label for="verification-website-url" class="block text-xs font-semibold text-neutral-700 mb-1">Or public website URL</label>
+          <input type="url" id="verification-website-url" placeholder="https://www.agency.gov" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <p class="text-[10px] text-neutral-400 mt-1">A website can be submitted without an email code and is flagged for manual review.</p>
+        </div>
+        <div>
+          <label for="verification-notes" class="block text-xs font-semibold text-neutral-700 mb-1">Supporting Proof / Notes</label>
+          <textarea id="verification-notes" rows="3" placeholder="Link to a staff directory or agency page listing your @handle" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 resize-none"></textarea>
+        </div>
+        <p id="verification-form-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
+        <button type="button" id="btn-submit-verification-request" onclick="submitVerificationRequest()" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Submit request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Approved Verification & badges (color toggle) -->
+  <div id="modal-verification-badges" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeVerificationBadgesModal();">
+    <div class="relative bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-neutral-200">
+      <button type="button" id="btn-close-verification-badges" onclick="closeVerificationBadgesModal()" class="absolute top-3 right-3 p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 cursor-pointer" title="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <div class="flex items-center space-x-2.5 mb-2">
+        <div id="verification-badges-preview" class="flex items-center justify-center"></div>
+        <div>
+          <h3 id="verification-badges-title" class="text-sm font-bold text-neutral-900">Verification &amp; badges</h3>
+          <p id="verification-badges-copy" class="text-[10px] text-neutral-500">Your official check is active while Plus is on.</p>
+        </div>
+      </div>
+      <div id="verification-gov-color-toggle" class="mt-3">
+        <p class="text-[11px] font-semibold text-neutral-700 mb-1.5">Government check color</p>
+        <div class="flex p-0.5 bg-neutral-100 rounded-xl border border-neutral-200/60 gap-0.5">
+          <button type="button" id="btn-gov-badge-slate" onclick="setGovernmentBadgeColor('slate')" class="flex-1 py-2 px-2 text-[11px] font-bold rounded-lg bg-white shadow-xs border cursor-pointer text-slate-600">Civic Slate Gray</button>
+          <button type="button" id="btn-gov-badge-navy" onclick="setGovernmentBadgeColor('navy')" class="flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg border border-transparent hover:bg-white/80 cursor-pointer text-blue-900">Deep Navy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account type switch: cancel Plus / Business Plus and offer the matching plan -->
+  <div id="modal-account-type-switch" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-3 sm:p-4" style="display: none;" onclick="if(event.target === this) closeAccountTypeSwitchConfirm();">
+    <div class="relative bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-neutral-200">
+      <button type="button" id="btn-close-account-type-switch" onclick="closeAccountTypeSwitchConfirm()" class="absolute top-3 right-3 p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-100 cursor-pointer" title="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 id="account-type-switch-title" class="text-sm font-bold text-neutral-900 pr-8">Switch account type?</h3>
+      <p id="account-type-switch-copy" class="mt-2 text-[11px] leading-relaxed text-neutral-600"></p>
+      <div class="mt-4 flex flex-col gap-2">
+        <button type="button" id="btn-account-type-switch-confirm" onclick="confirmAccountTypeSwitch()" class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold cursor-pointer">Switch and view the matching plan</button>
+        <button type="button" id="btn-account-type-switch-keep" onclick="closeAccountTypeSwitchConfirm()" class="w-full py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold cursor-pointer">Keep current type</button>
+      </div>
+    </div>
+  </div>
 
   <div id="menu-user-profile-cf" class="hidden" role="menu">
     <button type="button" id="btn-cf-menu-toggle" class="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-emerald-50 cursor-pointer" role="menuitem">Add to Close Friends</button>
@@ -2478,7 +2605,10 @@
                 <span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
               </div>
               <div class="min-w-0">
-                <div class="font-bold text-xs text-neutral-900 truncate leading-tight" id="dm-active-name">Elena Rostova</div>
+                <div class="flex items-center gap-0.5 min-w-0">
+                  <div class="font-bold text-xs text-neutral-900 truncate leading-tight" id="dm-active-name">Elena Rostova</div>
+                  <span id="dm-active-badges" class="inline-flex items-center gap-0.5 flex-shrink-0"></span>
+                </div>
                 <div class="text-[10px] text-emerald-600 font-medium flex items-center space-x-1" id="dm-active-status">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                   <span>Active now</span>
@@ -2830,6 +2960,19 @@
             <span class="text-xs font-bold text-neutral-900">Account Info</span>
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
+        <button type="button" id="btn-ac-tab-verification" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-slate-300 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900">Verification &amp; badges</div>
+              <div class="text-[10px] text-neutral-500">Government or Organization verification</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-slate-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
         <button type="button" id="btn-ac-tab-drafts" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
@@ -3873,6 +4016,7 @@
             const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
             if (curU !== cleanU) return;
             if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
+            if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
             const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
             if (!hasPendingWrites && !recentlyMutatedProfile) {
               let profileChanged = false;
@@ -9383,6 +9527,7 @@ function syncLikedStateToPosts() {
                 <div>
                   <div class="flex items-center space-x-1">
                     <span class="font-bold text-xs text-neutral-900 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>
+                    ${authorStatusBadgesHtml(post.author)}
                     ${post.author === state.currentUser.username ? '<span class="text-[10px] text-neutral-400 font-medium">• You</span>' : ''}
                   </div>
                   ${(typeof displayPostLocation === 'function' ? displayPostLocation(post.location) : String(post.location || '').trim()) ? `<div class="text-[11px] text-neutral-500">${(typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : post.location}</div>` : ''}
@@ -9460,7 +9605,7 @@ function syncLikedStateToPosts() {
               <!-- Caption (omitted entirely when the post has no caption) -->
               ${((typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : String(post.caption || '').trim()) ? `
               <div class="post-caption-row text-xs text-neutral-900 leading-relaxed">
-                <span class="font-bold mr-1.5 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>
+                <span class="font-bold mr-1.5 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>${authorStatusBadgesHtml(post.author)}
                 <span>${(typeof displayPostCaption === 'function') ? displayPostCaption(post.caption) : post.caption}</span>
               </div>` : ''}
 
@@ -9488,7 +9633,7 @@ function syncLikedStateToPosts() {
                   ${latest ? `
                     <div class="text-xs text-neutral-800 flex items-center justify-between gap-2">
                       <div class="min-w-0 truncate">
-                        <span class="font-bold mr-1.5">${latest.user}</span>
+                        <span class="font-bold mr-1.5">${latest.user}</span>${authorStatusBadgesHtml(latest.user)}
                         <span>${escapeHtml(latest.text)}</span>
                       </div>
                       <button type="button" onclick="event.stopPropagation(); toggleCommentSpam('post', '${post.id}', '${latest.id}')" class="p-1 text-neutral-300 hover:text-amber-600 transition cursor-pointer flex-shrink-0" title="Flag as Spam">
@@ -9508,7 +9653,7 @@ function syncLikedStateToPosts() {
                         ` : spamComments.map(sc => `
                           <div class="flex items-center justify-between gap-2 text-xs bg-white/90 px-2.5 py-1.5 rounded-lg border border-amber-100">
                             <div class="min-w-0 flex-1">
-                              <span class="font-bold text-neutral-900 mr-1">${sc.user}</span>
+                              <span class="font-bold text-neutral-900 mr-1">${sc.user}</span>${authorStatusBadgesHtml(sc.user)}
                               <span class="text-neutral-600">${escapeHtml(sc.text)}</span>
                             </div>
                             <button type="button" onclick="event.stopPropagation(); toggleCommentSpam('post', '${post.id}', '${sc.id}')" class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md transition flex items-center space-x-1 flex-shrink-0 cursor-pointer" title="Move out of Spam">
@@ -9938,7 +10083,7 @@ function syncLikedStateToPosts() {
         }
       }
 
-      if (typeof paintPublicSubtitle === 'function') paintPublicSubtitle('profile-category', state.currentUser.category);
+      if (typeof paintPublicSubtitle === 'function') paintPublicSubtitle('profile-category', (typeof officialCategorySubtitle === 'function') ? officialCategorySubtitle(state.currentUser, state.currentUser.category) : state.currentUser.category);
       if (typeof paintProfileLocation === 'function') paintProfileLocation('profile-location', 'profile-location-text', state.currentUser.location);
       // Website Link: NEVER shown for Pixlynote unless custom link; shown for Bradley
       const ownerLink = (isPixly && !(state.currentUser.link || '').trim()) ? '' : (state.currentUser.link || '');
@@ -9950,8 +10095,12 @@ function syncLikedStateToPosts() {
         );
         const ownStatus = document.getElementById('own-info-account-status');
         if (ownStatus) {
-          const showOwnCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(state.currentUser);
-          ownStatus.textContent = showOwnCheck ? 'Verified subscriber' : 'Not verified';
+          if (typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(state.currentUser)) {
+            ownStatus.textContent = (displayedCategoryLabel(state.currentUser) || 'Verified') + ' account';
+          } else {
+            const showOwnCheck = (typeof isViewedCreatorCheckmarkShown === 'function') && isViewedCreatorCheckmarkShown(state.currentUser);
+            ownStatus.textContent = showOwnCheck ? 'Verified subscriber' : 'Not verified';
+          }
         }
       }
 
@@ -10324,7 +10473,7 @@ function syncLikedStateToPosts() {
               ` : spamComments.map(sc => `
                 <div class="flex items-center justify-between gap-2 text-xs bg-white/90 px-2.5 py-1.5 rounded-lg border border-amber-100">
                   <div class="min-w-0 flex-1">
-                    <span class="font-bold text-neutral-900 mr-1">@${sc.user}</span>
+                    <span class="font-bold text-neutral-900 mr-1">@${sc.user}</span>${authorStatusBadgesHtml(sc.user)}
                     <span class="text-neutral-600">${escapeHtml(sc.text)}</span>
                   </div>
                   <button type="button" onclick="toggleCommentSpam('note', '${note.id}', '${sc.id}')" class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md transition flex items-center space-x-1 flex-shrink-0 cursor-pointer" title="Move out of Spam">
@@ -10362,7 +10511,7 @@ function syncLikedStateToPosts() {
                     <img src="${rAvatar}" alt="${r.user}" class="w-full h-full object-cover">
                   </div>
                   <div class="text-[11px] min-w-0">
-                    <span class="font-bold text-neutral-900 mr-1">@${r.user}</span>
+                    <span class="font-bold text-neutral-900 mr-1">@${r.user}</span>${authorStatusBadgesHtml(r.user)}
                     <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                   </div>
                 </div>
@@ -10382,7 +10531,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 text-xs min-w-0">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-1.5 min-w-0">
-                    <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>
+                    <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>${authorStatusBadgesHtml(c.user)}
                     <span class="text-[10px] text-neutral-400">@${c.user} · ${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                   </div>
                   <div class="flex items-center space-x-1 flex-shrink-0">
@@ -10695,7 +10844,7 @@ function syncLikedStateToPosts() {
                     <img src="${avatar}" alt="${n.authorName || n.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
                   </div>
                   <div>
-                    <div class="font-bold text-xs text-neutral-900">${n.authorName || state.currentUser.fullName}</div>
+                    <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${n.authorName || state.currentUser.fullName}</div>${authorStatusBadgesHtml(n.author || state.currentUser.username)}</div>
                     <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                     ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(n) : ''}
                   </div>
@@ -11334,7 +11483,7 @@ function syncLikedStateToPosts() {
             <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
               <div class="flex items-center space-x-1 min-w-0">
                 <img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-white/40" onerror="this.src=COMMUNITY_IMAGES[0]">
-                <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>
+                <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>${authorStatusBadgesHtml(post.author)}
               </div>
               <span class="text-rose-400 font-bold">❤️</span>
             </div>
@@ -11401,7 +11550,7 @@ function syncLikedStateToPosts() {
                 </div>
                 <div class="space-y-0.5 min-w-0">
                   <div class="flex items-center space-x-1.5">
-                    <span class="font-bold text-neutral-900 group-hover:text-violet-700 transition">${n.authorName || n.author}</span>
+                    <span class="font-bold text-neutral-900 group-hover:text-violet-700 transition">${n.authorName || n.author}</span>${authorStatusBadgesHtml(n.author)}
                     <span class="text-[10px] text-neutral-400">@${n.author}</span>
                   </div>
                   <p class="text-neutral-700 leading-relaxed text-xs">${escapeHtml(n.text)}</p>
@@ -11869,7 +12018,7 @@ function syncLikedStateToPosts() {
                     <img src="${exploreSafeSrc(getNoteAuthorAvatar(note))}" alt="${exploreEsc(note.authorName || author)}" class="w-full h-full object-cover" onerror="this.onerror=null;if(typeof COMMUNITY_IMAGES!=='undefined')this.src=COMMUNITY_IMAGES[0]">
                   </div>
                   <div>
-                    <div class="font-bold text-xs text-neutral-900 group-hover/author:underline">${exploreEsc(note.authorName || author)}</div>
+                    <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 group-hover/author:underline truncate">${exploreEsc(note.authorName || author)}</div>${authorStatusBadgesHtml(author)}</div>
                     <div class="text-[10px] text-neutral-400">@${author} · ${exploreEsc(formatPixlyTimestamp(note, note.time || 'Just now'))}</div>
                     ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(note) : ''}
                   </div>
@@ -12127,6 +12276,7 @@ function syncLikedStateToPosts() {
       const authorAvatarSrc = getPostAuthorAvatar(post);
       document.getElementById('modal-post-img').src = post.image;
       document.getElementById('modal-post-author').textContent = post.author;
+      if (typeof paintAuthorBadgeMount === 'function') paintAuthorBadgeMount('modal-post-author-badges', post.author);
       const locEl = document.getElementById('modal-post-location');
       if (locEl) {
         const loc = (typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : String(post.location || '').trim();
@@ -12231,7 +12381,7 @@ function syncLikedStateToPosts() {
             <img src="${authorAvatarSrc}" alt="${post.author}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
           </div>
           <div>
-            <span class="font-bold text-neutral-900 mr-1.5 cursor-pointer hover:underline hover:text-violet-700 transition" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">${post.author}</span>
+            <span class="font-bold text-neutral-900 mr-1.5 cursor-pointer hover:underline hover:text-violet-700 transition" onclick="closePostDetailModal(); openCreatorProfile('${post.author}')">${post.author}</span>${authorStatusBadgesHtml(post.author)}
             ${cf}
             ${cap ? `<span>${cap}</span>` : ''}
             ${tags.length ? `<div class="text-[11px] text-sky-700 font-medium mt-1">${tags.join(' ')}</div>` : ''}
@@ -12250,7 +12400,7 @@ function syncLikedStateToPosts() {
             return `
               <div class="mt-1.5 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
                 <div class="text-[11px] min-w-0">
-                  <span class="font-bold text-neutral-900 mr-1">${r.user}</span>
+                  <span class="font-bold text-neutral-900 mr-1">${r.user}</span>${authorStatusBadgesHtml(r.user)}
                   <span class="text-[10px] text-neutral-400 mr-1">${formatPixlyTimestamp(r, r.timestamp || 'Just now')}</span>
                   <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                 </div>
@@ -12269,7 +12419,7 @@ function syncLikedStateToPosts() {
               </div>
               <div class="flex-1 min-w-0">
                 <div>
-                  <span class="font-bold text-neutral-900 mr-1">${c.user}</span>
+                  <span class="font-bold text-neutral-900 mr-1">${c.user}</span>${authorStatusBadgesHtml(c.user)}
                   <span>${escapeHtml(c.text)}</span>
                   <span class="text-[10px] text-neutral-400 ml-1.5">${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                 </div>
@@ -12307,7 +12457,7 @@ function syncLikedStateToPosts() {
                   ` : spamComments.map(sc => `
                     <div class="flex items-center justify-between gap-2 text-xs bg-white/90 px-2.5 py-1.5 rounded-lg border border-amber-100">
                       <div class="min-w-0 flex-1">
-                        <span class="font-bold text-neutral-900 mr-1">${sc.user}</span>
+                        <span class="font-bold text-neutral-900 mr-1">${sc.user}</span>${authorStatusBadgesHtml(sc.user)}
                         <span class="text-neutral-600">${escapeHtml(sc.text)}</span>
                       </div>
                       <button type="button" onclick="toggleCommentSpam('post', '${post.id}', '${sc.id}')" class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md transition flex items-center space-x-1 flex-shrink-0 cursor-pointer" title="Move out of Spam">
@@ -12403,6 +12553,7 @@ function syncLikedStateToPosts() {
       if (typeof window.initEditProfileCategoryStash === 'function') window.initEditProfileCategoryStash();
       window._editingAccountType = curType;
       if (typeof window.applyEditProfileCategoryFields === 'function') window.applyEditProfileCategoryFields(curType);
+      if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
 
       const bioInp = document.getElementById('edit-profile-bio');
       if (bioInp) bioInp.value = isPixly ? '' : (state.currentUser.bio || '');
@@ -13506,7 +13657,7 @@ function syncLikedStateToPosts() {
                       <img src="${avatarSrc}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
                     </div>
                     <div>
-                      <div class="font-bold text-xs text-neutral-900">${note.authorName || note.author}</div>
+                      <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${note.authorName || note.author}</div>${authorStatusBadgesHtml(note.author)}</div>
                       <div class="text-[10px] text-neutral-400">@${note.author} · ${formatPixlyTimestamp(note, note.time || 'Saved')}</div>
                     </div>
                   </div>
@@ -14194,6 +14345,7 @@ function syncLikedStateToPosts() {
       
       const userEl = document.getElementById('story-viewer-username');
       if (userEl) userEl.textContent = `${state.currentUser.username} • ${h.title}`;
+      if (typeof paintAuthorBadgeMount === 'function') paintAuthorBadgeMount('story-viewer-badges', state.currentUser && state.currentUser.username);
       
       const timeEl = document.getElementById('story-viewer-time');
       if (timeEl) timeEl.textContent = 'Highlight';
@@ -15609,7 +15761,7 @@ function syncLikedStateToPosts() {
       const av = d.photoURL || d.avatar;
       if (typeof av === 'string' && av) { vc.avatar = av; const img = document.getElementById('user-profile-avatar'); if (img) img.src = av; }
       vc.category = (typeof d.category === 'string') ? d.category : '';
-      if (typeof paintPublicSubtitle === 'function') { paintPublicSubtitle('user-profile-category', vc.category); paintPublicSubtitle('info-category', vc.category); }
+      if (typeof paintPublicSubtitle === 'function') { const _cat = (typeof officialCategorySubtitle === 'function') ? officialCategorySubtitle(vc, vc.category) : vc.category; paintPublicSubtitle('user-profile-category', _cat); paintPublicSubtitle('info-category', _cat); }
       else { setText('user-profile-category', publicProfileCategory(vc.category)); setText('info-category', publicProfileCategory(vc.category)); }
       vc.location = (typeof d.location === 'string') ? d.location : '';
       if (typeof paintProfileLocation === 'function') paintProfileLocation('user-profile-location', 'user-profile-location-text', vc.location);
@@ -15818,7 +15970,7 @@ function syncLikedStateToPosts() {
         return `<div class="py-2.5 px-2 flex items-center justify-between hover:bg-neutral-50/80 rounded-xl transition space-x-3">
             <div class="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer viewed-conn-row" data-username="${escapeHtml(n)}">
               <img src="${escapeHtml(av)}" alt="${escapeHtml(n)}" class="w-10 h-10 rounded-full object-cover border border-neutral-200 flex-shrink-0" onerror="this.src=NEUTRAL_BLANK_AVATAR">
-              <div class="min-w-0"><div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">@${escapeHtml(n)}</div>${isViewedCreatorCheckmarkShown({ username: n, isVerified: rec && rec.isVerified, isPlus: rec && rec.isPlus }) ? (EXPLORE_VERIFIED_SVG || '') : ''}</div><div class="text-[11px] text-neutral-500 truncate">${escapeHtml(name)}</div></div>
+              <div class="min-w-0"><div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">@${escapeHtml(n)}</div>${authorStatusBadgesHtml(n)}</div><div class="text-[11px] text-neutral-500 truncate">${escapeHtml(name)}</div></div>
             </div>${btn}</div>`;
       }).join('');
       box.querySelectorAll('.viewed-conn-row').forEach(r => r.addEventListener('click', () => {
@@ -15845,38 +15997,11 @@ function syncLikedStateToPosts() {
     // Same source of truth as the blue checkmark next to a viewed profile's name.
     // Uses the profile being viewed (state.viewedCreator / getCreatorInfo), never the viewer.
     function isViewedCreatorCheckmarkShown(creator) {
-      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
-      const cleanU = normalizeUsername(src.username || src.user || '');
-      if (!cleanU || cleanU.includes('bot') || cleanU.includes('test')) return false;
-      let isVerified = src.isVerified === true;
-      let isPlus = src.isPlus === true;
-      if (!isVerified || !isPlus) {
-        const rec = window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU);
-        if (rec) {
-          if (rec.isVerified === true) isVerified = true;
-          if (rec.isPlus === true) isPlus = true;
-        }
-      }
-      if (!isVerified || !isPlus) {
-        const cached = window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU];
-        if (cached) {
-          if (cached.isVerified === true) isVerified = true;
-          if (cached.isPlus === true) isPlus = true;
-        }
-      }
-      if ((!isVerified || !isPlus) && window._viewedConn && window._viewedConn.user === cleanU && window._viewedConn.doc) {
-        const d = window._viewedConn.doc;
-        if (d.isVerified === true) isVerified = true;
-        if (d.isPlus === true) isPlus = true;
-      }
-      if ((!isVerified || !isPlus) && typeof getCreatorInfo === 'function') {
-        const info = getCreatorInfo(cleanU);
-        if (info) {
-          if (info.isVerified === true) isVerified = true;
-          if (info.isPlus === true) isPlus = true;
-        }
-      }
-      return Boolean(isVerified && isPlus);
+      const flags = (typeof lookupCreatorFlags === 'function') ? lookupCreatorFlags(creator) : {};
+      const cleanU = flags.username || '';
+      const isSelf = !!(state && state.currentUser && (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase()) === cleanU);
+      if (!cleanU || (!isSelf && (cleanU.includes('bot') || cleanU.includes('test')))) return false;
+      return flags.isVerified === true && flags.isPlus === true;
     }
     var BUSINESS_PLUS_VERIFIED_SVG = '<svg class="w-3.5 h-3.5 text-emerald-500 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true" title="Business Plus"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
     function isBusinessAccount(user) {
@@ -15888,35 +16013,46 @@ function syncLikedStateToPosts() {
     }
     function lookupCreatorFlags(creator) {
       const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
-      const cleanU = (typeof normalizeUsername === 'function') ? normalizeUsername(src.username || src.user || '') : String(src.username || src.user || '').toLowerCase().replace(/^@/, '');
+      const cleanU = (typeof normalizeUsername === 'function') ? normalizeUsername(src.username || src.user || src.author || '') : String(src.username || src.user || src.author || '').toLowerCase().replace(/^@/, '');
       const flags = {
         username: cleanU,
-        isVerified: src.isVerified === true,
-        isPlus: src.isPlus === true,
-        isBusinessPlus: src.isBusinessPlus === true,
-        associatedBusiness: src.associatedBusiness || null
+        isVerified: false,
+        isPlus: false,
+        isBusinessPlus: false,
+        associatedBusiness: null,
+        accountType: '',
+        verificationType: '',
+        verificationStatus: '',
+        governmentBadgeColor: ''
       };
-      function merge(d) {
+      function assign(d) {
         if (!d) return;
-        if (d.isVerified === true) flags.isVerified = true;
-        if (d.isPlus === true) flags.isPlus = true;
-        if (d.isBusinessPlus === true) flags.isBusinessPlus = true;
-        if (d.associatedBusiness && !flags.associatedBusiness) flags.associatedBusiness = d.associatedBusiness;
+        if (d.isVerified !== undefined) flags.isVerified = d.isVerified === true;
+        if (d.isPlus !== undefined) flags.isPlus = d.isPlus === true;
+        if (d.isBusinessPlus !== undefined) flags.isBusinessPlus = d.isBusinessPlus === true;
+        if (d.associatedBusiness !== undefined) flags.associatedBusiness = d.associatedBusiness || null;
+        if (d.accountType) flags.accountType = d.accountType;
+        if (d.verificationType !== undefined) flags.verificationType = d.verificationType || '';
+        if (d.verificationStatus !== undefined) flags.verificationStatus = d.verificationStatus || '';
+        if (d.governmentBadgeColor) flags.governmentBadgeColor = d.governmentBadgeColor;
       }
       if (cleanU) {
-        merge(window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU));
-        merge(window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]);
-        if (window._viewedConn && window._viewedConn.user === cleanU) merge(window._viewedConn.doc);
-        if (typeof getCreatorInfo === 'function') merge(getCreatorInfo(cleanU));
-        if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) merge(state.currentUser);
+        // Weak default from the caller (may be a stale post/comment), then live user docs overwrite.
+        assign(src);
+        assign(window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU));
+        assign(window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]);
+        if (window._viewedConn && window._viewedConn.user === cleanU) assign(window._viewedConn.doc);
+        if (typeof getCreatorInfo === 'function') assign(getCreatorInfo(cleanU));
+        if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) assign(state.currentUser);
       }
       return flags;
     }
     function isBusinessPlusShown(creator) {
-      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
-      const cleanU = normalizeUsername(src.username || src.user || '');
-      if (!cleanU || cleanU.includes('bot') || cleanU.includes('test')) return false;
-      return lookupCreatorFlags(src).isBusinessPlus === true;
+      const flags = lookupCreatorFlags(creator);
+      const cleanU = flags.username || '';
+      const isSelf = !!(state && state.currentUser && (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase()) === cleanU);
+      if (!cleanU || (!isSelf && (cleanU.includes('bot') || cleanU.includes('test')))) return false;
+      return flags.isBusinessPlus === true;
     }
     function getAssociatedBusinessFor(creator) {
       const flags = lookupCreatorFlags(creator);
@@ -15929,24 +16065,45 @@ function syncLikedStateToPosts() {
       const assocHtml = assoc
         ? '<img class="associated-business-avatar w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-neutral-200" src="' + escapeHtml(assoc.avatar || '') + '" alt="@' + escapeHtml(assoc.username) + '" title="Associated with @' + escapeHtml(assoc.username) + '">'
         : '';
+      if (typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(creator)) {
+        return assocHtml + officialVerifiedSvg(govOrgBadgeColorFor(creator), govOrgBadgeTitleFor(creator));
+      }
       if (isBusinessPlusShown(creator)) return assocHtml + (BUSINESS_PLUS_VERIFIED_SVG || '');
       if (typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(creator)) {
         return assocHtml + (typeof EXPLORE_VERIFIED_SVG !== 'undefined' ? EXPLORE_VERIFIED_SVG : '');
       }
       return assocHtml;
     }
+    function authorStatusBadgesHtml(author) {
+      return (typeof creatorStatusBadgesHtml === 'function') ? creatorStatusBadgesHtml(author) : '';
+    }
+    function paintAuthorBadgeMount(id, author) {
+      const el = typeof id === 'string' ? document.getElementById(id) : id;
+      if (!el) return;
+      el.innerHTML = authorStatusBadgesHtml(author);
+    }
     function paintStatusBadgesForUser(user, svgIds, assocIds) {
-      const showGreen = isBusinessPlusShown(user);
-      const showBlue = !showGreen && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
+      const showOfficial = typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(user);
+      const showGreen = !showOfficial && isBusinessPlusShown(user);
+      const showBlue = !showOfficial && !showGreen && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
       (svgIds || []).forEach(function (id) {
         const el = document.getElementById(id);
         if (!el) return;
-        el.classList.toggle('hidden', !(showGreen || showBlue));
+        el.classList.toggle('hidden', !(showOfficial || showGreen || showBlue));
         el.classList.toggle('text-sky-500', !!showBlue);
         el.classList.toggle('text-emerald-500', !!showGreen);
         el.classList.remove('text-amber-400', 'text-amber-500');
-        if (showGreen) el.setAttribute('title', 'Business Plus');
-        else if (showBlue) el.setAttribute('title', 'Verified Subscriber');
+        if (showOfficial) {
+          const color = govOrgBadgeColorFor(user);
+          el.style.color = color;
+          el.setAttribute('data-badge-color', color);
+          el.setAttribute('title', govOrgBadgeTitleFor(user));
+        } else {
+          el.style.color = '';
+          el.removeAttribute('data-badge-color');
+          if (showGreen) el.setAttribute('title', 'Business Plus');
+          else if (showBlue) el.setAttribute('title', 'Verified Subscriber');
+        }
       });
       const assoc = getAssociatedBusinessFor(user);
       (assocIds || []).forEach(function (id) {
@@ -15962,14 +16119,730 @@ function syncLikedStateToPosts() {
         }
       });
     }
+    var GOV_BADGE_SLATE = '#64748B';
+    var GOV_BADGE_NAVY = '#1E3A8A';
+    var ORG_BADGE_GREEN = '#10B981';
+    var VERIFIED_CHECK_PATH = 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z';
+    function officialVerifiedSvg(color, title, sizeClass) {
+      const sz = sizeClass || 'w-3.5 h-3.5';
+      const c = color || GOV_BADGE_SLATE;
+      const t = title || 'Verified';
+      return '<svg class="' + sz + ' fill-current flex-shrink-0" style="color:' + c + '" viewBox="0 0 24 24" aria-hidden="true" title="' + t + '" data-badge-color="' + c + '"><path d="' + VERIFIED_CHECK_PATH + '"/></svg>';
+    }
+    function userHasActivePlusSubscription(user) {
+      const flags = (typeof lookupCreatorFlags === 'function') ? lookupCreatorFlags(user || (state && state.currentUser) || {}) : (user || (state && state.currentUser) || {});
+      return !!(flags && (flags.isPlus === true || flags.isBusinessPlus === true));
+    }
+    function baseAccountType(user) {
+      const u = user || (state && state.currentUser) || {};
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username || '') : String(u.username || '').toLowerCase().replace(/^@/, '');
+      if (u.accountType === 'business' || n === 'pixlynote') return 'business';
+      return 'personal';
+    }
+    function userHasMatchingPlusSubscription(user) {
+      const src = user || (state && state.currentUser) || {};
+      const flags = (typeof lookupCreatorFlags === 'function') ? lookupCreatorFlags(src) : src;
+      const merged = Object.assign({}, flags || {}, src || {});
+      const base = baseAccountType(merged);
+      if (base === 'business') return merged.isBusinessPlus === true;
+      return merged.isPlus === true;
+    }
+    function verificationApprovalOnFile(user) {
+      const v = getVerificationState(user);
+      if (v.type !== 'government' && v.type !== 'organization') return false;
+      return v.status === 'approved' || v.status === 'lapsed';
+    }
+    function normalizeVerificationType(type) {
+      const t = String(type || '').trim().toLowerCase();
+      if (t === 'government' || t === 'gov' || t === 'public_official' || t === 'public official') return 'government';
+      if (t === 'organization' || t === 'org' || t === 'non-profit' || t === 'nonprofit' || t === 'non_profit') return 'organization';
+      return '';
+    }
+    function getVerificationState(user) {
+      const src = user || (state && state.currentUser) || {};
+      const flags = (typeof lookupCreatorFlags === 'function') ? lookupCreatorFlags(src) : src;
+      const type = normalizeVerificationType(src.verificationType || flags.verificationType);
+      const status = String(src.verificationStatus || flags.verificationStatus || '').trim().toLowerCase();
+      const color = (src.governmentBadgeColor || flags.governmentBadgeColor) === 'navy' ? 'navy' : 'slate';
+      return { type, status, color, entityName: src.verificationEntityName || '', email: src.verificationEmail || '', emailVerified: src.verificationEmailVerified === true, url: src.verificationUrl || '', notes: src.verificationNotes || '', needsManualReview: src.verificationNeedsManualReview === true };
+    }
+    function displayedAccountCategory(user) {
+      // accountType stays personal/business. Gov/Org is a badge layer, not a replacement type.
+      return baseAccountType(user);
+    }
+    function displayedCategoryLabel(user) {
+      const u = user || (state && state.currentUser) || {};
+      if (typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(u)) {
+        const v = getVerificationState(u);
+        if (v.type === 'government') return 'Government';
+        if (v.type === 'organization') return 'Organization';
+      }
+      if (baseAccountType(u) === 'business') return 'Business Profile';
+      return '';
+    }
+    function isGovOrOrgBadgeShown(creator) {
+      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
+      const flags = (typeof lookupCreatorFlags === 'function') ? lookupCreatorFlags(src) : src;
+      const cleanU = flags.username || ((typeof normalizeUsername === 'function') ? normalizeUsername(src.username || src.user || src.author || '') : '');
+      const isSelf = !!(state && state.currentUser && (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase()) === cleanU);
+      if (!cleanU || (!isSelf && (cleanU.includes('bot') || cleanU.includes('test')))) return false;
+      if (!userHasMatchingPlusSubscription(flags)) return false;
+      return verificationApprovalOnFile(Object.assign({}, src, flags));
+    }
+    function govOrgBadgeColorFor(user) {
+      const v = getVerificationState(user);
+      if (v.type === 'organization') return ORG_BADGE_GREEN;
+      return v.color === 'navy' ? GOV_BADGE_NAVY : GOV_BADGE_SLATE;
+    }
+    function govOrgBadgeTitleFor(user) {
+      const v = getVerificationState(user);
+      if (v.type === 'organization') return 'Organization';
+      return v.color === 'navy' ? 'Government (Deep Navy)' : 'Government (Civic Slate Gray)';
+    }
+    function officialCategorySubtitle(user, fallback) {
+      if (isGovOrOrgBadgeShown(user)) return displayedCategoryLabel(user);
+      return fallback;
+    }
+    function persistVerificationOnUser(fields) {
+      if (!state || !state.currentUser || !fields) return;
+      Object.keys(fields).forEach((k) => { state.currentUser[k] = fields[k]; });
+      try {
+        const u = (typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase();
+        localStorage.setItem('pixlynote_user_' + u, JSON.stringify(state.currentUser));
+        localStorage.setItem('pixlynote_user', JSON.stringify(state.currentUser));
+      } catch (e) {}
+      if (typeof persistState === 'function') { try { persistState(); } catch (e) {} }
+    }
+    function writeVerificationDocs(username, requestData, userFields) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
+      if (!u) return Promise.resolve({ written: false });
+      window._verificationRequests = window._verificationRequests || {};
+      window._verificationWrites = window._verificationWrites || [];
+      if (requestData) {
+        window._verificationRequests[u] = Object.assign({}, window._verificationRequests[u] || {}, requestData, { username: u });
+      }
+      const record = window._verificationRequests[u] || requestData;
+      window._verificationWrites.push({ collection: 'verificationRequests', id: u, data: record });
+      if (userFields) window._verificationWrites.push({ collection: 'users', id: u, data: userFields });
+      const canWrite = window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc;
+      if (!canWrite) return Promise.resolve({ written: true, local: true, record });
+      const { db, doc, setDoc } = window.firebase;
+      const ops = [];
+      if (requestData) ops.push(setDoc(doc(db, 'verificationRequests', u), record, { merge: true }).catch(() => {}));
+      if (userFields) ops.push(setDoc(doc(db, 'users', u), userFields, { merge: true }).catch(() => {}));
+      return Promise.all(ops).then(() => ({ written: true, record })).catch(() => ({ written: true, local: true, record }));
+    }
+    function applyRemoteVerificationFields(data) {
+      if (!state || !state.currentUser || !data) return;
+      const keys = ['verificationType', 'verificationStatus', 'governmentBadgeColor', 'verificationEntityName', 'verificationEmail', 'verificationEmailVerified', 'verificationUrl', 'verificationNotes', 'verificationNeedsManualReview', 'verificationRequestedAt', 'verificationUpdatedAt', 'verificationBaseAccountType'];
+      keys.forEach((k) => { if (data[k] !== undefined) state.currentUser[k] = data[k]; });
+      if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(state.currentUser.username, { persist: false });
+    }
+    function targetVerificationUserIsCurrent(username) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || '') : String(username || '').toLowerCase();
+      return !!(state && state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase()) === u);
+    }
+    function lapseGovOrgVerificationIfNeeded(username, opts) {
+      const persist = !opts || opts.persist !== false;
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '') : String(username || '').toLowerCase();
+      const targetIsCurrent = targetVerificationUserIsCurrent(u);
+      const subject = targetIsCurrent ? state.currentUser : null;
+      if (subject && userHasMatchingPlusSubscription(subject)) return false;
+      const v = targetIsCurrent ? getVerificationState(state.currentUser) : getVerificationState((window._verificationRequests && window._verificationRequests[u]) || {});
+      if (v.status !== 'approved') return false;
+      const now = Date.now();
+      if (targetIsCurrent) persistVerificationOnUser({ verificationStatus: 'lapsed', verificationUpdatedAt: now });
+      if (window._verificationRequests && window._verificationRequests[u]) {
+        window._verificationRequests[u].status = 'lapsed';
+        window._verificationRequests[u].updatedAt = now;
+      }
+      if (persist) writeVerificationDocs(u, window._verificationRequests && window._verificationRequests[u], { verificationStatus: 'lapsed', verificationUpdatedAt: now, verificationType: v.type });
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
+      return true;
+    }
+    function restoreGovOrgVerificationIfEligible(username, opts) {
+      const persist = !opts || opts.persist !== false;
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '') : String(username || '').toLowerCase();
+      const targetIsCurrent = targetVerificationUserIsCurrent(u);
+      const subject = targetIsCurrent ? state.currentUser : ((window._remoteUserProfilesCache && window._remoteUserProfilesCache[u]) || null);
+      if (!subject || !userHasMatchingPlusSubscription(subject) || !verificationApprovalOnFile(subject)) return false;
+      const v = getVerificationState(subject);
+      if (v.status === 'approved') return false;
+      // Approval stays on file (lapsed after a plan change or lapse). Matching plan brings the badge back with no reapply.
+      const now = Date.now();
+      if (targetIsCurrent) persistVerificationOnUser({ verificationStatus: 'approved', verificationType: v.type, verificationUpdatedAt: now });
+      if (window._verificationRequests && window._verificationRequests[u]) {
+        window._verificationRequests[u].status = 'approved';
+        window._verificationRequests[u].updatedAt = now;
+      }
+      if (persist) writeVerificationDocs(u, window._verificationRequests && window._verificationRequests[u], { verificationStatus: 'approved', verificationType: v.type, verificationUpdatedAt: now });
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
+      if (typeof paintStatusBadgesForUser === 'function' && targetIsCurrent) {
+        paintStatusBadgesForUser(state.currentUser, ['profile-verified-badge'], ['profile-associated-avatar']);
+      }
+      return true;
+    }
+    function syncGovOrgVerificationWithSubscription(username, opts) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '') : String(username || '').toLowerCase();
+      const targetIsCurrent = targetVerificationUserIsCurrent(u);
+      const subject = targetIsCurrent ? state.currentUser : null;
+      if (subject && userHasMatchingPlusSubscription(subject) && verificationApprovalOnFile(subject)) {
+        return restoreGovOrgVerificationIfEligible(u, opts);
+      }
+      return lapseGovOrgVerificationIfNeeded(u, opts);
+    }
+    function storedVerificationPrefill(username) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '') : String(username || '').toLowerCase();
+      const rec = (window._verificationRequests && window._verificationRequests[u]) || null;
+      const cur = (state && state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : '') === u) ? state.currentUser : null;
+      const src = rec || cur || {};
+      const recType = rec || {};
+      const curType = cur || {};
+      return {
+        type: normalizeVerificationType(recType.type || recType.verificationType || curType.verificationType),
+        entityName: recType.entityName || recType.verificationEntityName || curType.verificationEntityName || '',
+        email: recType.email || recType.verificationEmail || curType.verificationEmail || '',
+        url: recType.url || recType.websiteUrl || recType.verificationUrl || curType.verificationUrl || '',
+        notes: recType.notes || recType.verificationNotes || curType.verificationNotes || '',
+        emailVerified: recType.emailVerified === true || recType.verificationEmailVerified === true || curType.verificationEmailVerified === true
+      };
+    }
+    function isOfficialGovEmail(email) {
+      const em = String(email || '').trim().toLowerCase();
+      if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) return false;
+      const domain = em.split('@')[1] || '';
+      return /\.(gov|mil)(\.[a-z]{2})?$/.test(domain) || domain.endsWith('.gov') || domain.endsWith('.mil');
+    }
+    function isPublicWebsiteUrl(raw) {
+      const s = String(raw || '').trim();
+      return /^https?:\/\/[^\s]+\.[^\s]+/i.test(s);
+    }
+    function hideModalEl(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.add('hidden');
+      el.style.display = 'none';
+    }
+    function showModalEl(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.style.display = 'flex';
+    }
+    function closeVerificationPaywall() { hideModalEl('modal-verification-paywall'); }
+    function closeVerificationRequestModal() { hideModalEl('modal-verification-request'); }
+    function closeVerificationBadgesModal() { hideModalEl('modal-verification-badges'); }
+    function closeAllVerificationModals() {
+      closeVerificationPaywall();
+      closeVerificationRequestModal();
+      closeVerificationBadgesModal();
+    }
+    function openVerificationPaywall() {
+      closeVerificationRequestModal();
+      closeVerificationBadgesModal();
+      if (typeof closeAccountCenterModal === 'function') { try { closeAccountCenterModal(); } catch (e) {} }
+      showModalEl('modal-verification-paywall');
+    }
+    function goToSubscriptionFromVerificationPaywall() {
+      closeAllVerificationModals();
+      if (typeof closeEditProfileModal === 'function') { try { closeEditProfileModal(); } catch (e) {} }
+      if (typeof closeAccountCenterModal === 'function') { try { closeAccountCenterModal(); } catch (e) {} }
+      if (typeof closeProfileMenu === 'function') { try { closeProfileMenu(); } catch (e) {} }
+      if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+    }
+    function setVerificationRequestType(type) {
+      const t = normalizeVerificationType(type) || 'government';
+      window._verificationFormType = t;
+      const gov = document.getElementById('btn-verification-type-government');
+      const org = document.getElementById('btn-verification-type-organization');
+      const on = 'flex-1 py-2 px-2 text-[11px] font-bold rounded-lg bg-white text-neutral-900 shadow-xs border border-neutral-200 cursor-pointer';
+      const off = 'flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg text-neutral-500 hover:text-neutral-900 cursor-pointer';
+      if (gov) gov.className = t === 'government' ? on : off;
+      if (org) org.className = t === 'organization' ? on : off;
+    }
+    function fillVerificationRequestForm(prefill, requestedType) {
+      const p = prefill || storedVerificationPrefill();
+      const type = normalizeVerificationType(requestedType || p.type) || 'government';
+      setVerificationRequestType(type);
+      const nameEl = document.getElementById('verification-entity-name');
+      const emailEl = document.getElementById('verification-official-email');
+      const urlEl = document.getElementById('verification-website-url');
+      const notesEl = document.getElementById('verification-notes');
+      if (nameEl) nameEl.value = p.entityName || '';
+      if (emailEl) emailEl.value = p.email || '';
+      if (urlEl) urlEl.value = p.url || '';
+      if (notesEl) notesEl.value = p.notes || '';
+      window._verificationEmailState = { email: '', verified: false, codeSent: false };
+      if (p.email && p.emailVerified && isOfficialGovEmail(p.email) && String(emailEl && emailEl.value || '').trim().toLowerCase() === String(p.email).trim().toLowerCase()) {
+        window._verificationEmailState = { email: p.email.trim().toLowerCase(), verified: true, codeSent: true };
+      }
+      const status = document.getElementById('verification-form-status');
+      if (status) { status.classList.add('hidden'); status.textContent = ''; }
+      const v = getVerificationState(state && state.currentUser);
+      const banner = document.getElementById('verification-pending-banner');
+      if (banner) {
+        if (v.status === 'pending') {
+          banner.classList.remove('hidden');
+          banner.textContent = 'Your ' + (v.type === 'organization' ? 'Organization' : 'Government') + ' verification request is pending review.';
+        } else if (v.status === 'rejected' || v.status === 'revoked') {
+          banner.classList.remove('hidden');
+          banner.textContent = v.status === 'revoked'
+            ? 'Your official verification was revoked. You can update the details and reapply.'
+            : 'Your previous request was not approved. You can update the details and reapply.';
+        } else if (v.status === 'lapsed' && verificationApprovalOnFile(state && state.currentUser)) {
+          banner.classList.remove('hidden');
+          banner.textContent = 'Your approval is still on file. The official badge returns automatically when the matching Plus plan is active. You do not need to reapply.';
+        } else {
+          banner.classList.add('hidden');
+          banner.textContent = '';
+        }
+      }
+      syncVerificationEmailUi();
+    }
+    function syncVerificationEmailUi() {
+      const email = ((document.getElementById('verification-official-email') || {}).value || '').trim();
+      const st = window._verificationEmailState || {};
+      const sendBtn = document.getElementById('btn-verification-send-email-code');
+      const panel = document.getElementById('verification-email-verify-panel');
+      const wrap = document.getElementById('verification-email-code-wrap');
+      const badge = document.getElementById('verification-email-verified-badge');
+      const validOfficial = isOfficialGovEmail(email);
+      const verified = !!(st.verified && st.email && st.email === email.toLowerCase());
+      if (badge) badge.classList.toggle('hidden', !verified);
+      if (sendBtn) {
+        sendBtn.classList.toggle('hidden', !validOfficial || verified);
+        if (typeof styleSignupSendButton === 'function') styleSignupSendButton(sendBtn, validOfficial && !verified);
+      }
+      if (panel) panel.classList.toggle('hidden', !validOfficial || verified);
+      if (wrap) wrap.classList.toggle('hidden', !(st.codeSent && validOfficial && !verified));
+    }
+    function setVerificationFormStatus(msg, isError) {
+      const el = document.getElementById('verification-form-status');
+      if (!el) return;
+      if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+      el.classList.remove('hidden', 'bg-rose-50', 'text-rose-700', 'bg-emerald-50', 'text-emerald-700');
+      el.classList.add(isError ? 'bg-rose-50' : 'bg-emerald-50', isError ? 'text-rose-700' : 'text-emerald-700');
+      el.textContent = msg;
+    }
+    async function sendVerificationEmailCode() {
+      const email = ((document.getElementById('verification-official-email') || {}).value || '').trim();
+      const btn = document.getElementById('btn-verification-send-email-code');
+      const resend = document.getElementById('btn-verification-resend-email-code');
+      if (!isOfficialGovEmail(email)) {
+        setVerificationFormStatus('Enter an official .gov or .mil email, or a public website URL instead.', true);
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+      if (resend) resend.disabled = true;
+      try {
+        const username = (state.currentUser && state.currentUser.username) || '';
+        const r = await (typeof postSignupVerify === 'function' ? postSignupVerify('/email', { type: 'signup_code', to: email, username }) : Promise.resolve({ ok: false, data: { error: 'offline' } }));
+        if (!r.ok || r.data.error) {
+          const err = (r.data && r.data.error) || '';
+          const msg = (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'email') : ((r.data && r.data.message) || 'Could not send the verification code.');
+          setVerificationFormStatus(msg, true);
+          return;
+        }
+        window._verificationEmailState = { email: email.toLowerCase(), verified: false, codeSent: true };
+        setVerificationFormStatus('We sent a 6-digit code to ' + email + '.', false);
+        const inp = document.getElementById('verification-email-code');
+        if (inp) { inp.value = ''; inp.focus(); }
+        syncVerificationEmailUi();
+      } catch (e) {
+        setVerificationFormStatus('Could not send the verification code.', true);
+      } finally {
+        if (btn) { btn.textContent = 'Send code'; btn.disabled = false; }
+        if (resend) resend.disabled = false;
+        syncVerificationEmailUi();
+      }
+    }
+    async function verifyVerificationEmailCode() {
+      const email = ((document.getElementById('verification-official-email') || {}).value || '').trim();
+      const code = ((document.getElementById('verification-email-code') || {}).value || '').trim();
+      if (!isOfficialGovEmail(email) || !/^\d{6}$/.test(code)) {
+        setVerificationFormStatus('Enter the 6-digit code sent to your official email.', true);
+        return;
+      }
+      try {
+        const r = await (typeof postSignupVerify === 'function' ? postSignupVerify('/email/signup-verify', { to: email, code }) : Promise.resolve({ ok: false, data: { valid: false } }));
+        const valid = !!(r && (r.data.valid === true || (r.ok && r.data.valid !== false && r.data.error == null && code)));
+        // mockWorker returns { valid: code === '123456' }
+        const ok = !!(r && r.data && r.data.valid === true);
+        if (!ok) {
+          setVerificationFormStatus('That code is not valid. Try again or resend.', true);
+          return;
+        }
+        window._verificationEmailState = { email: email.toLowerCase(), verified: true, codeSent: true };
+        setVerificationFormStatus('Official email verified.', false);
+        syncVerificationEmailUi();
+      } catch (e) {
+        setVerificationFormStatus('Could not verify the code.', true);
+      }
+    }
+    function openVerificationRequestModal(requestedType) {
+      if (!userHasActivePlusSubscription(state && state.currentUser)) {
+        openVerificationPaywall();
+        return;
+      }
+      closeVerificationPaywall();
+      closeVerificationBadgesModal();
+      if (typeof closeAccountCenterModal === 'function') { try { closeAccountCenterModal(); } catch (e) {} }
+      fillVerificationRequestForm(storedVerificationPrefill(), requestedType);
+      showModalEl('modal-verification-request');
+    }
+    function openVerificationBadgesModal() {
+      closeVerificationPaywall();
+      closeVerificationRequestModal();
+      const v = getVerificationState(state && state.currentUser);
+      const title = document.getElementById('verification-badges-title');
+      const sub = document.getElementById('verification-badges-copy');
+      const toggle = document.getElementById('verification-gov-color-toggle');
+      const preview = document.getElementById('verification-badges-preview');
+      if (title) title.textContent = v.type === 'organization' ? 'Organization verification' : 'Government verification';
+      if (sub) sub.textContent = v.type === 'organization'
+        ? 'Your Organization check is shown next to your name while the matching Plus plan is active (Plus on Personal, Business Plus on Business).'
+        : 'Choose Civic Slate Gray or Deep Navy for your Government check. The badge follows your Personal or Business plan. Plus editing perks stay active.';
+      if (toggle) toggle.classList.toggle('hidden', v.type !== 'government');
+      if (typeof paintGovernmentColorToggle === 'function') paintGovernmentColorToggle();
+      if (preview) preview.innerHTML = officialVerifiedSvg(govOrgBadgeColorFor(state.currentUser), govOrgBadgeTitleFor(state.currentUser), 'w-5 h-5');
+      showModalEl('modal-verification-badges');
+    }
+    function openVerificationAndBadges(requestedType) {
+      if (!userHasActivePlusSubscription(state && state.currentUser)) {
+        openVerificationPaywall();
+        return;
+      }
+      const v = getVerificationState(state && state.currentUser);
+      const want = normalizeVerificationType(requestedType);
+      if (verificationApprovalOnFile(state && state.currentUser) && (!want || want === v.type)) {
+        if (userHasMatchingPlusSubscription(state && state.currentUser)) {
+          if (typeof restoreGovOrgVerificationIfEligible === 'function') restoreGovOrgVerificationIfEligible(state.currentUser && state.currentUser.username);
+          openVerificationBadgesModal();
+          return;
+        }
+        openVerificationPaywall();
+        return;
+      }
+      openVerificationRequestModal(want || v.type || 'government');
+    }
+    function handleEditProfileOfficialTab(type) {
+      const want = normalizeVerificationType(type);
+      if (!want) return;
+      openVerificationAndBadges(want);
+      paintVerificationCategoryTabs();
+    }
+    function paintGovernmentColorToggle() {
+      const v = getVerificationState(state && state.currentUser);
+      const slate = document.getElementById('btn-gov-badge-slate');
+      const navy = document.getElementById('btn-gov-badge-navy');
+      const on = 'flex-1 py-2 px-2 text-[11px] font-bold rounded-lg bg-white shadow-xs border cursor-pointer';
+      const off = 'flex-1 py-2 px-2 text-[11px] font-semibold rounded-lg border border-transparent hover:bg-white/80 cursor-pointer';
+      if (slate) {
+        slate.className = (v.color !== 'navy' ? on : off) + ' text-slate-600';
+        if (v.color !== 'navy') slate.style.borderColor = GOV_BADGE_SLATE;
+        else slate.style.borderColor = 'transparent';
+      }
+      if (navy) {
+        navy.className = (v.color === 'navy' ? on : off) + ' text-blue-900';
+        if (v.color === 'navy') navy.style.borderColor = GOV_BADGE_NAVY;
+        else navy.style.borderColor = 'transparent';
+      }
+      const preview = document.getElementById('verification-badges-preview');
+      if (preview) preview.innerHTML = officialVerifiedSvg(govOrgBadgeColorFor(state.currentUser), govOrgBadgeTitleFor(state.currentUser), 'w-5 h-5');
+    }
+    function setGovernmentBadgeColor(color) {
+      const next = color === 'navy' ? 'navy' : 'slate';
+      persistVerificationOnUser({ governmentBadgeColor: next, verificationUpdatedAt: Date.now() });
+      const u = state.currentUser && state.currentUser.username;
+      writeVerificationDocs(u, { governmentBadgeColor: next, updatedAt: Date.now() }, { governmentBadgeColor: next, verificationUpdatedAt: Date.now() });
+      paintGovernmentColorToggle();
+      if (typeof paintStatusBadgesForUser === 'function') {
+        paintStatusBadgesForUser(state.currentUser, ['profile-verified-badge'], ['profile-associated-avatar']);
+      }
+      if (typeof renderProfile === 'function') renderProfile();
+      if (typeof renderFeed === 'function') renderFeed();
+    }
+    async function submitVerificationRequest() {
+      if (!userHasActivePlusSubscription(state && state.currentUser)) {
+        openVerificationPaywall();
+        return false;
+      }
+      if (verificationApprovalOnFile(state && state.currentUser)) {
+        if (userHasMatchingPlusSubscription(state && state.currentUser)) {
+          if (typeof restoreGovOrgVerificationIfEligible === 'function') restoreGovOrgVerificationIfEligible(state.currentUser && state.currentUser.username);
+          setVerificationFormStatus('Your verification is already approved and stays on file. The badge is shown with your matching Plus plan. You do not need to reapply.', false);
+        } else {
+          setVerificationFormStatus('Your approval is still on file. Subscribe to the matching Plus plan to show the badge again. You do not need to reapply.', false);
+        }
+        return false;
+      }
+      const type = normalizeVerificationType(window._verificationFormType);
+      const entityName = ((document.getElementById('verification-entity-name') || {}).value || '').trim();
+      const email = ((document.getElementById('verification-official-email') || {}).value || '').trim();
+      const url = ((document.getElementById('verification-website-url') || {}).value || '').trim();
+      const notes = ((document.getElementById('verification-notes') || {}).value || '').trim();
+      if (!type) { setVerificationFormStatus('Choose Government or Organization.', true); return false; }
+      if (!entityName) { setVerificationFormStatus('Enter the official entity or agency name.', true); return false; }
+      const hasEmail = !!email;
+      const hasUrl = !!url;
+      if (!hasEmail && !hasUrl) {
+        setVerificationFormStatus('Provide an official .gov/.mil email or a public website URL.', true);
+        return false;
+      }
+      let emailVerified = false;
+      let needsManualReview = false;
+      if (hasEmail) {
+        if (!isOfficialGovEmail(email)) {
+          setVerificationFormStatus('The official email must be a .gov or .mil address.', true);
+          return false;
+        }
+        const st = window._verificationEmailState || {};
+        if (!(st.verified && st.email === email.toLowerCase())) {
+          setVerificationFormStatus('Verify the official email with the code we send before submitting.', true);
+          return false;
+        }
+        emailVerified = true;
+      }
+      if (hasUrl) {
+        if (!isPublicWebsiteUrl(url)) {
+          setVerificationFormStatus('Enter a public http(s) website URL.', true);
+          return false;
+        }
+        if (!emailVerified) needsManualReview = true;
+      }
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase();
+      const now = Date.now();
+      const baseType = (state.currentUser.accountType === 'business' || u === 'pixlynote') ? 'business' : 'personal';
+      const requestData = {
+        username: u,
+        type,
+        entityName,
+        email: email || '',
+        emailVerified,
+        url: url || '',
+        notes,
+        needsManualReview,
+        status: 'pending',
+        governmentBadgeColor: (state.currentUser.governmentBadgeColor === 'navy') ? 'navy' : 'slate',
+        baseAccountType: state.currentUser.verificationBaseAccountType || baseType,
+        requestedAt: state.currentUser.verificationRequestedAt || now,
+        updatedAt: now
+      };
+      const userFields = {
+        verificationType: type,
+        verificationStatus: 'pending',
+        verificationEntityName: entityName,
+        verificationEmail: email || '',
+        verificationEmailVerified: emailVerified,
+        verificationUrl: url || '',
+        verificationNotes: notes,
+        verificationNeedsManualReview: needsManualReview,
+        verificationRequestedAt: requestData.requestedAt,
+        verificationUpdatedAt: now,
+        verificationBaseAccountType: requestData.baseAccountType,
+        governmentBadgeColor: requestData.governmentBadgeColor
+      };
+      persistVerificationOnUser(userFields);
+      await writeVerificationDocs(u, requestData, userFields);
+      setVerificationFormStatus('Pending review, usually approved within 24 hours.', false);
+      if (typeof showToast === 'function') showToast('Pending review, usually approved within 24 hours.');
+      paintVerificationCategoryTabs();
+      const banner = document.getElementById('verification-pending-banner');
+      if (banner) {
+        banner.classList.remove('hidden');
+        banner.textContent = 'Pending review, usually approved within 24 hours.';
+      }
+      return true;
+    }
+    function paintVerificationCategoryTabs(selected) {
+      const base = (selected === 'personal' || selected === 'business')
+        ? selected
+        : (window._editingAccountType || baseAccountType(state && state.currentUser));
+      const v = getVerificationState(state && state.currentUser);
+      const selectedCls = 'flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex flex-col items-center justify-center leading-tight';
+      const idleCls = 'flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-all text-neutral-500 hover:text-neutral-900 cursor-pointer flex flex-col items-center justify-center leading-tight';
+      const officialOnCls = 'flex-1 min-w-0 py-1.5 px-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all text-neutral-900 bg-white shadow-xs cursor-pointer flex flex-col items-center justify-center leading-tight ring-1 ring-inset ring-slate-300';
+      const personalBtn = document.getElementById('btn-edit-account-personal');
+      const businessBtn = document.getElementById('btn-edit-account-business');
+      const govBtn = document.getElementById('btn-edit-account-government');
+      const orgBtn = document.getElementById('btn-edit-account-organization');
+      if (personalBtn) personalBtn.className = base === 'personal' ? selectedCls : idleCls;
+      if (businessBtn) businessBtn.className = base === 'business' ? selectedCls : idleCls;
+      const badgeOn = typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(state && state.currentUser);
+      if (govBtn) govBtn.className = (badgeOn && v.type === 'government') ? officialOnCls : idleCls;
+      if (orgBtn) orgBtn.className = (badgeOn && v.type === 'organization') ? officialOnCls : idleCls;
+      const govPending = document.getElementById('edit-gov-pending-pill');
+      const orgPending = document.getElementById('edit-org-pending-pill');
+      if (govPending) govPending.classList.toggle('hidden', !(v.status === 'pending' && v.type === 'government'));
+      if (orgPending) orgPending.classList.toggle('hidden', !(v.status === 'pending' && v.type === 'organization'));
+    }
+    async function refreshVerificationRequests(manualRefresh) {
+      const list = document.getElementById('drawer-verification-requests-list');
+      const countEl = document.getElementById('verification-requests-count');
+      const loadFromCloud = async () => {
+        if (!(window.firebaseReady && window.firebase && window.firebase.getDocs && window.firebase.collection && window.firebase.db)) return;
+        try {
+          const snap = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'verificationRequests'));
+          window._verificationRequests = window._verificationRequests || {};
+          snap.forEach((docSnap) => {
+            const d = docSnap.data ? (docSnap.data() || {}) : (docSnap || {});
+            const id = (docSnap.id || d.username || '').toLowerCase().replace(/^@/, '');
+            if (id && id.indexOf('__') === -1) window._verificationRequests[id] = Object.assign({ username: id }, d);
+          });
+        } catch (e) {}
+      };
+      await loadFromCloud();
+      const recs = Object.values(window._verificationRequests || {}).filter((r) => r && normalizeVerificationType(r.type || r.verificationType) && String(r.status || r.verificationStatus || '').toLowerCase() === 'pending');
+      recs.sort((a, b) => (b.updatedAt || b.requestedAt || 0) - (a.updatedAt || a.requestedAt || 0));
+      if (countEl) countEl.textContent = String(recs.length);
+      if (!list) return;
+      if (!recs.length) {
+        list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No pending verification requests</div>';
+        return;
+      }
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s || '');
+      list.innerHTML = recs.map((r) => {
+        const u = esc(r.username || '');
+        const typ = normalizeVerificationType(r.type || r.verificationType);
+        const label = typ === 'organization' ? 'Organization' : 'Government';
+        const entity = esc(r.entityName || r.verificationEntityName || '');
+        const when = r.requestedAt || r.updatedAt;
+        const date = when ? new Date(when).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const review = (r.needsManualReview || r.verificationNeedsManualReview) ? ' · Manual review (website)' : '';
+        return '<div class="px-2.5 py-2 rounded-xl bg-white/90 border border-slate-100/80 text-[11px] space-y-1.5">' +
+          '<div class="min-w-0"><div class="font-bold text-neutral-900 truncate">@' + u + ' · ' + label + '</div>' +
+          '<div class="text-[9px] text-neutral-500 truncate">' + entity + (date ? ' · ' + esc(date) : '') + review + '</div></div>' +
+          '<div class="flex items-center space-x-1.5">' +
+          '<button type="button" class="flex-1 py-1 text-[10px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer" onclick="approveVerificationRequest(\'' + u + '\')">Approve</button>' +
+          '<button type="button" class="flex-1 py-1 text-[10px] font-bold rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 cursor-pointer" onclick="rejectVerificationRequest(\'' + u + '\')">Reject</button>' +
+          '</div></div>';
+      }).join('');
+    }
+    function notifyVerificationDecision(username, approved, type) {
+      const label = type === 'organization' ? 'Organization' : 'Government';
+      if (typeof addNotificationForUser === 'function') {
+        addNotificationForUser(username, {
+          id: Date.now(),
+          type: approved ? 'verification_approved' : 'verification_rejected',
+          fromUser: 'pixlynote',
+          fromName: 'Pixlynote',
+          text: approved
+            ? ('Your ' + label + ' verification request was approved. Your official check is now active.')
+            : ('Your ' + label + ' verification request was not approved. You can update your details and reapply.'),
+          timestamp: Date.now(),
+          read: false
+        });
+      }
+    }
+    async function approveVerificationRequest(username) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
+      if (!u) return false;
+      const rec = (window._verificationRequests && window._verificationRequests[u]) || {};
+      const type = normalizeVerificationType(rec.type || rec.verificationType) || 'government';
+      const now = Date.now();
+      const requestData = Object.assign({}, rec, { username: u, type, status: 'approved', approvedAt: now, updatedAt: now });
+      const userFields = {
+        verificationType: type,
+        verificationStatus: 'approved',
+        verificationEntityName: rec.entityName || rec.verificationEntityName || '',
+        verificationEmail: rec.email || rec.verificationEmail || '',
+        verificationEmailVerified: rec.emailVerified === true || rec.verificationEmailVerified === true,
+        verificationUrl: rec.url || rec.verificationUrl || '',
+        verificationNotes: rec.notes || rec.verificationNotes || '',
+        verificationNeedsManualReview: rec.needsManualReview === true,
+        verificationUpdatedAt: now,
+        verificationApprovedAt: now,
+        governmentBadgeColor: rec.governmentBadgeColor === 'navy' ? 'navy' : 'slate'
+      };
+      if (state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : '') === u) {
+        persistVerificationOnUser(userFields);
+        if (typeof renderProfile === 'function') renderProfile();
+        paintVerificationCategoryTabs();
+      }
+      await writeVerificationDocs(u, requestData, userFields);
+      notifyVerificationDecision(u, true, type);
+      if (typeof showToast === 'function') showToast('Approved @' + u + ' as ' + (type === 'organization' ? 'Organization' : 'Government') + '.');
+      await refreshVerificationRequests(false);
+      return true;
+    }
+    async function rejectVerificationRequest(username) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
+      if (!u) return false;
+      const rec = (window._verificationRequests && window._verificationRequests[u]) || {};
+      const type = normalizeVerificationType(rec.type || rec.verificationType) || 'government';
+      const now = Date.now();
+      const requestData = Object.assign({}, rec, { username: u, type, status: 'rejected', rejectedAt: now, updatedAt: now });
+      const userFields = { verificationStatus: 'rejected', verificationUpdatedAt: now, verificationType: type };
+      if (state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : '') === u) {
+        persistVerificationOnUser(userFields);
+        paintVerificationCategoryTabs();
+        if (typeof renderProfile === 'function') renderProfile();
+      }
+      await writeVerificationDocs(u, requestData, userFields);
+      notifyVerificationDecision(u, false, type);
+      if (typeof showToast === 'function') showToast('Rejected the verification request from @' + u + '.');
+      await refreshVerificationRequests(false);
+      return true;
+    }
+    window.GOV_BADGE_SLATE = GOV_BADGE_SLATE;
+    window.GOV_BADGE_NAVY = GOV_BADGE_NAVY;
+    window.ORG_BADGE_GREEN = ORG_BADGE_GREEN;
+    window.officialVerifiedSvg = officialVerifiedSvg;
+    window.userHasActivePlusSubscription = userHasActivePlusSubscription;
+    window.userHasMatchingPlusSubscription = userHasMatchingPlusSubscription;
+    window.baseAccountType = baseAccountType;
+    window.verificationApprovalOnFile = verificationApprovalOnFile;
+    window.getVerificationState = getVerificationState;
+    window.displayedAccountCategory = displayedAccountCategory;
+    window.displayedCategoryLabel = displayedCategoryLabel;
+    window.isGovOrOrgBadgeShown = isGovOrOrgBadgeShown;
+    window.lapseGovOrgVerificationIfNeeded = lapseGovOrgVerificationIfNeeded;
+    window.restoreGovOrgVerificationIfEligible = restoreGovOrgVerificationIfEligible;
+    window.syncGovOrgVerificationWithSubscription = syncGovOrgVerificationWithSubscription;
+    window.govOrgBadgeColorFor = govOrgBadgeColorFor;
+    window.officialCategorySubtitle = officialCategorySubtitle;
+    window.applyRemoteVerificationFields = applyRemoteVerificationFields;
+    window.openVerificationAndBadges = openVerificationAndBadges;
+    window.openVerificationPaywall = openVerificationPaywall;
+    window.closeVerificationPaywall = closeVerificationPaywall;
+    window.openVerificationRequestModal = openVerificationRequestModal;
+    window.closeVerificationRequestModal = closeVerificationRequestModal;
+    window.closeVerificationBadgesModal = closeVerificationBadgesModal;
+    window.goToSubscriptionFromVerificationPaywall = goToSubscriptionFromVerificationPaywall;
+    window.setVerificationRequestType = setVerificationRequestType;
+    window.sendVerificationEmailCode = sendVerificationEmailCode;
+    window.verifyVerificationEmailCode = verifyVerificationEmailCode;
+    window.submitVerificationRequest = submitVerificationRequest;
+    window.handleEditProfileOfficialTab = handleEditProfileOfficialTab;
+    window.paintVerificationCategoryTabs = paintVerificationCategoryTabs;
+    window.setGovernmentBadgeColor = setGovernmentBadgeColor;
+    window.refreshVerificationRequests = refreshVerificationRequests;
+    window.approveVerificationRequest = approveVerificationRequest;
+    window.rejectVerificationRequest = rejectVerificationRequest;
+    window.syncVerificationEmailUi = syncVerificationEmailUi;
+
     function renderViewedAccountStatus(creator) {
       const el = document.getElementById('info-account-status');
       if (!el) return;
-      if (isViewedCreatorCheckmarkShown(creator)) {
+      if (typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(creator)) {
+        const color = govOrgBadgeColorFor(creator);
+        const label = displayedCategoryLabel(creator) || 'Verified';
+        el.className = 'font-semibold flex items-center space-x-1';
+        el.style.color = color;
+        el.innerHTML = '<span>' + label + '</span>' + officialVerifiedSvg(color, govOrgBadgeTitleFor(creator), 'w-3.5 h-3.5');
+      } else if (isViewedCreatorCheckmarkShown(creator)) {
         el.className = 'font-semibold text-sky-600 flex items-center space-x-1';
+        el.style.color = '';
         el.innerHTML = '<span>Verified</span><svg class="w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+      } else if (typeof isBusinessPlusShown === 'function' && isBusinessPlusShown(creator)) {
+        el.className = 'font-semibold text-emerald-600 flex items-center space-x-1';
+        el.style.color = '';
+        el.innerHTML = '<span>Verified</span>' + (BUSINESS_PLUS_VERIFIED_SVG || '');
       } else {
         el.className = 'font-semibold text-neutral-800 flex items-center space-x-1';
+        el.style.color = '';
         el.innerHTML = '<span>Not verified</span>';
       }
     }
@@ -16185,7 +17058,7 @@ function syncLikedStateToPosts() {
         if (profileBio) profileBio.textContent = creator.bio || '';
       }
 
-      if (typeof paintPublicSubtitle === 'function') paintPublicSubtitle('user-profile-category', creator.category);
+      if (typeof paintPublicSubtitle === 'function') paintPublicSubtitle('user-profile-category', (typeof officialCategorySubtitle === 'function') ? officialCategorySubtitle(creator, creator.category) : creator.category);
       if (typeof paintProfileLocation === 'function') paintProfileLocation('user-profile-location', 'user-profile-location-text', creator.location);
       if (typeof paintProfileLink === 'function') paintProfileLink('user-profile-link', 'user-profile-link-text', creator.link);
 
@@ -16298,7 +17171,7 @@ function syncLikedStateToPosts() {
               <div class="flex items-center space-x-2.5">
                 <img src="${creator.avatar}" alt="${creator.username}" class="w-8 h-8 rounded-full object-cover border border-neutral-200 flex-shrink-0">
                 <div>
-                  <div class="font-bold text-xs text-neutral-900">${n.authorName || creator.fullName}</div>
+                  <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${n.authorName || creator.fullName}</div>${authorStatusBadgesHtml(creator.username)}</div>
                   <div class="text-[10px] text-neutral-400">@${creator.username} · ${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                   ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(n) : ''}
                 </div>
@@ -19047,6 +19920,7 @@ function syncLikedStateToPosts() {
       const modal = document.getElementById('modal-story-viewer');
       document.getElementById('story-viewer-avatar').src = story.avatar || (state.currentUser && state.currentUser.avatar) || BRADLEY_AVATAR_IMAGE;
       document.getElementById('story-viewer-username').textContent = story.username || 'Your Story';
+      if (typeof paintAuthorBadgeMount === 'function') paintAuthorBadgeMount('story-viewer-badges', story.username || (state.currentUser && state.currentUser.username));
       const storyCfEl = document.getElementById('story-viewer-cf-label');
       if (storyCfEl) {
         const cfHtml = (typeof closeFriendsLabelHtml === 'function') ? closeFriendsLabelHtml(story) : '';
@@ -19234,7 +20108,7 @@ function syncLikedStateToPosts() {
               </div>
               <div class="text-xs min-w-0 space-y-0.5">
                 <div class="leading-snug">
-                  <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>
+                  <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>${authorStatusBadgesHtml(u)}
                   <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
                 </div>
                 <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
@@ -19461,7 +20335,7 @@ function syncLikedStateToPosts() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <span class="font-bold text-xs truncate ${isActive ? 'text-violet-950' : 'text-neutral-900'}">${m.name}</span>
+                <span class="inline-flex items-center gap-0.5 min-w-0"><span class="font-bold text-xs truncate ${isActive ? 'text-violet-950' : 'text-neutral-900'}">${m.name}</span>${authorStatusBadgesHtml(m.user)}</span>
                 <span class="text-[10px] text-neutral-400 ml-1 flex-shrink-0 dm-thread-time" data-dm-thread-ts="${idx}" title="${timeTitle}">${timeDisp}</span>
               </div>
               <div class="text-[11px] ${isActive ? 'text-violet-800/80' : 'text-neutral-500'} truncate mt-0.5">
@@ -19514,6 +20388,7 @@ function syncLikedStateToPosts() {
 
       const nameEl = document.getElementById('dm-active-name');
       if (nameEl) nameEl.textContent = thread.name;
+      if (typeof paintAuthorBadgeMount === 'function') paintAuthorBadgeMount('dm-active-badges', thread.user);
       
       const statusEl = document.getElementById('dm-active-status');
       if (statusEl) {
@@ -19537,7 +20412,7 @@ function syncLikedStateToPosts() {
             <div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-200 mb-2">
               <img src="${resolvedThreadAvatar}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
             </div>
-            <div class="font-bold text-xs text-neutral-800">${thread.name}</div>
+            <div class="flex items-center justify-center gap-0.5"><div class="font-bold text-xs text-neutral-800">${thread.name}</div>${authorStatusBadgesHtml(thread.user)}</div>
             <div class="text-[11px] text-neutral-400">@${thread.user}</div>
             <p class="text-[11px] text-neutral-500 mt-2">Say hello and start the conversation! 👋</p>
           </div>
@@ -20005,7 +20880,7 @@ function syncLikedStateToPosts() {
           + '<img src="' + av + '" alt="' + escapeHtml(c.fullName) + '" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">'
           + '</div>'
           + '<div class="min-w-0">'
-          + '<div class="font-bold text-xs text-neutral-900 truncate leading-tight">' + escapeHtml(c.fullName) + '</div>'
+          + '<div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate leading-tight">' + escapeHtml(c.fullName) + '</div>' + authorStatusBadgesHtml(c.username) + '</div>'
           + '<div class="text-[11px] text-neutral-500 truncate">@' + escapeHtml(c.username) + '</div>'
           + '</div></div>'
           + '<button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>'
@@ -20212,7 +21087,7 @@ function syncLikedStateToPosts() {
         previewEl.innerHTML = `
           ${thumb ? `<img src="${thumb}" alt="Post preview" class="w-11 h-11 rounded-xl object-cover border border-neutral-200 flex-shrink-0">` : `<div class="w-11 h-11 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center text-lg flex-shrink-0">📝</div>`}
           <div class="min-w-0 flex-1">
-            <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(author)}</div>
+            <div class="flex items-center gap-0.5 min-w-0"><div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(author)}</div>${authorStatusBadgesHtml(author)}</div>
             <div class="text-[11px] text-neutral-500 truncate">${escapeHtml(snippet || (type === 'note' ? 'Shared a note' : 'Shared a post'))}</div>
           </div>
         `;
@@ -21539,6 +22414,7 @@ function syncLikedStateToPosts() {
         bind('btn-ac-tab-security-access', 'click', () => setAccountCenterView('securityAccess'));
         bind('btn-ac-tab-privileged-access', 'click', () => setAccountCenterView('privilegedAccess'));
         bind('btn-ac-tab-associate', 'click', () => setAccountCenterView('associate'));
+        bind('btn-ac-tab-verification', 'click', () => { if (typeof openVerificationAndBadges === 'function') openVerificationAndBadges(); });
         bind('btn-ac-invite-associate', 'click', () => {
           const inp = document.getElementById('ac-associate-username-input');
           if (typeof inviteBusinessAssociate === 'function') inviteBusinessAssociate(inp ? inp.value : '');
@@ -22695,6 +23571,7 @@ function syncLikedStateToPosts() {
           const isBiz = type === 'business';
           if (btnP) btnP.className = isBiz ? idle : selected;
           if (btnB) btnB.className = isBiz ? selected : idle;
+          if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
           if (lbl) lbl.textContent = isBiz ? 'Business Name' : 'Full Name';
           if (nameInp) {
             nameInp.placeholder = isBiz ? 'e.g. Pixlynote' : 'e.g. John Doe';
@@ -22710,8 +23587,7 @@ function syncLikedStateToPosts() {
           });
           if (typeof styleEditSaveButton === 'function') styleEditSaveButton(typeof editProfileCanSave === 'function' && editProfileCanSave());
         }
-        function setEditProfileAccountCategory(type) {
-          const next = type === 'business' ? 'business' : 'personal';
+        function applyEditProfileAccountCategoryChange(next) {
           const prev = window._editingAccountType;
           if (prev && prev !== next) {
             const nameInp = document.getElementById('edit-profile-name');
@@ -22721,11 +23597,85 @@ function syncLikedStateToPosts() {
           }
           window._editingAccountType = next;
           applyEditProfileCategoryFields(next);
+          if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs(next);
+        }
+        function closeAccountTypeSwitchConfirm() {
+          const el = document.getElementById('modal-account-type-switch');
+          if (!el) return;
+          el.classList.add('hidden');
+          el.style.display = 'none';
+        }
+        function openAccountTypeSwitchConfirm(dir) {
+          window._accountTypeSwitchDir = dir;
+          const title = document.getElementById('account-type-switch-title');
+          const copy = document.getElementById('account-type-switch-copy');
+          const confirmBtn = document.getElementById('btn-account-type-switch-confirm');
+          const keepBtn = document.getElementById('btn-account-type-switch-keep');
+          const approvalNote = (typeof verificationApprovalOnFile === 'function' && verificationApprovalOnFile(state && state.currentUser))
+            ? ' If you have an approved Government or Organization badge, it will be hidden until you subscribe to the matching new plan, then it comes back automatically — you do not need to reapply.'
+            : '';
+          if (dir === 'plus-to-business') {
+            if (title) title.textContent = 'Switch to Business?';
+            if (copy) copy.textContent = "Pixlynote Plus doesn't apply to business accounts, so your Plus subscription will be canceled and the blue check will come off immediately. You can subscribe to Business Plus ($29.99) for business accounts." + approvalNote;
+            if (confirmBtn) confirmBtn.textContent = 'Switch and view Business Plus';
+            if (keepBtn) keepBtn.textContent = 'Keep Personal';
+          } else {
+            if (title) title.textContent = 'Switch to Personal?';
+            if (copy) copy.textContent = "Business Plus doesn't apply to personal accounts, so your Business Plus subscription will be canceled and the green check will come off immediately. You can subscribe to Pixlynote Plus ($9.99) for personal accounts." + approvalNote;
+            if (confirmBtn) confirmBtn.textContent = 'Switch and view Plus';
+            if (keepBtn) keepBtn.textContent = 'Keep Business';
+          }
+          const el = document.getElementById('modal-account-type-switch');
+          if (!el) return;
+          el.classList.remove('hidden');
+          el.style.display = 'flex';
+        }
+        function confirmAccountTypeSwitch() {
+          const dir = window._accountTypeSwitchDir;
+          closeAccountTypeSwitchConfirm();
+          if (dir === 'plus-to-business') {
+            window._pendingSubscriptionCancelOnSave = 'plus';
+            window._offerSubscriptionAfterSave = 'business';
+            applyEditProfileAccountCategoryChange('business');
+          } else if (dir === 'business-to-personal') {
+            window._pendingSubscriptionCancelOnSave = 'business';
+            window._offerSubscriptionAfterSave = 'plus';
+            applyEditProfileAccountCategoryChange('personal');
+          }
+        }
+        function setEditProfileAccountCategory(type) {
+          const next = type === 'business' ? 'business' : 'personal';
+          const prev = window._editingAccountType || ((state.currentUser && state.currentUser.accountType) === 'business' ? 'business' : 'personal');
+          const u = (state && state.currentUser) || {};
+          const hasPlus = u.isPlus === true;
+          const hasBizPlus = u.isBusinessPlus === true;
+          if (window._pendingSubscriptionCancelOnSave) {
+            const orig = (u.accountType === 'business') ? 'business' : 'personal';
+            if (next === orig) {
+              window._pendingSubscriptionCancelOnSave = null;
+              window._offerSubscriptionAfterSave = null;
+            }
+            applyEditProfileAccountCategoryChange(next);
+            return;
+          }
+          if (prev !== next && prev === 'personal' && next === 'business' && hasPlus) {
+            openAccountTypeSwitchConfirm('plus-to-business');
+            return;
+          }
+          if (prev !== next && prev === 'business' && next === 'personal' && hasBizPlus) {
+            openAccountTypeSwitchConfirm('business-to-personal');
+            return;
+          }
+          applyEditProfileAccountCategoryChange(next);
         }
         window.initEditProfileCategoryStash = initEditProfileCategoryStash;
         window.getEditProfileSavedName = getEditProfileSavedName;
         window.applyEditProfileCategoryFields = applyEditProfileCategoryFields;
         window.setEditProfileAccountCategory = setEditProfileAccountCategory;
+        window.applyEditProfileAccountCategoryChange = applyEditProfileAccountCategoryChange;
+        window.openAccountTypeSwitchConfirm = openAccountTypeSwitchConfirm;
+        window.closeAccountTypeSwitchConfirm = closeAccountTypeSwitchConfirm;
+        window.confirmAccountTypeSwitch = confirmAccountTypeSwitch;
 
         function editProfileCanSave() {
           const nameVal = ((document.getElementById('edit-profile-name') || {}).value || '').trim();
@@ -23810,6 +24760,12 @@ function syncLikedStateToPosts() {
         if (btnEditBusiness) {
           btnEditBusiness.addEventListener('click', () => setEditProfileAccountCategory('business'));
         }
+        const btnEditGov = document.getElementById('btn-edit-account-government');
+        const btnEditOrg = document.getElementById('btn-edit-account-organization');
+        if (btnEditGov) btnEditGov.addEventListener('click', () => { if (typeof handleEditProfileOfficialTab === 'function') handleEditProfileOfficialTab('government'); });
+        if (btnEditOrg) btnEditOrg.addEventListener('click', () => { if (typeof handleEditProfileOfficialTab === 'function') handleEditProfileOfficialTab('organization'); });
+        const btnReqVer = document.getElementById('btn-edit-request-verification');
+        if (btnReqVer) btnReqVer.addEventListener('click', () => { if (typeof openVerificationAndBadges === 'function') openVerificationAndBadges(); });
 
         // Wire Splash Screen Buttons
         const btnSplashGetStarted = document.getElementById('btn-splash-get-started');
@@ -24425,6 +25381,20 @@ function syncLikedStateToPosts() {
             state.currentUser.email = email;
             state.currentUser.phone = phone;
             if (window._editingAccountType) state.currentUser.accountType = window._editingAccountType;
+            const pendingCancel = window._pendingSubscriptionCancelOnSave;
+            const offerAfter = window._offerSubscriptionAfterSave;
+            window._pendingSubscriptionCancelOnSave = null;
+            window._offerSubscriptionAfterSave = null;
+            if (pendingCancel === 'plus') {
+              if (typeof applyStripeSubscriptionCancellation === 'function') applyStripeSubscriptionCancellation(state.currentUser.username, { silent: true });
+              if (typeof cancelStripeSubscriptionForAccount === 'function') cancelStripeSubscriptionForAccount(state.currentUser.username, 'plus');
+            } else if (pendingCancel === 'business') {
+              if (typeof applyBusinessPlusCancellation === 'function') applyBusinessPlusCancellation(state.currentUser.username, { silent: true });
+              if (typeof cancelStripeSubscriptionForAccount === 'function') cancelStripeSubscriptionForAccount(state.currentUser.username, 'business');
+            } else if (typeof syncGovOrgVerificationWithSubscription === 'function') {
+              syncGovOrgVerificationWithSubscription(state.currentUser.username);
+            }
+            if (offerAfter === 'business' || offerAfter === 'plus') window._offerSubscriptionAfterSave = offerAfter;
             if (bio !== undefined) state.currentUser.bio = bio;
             if (link !== undefined) state.currentUser.link = link;
 
@@ -24504,11 +25474,20 @@ function syncLikedStateToPosts() {
             saveUserProfile();
             renderProfile();
             closeEditProfileModal();
-            showToast(
-              authenticatedViaAccountCenter
-                ? 'Phone number authenticated via Account Center & saved! ✓'
-                : (phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!')
-            );
+            const offerPlan = window._offerSubscriptionAfterSave;
+            window._offerSubscriptionAfterSave = null;
+            if (offerPlan === 'business' || offerPlan === 'plus') {
+              if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+              showToast(offerPlan === 'business'
+                ? 'Plus was canceled. Business Plus is available below.'
+                : 'Business Plus was canceled. Pixlynote Plus is available below.');
+            } else {
+              showToast(
+                authenticatedViaAccountCenter
+                  ? 'Phone number authenticated via Account Center & saved! ✓'
+                  : (phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!')
+              );
+            }
           });
         }
 
@@ -25864,6 +26843,17 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           deactBox.classList.add('hidden');
         }
       }
+      const verifBox = document.getElementById('drawer-pixlynote-verifications');
+      if (verifBox) {
+        if (activeNormU === 'pixlynote') {
+          verifBox.classList.remove('hidden');
+          if (typeof refreshVerificationRequests === 'function') {
+            refreshVerificationRequests(false);
+          }
+        } else {
+          verifBox.classList.add('hidden');
+        }
+      }
 
       if (modal && backdrop && card) {
         modal.classList.remove('hidden');
@@ -26170,8 +27160,52 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     async function fetchStripeSessionStatus(sessionId) {
       const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/verify-stripe-session?session_id=' + encodeURIComponent(sessionId));
       if (!res.ok) return null;
-      return res.json();
+      const data = await res.json();
+      if (data && typeof data === 'object') window._lastStripeSessionData = Object.assign({ session_id: sessionId }, data);
+      return data;
     }
+    function applyStripeIdsFromSessionData(data, kind) {
+      if (!state.currentUser || !data) return {};
+      const fields = {};
+      if (data.subscription_id) {
+        if (kind === 'business') {
+          state.currentUser.stripeBusinessSubscriptionId = data.subscription_id;
+          fields.stripeBusinessSubscriptionId = data.subscription_id;
+        } else {
+          state.currentUser.stripeSubscriptionId = data.subscription_id;
+          fields.stripeSubscriptionId = data.subscription_id;
+        }
+      }
+      if (data.customer_id) {
+        state.currentUser.stripeCustomerId = data.customer_id;
+        fields.stripeCustomerId = data.customer_id;
+      }
+      return fields;
+    }
+    async function cancelStripeSubscriptionForAccount(username, kind) {
+      const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
+      const cur = (state && state.currentUser) || {};
+      const sessionId = kind === 'business' ? cur.stripeBusinessSessionId : cur.stripeSessionId;
+      const subscriptionId = kind === 'business' ? cur.stripeBusinessSubscriptionId : cur.stripeSubscriptionId;
+      const payload = { username: u, kind: kind === 'business' ? 'business' : 'plus' };
+      if (sessionId) payload.session_id = sessionId;
+      if (subscriptionId) payload.subscription_id = subscriptionId;
+      window.__pixlyCancelSubscriptionCalls = window.__pixlyCancelSubscriptionCalls || [];
+      window.__pixlyCancelSubscriptionCalls.push({ username: u, kind: payload.kind, session_id: sessionId || '', subscription_id: subscriptionId || '' });
+      if (!sessionId && !subscriptionId) return { ok: false, error: 'missing_subscription' };
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/cancel-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        return await res.json().catch(() => ({ ok: false, error: 'bad_json' }));
+      } catch (e) {
+        return { ok: false, error: 'network' };
+      }
+    }
+    window.applyStripeIdsFromSessionData = applyStripeIdsFromSessionData;
+    window.cancelStripeSubscriptionForAccount = cancelStripeSubscriptionForAccount;
     window.fetchStripeSessionStatus = fetchStripeSessionStatus;
     // Paid Plus purchase, subscription still active, and bought by this account (client_reference_id = username).
     function stripeSessionGrantsPlus(data, username) {
@@ -26201,6 +27235,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (data.stripeBusinessSessionId) state.currentUser.stripeBusinessSessionId = data.stripeBusinessSessionId;
       if (data.associatedBusiness !== undefined) state.currentUser.associatedBusiness = data.associatedBusiness || null;
       if (Array.isArray(data.businessAssociates)) state.currentUser.businessAssociates = data.businessAssociates;
+      if (typeof applyRemoteVerificationFields === 'function') applyRemoteVerificationFields(data);
     }
     window.applyRemoteSubscriptionFields = applyRemoteSubscriptionFields;
     async function verifyStripeSessionWithServer(sessionId, username) {
@@ -26252,6 +27287,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         state.currentUser.subscriptionStatus = 'active';
         state.currentUser.stripeSessionId = sessionId;
       }
+      const stripeIdFields = applyStripeIdsFromSessionData(window._lastStripeSessionData && window._lastStripeSessionData.session_id === sessionId ? window._lastStripeSessionData : null, 'plus');
+      if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(cleanU);
       try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
       if (typeof renderProfile === 'function') renderProfile();
       if (typeof renderNotes === 'function') renderNotes();
@@ -26261,13 +27298,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const writeVerificationToFirestore = () => {
         if (window.firebaseReady && window.firebase && window.firebase.db) {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
+          setDoc(doc(db, 'users', cleanU), Object.assign({
             isVerified: true,
             isPlus: true,
             subscriptionStatus: 'active',
             stripeSessionId: sessionId,
             verifiedUpdatedAt: Date.now()
-          }, { merge: true }).catch(() => {});
+          }, stripeIdFields), { merge: true }).catch(() => {});
           return true;
         }
         return false;
@@ -26285,15 +27322,17 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSessionVerification = applyStripeSessionVerification;
 
-    function applyStripeSubscriptionCancellation(username) {
+    function applyStripeSubscriptionCancellation(username, opts) {
       if (!username) return;
       const cleanU = normalizeUsername(username);
       if (!cleanU) return;
+      const silent = !!(opts && opts.silent);
       if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
         state.currentUser.isVerified = false;
         state.currentUser.isPlus = false;
         state.currentUser.subscriptionStatus = 'canceled';
       }
+      if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(cleanU);
       try {
         localStorage.removeItem('pixly_pending_stripe_cancel');
         localStorage.removeItem('pixly_pending_stripe_session');
@@ -26323,7 +27362,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         }, 400);
         setTimeout(() => clearInterval(retryTimer), 12000);
       }
-      if (typeof showToast === 'function') {
+      if (!silent && typeof showToast === 'function') {
         showToast('Pixlynote Plus membership canceled.');
       }
     }
@@ -26337,6 +27376,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         state.currentUser.isBusinessPlus = true;
         state.currentUser.stripeBusinessSessionId = sessionId;
       }
+      const stripeIdFields = applyStripeIdsFromSessionData(window._lastStripeSessionData && window._lastStripeSessionData.session_id === sessionId ? window._lastStripeSessionData : null, 'business');
+      if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(cleanU);
       try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
       if (typeof renderProfile === 'function') renderProfile();
       if (typeof renderNotes === 'function') renderNotes();
@@ -26345,11 +27386,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const writeBiz = () => {
         if (window.firebaseReady && window.firebase && window.firebase.db) {
           const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
+          setDoc(doc(db, 'users', cleanU), Object.assign({
             isBusinessPlus: true,
             stripeBusinessSessionId: sessionId,
             businessPlusUpdatedAt: Date.now()
-          }, { merge: true }).catch(() => {});
+          }, stripeIdFields), { merge: true }).catch(() => {});
           return true;
         }
         return false;
@@ -26362,13 +27403,15 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyBusinessPlusVerification = applyBusinessPlusVerification;
 
-    function applyBusinessPlusCancellation(username) {
+    function applyBusinessPlusCancellation(username, opts) {
       if (!username) return;
       const cleanU = normalizeUsername(username);
       if (!cleanU) return;
+      const silent = !!(opts && opts.silent);
       if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
         state.currentUser.isBusinessPlus = false;
       }
+      if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(cleanU);
       if (typeof renderProfile === 'function') renderProfile();
       if (typeof renderNotes === 'function') renderNotes();
       if (typeof renderFeed === 'function') renderFeed();
@@ -26388,7 +27431,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
         setTimeout(() => clearInterval(retryTimer), 12000);
       }
-      if (typeof showToast === 'function') showToast('Business Plus membership canceled.');
+      if (!silent && typeof showToast === 'function') showToast('Business Plus membership canceled.');
     }
     window.applyBusinessPlusCancellation = applyBusinessPlusCancellation;
 
@@ -26725,6 +27768,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.isBusinessAccount = isBusinessAccount;
     window.isBusinessPlusShown = isBusinessPlusShown;
     window.creatorStatusBadgesHtml = creatorStatusBadgesHtml;
+    window.authorStatusBadgesHtml = authorStatusBadgesHtml;
+    window.paintAuthorBadgeMount = paintAuthorBadgeMount;
+    window.lookupCreatorFlags = lookupCreatorFlags;
+    window.isViewedCreatorCheckmarkShown = isViewedCreatorCheckmarkShown;
     window.isSeedDemoUsername = isSeedDemoUsername;
     window.sanitizeFollowingList = sanitizeFollowingList;
 
@@ -27703,6 +28750,30 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </div>
         </div>
 
+        <!-- @pixlynote-only Verification Requests Admin Card -->
+        <div id="drawer-pixlynote-verifications" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-slate-50 via-indigo-50/50 to-sky-50 border border-slate-200/80 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-slate-600 to-indigo-700 text-white flex items-center justify-center shadow-2xs flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-extrabold text-xs text-neutral-900 leading-tight">Verification Requests</span>
+                  <span id="verification-requests-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-800">0</span>
+                </div>
+                <div class="text-[10px] font-medium text-slate-600 leading-tight">Government and Organization applications</div>
+              </div>
+            </div>
+            <button type="button" id="btn-refresh-verification-requests" onclick="refreshVerificationRequests(true)" class="p-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh verification requests">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+          <div id="drawer-verification-requests-list" class="max-h-44 overflow-y-auto space-y-1.5 pr-0.5">
+            <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No pending verification requests</div>
+          </div>
+        </div>
+
         <!-- Profile Option -->
         <button type="button" onclick="handleDrawerProfileClick()" class="w-full flex items-center justify-between p-3.5 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer shadow-2xs">
           <div class="flex items-center space-x-3">
@@ -27941,6 +29012,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Business Accounts &amp; Association</h4>
             <p>You may register a Business account and optionally subscribe to Business Plus for a green verification check. A business can invite a personal account or another business account to associate with it. An account may be associated with only one business at a time, and a business cannot associate with itself. The inviting business&apos;s avatar can appear next to the associated account&apos;s name, whether that account is personal or business. Either party may end the association. To accept a new invite, leave (unaffiliate from) the current business first.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Government &amp; Organization Verification</h4>
+            <p>Personal and Business accounts may apply for Government / Public Official or Organization / Non-Profit verification after they have an active Pixlynote Plus or Business Plus subscription. Government and Organization are badges on top of your Personal or Business plan, not a separate plan: Personal with Plus is $9.99, and Business with Business Plus is $29.99, with the official badge added once you are approved. Apply from Verification &amp; badges in Account Center, or from the Government and Organization tabs in Edit Profile. You must verify an official .gov or .mil email with a one-time code, or submit a public website URL for manual review. Approved Government accounts show a Civic Slate Gray or Deep Navy check (you can choose the color); approved Organization accounts show a green check. Plus editing perks stay active. If the matching Plus subscription lapses, or you switch between Personal and Business (which cancels the old plan), the official check is hidden, but the approval stays on file and the badge returns automatically when you subscribe to the matching new plan. You only need to reapply if a request was rejected or an approval was revoked. Requests with a verified official email are typically reviewed within 24 hours.</p>
           </div>
 
           <div class="space-y-2">

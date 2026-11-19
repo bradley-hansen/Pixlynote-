@@ -43,9 +43,9 @@ module.exports = {
       }
     },
     {
-      name: 'Owner menu: User Base Metrics and Pending Deactivations are only at the top for @pixlynote',
+      name: 'Owner menu: User Base Metrics, Pending Deactivations, and Verification Requests are only at the top for @pixlynote',
       accounts: ALL_ACCOUNT_KEYS,
-      covers: ['el:#drawer-pixlynote-metrics', 'el:#drawer-pixlynote-deactivations', 'el:#btn-refresh-user-metrics', 'el:#btn-refresh-pending-deactivations', 'handler:refreshDrawerUserMetrics', 'handler:refreshPendingDeactivations', 'handler:toggleDrawerUserMetricsList'],
+      covers: ['el:#drawer-pixlynote-metrics', 'el:#drawer-pixlynote-deactivations', 'el:#drawer-pixlynote-verifications', 'el:#btn-refresh-user-metrics', 'el:#btn-refresh-pending-deactivations', 'el:#btn-refresh-verification-requests', 'handler:refreshDrawerUserMetrics', 'handler:refreshPendingDeactivations', 'handler:refreshVerificationRequests', 'handler:toggleDrawerUserMetricsList'],
       async run(ctx) {
         const { page, h, a, account } = ctx;
         await h.openOwnerMenu(page);
@@ -62,20 +62,24 @@ module.exports = {
           const kids = list ? Array.from(list.children) : [];
           const metIdx = kids.findIndex((el) => el.id === 'drawer-pixlynote-metrics');
           const deIdx = kids.findIndex((el) => el.id === 'drawer-pixlynote-deactivations');
+          const verIdx = kids.findIndex((el) => el.id === 'drawer-pixlynote-verifications');
           const profileIdx = kids.findIndex((el) => (el.getAttribute('onclick') || '').includes('handleDrawerProfileClick'));
           return {
             metrics: vis('drawer-pixlynote-metrics'),
             deact: vis('drawer-pixlynote-deactivations'),
-            above: metIdx >= 0 && deIdx > metIdx && profileIdx > deIdx
+            verif: vis('drawer-pixlynote-verifications'),
+            above: metIdx >= 0 && deIdx > metIdx && verIdx > deIdx && profileIdx > verIdx
           };
         });
         if (account.username === 'pixlynote') {
           a.ok(s.metrics.exists && !s.metrics.hidden, 'Metrics card is visible for @pixlynote');
           a.ok(s.deact.exists && !s.deact.hidden, 'Deactivations card is visible for @pixlynote');
-          a.ok(s.above, 'Both cards sit above the four items');
+          a.ok(s.verif.exists && !s.verif.hidden, 'Verification Requests card is visible for @pixlynote');
+          a.ok(s.above, 'Metrics, deactivations, and verification requests sit at the top above the four items');
         } else {
           a.ok(!s.metrics.exists || s.metrics.hidden, 'Metrics card is hidden for @' + account.username);
           a.ok(!s.deact.exists || s.deact.hidden, 'Deactivations card is hidden for @' + account.username);
+          a.ok(!s.verif.exists || s.verif.hidden, 'Verification Requests card is hidden for @' + account.username);
         }
       }
     }

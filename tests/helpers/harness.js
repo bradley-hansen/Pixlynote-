@@ -141,6 +141,9 @@ function mockWorker(req) {
   if (/verify-stripe-session/i.test(pathPart)) {
     return { valid: false, status: 'unpaid' };
   }
+  if (/\/cancel-subscription/i.test(pathPart)) {
+    return { ok: true, canceled: true, status: 'canceled', test: true };
+  }
   return { ok: true, debug_code: VERIFY_CODE };
 }
 
