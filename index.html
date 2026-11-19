@@ -4248,36 +4248,41 @@
             if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
             if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
             const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
+            try { window._activeUserDocCache = { username: cleanU, data: d, at: Date.now() }; } catch (e) {}
             if (!hasPendingWrites && !recentlyMutatedProfile) {
               let profileChanged = false;
-              if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
-                state.currentUser.bio = d.bio;
-                profileChanged = true;
-              }
-              if (typeof d.fullName === 'string' && d.fullName.trim() && d.fullName !== state.currentUser.fullName) {
-                state.currentUser.fullName = d.fullName;
-                profileChanged = true;
-              }
-              if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
-                state.currentUser.email = d.email;
-                profileChanged = true;
-              }
-              if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
-                state.currentUser.phone = d.phone;
-                profileChanged = true;
-              }
-              if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
-                state.currentUser.link = d.link;
-                profileChanged = true;
-              }
-              if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
-                state.currentUser.accountType = d.accountType;
-                profileChanged = true;
-              }
-              const remoteAv = d.photoURL || d.avatar;
-              if (typeof remoteAv === 'string' && remoteAv && remoteAv !== state.currentUser.avatar) {
-                state.currentUser.avatar = remoteAv;
-                profileChanged = true;
+              if (typeof mergeStoredProfileFields === 'function') {
+                profileChanged = !!mergeStoredProfileFields(state.currentUser, d);
+              } else {
+                if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
+                  state.currentUser.bio = d.bio;
+                  profileChanged = true;
+                }
+                if (typeof d.fullName === 'string' && d.fullName.trim() && d.fullName !== state.currentUser.fullName) {
+                  state.currentUser.fullName = d.fullName;
+                  profileChanged = true;
+                }
+                if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
+                  state.currentUser.email = d.email;
+                  profileChanged = true;
+                }
+                if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
+                  state.currentUser.phone = d.phone;
+                  profileChanged = true;
+                }
+                if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
+                  state.currentUser.link = d.link;
+                  profileChanged = true;
+                }
+                if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
+                  state.currentUser.accountType = d.accountType;
+                  profileChanged = true;
+                }
+                const remoteAv = d.photoURL || d.avatar;
+                if (typeof remoteAv === 'string' && remoteAv && remoteAv !== state.currentUser.avatar) {
+                  state.currentUser.avatar = remoteAv;
+                  profileChanged = true;
+                }
               }
               if (profileChanged) {
                 try {
@@ -4337,6 +4342,7 @@
                       if (!ev.savedPhone || digits(phoneInp.value) === digits(ev.savedPhone)) phoneInp.value = state.currentUser.phone || '';
                     }
                     if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
+                    if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser, { skipActive: true });
                   }
                 } catch(e) {}
               }
@@ -4890,6 +4896,58 @@
       });
       return out;
     }
+    var STORED_PROFILE_FIELDS = [
+      'fullName', 'email', 'phone', 'bio', 'link', 'accountType',
+      'dbaName', 'businessIndustry', 'businessIndustryOther',
+      'businessStreet', 'businessCity', 'businessState', 'businessPostal',
+      'businessAddressVisibility', 'businessHours', 'businessSupportEmail',
+      'personalName', 'businessName'
+    ];
+    function markStoredProfileFieldsLoaded(user, source) {
+      if (!user) return;
+      const loaded = user._loadedProfileFields || {};
+      const src = source || user;
+      STORED_PROFILE_FIELDS.forEach(function (k) {
+        if (src && src[k] !== undefined) loaded[k] = true;
+      });
+      if (src && (src.photoURL !== undefined || src.avatar !== undefined)) loaded.avatar = true;
+      user._loadedProfileFields = loaded;
+    }
+    function mergeStoredProfileFields(target, source) {
+      if (!target || !source) return false;
+      let changed = false;
+      STORED_PROFILE_FIELDS.forEach(function (k) {
+        if (source[k] === undefined) return;
+        if (k === 'fullName' && !String(source[k] || '').trim()) return;
+        if (k === 'accountType' && source[k] !== 'personal' && source[k] !== 'business') return;
+        if (target[k] !== source[k]) {
+          target[k] = source[k];
+          changed = true;
+        }
+      });
+      const remoteAv = source.photoURL || source.avatar;
+      if (typeof remoteAv === 'string' && remoteAv && remoteAv !== target.avatar) {
+        target.avatar = remoteAv;
+        changed = true;
+      }
+      markStoredProfileFieldsLoaded(target, source);
+      return changed;
+    }
+    function omitUnloadedPublicUserFields(user, rec, extra) {
+      if (!user || !rec) return rec;
+      const loaded = user._loadedProfileFields || {};
+      STORED_PROFILE_FIELDS.forEach(function (k) {
+        if (k === 'fullName' || k === 'accountType') return;
+        const fromExtra = extra && Object.prototype.hasOwnProperty.call(extra, k);
+        const onUser = Object.prototype.hasOwnProperty.call(user, k);
+        if (!fromExtra && !onUser && !loaded[k] && k in rec) delete rec[k];
+      });
+      return rec;
+    }
+    window.STORED_PROFILE_FIELDS = STORED_PROFILE_FIELDS;
+    window.markStoredProfileFieldsLoaded = markStoredProfileFieldsLoaded;
+    window.mergeStoredProfileFields = mergeStoredProfileFields;
+    window.omitUnloadedPublicUserFields = omitUnloadedPublicUserFields;
     function publicSafeUserFields(user, extra) {
       const u = user || {};
       const linkN = normalizeWebsiteUrl(u.link);
@@ -4919,6 +4977,7 @@
         businessVerificationLegacyExempt: u.businessVerificationLegacyExempt === true
       };
       if (extra && typeof extra === 'object') Object.assign(rec, extra);
+      omitUnloadedPublicUserFields(u, rec, extra);
       return stripSensitiveVerificationFields(rec);
     }
     function recordUserDocWrite(payload, source) {
@@ -4982,9 +5041,15 @@
         link: linkN
       };
     }
-    function fillEditProfileBusinessFields(user) {
+    function fillEditProfileBusinessFields(user, opts) {
       const u = user || (state && state.currentUser) || {};
-      const setVal = function (id, v) { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      const skipActive = !!(opts && opts.skipActive);
+      const setVal = function (id, v) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (skipActive && document.activeElement === el) return;
+        el.value = v || '';
+      };
       setVal('edit-profile-dba-name', u.dbaName);
       setVal('edit-profile-business-industry', normalizeBusinessIndustry(u.businessIndustry));
       setVal('edit-profile-business-industry-other', u.businessIndustryOther);
@@ -13693,6 +13758,18 @@ function syncLikedStateToPosts() {
     // --- Story Viewer Modal ---
     
     function openEditProfileModal() {
+      try {
+        const cache = window._activeUserDocCache;
+        const curU = (typeof normalizeUsername === 'function')
+          ? normalizeUsername(state.currentUser && state.currentUser.username)
+          : String((state.currentUser && state.currentUser.username) || '').toLowerCase();
+        const cacheU = cache && cache.username
+          ? ((typeof normalizeUsername === 'function') ? normalizeUsername(cache.username) : String(cache.username).toLowerCase())
+          : '';
+        if (cache && cache.data && cacheU && cacheU === curU && typeof mergeStoredProfileFields === 'function') {
+          mergeStoredProfileFields(state.currentUser, cache.data);
+        }
+      } catch (e) {}
       const isPixly = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'pixlynote');
       const isBradley = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'bradley_hansen');
 
@@ -22974,6 +23051,7 @@ function syncLikedStateToPosts() {
           state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '');
           state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : '';
           state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : '';
+          if (accData && typeof mergeStoredProfileFields === 'function') mergeStoredProfileFields(state.currentUser, accData);
           state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : PIXLYNOTE_SHUTTER_ICON;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
@@ -23003,6 +23081,9 @@ function syncLikedStateToPosts() {
         }
       }
 
+      if (accData && state.currentUser && typeof mergeStoredProfileFields === 'function') {
+        mergeStoredProfileFields(state.currentUser, accData);
+      }
       if (state.currentUser && 'password' in state.currentUser) delete state.currentUser.password;
       if (password) {
         const pwUserKey = normalizeUsername(cleanUsername);

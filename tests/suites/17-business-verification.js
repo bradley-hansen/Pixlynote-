@@ -398,6 +398,8 @@ module.exports = {
           if (state.currentUser) {
             state.currentUser.accountType = 'business';
             state.currentUser.businessIndustry = '';
+            if (state.currentUser._loadedProfileFields) delete state.currentUser._loadedProfileFields.businessIndustry;
+            window._activeUserDocCache = null;
             try { localStorage.removeItem('pixly_biz_info_prompt_dismissed_' + String(state.currentUser.username || '').toLowerCase()); } catch (e) {}
           }
           if (typeof renderProfile === 'function') renderProfile();

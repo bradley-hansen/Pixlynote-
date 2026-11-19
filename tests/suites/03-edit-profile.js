@@ -504,6 +504,210 @@ module.exports = {
         a.equal(saved.bio, typedBio, 'The bio typed with the email change is still in the form');
         a.equal(saved.stateBio, typedBio, 'The bio typed with the email change stayed on the profile');
       }
+    }    ,
+    {
+      name: 'Edit Profile: every stored field survives save, reload, and reopen on a business account',
+      accounts: ['business', 'pixlynote'],
+      covers: [
+        'el:#edit-profile-bio',
+        'el:#edit-profile-link',
+        'el:#edit-profile-dba-name',
+        'el:#edit-profile-business-industry',
+        'el:#edit-profile-business-street',
+        'el:#edit-profile-business-city',
+        'el:#edit-profile-business-state',
+        'el:#edit-profile-business-postal',
+        'el:#edit-profile-address-visibility',
+        'el:#edit-profile-business-hours',
+        'el:#edit-profile-support-email',
+        'el:#btn-save-edit-profile',
+        'handler:fillEditProfileBusinessFields',
+        'handler:mergeStoredProfileFields',
+        'handler:applyActiveUserDocData'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        const values = {
+          bio: 'Round-trip bio for ' + account.username,
+          link: 'https://example.test/round-trip-' + account.username,
+          dbaName: 'Round Trip DBA',
+          businessIndustry: 'software_tech',
+          businessStreet: '12 Harbor Rd',
+          businessCity: 'Galloway',
+          businessState: 'NJ',
+          businessPostal: '08205',
+          businessAddressVisibility: 'city_state',
+          businessHours: 'Mon-Fri 9am-5pm EST',
+          businessSupportEmail: 'support.' + account.username + '@example.test'
+        };
+        await page.fill('#edit-profile-bio', values.bio);
+        await page.fill('#edit-profile-link', values.link);
+        await page.fill('#edit-profile-dba-name', values.dbaName);
+        await page.selectOption('#edit-profile-business-industry', values.businessIndustry);
+        await page.fill('#edit-profile-business-street', values.businessStreet);
+        await page.fill('#edit-profile-business-city', values.businessCity);
+        await page.fill('#edit-profile-business-state', values.businessState);
+        await page.fill('#edit-profile-business-postal', values.businessPostal);
+        await page.selectOption('#edit-profile-address-visibility', values.businessAddressVisibility);
+        await page.fill('#edit-profile-business-hours', values.businessHours);
+        await page.fill('#edit-profile-support-email', values.businessSupportEmail);
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        const stored = await page.evaluate(() => {
+          const u = state.currentUser || {};
+          const doc = { username: u.username, accountType: u.accountType };
+          (window.STORED_PROFILE_FIELDS || []).forEach(function (k) {
+            if (u[k] !== undefined) doc[k] = u[k];
+          });
+          return doc;
+        });
+        a.equal(stored.bio, values.bio, 'Bio was saved on the business account');
+        a.ok((stored.link || '').includes('example.test/round-trip-'), 'Website was saved on the business account');
+        a.equal(stored.dbaName, values.dbaName, 'DBA was saved');
+        a.equal(stored.businessIndustry, values.businessIndustry, 'Industry was saved');
+        a.equal(stored.businessStreet, values.businessStreet, 'Street was saved');
+        a.equal(stored.businessCity, values.businessCity, 'City was saved');
+        a.equal(stored.businessState, values.businessState, 'State was saved');
+        a.equal(stored.businessPostal, values.businessPostal, 'Postal code was saved');
+        a.equal(stored.businessAddressVisibility, values.businessAddressVisibility, 'Address visibility was saved');
+        a.equal(stored.businessHours, values.businessHours, 'Hours were saved');
+        a.equal(stored.businessSupportEmail, values.businessSupportEmail, 'Support email was saved');
+
+        await page.evaluate((doc) => {
+          const u = state.currentUser;
+          const drop = ['dbaName','businessIndustry','businessIndustryOther','businessStreet','businessCity','businessState','businessPostal','businessAddressVisibility','businessHours','businessSupportEmail','bio','link'];
+          drop.forEach(function (k) { delete u[k]; });
+          u._loadedProfileFields = { fullName: true, email: true, phone: true, accountType: true };
+          window._lastLocalProfileWriteTs = 0;
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          const m = document.getElementById('modal-edit-profile');
+          if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+          const uname = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username) : String(u.username || '').toLowerCase();
+          if (typeof applyActiveUserDocData === 'function') applyActiveUserDocData(uname, doc, false);
+          else if (typeof mergeStoredProfileFields === 'function') mergeStoredProfileFields(u, doc);
+        }, stored);
+        await h.openEditProfile(page);
+        const fields = await page.evaluate(() => ({
+          bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+          link: ((document.getElementById('edit-profile-link') || {}).value || ''),
+          dba: ((document.getElementById('edit-profile-dba-name') || {}).value || ''),
+          industry: ((document.getElementById('edit-profile-business-industry') || {}).value || ''),
+          street: ((document.getElementById('edit-profile-business-street') || {}).value || ''),
+          city: ((document.getElementById('edit-profile-business-city') || {}).value || ''),
+          stateVal: ((document.getElementById('edit-profile-business-state') || {}).value || ''),
+          postal: ((document.getElementById('edit-profile-business-postal') || {}).value || ''),
+          vis: ((document.getElementById('edit-profile-address-visibility') || {}).value || ''),
+          hours: ((document.getElementById('edit-profile-business-hours') || {}).value || ''),
+          support: ((document.getElementById('edit-profile-support-email') || {}).value || '')
+        }));
+        a.equal(fields.bio, values.bio, 'Reopened modal shows the saved bio after a reload');
+        a.ok((fields.link || '').includes('example.test/round-trip-'), 'Reopened modal shows the saved website after a reload');
+        a.equal(fields.dba, values.dbaName, 'Reopened modal shows the saved DBA after a reload');
+        a.equal(fields.industry, values.businessIndustry, 'Reopened modal shows the saved industry after a reload');
+        a.equal(fields.street, values.businessStreet, 'Reopened modal shows the saved street after a reload');
+        a.equal(fields.city, values.businessCity, 'Reopened modal shows the saved city after a reload');
+        a.equal(fields.stateVal, values.businessState, 'Reopened modal shows the saved state after a reload');
+        a.equal(fields.postal, values.businessPostal, 'Reopened modal shows the saved postal code after a reload');
+        a.equal(fields.vis, values.businessAddressVisibility, 'Reopened modal shows the saved address visibility after a reload');
+        a.equal(fields.hours, values.businessHours, 'Reopened modal shows the saved hours after a reload');
+        a.equal(fields.support, values.businessSupportEmail, 'Reopened modal shows the saved support email after a reload');
+        await page.evaluate(() => {
+          window._activeUserDocCache = null;
+          if (state.currentUser && state.currentUser._loadedProfileFields) {
+            ['dbaName','businessIndustry','businessIndustryOther','businessStreet','businessCity','businessState','businessPostal','businessAddressVisibility','businessHours','businessSupportEmail'].forEach((k) => {
+              delete state.currentUser[k];
+              delete state.currentUser._loadedProfileFields[k];
+            });
+          }
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+        });
+      }
+    },
+    {
+      name: 'Edit Profile: a stale or partial render cannot blank stored business fields',
+      accounts: ['business', 'pixlynote'],
+      covers: [
+        'handler:publicSafeUserFields',
+        'handler:omitUnloadedPublicUserFields',
+        'handler:mergeStoredProfileFields',
+        'handler:fillEditProfileBusinessFields',
+        'el:#edit-profile-dba-name',
+        'el:#edit-profile-business-industry',
+        'el:#edit-profile-business-city',
+        'el:#edit-profile-business-hours',
+        'el:#edit-profile-support-email'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        const stored = {
+          dbaName: 'Keep DBA',
+          businessIndustry: 'software_tech',
+          businessIndustryOther: '',
+          businessStreet: '12 Harbor Rd',
+          businessCity: 'Galloway',
+          businessState: 'NJ',
+          businessPostal: '08205',
+          businessAddressVisibility: 'city_state',
+          businessHours: 'Mon-Fri 9am-5pm EST',
+          businessSupportEmail: 'keep.support@example.test'
+        };
+        const persist = await page.evaluate((stored) => {
+          const u = state.currentUser;
+          const drop = Object.keys(stored);
+          drop.forEach(function (k) { delete u[k]; });
+          u._loadedProfileFields = { email: true, phone: true, bio: true, link: true, accountType: true, fullName: true };
+          window._activeUserDocCache = {
+            username: u.username,
+            data: Object.assign({ username: u.username, accountType: u.accountType || 'business', email: u.email || '', phone: u.phone || '', bio: u.bio || '', link: u.link || '' }, stored),
+            at: Date.now()
+          };
+          const rec = (typeof publicSafeUserFields === 'function') ? publicSafeUserFields(u) : {};
+          return rec;
+        }, stored);
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'dbaName'), 'A partial profile persist does not write a blank DBA');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessIndustry'), 'A partial profile persist does not write a blank industry');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessCity'), 'A partial profile persist does not write a blank city');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessState'), 'A partial profile persist does not write a blank state');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessPostal'), 'A partial profile persist does not write a blank postal code');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessHours'), 'A partial profile persist does not write blank hours');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessSupportEmail'), 'A partial profile persist does not write a blank support email');
+        a.ok(!Object.prototype.hasOwnProperty.call(persist, 'businessStreet'), 'A partial profile persist does not write a blank street');
+
+        await h.openEditProfile(page);
+        const fields = await page.evaluate(() => ({
+          dba: ((document.getElementById('edit-profile-dba-name') || {}).value || ''),
+          industry: ((document.getElementById('edit-profile-business-industry') || {}).value || ''),
+          city: ((document.getElementById('edit-profile-business-city') || {}).value || ''),
+          stateVal: ((document.getElementById('edit-profile-business-state') || {}).value || ''),
+          postal: ((document.getElementById('edit-profile-business-postal') || {}).value || ''),
+          hours: ((document.getElementById('edit-profile-business-hours') || {}).value || ''),
+          support: ((document.getElementById('edit-profile-support-email') || {}).value || ''),
+          street: ((document.getElementById('edit-profile-business-street') || {}).value || '')
+        }));
+        a.equal(fields.dba, stored.dbaName, 'Opening Edit Profile fills DBA from stored data even after a partial render');
+        a.equal(fields.industry, stored.businessIndustry, 'Opening Edit Profile fills industry from stored data even after a partial render');
+        a.equal(fields.city, stored.businessCity, 'Opening Edit Profile fills city from stored data even after a partial render');
+        a.equal(fields.stateVal, stored.businessState, 'Opening Edit Profile fills state from stored data even after a partial render');
+        a.equal(fields.postal, stored.businessPostal, 'Opening Edit Profile fills postal code from stored data even after a partial render');
+        a.equal(fields.hours, stored.businessHours, 'Opening Edit Profile fills hours from stored data even after a partial render');
+        a.equal(fields.support, stored.businessSupportEmail, 'Opening Edit Profile fills support email from stored data even after a partial render');
+        a.equal(fields.street, stored.businessStreet, 'Opening Edit Profile fills street from stored data even after a partial render');
+        await page.evaluate(() => {
+          window._activeUserDocCache = null;
+          if (state.currentUser && state.currentUser._loadedProfileFields) {
+            ['dbaName','businessIndustry','businessIndustryOther','businessStreet','businessCity','businessState','businessPostal','businessAddressVisibility','businessHours','businessSupportEmail'].forEach((k) => {
+              delete state.currentUser[k];
+              delete state.currentUser._loadedProfileFields[k];
+            });
+          }
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+        });
+      }
     }
 
   ]
