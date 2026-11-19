@@ -19899,111 +19899,138 @@ function syncLikedStateToPosts() {
     }
     window.filterDmCreators = filterDmCreators;
 
-    async function lookupAccountForDm(query) {
-      const raw = String(query || '').trim().replace(/^@/, '');
-      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(raw) : raw.toLowerCase();
-      if (!n || n.length < 2) return null;
-      if (!(window.firebaseReady && window.firebase && window.firebase.getDoc)) return null;
-      try {
-        const { db, doc, getDoc } = window.firebase;
-        const snap = await getDoc(doc(db, 'users', n));
-        if (!snap.exists()) return null;
-        const d = snap.data() || {};
-        if (d.deactivated === true) return null;
-        return {
-          username: n,
-          fullName: d.fullName || d.displayName || n,
-          avatar: d.avatar || d.photoURL || '',
-          bio: d.bio || '',
-          accountType: d.accountType
-        };
-      } catch (e) {
-        return null;
-      }
+    function isExcludedDmUsername(u) {
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(u || '') : String(u || '').toLowerCase().replace(/^@/, '');
+      if (!n || n === 'pixai') return true;
+      return typeof isSeedDemoUsername === 'function' && isSeedDemoUsername(n);
     }
-    function collectDmCreatorPool(query, extraAccounts) {
-      const q = (query || '').toLowerCase().trim();
+    function accountMatchesDmQuery(acc, q) {
+      if (!q) return true;
+      const needle = String(q || '').trim().replace(/^@/, '').toLowerCase();
+      if (!needle) return true;
+      const n = String(acc && acc.username ? acc.username : '').toLowerCase();
+      const name = String((acc && (acc.fullName || acc.displayName || acc.name)) || '').toLowerCase();
+      return n.includes(needle) || name.includes(needle);
+    }
+    function enrichDmAccount(c) {
+      if (!c) return null;
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(c.username || c.user || '') : String(c.username || c.user || '').toLowerCase().replace(/^@/, '');
+      if (!n) return null;
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      const rec = (dir && typeof dir.get === 'function') ? dir.get(n) : null;
+      const deactivated = (c.deactivated === true) || (rec && rec.deactivated === true);
+      return {
+        username: n,
+        fullName: (rec && rec.fullName) || c.fullName || c.displayName || c.name || n,
+        avatar: (rec && rec.avatar) || c.avatar || c.photoURL || '',
+        bio: (rec && rec.bio) || c.bio || '',
+        accountType: (rec && rec.accountType) || c.accountType,
+        deactivated: !!deactivated
+      };
+    }
+    function getMyRealDmConnections() {
       const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
-      const pool = [];
+      const out = [];
       const seen = new Set();
-      function add(c, pinned) {
-        if (!c || !c.username) return;
-        const n = normalizeUsername(c.username);
-        if (!n || n === me || seen.has(n) || isSeedDemoUsername(n)) return;
-        seen.add(n);
-        pool.push({
-          username: n,
-          fullName: c.fullName || c.name || n,
-          bio: c.bio || '',
-          avatar: c.avatar || '',
-          subtitle: n === 'pixai' ? 'AI assistant' : ('@' + n),
-          pinned: !!pinned
-        });
+      function add(c) {
+        const acc = enrichDmAccount(c);
+        if (!acc || acc.username === me || seen.has(acc.username) || isExcludedDmUsername(acc.username) || acc.deactivated) return;
+        seen.add(acc.username);
+        out.push(acc);
       }
-      add({ username: 'pixai', fullName: 'Pixai', bio: 'AI assistant', avatar: typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined' ? PIXLYNOTE_SHUTTER_ICON : '' }, true);
-      add({ username: 'pixlynote', fullName: 'Pixlynote Support', bio: 'Official Pixlynote updates & support', avatar: typeof PIXLYNOTE_SHUTTER_ICON !== 'undefined' ? PIXLYNOTE_SHUTTER_ICON : '' }, true);
-      (state.following || []).forEach(function (f) {
-        if (f && f.isFollowing !== false) add(f, false);
-      });
-      (extraAccounts || []).forEach(function (a) { add(a, false); });
+      const following = (typeof getActiveConnectedEntries === 'function')
+        ? getActiveConnectedEntries(state.following || [], me)
+        : (state.following || []).filter(function (f) { return f && f.isFollowing !== false; });
+      following.forEach(add);
+      const followers = (typeof getAccountFollowersList === 'function')
+        ? getAccountFollowersList()
+        : (state.followers || []);
+      followers.forEach(add);
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      if (dir && me) {
+        if (typeof dir.forEach === 'function') {
+          dir.forEach(function (rec) {
+            if (rec && Array.isArray(rec.following) && rec.following.indexOf(me) !== -1) add(rec);
+          });
+        }
+        const mine = (typeof dir.get === 'function') ? dir.get(me) : null;
+        if (mine && Array.isArray(mine.following)) {
+          mine.following.forEach(function (u) { add({ username: u }); });
+        }
+      }
+      return out;
+    }
+    function searchRealAccountsForDm(query) {
+      const q = String(query || '').trim().replace(/^@/, '').toLowerCase();
+      const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const results = [];
+      const seen = new Set();
+      function add(c) {
+        const acc = enrichDmAccount(c);
+        if (!acc || acc.username === me || seen.has(acc.username) || isExcludedDmUsername(acc.username) || acc.deactivated) return;
+        if (q && !accountMatchesDmQuery(acc, q)) return;
+        seen.add(acc.username);
+        results.push(acc);
+      }
+      getMyRealDmConnections().forEach(add);
       if (q) {
         const dir = window._exploreUserDir && window._exploreUserDir.users;
         if (dir && typeof dir.forEach === 'function') {
-          dir.forEach(function (rec, uname) {
-            const recName = (rec && (rec.fullName || rec.displayName || rec.name)) || '';
-            if (String(uname).toLowerCase().includes(q) || String(recName).toLowerCase().includes(q)) {
-              add({ username: uname, fullName: recName || uname, avatar: (rec && (rec.avatar || rec.photoURL)) || '', bio: (rec && rec.bio) || '' }, false);
-            }
-          });
+          dir.forEach(function (rec, uname) { add(rec || { username: uname }); });
         }
+        (window._dmSearchExtras || []).forEach(add);
       }
-      if (!q) return pool.filter(function (c) { return c.pinned || true; }).filter(function (c) {
-        return c.pinned || (state.following || []).some(function (f) { return f && f.isFollowing !== false && normalizeUsername(f.username) === c.username; });
-      });
-      return pool.filter(function (c) {
-        return c.username.includes(q) || (c.fullName && c.fullName.toLowerCase().includes(q)) || (c.subtitle && c.subtitle.toLowerCase().includes(q));
-      });
+      return results;
+    }
+    function collectDmCreatorPool(query, extraAccounts) {
+      if (extraAccounts) window._dmSearchExtras = extraAccounts;
+      return searchRealAccountsForDm(query);
     }
     function paintDmCreatorsList(filtered, query) {
       const list = document.getElementById('dm-creators-list');
       if (!list) return;
-      const q = (query || '').toLowerCase().trim();
+      const q = String(query || '').trim();
       if (!filtered.length) {
-        list.innerHTML = `<div class="p-6 text-center text-xs text-neutral-400">No accounts found matching "${escapeHtml(q)}"</div>`;
+        list.innerHTML = q
+          ? '<div id="dm-new-chat-empty" class="p-6 text-center text-xs text-neutral-400 space-y-1"><p class="font-medium text-neutral-700">No accounts found</p><p class="text-[11px] text-neutral-400">No accounts found matching "' + escapeHtml(q) + '"</p></div>'
+          : '<div id="dm-new-chat-empty" class="p-6 text-center text-xs text-neutral-400 space-y-1"><p class="font-medium text-neutral-700">No accounts found</p><p class="text-[11px] text-neutral-400">Search by name or @username to start a chat.</p></div>';
         return;
       }
-      list.innerHTML = filtered.map(c => {
+      list.innerHTML = filtered.map(function (c) {
         const av = resolveDmAvatar(c.username, c.avatar);
-        return `
-        <div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition dm-new-chat-row" data-username="${escapeHtml(c.username)}" onclick="selectCreatorForDm('${c.username}', '${escapeHtml(c.fullName)}', '')">
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">
-              <img src="${av}" alt="${c.fullName}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">
-            </div>
-            <div class="min-w-0">
-              <div class="font-bold text-xs text-neutral-900 truncate leading-tight">${escapeHtml(c.fullName)}</div>
-              <div class="text-[11px] text-neutral-500 truncate">${c.username === 'pixai' ? 'AI assistant' : ('@' + c.username)}</div>
-            </div>
-          </div>
-          <button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>
-        </div>
-      `;
+        return (
+          '<div class="p-2.5 px-3 flex items-center justify-between hover:bg-violet-50/70 rounded-xl cursor-pointer transition dm-new-chat-row" data-username="' + escapeHtml(c.username) + '" onclick="selectCreatorForDm(\'' + c.username + '\', \'' + escapeHtml(c.fullName) + '\', \'\')">'
+          + '<div class="flex items-center space-x-2.5 min-w-0">'
+          + '<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200">'
+          + '<img src="' + av + '" alt="' + escapeHtml(c.fullName) + '" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=COMMUNITY_IMAGES[0];">'
+          + '</div>'
+          + '<div class="min-w-0">'
+          + '<div class="font-bold text-xs text-neutral-900 truncate leading-tight">' + escapeHtml(c.fullName) + '</div>'
+          + '<div class="text-[11px] text-neutral-500 truncate">@' + escapeHtml(c.username) + '</div>'
+          + '</div></div>'
+          + '<button type="button" class="px-2.5 py-1 text-xs font-semibold text-violet-600 bg-violet-100/70 hover:bg-violet-200 rounded-lg transition cursor-pointer">Chat</button>'
+          + '</div>'
+        );
       }).join('');
+    }
+    function ensureDmUserDirectory() {
+      if (typeof loadExploreUserDirectory === 'function') return loadExploreUserDirectory();
+      return Promise.resolve(window._exploreUserDir || null);
     }
     function renderDmCreatorsList(query) {
       const q = query || '';
-      paintDmCreatorsList(collectDmCreatorPool(q, window._dmSearchExtras || []), q);
-      if (String(q).trim() && window.firebaseReady && window.firebase && window.firebase.getDoc) {
-        const token = (window._dmSearchToken = (window._dmSearchToken || 0) + 1);
-        lookupAccountForDm(q).then(function (acc) {
-          if (token !== window._dmSearchToken) return;
-          window._dmSearchExtras = acc ? [acc] : [];
-          paintDmCreatorsList(collectDmCreatorPool(q, window._dmSearchExtras), q);
-        });
-      } else {
-        window._dmSearchExtras = [];
-      }
+      paintDmCreatorsList(searchRealAccountsForDm(q), q);
+      const token = (window._dmSearchToken = (window._dmSearchToken || 0) + 1);
+      ensureDmUserDirectory().then(function () {
+        if (token !== window._dmSearchToken) return;
+        paintDmCreatorsList(searchRealAccountsForDm(q), q);
+      });
     }
+    window.isExcludedDmUsername = isExcludedDmUsername;
+    window.accountMatchesDmQuery = accountMatchesDmQuery;
+    window.getMyRealDmConnections = getMyRealDmConnections;
+    window.searchRealAccountsForDm = searchRealAccountsForDm;
+    window.renderDmCreatorsList = renderDmCreatorsList;
 
     function selectCreatorForDm(username, fullName, avatar) {
       toggleDmNewChatPicker(false);
