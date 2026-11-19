@@ -976,7 +976,7 @@
                   <div class="flex items-center justify-center sm:justify-start space-x-1.5">
                     <h1 class="text-xl font-bold text-neutral-900" id="profile-page-username">bradley_hansen</h1>
                     <img id="profile-associated-avatar" class="hidden w-4 h-4 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
-                    <!-- Pixlynote Verified Badge (Blue Plus / amber Business Plus) -->
+                    <!-- Pixlynote Verified Badge (Blue Plus / green Business Plus) -->
                     <svg id="profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" title="Verified Subscriber" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
@@ -15878,7 +15878,7 @@ function syncLikedStateToPosts() {
       }
       return Boolean(isVerified && isPlus);
     }
-    var BUSINESS_PLUS_VERIFIED_SVG = '<svg class="w-3.5 h-3.5 text-amber-400 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true" title="Business Plus"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+    var BUSINESS_PLUS_VERIFIED_SVG = '<svg class="w-3.5 h-3.5 text-emerald-500 fill-current flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true" title="Business Plus"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
     function isBusinessAccount(user) {
       const u = user || (state.currentUser || null);
       if (!u) return false;
@@ -15936,16 +15936,16 @@ function syncLikedStateToPosts() {
       return assocHtml;
     }
     function paintStatusBadgesForUser(user, svgIds, assocIds) {
-      const showYellow = isBusinessPlusShown(user);
-      const showBlue = !showYellow && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
+      const showGreen = isBusinessPlusShown(user);
+      const showBlue = !showGreen && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
       (svgIds || []).forEach(function (id) {
         const el = document.getElementById(id);
         if (!el) return;
-        el.classList.toggle('hidden', !(showYellow || showBlue));
+        el.classList.toggle('hidden', !(showGreen || showBlue));
         el.classList.toggle('text-sky-500', !!showBlue);
-        el.classList.toggle('text-amber-400', !!showYellow);
-        el.classList.toggle('text-amber-500', !!showYellow);
-        if (showYellow) el.setAttribute('title', 'Business Plus');
+        el.classList.toggle('text-emerald-500', !!showGreen);
+        el.classList.remove('text-amber-400', 'text-amber-500');
+        if (showGreen) el.setAttribute('title', 'Business Plus');
         else if (showBlue) el.setAttribute('title', 'Verified Subscriber');
       });
       const assoc = getAssociatedBusinessFor(user);
@@ -26358,7 +26358,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
         setTimeout(() => clearInterval(retryTimer), 12000);
       }
-      if (typeof showToast === 'function') showToast('Business Plus activated! Yellow badge enabled ✓');
+      if (typeof showToast === 'function') showToast('Business Plus activated! Green badge enabled ✓');
     }
     window.applyBusinessPlusVerification = applyBusinessPlusVerification;
 
@@ -27552,23 +27552,23 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </ul>
         </div>
 
-        <div id="sub-business-plus-box" class="hidden w-full rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-3.5 shadow-2xs space-y-2.5">
+        <div id="sub-business-plus-box" class="hidden w-full rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-3.5 shadow-2xs space-y-2.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-1.5">
-              <svg class="w-4 h-4 text-amber-400 fill-current flex-shrink-0" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-emerald-500 fill-current flex-shrink-0" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
               <h4 class="text-xs font-extrabold text-neutral-900">Business Plus Benefits</h4>
             </div>
-            <span id="sub-business-active-pill" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Active ✓</span>
+            <span id="sub-business-active-pill" class="hidden px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Active ✓</span>
           </div>
           <ul class="space-y-2 text-[11px] text-neutral-700">
             <li class="flex items-start space-x-2">
-              <span class="text-amber-500 font-bold leading-4">✓</span>
-              <span><strong>Business Plus Checkmark</strong> — Display a yellow verification badge next to your business handle.</span>
+              <span class="text-emerald-500 font-bold leading-4">✓</span>
+              <span><strong>Business Plus Checkmark</strong> — Display a green verification badge next to your business handle.</span>
             </li>
             <li class="flex items-start space-x-2">
-              <span class="text-amber-500 font-bold leading-4">✓</span>
+              <span class="text-emerald-500 font-bold leading-4">✓</span>
               <span><strong>$29.99</strong> — Business Plus membership billed through Stripe.</span>
             </li>
           </ul>
@@ -27940,7 +27940,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Business Accounts &amp; Association</h4>
-            <p>You may register a Business account and optionally subscribe to Business Plus for a yellow verification check. A business can invite a personal account or another business account to associate with it. An account may be associated with only one business at a time, and a business cannot associate with itself. The inviting business&apos;s avatar can appear next to the associated account&apos;s name, whether that account is personal or business. Either party may end the association. To accept a new invite, leave (unaffiliate from) the current business first.</p>
+            <p>You may register a Business account and optionally subscribe to Business Plus for a green verification check. A business can invite a personal account or another business account to associate with it. An account may be associated with only one business at a time, and a business cannot associate with itself. The inviting business&apos;s avatar can appear next to the associated account&apos;s name, whether that account is personal or business. Either party may end the association. To accept a new invite, leave (unaffiliate from) the current business first.</p>
           </div>
 
           <div class="space-y-2">

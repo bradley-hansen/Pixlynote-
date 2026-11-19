@@ -12,7 +12,7 @@ The app stores session and draft state in `localStorage` and syncs accounts, pos
 - **Direct messages** — New Chat lists Pixai (AI assistant), Pixlynote Support, and real connections. Search finds real accounts by username or name. Seed demo creators are not used as a real account's following list.
 - **Notifications** — Likes, comments, story activity, Privileged Access invites, and business association invites.
 - **Account Center** — Password, sessions, privacy lists, Close Friends, Privileged Access, business association, and 30-day deactivation then deletion.
-- **Subscriptions** — Pixlynote Plus (blue check) and Business Plus ($29.99, yellow check for business accounts), billed through Stripe. Recheck and cancel clear the matching badge.
+- **Subscriptions** — Pixlynote Plus (blue check) and Business Plus ($29.99, green check for business accounts), billed through Stripe. Recheck and cancel clear the matching badge.
 - **Business association** — A business can invite a personal account or another business. An account can be associated with only one business at a time; leave the current business before accepting a new invite. The inviting business's avatar appears next to the associated account's name.
 
 ## Tests

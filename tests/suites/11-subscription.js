@@ -43,7 +43,7 @@ module.exports = {
       }
     },
     {
-      name: 'Business Plus is offered to business accounts and paints a yellow check, never Plus blue',
+      name: 'Business Plus is offered to business accounts and paints a green check, never Plus blue',
       accounts: ALL_ACCOUNT_KEYS,
       covers: ['el:#pixly-stripe-business-buy-btn', 'el:#sub-business-plus-box', 'el:#sub-business-active-pill'],
       async run(ctx) {
@@ -77,7 +77,7 @@ module.exports = {
             afterPlus: !!(state.currentUser && state.currentUser.isPlus),
             afterBiz: !!(state.currentUser && state.currentUser.isBusinessPlus),
             html,
-            badgeAmber: !!(badge && (badge.classList.contains('text-amber-400') || badge.classList.contains('text-amber-500'))),
+            badgeGreen: !!(badge && badge.classList.contains('text-emerald-500')),
             badgeSky: !!(badge && badge.classList.contains('text-sky-500') && !badge.classList.contains('hidden'))
           };
         });
@@ -88,7 +88,7 @@ module.exports = {
           a.ok(info.before.plusHidden, 'Business accounts do not see the personal Plus buy button');
           a.ok(info.afterBiz, 'applyBusinessPlusVerification sets isBusinessPlus');
           a.ok(!info.afterPlus, 'Business Plus does not set isPlus / blue');
-          a.ok(/text-amber-400/.test(info.html) || info.badgeAmber, 'Business Plus uses a yellow/amber check');
+          a.ok(/text-emerald-500/.test(info.html) || info.badgeGreen, 'Business Plus uses a green check');
           a.ok(!info.badgeSky, 'Business Plus does not show the blue check');
         } else {
           a.ok(info.before.bizBtnHidden && info.before.bizBoxHidden, 'Personal accounts do not see Business Plus');
