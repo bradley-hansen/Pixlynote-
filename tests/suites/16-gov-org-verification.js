@@ -346,7 +346,7 @@ module.exports = {
       }
     },
     {
-      name: 'Approved badges use slate/navy or org green, hide on Plus lapse, and reapply prefills as pending',
+      name: 'Approved badges use slate/navy or org teal, hide on Plus lapse, and reapply prefills as pending',
       accounts: ['personal', 'business'],
       covers: ['el:#btn-gov-badge-slate', 'el:#btn-gov-badge-navy', 'el:#profile-verified-badge'],
       async run(ctx) {
@@ -424,7 +424,7 @@ module.exports = {
         a.ok(r.slateShown && (hex(r.slateColor) === '#64748b' || /#64748B/i.test(r.slateHtml)), 'Approved Government default check is Civic Slate Gray #64748B');
         a.ok(hex(r.navyColor) === '#1e3a8a' || /#1E3A8A/i.test(r.navyHtml), 'The Government toggle can switch the check to Deep Navy #1E3A8A');
         a.ok(r.navyStored === 'navy', 'Chosen navy color is stored on the user');
-        a.ok(hex(r.orgColor) === '#10b981' || /#10B981/i.test(r.orgHtml), 'Organization check is #10B981');
+        a.ok(hex(r.orgColor) === '#14b8a6' || /#14B8A6/i.test(r.orgHtml), 'Organization check is teal #14B8A6');
         a.ok(r.orgLabel === 'Organization', 'The approved Organization tab/label is the active type');
         a.ok(/text-sky-500/.test(r.blueHtml), 'The blue Plus check still renders for Plus accounts without official verification');
         a.ok(/text-emerald-500/.test(r.greenHtml), 'The green Business Plus check still renders when official verification is not shown');
@@ -810,7 +810,7 @@ module.exports = {
           const govHtml = html('badge_live_own_1');
 
           // Stale post flags must not win over the live user doc
-          const staleShown = /text-sky-500|#10B981|#64748B|#1E3A8A/.test(staleHtml);
+          const staleShown = /text-sky-500|#10B981|#14B8A6|#64748B|#1E3A8A/.test(staleHtml);
 
           return {
             ownHasBlue,
