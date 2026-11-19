@@ -2295,6 +2295,7 @@
         <div>
           <label class="block text-xs font-semibold text-neutral-700 mb-1">Website</label>
           <input type="text" id="edit-profile-link" value="" placeholder="website or link" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-400">
+          <p id="edit-profile-link-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
         </div>
 
         <div id="edit-profile-business-info-banner" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
@@ -7268,7 +7269,9 @@ function syncLikedStateToPosts() {
         const likedNotesArr = Array.from(new Set(Array.from(state.likedNoteOrder || state.likedNoteIds || []).map(String)));
         const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
         
-        // Lightweight user document: stores likes, saves, deletes, notes, bio, and avatar (NO heavy posts array)
+        // Lightweight user document: likes, saves, deletes, notes, and avatar only.
+        // Do not write email, phone, website, bio, or other Edit Profile fields here —
+        // a later likes sync must never overwrite a completed profile save.
         const payload = {
           likedPostIds: likedArray,
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
@@ -7283,12 +7286,6 @@ function syncLikedStateToPosts() {
           username: state.currentUser.username,
           photoURL: state.currentUser.avatar,
           avatar: state.currentUser.avatar,
-          fullName: state.currentUser.fullName,
-          email: state.currentUser.email || '',
-          phone: state.currentUser.phone || '',
-          link: state.currentUser.link || '',
-          accountType: state.currentUser.accountType || 'personal',
-          bio: state.currentUser.bio || '',
           lastUpdated: Date.now()
         };
 
@@ -25065,6 +25062,204 @@ function syncLikedStateToPosts() {
         window.editProfileCanSave = editProfileCanSave;
         window.styleEditSaveButton = styleEditSaveButton;
 
+
+        function editProfileUnverifiedEmailMessage() {
+          return 'Verify your new email with the code before saving';
+        }
+        function editProfileUnverifiedPhoneMessage() {
+          return 'Verify your new phone with the code before saving';
+        }
+        function editProfileInvalidWebsiteMessage() {
+          return 'Enter a valid website, such as pixlynote.com or https://pixlynote.com';
+        }
+        function editProfileInvalidSupportEmailMessage() {
+          return 'Enter a valid support email, or leave it blank.';
+        }
+        function clearEditProfileFieldErrors() {
+          if (typeof setEditInlineError === 'function') {
+            setEditInlineError(document.getElementById('edit-profile-email-error'), '');
+            setEditInlineError(document.getElementById('edit-profile-phone-error'), '');
+            setEditInlineError(document.getElementById('edit-profile-link-error'), '');
+            setEditInlineError(document.getElementById('edit-profile-support-email-error'), '');
+          }
+          const supportErr = document.getElementById('edit-profile-support-email-error');
+          if (supportErr) supportErr.classList.add('hidden');
+        }
+        function collectEditProfileFormValues() {
+          const name = ((document.getElementById('edit-profile-name') || {}).value || '').trim();
+          const username = ((document.getElementById('edit-profile-username') || {}).value || '').trim().replace(/^@/, '');
+          const email = ((document.getElementById('edit-profile-email') || {}).value || '').trim();
+          const phoneInp = document.getElementById('edit-profile-phone');
+          const phone = phoneInp ? phoneInp.value.trim() : '';
+          const bio = ((document.getElementById('edit-profile-bio') || {}).value || '').trim();
+          const linkRaw = ((document.getElementById('edit-profile-link') || {}).value || '').trim();
+          const editingBiz = window._editingAccountType === 'business';
+          let linkNorm = { ok: true, empty: !linkRaw, href: '' };
+          if (typeof normalizeWebsiteUrl === 'function') linkNorm = normalizeWebsiteUrl(linkRaw);
+          else if (linkRaw) linkNorm = { ok: true, empty: false, href: linkRaw };
+          const bizFields = (editingBiz && typeof collectEditProfileBusinessFields === 'function')
+            ? collectEditProfileBusinessFields()
+            : null;
+          const link = (linkNorm.ok && !linkNorm.empty) ? linkNorm.href : (linkNorm.empty ? '' : linkRaw);
+          return { name, username, email, phone, phoneInp, bio, linkRaw, linkNorm, link, editingBiz, bizFields };
+        }
+        function validateEditProfileForm() {
+          if (typeof window.syncEditProfileVerifyUi === 'function') window.syncEditProfileVerifyUi();
+          const values = collectEditProfileFormValues();
+          const errors = [];
+          const name = values.name, username = values.username, email = values.email, phone = values.phone;
+          const linkRaw = values.linkRaw, linkNorm = values.linkNorm, editingBiz = values.editingBiz, bizFields = values.bizFields;
+          const selfU = state.currentUser && state.currentUser.username;
+
+          if (!name) {
+            errors.push({
+              field: 'name',
+              message: (window._editingAccountType === 'business') ? 'Display Name is required' : 'Full Name is required',
+              focusId: 'edit-profile-name'
+            });
+          }
+          if (!email && !phone) {
+            errors.push({
+              field: 'contact',
+              message: 'Please provide either an email or phone number',
+              focusId: 'edit-profile-phone',
+              errorId: 'edit-profile-phone-error'
+            });
+          }
+          if (linkRaw && !linkNorm.ok) {
+            errors.push({
+              field: 'link',
+              message: editProfileInvalidWebsiteMessage(),
+              focusId: 'edit-profile-link',
+              errorId: 'edit-profile-link-error'
+            });
+          }
+
+          const emailOwner = (email && typeof findEmailOwner === 'function') ? findEmailOwner(email, selfU) : null;
+          const phoneOwner = (phone && typeof findPhoneOwner === 'function') ? findPhoneOwner(phone, selfU) : null;
+          if (emailOwner) {
+            errors.push({
+              field: 'email',
+              message: (typeof editProfileEmailConflictMessage === 'function')
+                ? editProfileEmailConflictMessage()
+                : 'This email is already used by another account. Remove it and use your phone instead.',
+              focusId: 'edit-profile-email',
+              errorId: 'edit-profile-email-error'
+            });
+          } else if (email && typeof editProfileEmailChanged === 'function' && editProfileEmailChanged()) {
+            if (typeof editEmailLooksValid === 'function' && !editEmailLooksValid(email)) {
+              errors.push({
+                field: 'email',
+                message: 'Enter a valid email address',
+                focusId: 'edit-profile-email',
+                errorId: 'edit-profile-email-error'
+              });
+            } else if (typeof editProfileEmailVerified === 'function' && !editProfileEmailVerified()) {
+              errors.push({
+                field: 'email',
+                message: editProfileUnverifiedEmailMessage(),
+                focusId: 'edit-profile-email',
+                errorId: 'edit-profile-email-error'
+              });
+            }
+          }
+          if (phoneOwner) {
+            errors.push({
+              field: 'phone',
+              message: (typeof editProfilePhoneConflictMessage === 'function')
+                ? editProfilePhoneConflictMessage()
+                : 'This number is already used by another account. Remove it and use your email instead.',
+              focusId: 'edit-profile-phone',
+              errorId: 'edit-profile-phone-error'
+            });
+          } else if (phone && typeof editProfilePhoneChanged === 'function' && editProfilePhoneChanged()) {
+            if (typeof editProfilePhoneValue === 'function' && !editProfilePhoneValue()) {
+              errors.push({
+                field: 'phone',
+                message: 'Enter a valid phone number',
+                focusId: 'edit-profile-phone',
+                errorId: 'edit-profile-phone-error'
+              });
+            } else if (typeof editProfilePhoneVerified === 'function' && !editProfilePhoneVerified()) {
+              errors.push({
+                field: 'phone',
+                message: editProfileUnverifiedPhoneMessage(),
+                focusId: 'edit-profile-phone',
+                errorId: 'edit-profile-phone-error'
+              });
+            }
+          }
+
+          const v = (state && state.editProfileVerify) || {};
+          if (v.usernameTaken) {
+            errors.push({
+              field: 'username',
+              message: 'That username is already taken',
+              focusId: 'edit-profile-username'
+            });
+          }
+          const oldUNorm = (typeof normalizeUsername === 'function')
+            ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+            : String((state.currentUser && state.currentUser.username) || '').toLowerCase();
+          const newUNorm = (typeof normalizeUsername === 'function')
+            ? normalizeUsername(username || '')
+            : String(username || '').toLowerCase();
+          if (username && newUNorm !== oldUNorm) {
+            if (oldUNorm === 'bradley_hansen' || oldUNorm === 'pixlynote' || oldUNorm === 'digitalassetpro') {
+              errors.push({ field: 'username', message: "This account's username can't be changed.", focusId: 'edit-profile-username' });
+            } else if (newUNorm.length < 3 || newUNorm.length > 30 || !/^[a-z0-9_.]+$/.test(newUNorm) || /^\.|\.\.|\.$/.test(newUNorm)) {
+              errors.push({
+                field: 'username',
+                message: 'Usernames are 3–30 characters: letters, numbers, _ or . (no leading, trailing or double periods)',
+                focusId: 'edit-profile-username'
+              });
+            } else if (typeof findUsernameOwner === 'function' && findUsernameOwner(newUNorm, oldUNorm)) {
+              errors.push({ field: 'username', message: '@' + newUNorm + ' is already taken', focusId: 'edit-profile-username' });
+            }
+          }
+          if (editingBiz && bizFields && bizFields.businessSupportEmail && !bizFields.businessSupportEmail.ok) {
+            errors.push({
+              field: 'supportEmail',
+              message: editProfileInvalidSupportEmailMessage(),
+              focusId: 'edit-profile-support-email',
+              errorId: 'edit-profile-support-email-error'
+            });
+          }
+          values.oldUNorm = oldUNorm;
+          values.newUNorm = newUNorm;
+          return { ok: errors.length === 0, errors: errors, values: values };
+        }
+        function showEditProfileValidationErrors(result) {
+          clearEditProfileFieldErrors();
+          const errors = (result && result.errors) || [];
+          errors.forEach(function (err) {
+            if (err.errorId && typeof setEditInlineError === 'function') {
+              setEditInlineError(document.getElementById(err.errorId), err.message);
+            }
+            if (err.field === 'supportEmail') {
+              const el = document.getElementById('edit-profile-support-email-error');
+              if (el) { el.textContent = err.message; el.classList.remove('hidden'); el.style.display = ''; }
+            }
+            if (err.field === 'username' && typeof setEditUsernameStatus === 'function') {
+              setEditUsernameStatus(err.message, 'taken');
+            }
+          });
+          if (errors[0]) {
+            showToast(errors[0].message);
+            const focusEl = errors[0].focusId ? document.getElementById(errors[0].focusId) : null;
+            if (focusEl && typeof focusEl.focus === 'function') focusEl.focus();
+          }
+        }
+        window.editProfileUnverifiedEmailMessage = editProfileUnverifiedEmailMessage;
+        window.editProfileUnverifiedPhoneMessage = editProfileUnverifiedPhoneMessage;
+        window.editProfileInvalidWebsiteMessage = editProfileInvalidWebsiteMessage;
+        window.editProfileInvalidSupportEmailMessage = editProfileInvalidSupportEmailMessage;
+        window.clearEditProfileFieldErrors = clearEditProfileFieldErrors;
+        window.collectEditProfileFormValues = collectEditProfileFormValues;
+        window.validateEditProfileForm = validateEditProfileForm;
+        window.showEditProfileValidationErrors = showEditProfileValidationErrors;
+
+
         function syncEditProfileVerifyUi(resetSaved) {
           const selfU = editProfileSelfUsername();
           if (resetSaved) {
@@ -26750,123 +26945,32 @@ function syncLikedStateToPosts() {
         if (editProfileForm) {
           editProfileForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('edit-profile-name').value.trim();
-            const username = document.getElementById('edit-profile-username').value.trim().replace(/^@/, '');
-            const email = document.getElementById('edit-profile-email').value.trim();
-            const phoneInp = document.getElementById('edit-profile-phone');
-            const phone = phoneInp ? phoneInp.value.trim() : '';
-            const bio = document.getElementById('edit-profile-bio').value.trim();
-            let link = document.getElementById('edit-profile-link').value.trim();
-            const editingBiz = window._editingAccountType === 'business';
-            let bizFields = null;
-            if (typeof normalizeWebsiteUrl === 'function' && link) {
-              const n = normalizeWebsiteUrl(link);
-              if (!n.ok) {
-                showToast('Enter a valid http(s) website URL. javascript: and data: links are blocked.');
-                const linkEl = document.getElementById('edit-profile-link');
-                if (linkEl) linkEl.focus();
-                return;
-              }
-              link = n.href;
-            } else if (typeof normalizeWebsiteUrl === 'function') {
-              link = '';
-            }
-            if (editingBiz && typeof collectEditProfileBusinessFields === 'function') {
-              bizFields = collectEditProfileBusinessFields();
-              if (bizFields.businessSupportEmail && !bizFields.businessSupportEmail.ok) {
-                const err = document.getElementById('edit-profile-support-email-error');
-                if (err) { err.classList.remove('hidden'); err.style.display = ''; }
-                showToast('Enter a valid support email, or leave it blank.');
-                const el = document.getElementById('edit-profile-support-email');
-                if (el) el.focus();
-                return;
-              }
-              const err = document.getElementById('edit-profile-support-email-error');
-              if (err) err.classList.add('hidden');
-            }
-
-            if (!email && !phone) {
-              showToast('Please provide either an email or phone number');
-              if (phoneInp) phoneInp.focus();
+            const validated = (typeof validateEditProfileForm === 'function')
+              ? validateEditProfileForm()
+              : { ok: false, errors: [{ message: 'Profile validation is unavailable.', focusId: 'btn-save-edit-profile' }], values: {} };
+            if (!validated.ok) {
+              if (typeof showEditProfileValidationErrors === 'function') showEditProfileValidationErrors(validated);
               return;
             }
-            if (!name) {
-              showToast((window._editingAccountType === 'business') ? 'Display Name is required' : 'Full Name is required');
-              const nameEl = document.getElementById('edit-profile-name');
-              if (nameEl) nameEl.focus();
-              return;
-            }
+            const name = validated.values.name;
+            const username = validated.values.username;
+            const email = validated.values.email;
+            const phoneInp = validated.values.phoneInp;
+            const phone = validated.values.phone;
+            const bio = validated.values.bio;
+            const link = validated.values.link;
+            const editingBiz = validated.values.editingBiz;
+            const bizFields = validated.values.bizFields;
+            const oldUNorm = validated.values.oldUNorm;
+            const newUNorm = validated.values.newUNorm;
 
-            if (typeof window.syncEditProfileVerifyUi === 'function') window.syncEditProfileVerifyUi();
-            if (typeof window.editProfileCanSave === 'function' && !window.editProfileCanSave()) {
-              const selfU = state.currentUser && state.currentUser.username;
-              const emailOwner = (email && typeof findEmailOwner === 'function') ? findEmailOwner(email, selfU) : null;
-              const phoneOwner = (phone && typeof findPhoneOwner === 'function') ? findPhoneOwner(phone, selfU) : null;
-              const emailConflict = (typeof editProfileEmailConflictMessage === 'function')
-                ? editProfileEmailConflictMessage()
-                : 'This email is already used by another account. Remove it and use your phone instead.';
-              const phoneConflict = (typeof editProfilePhoneConflictMessage === 'function')
-                ? editProfilePhoneConflictMessage()
-                : 'This number is already used by another account. Remove it and use your email instead.';
-              if (emailOwner) {
-                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-email-error'), emailConflict);
-                showToast(emailConflict);
-                const emailEl = document.getElementById('edit-profile-email');
-                if (emailEl && typeof emailEl.focus === 'function') emailEl.focus();
-              } else if (phoneOwner) {
-                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-phone-error'), phoneConflict);
-                showToast(phoneConflict);
-                if (phoneInp) phoneInp.focus();
-              } else {
-                showToast('Verify the new email or phone with the code, or tap Send code, before saving.');
-              }
-              return;
-            }
-
-            if (email && typeof findEmailOwner === 'function') {
-              const emailOwner = findEmailOwner(email, state.currentUser.username);
-              if (emailOwner) {
-                const msg = editProfileEmailConflictMessage();
-                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-email-error'), msg);
-                showToast(msg);
-                const emailEl = document.getElementById('edit-profile-email');
-                if (emailEl && typeof emailEl.focus === 'function') emailEl.focus();
-                return;
-              }
-            }
-            if (phone && typeof findPhoneOwner === 'function') {
-              const phoneOwner = findPhoneOwner(phone, state.currentUser.username);
-              if (phoneOwner) {
-                const msg = editProfilePhoneConflictMessage();
-                if (typeof setEditInlineError === 'function') setEditInlineError(document.getElementById('edit-profile-phone-error'), msg);
-                showToast(msg);
-                if (phoneInp) phoneInp.focus();
-                return;
-              }
-            }
-
-            // Username change: validate, make sure nobody (on any device) owns it, and migrate the account first.
-            const oldUNorm = normalizeUsername(state.currentUser.username || '');
-            const newUNorm = normalizeUsername(username || '');
+            // Username change: validate already passed. Migrate the account first, then save remaining fields.
             if (username && newUNorm !== oldUNorm) {
-              if (oldUNorm === 'bradley_hansen' || oldUNorm === 'pixlynote' || oldUNorm === 'digitalassetpro') {
-                showToast('This account\'s username can\'t be changed.');
-                return;
-              }
-              if (newUNorm.length < 3 || newUNorm.length > 30 || !/^[a-z0-9_.]+$/.test(newUNorm) || /^\.|\.\.|\.$/.test(newUNorm)) {
-                showToast('Usernames are 3–30 characters: letters, numbers, _ or . (no leading, trailing or double periods)');
-                return;
-              }
-              if (typeof findUsernameOwner === 'function' && findUsernameOwner(newUNorm, oldUNorm)) {
-                showToast(`@${newUNorm} is already taken`);
-                return;
-              }
               const submitBtn = editProfileForm.querySelector('[type="submit"]');
               if (submitBtn) submitBtn.disabled = true;
               renameAccountUsername(oldUNorm, newUNorm).then(ok => {
                 if (submitBtn) submitBtn.disabled = false;
                 if (!ok) return;
-                // Username is migrated; finish saving the remaining fields under the new name.
                 document.getElementById('edit-profile-username').value = newUNorm;
                 editProfileForm.requestSubmit();
               });
@@ -26910,6 +27014,9 @@ function syncLikedStateToPosts() {
               state.currentUser.businessAddressVisibility = bizFields.businessAddressVisibility || 'city_state';
               state.currentUser.businessHours = bizFields.businessHours || '';
               state.currentUser.businessSupportEmail = (bizFields.businessSupportEmail && bizFields.businessSupportEmail.value) || '';
+            }
+            if (typeof markStoredProfileFieldsLoaded === 'function') {
+              markStoredProfileFieldsLoaded(state.currentUser, state.currentUser);
             }
 
             try {
@@ -26965,23 +27072,23 @@ function syncLikedStateToPosts() {
                 CREATOR_DETAILS[normUKey].fullName = state.currentUser.fullName;
                 if (state.currentUser.avatar) CREATOR_DETAILS[normUKey].avatar = state.currentUser.avatar;
               }
+              const userDoc = (typeof publicSafeUserFields === 'function')
+                ? Object.assign(publicSafeUserFields(state.currentUser), { photoURL: state.currentUser.avatar, lastUpdated: Date.now() })
+                : {
+                username: state.currentUser.username,
+                fullName: state.currentUser.fullName,
+                email: state.currentUser.email || '',
+                phone: state.currentUser.phone || '',
+                accountType: state.currentUser.accountType || 'personal',
+                bio: state.currentUser.bio || '',
+                link: state.currentUser.link || '',
+                photoURL: state.currentUser.avatar,
+                avatar: state.currentUser.avatar,
+                lastUpdated: Date.now()
+              };
+              if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
               if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
                 const { db, doc, setDoc } = window.firebase;
-                const userDoc = (typeof publicSafeUserFields === 'function')
-                  ? Object.assign(publicSafeUserFields(state.currentUser), { photoURL: state.currentUser.avatar, lastUpdated: Date.now() })
-                  : {
-                  username: state.currentUser.username,
-                  fullName: state.currentUser.fullName,
-                  email: state.currentUser.email || '',
-                  phone: state.currentUser.phone || '',
-                  accountType: state.currentUser.accountType || 'personal',
-                  bio: state.currentUser.bio || '',
-                  link: state.currentUser.link || '',
-                  photoURL: state.currentUser.avatar,
-                  avatar: state.currentUser.avatar,
-                  lastUpdated: Date.now()
-                };
-                if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
                 setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }).catch(() => {});
               }
             } catch(fbErr) {}
