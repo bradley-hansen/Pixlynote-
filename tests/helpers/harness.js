@@ -475,7 +475,7 @@ async function closeOverlays(page) {
     closers.forEach((fn) => {
       try { if (typeof window[fn] === 'function') window[fn](); } catch (e) {}
     });
-    document.querySelectorAll('[id^="modal-"], [id$="-dropdown"], [id$="-sheet"]').forEach((el) => {
+    document.querySelectorAll('[id^="modal-"], [id$="-dropdown"], [id$="-sheet"], [id$="-backdrop"]').forEach((el) => {
       if (!el || el.id === 'main-view' || el.id === 'auth-view') return;
       el.classList.add('hidden');
       if (el.style) el.style.display = 'none';

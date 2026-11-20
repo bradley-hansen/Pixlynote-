@@ -3725,7 +3725,7 @@
           </button>
         </div>
         <p class="text-xs text-neutral-600">Enter the password for <span id="switch-password-target" class="font-bold text-violet-700">@account</span> to switch into this account.</p>
-        <input type="password" id="switch-password-input" autocomplete="current-password" placeholder="Password" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <input type="password" id="switch-password-input" name="pixly-account-switch-password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="Password" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
         <div id="switch-password-error" class="hidden text-[11px] font-semibold text-rose-600"></div>
         <div class="flex items-center space-x-2 pt-1">
           <button type="button" id="btn-cancel-switch-password" class="flex-1 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold cursor-pointer">Cancel</button>
@@ -23055,13 +23055,21 @@ function syncLikedStateToPosts() {
     }
     window.confirmDeactivateAccount = confirmDeactivateAccount;
 
+    function isSwitchPasswordModalOpen() {
+      const modal = document.getElementById('modal-switch-password');
+      if (!modal) return false;
+      if (modal.classList.contains('hidden')) return false;
+      if (modal.style && modal.style.display === 'none') return false;
+      return true;
+    }
     function clearPasswordFields() {
+      const preserveSwitch = isSwitchPasswordModalOpen();
       const ids = [
         'login-password', 'signup-password',
         'ac-pw-current', 'ac-pw-new', 'ac-pw-confirm',
-        'switch-password-input',
         'forgot-new-password', 'forgot-confirm-password'
       ];
+      if (!preserveSwitch) ids.push('switch-password-input');
       ids.forEach(function (id) {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -23072,6 +23080,7 @@ function syncLikedStateToPosts() {
         });
       }
       document.querySelectorAll('input[type="password"]').forEach(function (el) {
+        if (preserveSwitch && el && el.id === 'switch-password-input') return;
         el.value = '';
       });
     }
@@ -23497,6 +23506,8 @@ function syncLikedStateToPosts() {
     }
 
     function performLogout() {
+      if (typeof closeSwitchPasswordModal === 'function') closeSwitchPasswordModal();
+      if (typeof closeAccountSwitcher === 'function') closeAccountSwitcher();
       if (typeof window.closeAllFirestoreListeners === 'function') {
         window.closeAllFirestoreListeners();
       }
@@ -29951,6 +29962,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         modal.classList.add('hidden');
         modal.style.display = 'none';
       }
+      const inp = document.getElementById('switch-password-input');
+      if (inp) inp.value = '';
+      const errEl = document.getElementById('switch-password-error');
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
       _pendingSwitchAccountObj = null;
     }
 
