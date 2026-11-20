@@ -1121,6 +1121,236 @@ module.exports = {
         a.ok(syncWrite.count >= 1, 'The likes sync still writes likes data');
         a.ok(!syncWrite.hasEmail && !syncWrite.hasPhone && !syncWrite.hasLink && !syncWrite.hasBio, 'The likes sync does not write email, phone, website, or bio: ' + JSON.stringify(syncWrite));
       }
+    },
+    {
+      name: 'Edit Profile: switching business accounts loads only the active account and never writes the previous one',
+      accounts: ['business'],
+      covers: [
+        'handler:performLogin',
+        'handler:resetProfileStateForAccountSwitch',
+        'handler:mergeStoredProfileFields',
+        'handler:openEditProfileModal',
+        'handler:fillEditProfileBusinessFields',
+        'el:#edit-profile-dba-name',
+        'el:#edit-profile-business-industry',
+        'el:#edit-profile-business-city',
+        'el:#edit-profile-business-hours',
+        'el:#edit-profile-support-email',
+        'el:#btn-save-edit-profile'
+      ],
+      async run(ctx) {
+        const { page, h, a } = ctx;
+        const accountA = h.ACCOUNTS.business;
+        const accountB = {
+          username: 'reg_biz_empty',
+          fullName: 'Reg Biz Empty',
+          accountType: 'business',
+          email: 'reg.biz.empty@example.test',
+          phone: '5555550199'
+        };
+        const valuesA = {
+          dbaName: 'Alpha Switch DBA',
+          businessIndustry: 'software_tech',
+          businessStreet: '12 Harbor Rd',
+          businessCity: 'Galloway',
+          businessState: 'NJ',
+          businessPostal: '08205',
+          businessAddressVisibility: 'city_state',
+          businessHours: 'Mon-Fri 9am-5pm EST',
+          businessSupportEmail: 'support.alpha@example.test',
+          bio: 'Business package for account A only'
+        };
+
+        await h.openEditProfile(page);
+        await page.fill('#edit-profile-bio', valuesA.bio);
+        await page.fill('#edit-profile-dba-name', valuesA.dbaName);
+        await page.selectOption('#edit-profile-business-industry', valuesA.businessIndustry);
+        await page.fill('#edit-profile-business-street', valuesA.businessStreet);
+        await page.fill('#edit-profile-business-city', valuesA.businessCity);
+        await page.fill('#edit-profile-business-state', valuesA.businessState);
+        await page.fill('#edit-profile-business-postal', valuesA.businessPostal);
+        await page.selectOption('#edit-profile-address-visibility', valuesA.businessAddressVisibility);
+        await page.fill('#edit-profile-business-hours', valuesA.businessHours);
+        await page.fill('#edit-profile-support-email', valuesA.businessSupportEmail);
+        await page.evaluate(() => { window.__pixlyUserDocWrites = []; });
+        await submitEditProfile(page);
+        await page.waitForTimeout(250);
+
+        const storedA = await page.evaluate((username) => {
+          const raw = localStorage.getItem('pixly_account_' + username) || '';
+          let rec = null;
+          try { rec = raw ? JSON.parse(raw) : null; } catch (e) { rec = null; }
+          return {
+            username: state.currentUser && state.currentUser.username,
+            dbaName: state.currentUser && state.currentUser.dbaName,
+            rec
+          };
+        }, accountA.username);
+        a.equal(storedA.username, accountA.username, 'Account A is signed in after saving its business package');
+        a.equal(storedA.dbaName, valuesA.dbaName, 'Account A stored its own DBA before the switch');
+        a.equal(storedA.rec && storedA.rec.dbaName, valuesA.dbaName, 'Account A local store has its own DBA before the switch');
+
+        await page.evaluate((accountB) => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          const rec = {
+            username: accountB.username,
+            fullName: accountB.fullName,
+            email: accountB.email,
+            phone: accountB.phone,
+            accountType: 'business',
+            bio: '',
+            link: ''
+          };
+          try {
+            const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            accts[accountB.username] = rec;
+            localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+            localStorage.setItem('pixly_account_' + accountB.username, JSON.stringify(rec));
+          } catch (e) {}
+          window._pixlyAccounts = window._pixlyAccounts || {};
+          window._pixlyAccounts[accountB.username] = rec;
+          if (typeof performLogin === 'function') {
+            performLogin(accountB.username, accountB.fullName, accountB.email, null, accountB.phone, 'business');
+          }
+        }, accountB);
+
+        const afterSwitch = await page.evaluate(() => ({
+          username: state.currentUser && state.currentUser.username,
+          dbaName: state.currentUser && (state.currentUser.dbaName || ''),
+          city: state.currentUser && (state.currentUser.businessCity || ''),
+          hours: state.currentUser && (state.currentUser.businessHours || ''),
+          support: state.currentUser && (state.currentUser.businessSupportEmail || ''),
+          cacheU: window._activeUserDocCache && window._activeUserDocCache.username
+        }));
+        a.equal(afterSwitch.username, accountB.username, 'Switching signs in account B');
+        a.equal(afterSwitch.dbaName, '', 'In-memory DBA is cleared on the account switch');
+        a.equal(afterSwitch.city, '', 'In-memory city is cleared on the account switch');
+        a.equal(afterSwitch.hours, '', 'In-memory hours are cleared on the account switch');
+        a.equal(afterSwitch.support, '', 'In-memory support email is cleared on the account switch');
+        a.ok(!afterSwitch.cacheU || afterSwitch.cacheU === accountB.username, 'The active user doc cache is not left on account A');
+
+        await h.openEditProfile(page);
+        const formB = await page.evaluate(() => ({
+          name: ((document.getElementById('edit-profile-name') || {}).value || ''),
+          email: ((document.getElementById('edit-profile-email') || {}).value || ''),
+          phone: ((document.getElementById('edit-profile-phone') || {}).value || ''),
+          bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+          dba: ((document.getElementById('edit-profile-dba-name') || {}).value || ''),
+          industry: ((document.getElementById('edit-profile-business-industry') || {}).value || ''),
+          street: ((document.getElementById('edit-profile-business-street') || {}).value || ''),
+          city: ((document.getElementById('edit-profile-business-city') || {}).value || ''),
+          stateVal: ((document.getElementById('edit-profile-business-state') || {}).value || ''),
+          postal: ((document.getElementById('edit-profile-business-postal') || {}).value || ''),
+          hours: ((document.getElementById('edit-profile-business-hours') || {}).value || ''),
+          support: ((document.getElementById('edit-profile-support-email') || {}).value || '')
+        }));
+        a.equal(formB.name, accountB.fullName, 'Edit Profile shows account B display name');
+        a.equal(formB.email, accountB.email, 'Edit Profile shows account B email');
+        a.equal(String(formB.phone || '').replace(/\D/g, ''), String(accountB.phone || '').replace(/\D/g, ''), 'Edit Profile shows account B phone');
+        a.equal(formB.bio, '', 'Edit Profile does not show account A bio on account B');
+        a.equal(formB.dba, '', 'Edit Profile DBA is blank on a business account with no stored business info');
+        a.equal(formB.industry, '', 'Edit Profile industry is blank on a business account with no stored business info');
+        a.equal(formB.street, '', 'Edit Profile street is blank on a business account with no stored business info');
+        a.equal(formB.city, '', 'Edit Profile city is blank on a business account with no stored business info');
+        a.equal(formB.stateVal, '', 'Edit Profile state is blank on a business account with no stored business info');
+        a.equal(formB.postal, '', 'Edit Profile postal code is blank on a business account with no stored business info');
+        a.equal(formB.hours, '', 'Edit Profile hours are blank on a business account with no stored business info');
+        a.equal(formB.support, '', 'Edit Profile support email is blank on a business account with no stored business info');
+
+        const bioB = 'Account B bio must not land on account A';
+        await page.fill('#edit-profile-bio', bioB);
+        await page.evaluate(() => { window.__pixlyUserDocWrites = []; window.__pixlyUserDocWriteTargets = []; });
+        const writeAudit = await page.evaluate(async (bioB) => {
+          const captured = [];
+          const prevReady = window.firebaseReady;
+          const prevFb = window.firebase;
+          window.firebaseReady = true;
+          window.firebase = {
+            db: {},
+            doc: function (db, col, id) { return { col, id }; },
+            setDoc: async function (ref, payload) {
+              captured.push({ col: ref && ref.col, id: ref && ref.id, payload: payload || {} });
+              return true;
+            }
+          };
+          try {
+            const form = document.getElementById('edit-profile-form');
+            if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+            else document.getElementById('btn-save-edit-profile')?.click();
+            await new Promise((r) => setTimeout(r, 250));
+          } finally {
+            window.firebaseReady = prevReady;
+            window.firebase = prevFb;
+          }
+          const writes = window.__pixlyUserDocWrites || [];
+          return {
+            targets: captured,
+            writes: writes.map((w) => ({
+              source: w.source,
+              username: (w.data && w.data.username) || w.username || '',
+              dbaName: w.data && w.data.dbaName,
+              bio: w.data && w.data.bio
+            }))
+          };
+        }, bioB);
+
+        const writeUsernames = writeAudit.writes.map((w) => String(w.username || '').toLowerCase());
+        const targetIds = writeAudit.targets.map((t) => String(t.id || '').toLowerCase());
+        a.ok(writeAudit.writes.length >= 1, 'Saving account B records a profile write');
+        writeUsernames.forEach((u) => {
+          a.equal(u, accountB.username, 'A recorded write after saving account B targets only account B, not ' + u);
+        });
+        targetIds.forEach((id) => {
+          a.equal(id, accountB.username, 'A Firestore setDoc after saving account B targets only users/' + accountB.username + ', not ' + id);
+        });
+        a.ok(writeAudit.writes.every((w) => w.dbaName !== valuesA.dbaName), 'Account B writes do not include account A DBA');
+        a.ok(writeAudit.writes.some((w) => w.bio === bioB), 'Account B write includes its own bio');
+
+        const aStoreAfterBSave = await page.evaluate((username) => {
+          let rec = null;
+          try { rec = JSON.parse(localStorage.getItem('pixly_account_' + username) || 'null'); } catch (e) { rec = null; }
+          return rec;
+        }, accountA.username);
+        a.equal(aStoreAfterBSave && aStoreAfterBSave.dbaName, valuesA.dbaName, 'Saving account B does not change account A stored DBA');
+        a.equal(aStoreAfterBSave && aStoreAfterBSave.businessCity, valuesA.businessCity, 'Saving account B does not change account A stored city');
+        a.equal(aStoreAfterBSave && aStoreAfterBSave.businessHours, valuesA.businessHours, 'Saving account B does not change account A stored hours');
+        a.equal(aStoreAfterBSave && aStoreAfterBSave.bio, valuesA.bio, 'Saving account B does not change account A stored bio');
+
+        await page.evaluate((accountA) => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+          if (typeof performLogin === 'function') {
+            performLogin(accountA.username, accountA.fullName, accountA.email, null, accountA.phone, 'business');
+          }
+        }, accountA);
+
+        await h.openEditProfile(page);
+        const formA = await page.evaluate(() => ({
+          username: state.currentUser && state.currentUser.username,
+          name: ((document.getElementById('edit-profile-name') || {}).value || ''),
+          bio: ((document.getElementById('edit-profile-bio') || {}).value || ''),
+          dba: ((document.getElementById('edit-profile-dba-name') || {}).value || ''),
+          industry: ((document.getElementById('edit-profile-business-industry') || {}).value || ''),
+          street: ((document.getElementById('edit-profile-business-street') || {}).value || ''),
+          city: ((document.getElementById('edit-profile-business-city') || {}).value || ''),
+          stateVal: ((document.getElementById('edit-profile-business-state') || {}).value || ''),
+          postal: ((document.getElementById('edit-profile-business-postal') || {}).value || ''),
+          hours: ((document.getElementById('edit-profile-business-hours') || {}).value || ''),
+          support: ((document.getElementById('edit-profile-support-email') || {}).value || '')
+        }));
+        a.equal(formA.username, accountA.username, 'The reverse switch signs account A back in');
+        a.equal(formA.dba, valuesA.dbaName, 'Reopening account A still shows its own DBA');
+        a.equal(formA.industry, valuesA.businessIndustry, 'Reopening account A still shows its own industry');
+        a.equal(formA.street, valuesA.businessStreet, 'Reopening account A still shows its own street');
+        a.equal(formA.city, valuesA.businessCity, 'Reopening account A still shows its own city');
+        a.equal(formA.stateVal, valuesA.businessState, 'Reopening account A still shows its own state');
+        a.equal(formA.postal, valuesA.businessPostal, 'Reopening account A still shows its own postal code');
+        a.equal(formA.hours, valuesA.businessHours, 'Reopening account A still shows its own hours');
+        a.equal(formA.support, valuesA.businessSupportEmail, 'Reopening account A still shows its own support email');
+        a.equal(formA.bio, valuesA.bio, 'Reopening account A still shows its own bio, not account B bio');
+        await page.evaluate(() => {
+          if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
+        });
+      }
     }
 
 

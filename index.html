@@ -4253,7 +4253,7 @@
             if (!hasPendingWrites && !recentlyMutatedProfile) {
               let profileChanged = false;
               if (typeof mergeStoredProfileFields === 'function') {
-                profileChanged = !!mergeStoredProfileFields(state.currentUser, d);
+                profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true });
               } else {
                 if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
                   state.currentUser.bio = d.bio;
@@ -4296,8 +4296,9 @@
                 try {
                   const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
                   const existingRec = accts[cleanU] || {};
-                  const updatedRec = {
-                    ...existingRec,
+                  const updatedRec = (typeof publicSafeUserFields === 'function')
+                    ? Object.assign({}, existingRec, publicSafeUserFields(state.currentUser))
+                    : Object.assign({}, existingRec, {
                     username: state.currentUser.username,
                     fullName: state.currentUser.fullName,
                     email: state.currentUser.email || '',
@@ -4306,11 +4307,18 @@
                     bio: state.currentUser.bio || '',
                     link: state.currentUser.link || '',
                     avatar: state.currentUser.avatar
-                  };
+                  });
+                  if (typeof STORED_PROFILE_FIELDS !== 'undefined') {
+                    STORED_PROFILE_FIELDS.forEach(function (k) {
+                      if (d[k] === undefined) delete updatedRec[k];
+                    });
+                  }
                   accts[cleanU] = updatedRec;
                   localStorage.setItem('pixly_accounts', JSON.stringify(accts));
                   localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(updatedRec));
-                  localStorage.setItem('pixlynote_user', JSON.stringify(state.currentUser));
+                  if (typeof getAccountStorageKey === 'function') {
+                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(updatedRec));
+                  }
                   window._pixlyAccounts = window._pixlyAccounts || {};
                   window._pixlyAccounts[cleanU] = updatedRec;
                 } catch(e) {}
@@ -4914,11 +4922,23 @@
       if (src && (src.photoURL !== undefined || src.avatar !== undefined)) loaded.avatar = true;
       user._loadedProfileFields = loaded;
     }
-    function mergeStoredProfileFields(target, source) {
+    function mergeStoredProfileFields(target, source, opts) {
       if (!target || !source) return false;
+      const replace = !!(opts && opts.replace);
       let changed = false;
       STORED_PROFILE_FIELDS.forEach(function (k) {
-        if (source[k] === undefined) return;
+        if (source[k] === undefined) {
+          if (replace) {
+            if (Object.prototype.hasOwnProperty.call(target, k)) {
+              delete target[k];
+              changed = true;
+            }
+            if (target._loadedProfileFields && Object.prototype.hasOwnProperty.call(target._loadedProfileFields, k)) {
+              delete target._loadedProfileFields[k];
+            }
+          }
+          return;
+        }
         if (k === 'fullName' && !String(source[k] || '').trim()) return;
         if (k === 'accountType' && source[k] !== 'personal' && source[k] !== 'business') return;
         if (target[k] !== source[k]) {
@@ -4947,7 +4967,46 @@
     }
     window.STORED_PROFILE_FIELDS = STORED_PROFILE_FIELDS;
     window.markStoredProfileFieldsLoaded = markStoredProfileFieldsLoaded;
+    function clearStoredProfileFields(user) {
+      if (!user) return;
+      STORED_PROFILE_FIELDS.forEach(function (k) {
+        if (Object.prototype.hasOwnProperty.call(user, k)) delete user[k];
+      });
+      if (Object.prototype.hasOwnProperty.call(user, '_loadedProfileFields')) delete user._loadedProfileFields;
+    }
+    function resetProfileStateForAccountSwitch(nextUsername) {
+      if (typeof state !== 'undefined' && state && state.currentUser) clearStoredProfileFields(state.currentUser);
+      try {
+        const cache = window._activeUserDocCache;
+        const nextU = (typeof normalizeUsername === 'function') ? normalizeUsername(nextUsername || '') : String(nextUsername || '').toLowerCase().replace(/^@/, '').trim();
+        const cacheU = cache && cache.username
+          ? ((typeof normalizeUsername === 'function') ? normalizeUsername(cache.username) : String(cache.username).toLowerCase().replace(/^@/, '').trim())
+          : '';
+        if (!cache || !nextU || cacheU !== nextU) window._activeUserDocCache = null;
+      } catch (e) {
+        try { window._activeUserDocCache = null; } catch (e2) {}
+      }
+      try {
+        window._editSavedPersonalName = '';
+        window._editSavedBusinessName = '';
+        window._editingAccountType = null;
+      } catch (e) {}
+    }
+    function writeTargetsActiveAccount(username) {
+      const cur = (typeof getActiveFirestoreUsername === 'function')
+        ? getActiveFirestoreUsername()
+        : ((typeof normalizeUsername === 'function')
+          ? normalizeUsername((state && state.currentUser && state.currentUser.username) || '')
+          : String((state && state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '').trim());
+      const want = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username || '')
+        : String(username || '').toLowerCase().replace(/^@/, '').trim();
+      return !!(cur && want && cur === want);
+    }
     window.mergeStoredProfileFields = mergeStoredProfileFields;
+    window.clearStoredProfileFields = clearStoredProfileFields;
+    window.resetProfileStateForAccountSwitch = resetProfileStateForAccountSwitch;
+    window.writeTargetsActiveAccount = writeTargetsActiveAccount;
     window.omitUnloadedPublicUserFields = omitUnloadedPublicUserFields;
     function publicSafeUserFields(user, extra) {
       const u = user || {};
@@ -4990,6 +5049,7 @@
     function persistPublicUserFields(user, extra) {
       if (!user || !user.username) return;
       const normU = (typeof normalizeUsername === 'function') ? normalizeUsername(user.username) : String(user.username || '').toLowerCase();
+      if (typeof writeTargetsActiveAccount === 'function' && !writeTargetsActiveAccount(normU)) return;
       const payload = publicSafeUserFields(Object.assign({}, user, extra || {}));
       recordUserDocWrite(payload, 'persistPublicUserFields');
       try {
@@ -7272,6 +7332,7 @@ function syncLikedStateToPosts() {
         // Lightweight user document: likes, saves, deletes, notes, and avatar only.
         // Do not write email, phone, website, bio, or other Edit Profile fields here —
         // a later likes sync must never overwrite a completed profile save.
+        const syncTarget = activeU;
         const payload = {
           likedPostIds: likedArray,
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
@@ -7289,12 +7350,15 @@ function syncLikedStateToPosts() {
           lastUpdated: Date.now()
         };
 
-        await setDoc(doc(db, 'users', activeU), payload, { merge: true });
-        if (activeU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
+        const stillActive = (typeof getActiveFirestoreUsername === 'function') ? getActiveFirestoreUsername() : activeU;
+        if (stillActive !== syncTarget) return;
+        payload.username = syncTarget;
+        await setDoc(doc(db, 'users', syncTarget), payload, { merge: true });
+        if (syncTarget === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
           await setDoc(doc(db, 'users', uid), payload, { merge: true });
         }
         window.pendingLikesSync = false;
-        console.log("Successfully synced lightweight profile & likes to Firestore users/" + activeU);
+        console.log("Successfully synced lightweight profile & likes to Firestore users/" + syncTarget);
       } catch (err) {
         console.warn("Firestore sync error:", err);
       }
@@ -13764,7 +13828,12 @@ function syncLikedStateToPosts() {
           ? ((typeof normalizeUsername === 'function') ? normalizeUsername(cache.username) : String(cache.username).toLowerCase())
           : '';
         if (cache && cache.data && cacheU && cacheU === curU && typeof mergeStoredProfileFields === 'function') {
+          // Merge only; a cache entry can be partial (tests and mid-hydration).
+          // Account-switch isolation is handled by resetProfileStateForAccountSwitch
+          // plus replace-mode apply of that account's own stored doc.
           mergeStoredProfileFields(state.currentUser, cache.data);
+        } else if (cache && cacheU && cacheU !== curU) {
+          window._activeUserDocCache = null;
         }
       } catch (e) {}
       const isPixly = (state.currentUser.username && state.currentUser.username.toLowerCase() === 'pixlynote');
@@ -23017,6 +23086,9 @@ function syncLikedStateToPosts() {
         accData = window._pixlyAccounts[cleanUsername.toLowerCase()];
       }
 
+      if (typeof resetProfileStateForAccountSwitch === 'function') {
+        resetProfileStateForAccountSwitch(cleanUsername);
+      }
       state.currentUser.isVerified = false;
       state.currentUser.isPlus = false;
       state.currentUser.subscriptionStatus = 'inactive';
@@ -23048,7 +23120,7 @@ function syncLikedStateToPosts() {
           state.currentUser.phone = (accData && accData.phone !== undefined) ? accData.phone : (phone || '');
           state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : '';
           state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : '';
-          if (accData && typeof mergeStoredProfileFields === 'function') mergeStoredProfileFields(state.currentUser, accData);
+          if (accData && typeof mergeStoredProfileFields === 'function') mergeStoredProfileFields(state.currentUser, accData, { replace: true });
           state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : PIXLYNOTE_SHUTTER_ICON;
           state.currentUser.accountType = 'business';
           state.currentUser.postsCount = (state.posts || []).filter(p => normalizeUsername(p.author) === cleanUsername.toLowerCase()).length;
@@ -23079,7 +23151,7 @@ function syncLikedStateToPosts() {
       }
 
       if (accData && state.currentUser && typeof mergeStoredProfileFields === 'function') {
-        mergeStoredProfileFields(state.currentUser, accData);
+        mergeStoredProfileFields(state.currentUser, accData, { replace: true });
       }
       if (state.currentUser && 'password' in state.currentUser) delete state.currentUser.password;
       if (password) {
@@ -27086,10 +27158,14 @@ function syncLikedStateToPosts() {
                 avatar: state.currentUser.avatar,
                 lastUpdated: Date.now()
               };
-              if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
-              if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
-                const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }).catch(() => {});
+              if (typeof writeTargetsActiveAccount === 'function' && !writeTargetsActiveAccount(normUKey)) {
+                console.warn('Skipped Edit Profile write because it did not target the active account');
+              } else {
+                if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
+                if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
+                  const { db, doc, setDoc } = window.firebase;
+                  setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }).catch(() => {});
+                }
               }
             } catch(fbErr) {}
             try {
