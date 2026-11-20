@@ -445,6 +445,10 @@
     #modal-drafts.hidden { display: none !important; }
     #toast { z-index: 80 !important; }
     #auth-view.hidden { display: none !important; }
+    input.secret-mask {
+      -webkit-text-security: disc;
+      text-security: disc;
+    }
     #main-view.hidden { display: none !important; }
     .overflow-y-auto { overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; }
     .max-h-\[85vh\] { max-height: 85vh !important; }
@@ -607,13 +611,13 @@
           <form id="login-form" class="space-y-3 text-left">
             <div>
               <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Username, Email, or Phone</label>
-              <input type="text" id="login-username" value="" placeholder="Phone number, username, or email" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+              <input type="text" id="login-username" value="" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Phone number, username, or email" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
             </div>
 
             <div>
               <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Password</label>
               <div class="relative">
-                <input type="password" id="login-password" value="" placeholder="Password" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                <input type="password" id="login-password" value="" autocomplete="current-password" placeholder="Password" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
                 <button type="button" id="btn-toggle-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-500 hover:text-neutral-700">Show</button>
               </div>
             </div>
@@ -661,7 +665,7 @@
 
               <div>
                 <label id="lbl-signup-fullname" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Full Name</label>
-                <input type="text" id="login-fullname" placeholder="e.g. John Doe" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                <input type="text" id="login-fullname" autocomplete="name" placeholder="e.g. John Doe" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
               </div>
 
               <div id="signup-business-fields" class="hidden space-y-3">
@@ -694,7 +698,7 @@
                   <span class="text-[10px] text-neutral-400 font-normal">Email or phone required</span>
                 </div>
                 <div class="relative">
-                  <input type="email" id="login-email" placeholder="e.g. johndoe@example.com" class="w-full pl-3 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
+                  <input type="email" id="login-email" autocomplete="email" placeholder="e.g. johndoe@example.com" class="w-full pl-3 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
                   <span id="signup-email-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
                 <p id="signup-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
@@ -743,7 +747,7 @@
                 <label id="lbl-signup-username" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Choose Username</label>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium">@</span>
-                  <input type="text" id="signup-username" placeholder="johndoe_creates" class="w-full pl-7 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
+                  <input type="text" id="signup-username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="johndoe_creates" class="w-full pl-7 pr-20 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors">
                   <span id="signup-username-indicator" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
                 </div>
                 <p id="signup-username-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
@@ -752,7 +756,7 @@
               <div>
                 <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Create Password</label>
                 <div class="relative">
-                  <input type="password" id="signup-password" placeholder="At least 4 characters" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
+                  <input type="password" id="signup-password" autocomplete="new-password" placeholder="At least 4 characters" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
                   <button type="button" id="btn-toggle-signup-password" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-500 hover:text-neutral-700">Show</button>
                 </div>
               </div>
@@ -2671,7 +2675,7 @@
           <div class="space-y-1">
             <label class="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider">Google Gemini API Key</label>
             <div class="relative flex items-center">
-              <input type="password" id="pixai-setup-key-input" onkeydown="if(event.key==='Enter') savePixaiApiKey()" placeholder="AIzaSy... (Paste your Google API Key here)" class="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-violet-600 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono focus:outline-none transition shadow-2xs pr-10">
+              <input type="text" id="pixai-setup-key-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter') savePixaiApiKey()" placeholder="AIzaSy... (Paste your Google API Key here)" class="secret-mask w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-violet-600 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono focus:outline-none transition shadow-2xs pr-10">
               <button type="button" onclick="togglePasswordVisibility('pixai-setup-key-input', this)" class="absolute right-3 text-neutral-400 hover:text-neutral-700 p-1 cursor-pointer">
                 👁️
               </button>
@@ -3398,15 +3402,15 @@
         <form id="form-ac-change-password" class="space-y-3">
           <div>
             <label for="ac-pw-current" class="block text-[11px] font-bold text-neutral-700 mb-1">Current password</label>
-            <input type="password" id="ac-pw-current" placeholder="Enter current password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+            <input type="password" id="ac-pw-current" autocomplete="current-password" placeholder="Enter current password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
           </div>
           <div>
             <label for="ac-pw-new" class="block text-[11px] font-bold text-neutral-700 mb-1">New password</label>
-            <input type="password" id="ac-pw-new" placeholder="At least 8 characters" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+            <input type="password" id="ac-pw-new" autocomplete="new-password" placeholder="At least 8 characters" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
           </div>
           <div>
             <label for="ac-pw-confirm" class="block text-[11px] font-bold text-neutral-700 mb-1">Confirm new password</label>
-            <input type="password" id="ac-pw-confirm" placeholder="Re-enter new password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
+            <input type="password" id="ac-pw-confirm" autocomplete="new-password" placeholder="Re-enter new password" class="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white">
           </div>
           <div id="ac-pw-status" class="hidden text-[11px] font-medium px-3 py-2 rounded-xl"></div>
           <button type="submit" class="w-full py-2.5 px-4 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-sm cursor-pointer">
@@ -3721,7 +3725,7 @@
           </button>
         </div>
         <p class="text-xs text-neutral-600">Enter the password for <span id="switch-password-target" class="font-bold text-violet-700">@account</span> to switch into this account.</p>
-        <input type="password" id="switch-password-input" placeholder="Password" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <input type="password" id="switch-password-input" autocomplete="current-password" placeholder="Password" class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
         <div id="switch-password-error" class="hidden text-[11px] font-semibold text-rose-600"></div>
         <div class="flex items-center space-x-2 pt-1">
           <button type="button" id="btn-cancel-switch-password" class="flex-1 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold cursor-pointer">Cancel</button>
@@ -3776,7 +3780,7 @@
           </p>
           <div>
             <label for="forgot-identifier" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Email or Username</label>
-            <input type="text" id="forgot-identifier" placeholder="you@example.com or @username" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+            <input type="text" id="forgot-identifier" autocomplete="username" placeholder="you@example.com or @username" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
           </div>
           <div id="forgot-step1-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
           <button type="submit" id="btn-forgot-send-code" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
@@ -3795,11 +3799,11 @@
           </div>
           <div>
             <label for="forgot-new-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">New Password</label>
-            <input type="password" id="forgot-new-password" placeholder="At least 4 characters" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+            <input type="password" id="forgot-new-password" autocomplete="new-password" placeholder="At least 4 characters" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
           </div>
           <div>
             <label for="forgot-confirm-password" class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Confirm New Password</label>
-            <input type="password" id="forgot-confirm-password" placeholder="Re-enter new password" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
+            <input type="password" id="forgot-confirm-password" autocomplete="new-password" placeholder="Re-enter new password" class="w-full px-3 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400">
           </div>
           <div id="forgot-step2-status" class="hidden text-xs font-medium px-3 py-2 rounded-xl"></div>
           <button type="submit" id="btn-forgot-confirm-reset" class="w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/20 cursor-pointer">
@@ -8952,6 +8956,7 @@ function syncLikedStateToPosts() {
         if (btnFeed) btnFeed.className = activeBtnCls;
         renderFeed();
       } else if (tabName === 'profile') {
+        if (state.isLoggedIn && typeof disarmAuthCredentialForms === 'function') disarmAuthCredentialForms();
         if (tabProfile) { tabProfile.classList.remove('hidden'); tabProfile.style.display = 'block'; }
         if (btnProfile) btnProfile.className = activeBtnCls;
         if (navProfileRing) navProfileRing.className = "w-6 h-6 rounded-full overflow-hidden p-0.5 border-2 border-violet-600 transition";
@@ -18405,6 +18410,7 @@ function syncLikedStateToPosts() {
       }
 
       if (!state.isLoggedIn) {
+        if (typeof disarmAuthCredentialForms === 'function') disarmAuthCredentialForms();
         const authView = document.getElementById('auth-view');
         const mainView = document.getElementById('main-view');
         if (authView) { authView.classList.add('hidden'); authView.style.display = 'none'; }
@@ -19678,6 +19684,7 @@ function syncLikedStateToPosts() {
         retWrap.classList.remove('hidden');
       }
 
+      if (typeof armAuthCredentialForms === 'function') armAuthCredentialForms();
       const loginUserInp = document.getElementById('login-username');
       const loginPwInp = document.getElementById('login-password');
       if (loginUserInp) loginUserInp.value = '';
@@ -20973,6 +20980,10 @@ function syncLikedStateToPosts() {
     function closeAccountCenterModal() {
       const modal = document.getElementById('modal-account-center');
       if (!modal) return;
+      ['ac-pw-current', 'ac-pw-new', 'ac-pw-confirm'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
       modal.classList.add('hidden');
       modal.style.display = 'none';
     }
@@ -23044,6 +23055,121 @@ function syncLikedStateToPosts() {
     }
     window.confirmDeactivateAccount = confirmDeactivateAccount;
 
+    function clearPasswordFields() {
+      const ids = [
+        'login-password', 'signup-password',
+        'ac-pw-current', 'ac-pw-new', 'ac-pw-confirm',
+        'switch-password-input',
+        'forgot-new-password', 'forgot-confirm-password'
+      ];
+      ids.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      if (window._detachedLoginForm) {
+        window._detachedLoginForm.querySelectorAll('input[type="password"], #login-password, #login-username').forEach(function (el) {
+          el.value = '';
+        });
+      }
+      document.querySelectorAll('input[type="password"]').forEach(function (el) {
+        el.value = '';
+      });
+    }
+    function resetAuthCredentialForms() {
+      clearPasswordFields();
+      ['login-username', 'login-email', 'login-fullname', 'signup-username', 'signup-phone', 'forgot-identifier'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      if (window._detachedLoginForm) {
+        window._detachedLoginForm.querySelectorAll('input').forEach(function (el) { el.value = ''; });
+      }
+      ['login-form', 'form-forgot-step-1', 'form-forgot-step-2'].forEach(function (id) {
+        const form = document.getElementById(id) || (window._detachedLoginForm && window._detachedLoginForm.id === id ? window._detachedLoginForm : null);
+        if (form && typeof form.reset === 'function') {
+          try { form.reset(); } catch (e) {}
+        }
+      });
+    }
+    function disarmAuthCredentialForms() {
+      resetAuthCredentialForms();
+      const form = document.getElementById('login-form');
+      if (form && form.parentNode && !window._detachedLoginForm) {
+        const ph = document.createElement('div');
+        ph.id = 'login-form-placeholder';
+        ph.hidden = true;
+        ph.setAttribute('aria-hidden', 'true');
+        form.parentNode.insertBefore(ph, form);
+        form.parentNode.removeChild(form);
+        window._detachedLoginForm = form;
+        window._loginFormPlaceholder = ph;
+        form.querySelectorAll('input').forEach(function (el) { el.value = ''; });
+      }
+      // Signup lives in the same hidden auth-view and uses id="login-email" next to a password field.
+      // Turn those into non-login fields so Chrome cannot autofill or pair them after sign-in.
+      const signupDisarm = {
+        'signup-password': { type: 'password', autocomplete: 'new-password' },
+        'login-email': { type: 'email', autocomplete: 'email' },
+        'login-fullname': { type: 'text', autocomplete: 'name' },
+        'signup-username': { type: 'text', autocomplete: 'username' }
+      };
+      Object.keys(signupDisarm).forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = '';
+        if (!el.getAttribute('data-auth-armed-autocomplete')) {
+          el.setAttribute('data-auth-armed-autocomplete', el.getAttribute('autocomplete') || signupDisarm[id].autocomplete);
+        }
+        if (id === 'signup-password') {
+          el.setAttribute('data-auth-armed-type', 'password');
+          el.type = 'text';
+        }
+        el.setAttribute('autocomplete', 'off');
+        el.setAttribute('readonly', 'readonly');
+        el.setAttribute('data-auth-disarmed', '1');
+      });
+      window._authFormsDisarmed = true;
+    }
+    function armAuthCredentialForms() {
+      if (window._detachedLoginForm && window._loginFormPlaceholder && window._loginFormPlaceholder.parentNode) {
+        window._loginFormPlaceholder.parentNode.insertBefore(window._detachedLoginForm, window._loginFormPlaceholder);
+        window._loginFormPlaceholder.parentNode.removeChild(window._loginFormPlaceholder);
+        window._detachedLoginForm = null;
+        window._loginFormPlaceholder = null;
+      }
+      ['signup-password', 'login-email', 'login-fullname', 'signup-username'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el || el.getAttribute('data-auth-disarmed') !== '1') return;
+        const typ = el.getAttribute('data-auth-armed-type');
+        if (typ) el.type = typ;
+        const ac = el.getAttribute('data-auth-armed-autocomplete');
+        if (ac) el.setAttribute('autocomplete', ac);
+        else el.removeAttribute('autocomplete');
+        el.removeAttribute('readonly');
+        el.removeAttribute('data-auth-disarmed');
+        el.removeAttribute('data-auth-armed-type');
+        el.removeAttribute('data-auth-armed-autocomplete');
+        el.value = '';
+      });
+      const lu = document.getElementById('login-username');
+      const lp = document.getElementById('login-password');
+      if (lu) { lu.readOnly = false; lu.setAttribute('autocomplete', 'username'); }
+      if (lp) { lp.readOnly = false; lp.type = 'password'; lp.setAttribute('autocomplete', 'current-password'); lp.value = ''; }
+      const sp = document.getElementById('signup-password');
+      if (sp) { sp.readOnly = false; sp.type = 'password'; sp.setAttribute('autocomplete', 'new-password'); }
+      const le = document.getElementById('login-email');
+      if (le) { le.readOnly = false; le.setAttribute('autocomplete', 'email'); }
+      const su = document.getElementById('signup-username');
+      if (su) { su.readOnly = false; su.setAttribute('autocomplete', 'username'); }
+      const fn = document.getElementById('login-fullname');
+      if (fn) { fn.readOnly = false; fn.setAttribute('autocomplete', 'name'); }
+      window._authFormsDisarmed = false;
+    }
+    window.clearPasswordFields = clearPasswordFields;
+    window.resetAuthCredentialForms = resetAuthCredentialForms;
+    window.disarmAuthCredentialForms = disarmAuthCredentialForms;
+    window.armAuthCredentialForms = armAuthCredentialForms;
+
     function performLogin(username, fullName, email, password = null, phone = null, accountType = null) {
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
       const localDeact = getDeactivationRecord(cleanUsername);
@@ -23224,6 +23350,7 @@ function syncLikedStateToPosts() {
         mainView.classList.remove('hidden');
         mainView.style.display = 'flex';
       }
+      if (typeof disarmAuthCredentialForms === 'function') disarmAuthCredentialForms();
 
       // Update header & dock avatars from the signed-in user only (never the app logo or a viewed profile).
       if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars();
@@ -23409,6 +23536,8 @@ function syncLikedStateToPosts() {
       window._lastRemoteCommentsMap = null;
       window._pixlyAccountCenterAddOwner = null;
       state.activeDmThreadIndex = 0;
+      if (typeof armAuthCredentialForms === 'function') armAuthCredentialForms();
+      if (typeof clearPasswordFields === 'function') clearPasswordFields();
       // Populate login inputs with username, but CLEAR password so password is required
       const loginUserInp = document.getElementById('login-username');
       if (loginUserInp) loginUserInp.value = state.currentUser.username;
@@ -24477,6 +24606,7 @@ function syncLikedStateToPosts() {
         }
 
         function setAuthMode(mode) {
+          if (typeof armAuthCredentialForms === 'function') armAuthCredentialForms();
           const splashContainer = document.getElementById('splash-container');
           const authCardContainer = document.getElementById('auth-card-container');
           const authLoginContainer = document.getElementById('auth-login-container');
@@ -28290,6 +28420,19 @@ function syncLikedStateToPosts() {
     function togglePasswordVisibility(inputId, btnEl) {
       const input = document.getElementById(inputId);
       if (!input) return;
+      if (input.classList.contains('secret-mask') || input.getAttribute('data-secret-mask') === '1') {
+        const hidden = input.classList.contains('secret-mask');
+        if (hidden) {
+          input.classList.remove('secret-mask');
+          input.style.webkitTextSecurity = 'none';
+          if (btnEl) btnEl.textContent = '🙈';
+        } else {
+          input.classList.add('secret-mask');
+          input.style.webkitTextSecurity = 'disc';
+          if (btnEl) btnEl.textContent = '👁️';
+        }
+        return;
+      }
       if (input.type === 'password') {
         input.type = 'text';
         if (btnEl) btnEl.textContent = '🙈';
@@ -30513,7 +30656,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <div id="business-verification-admin-token-wrap" class="mb-2">
               <label for="business-verification-admin-token" class="block text-[10px] font-semibold text-neutral-500 mb-1">Admin token (session only, never stored)</label>
               <div class="flex items-stretch gap-1.5 min-w-0">
-                <input type="password" id="business-verification-admin-token" autocomplete="off" placeholder="Paste ADMIN_TOKEN" class="flex-1 min-w-0 px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400" oninput="syncBusinessVerificationAdminLoadBtn()" onkeydown="if(event.key==='Enter'){event.preventDefault();refreshBusinessVerificationAdmin(true);}" onpaste="setTimeout(function(){syncBusinessVerificationAdminLoadBtn();refreshBusinessVerificationAdmin(true);},0)">
+                <input type="text" id="business-verification-admin-token" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Paste ADMIN_TOKEN" class="secret-mask flex-1 min-w-0 px-2.5 py-1.5 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400" oninput="syncBusinessVerificationAdminLoadBtn()" onkeydown="if(event.key==='Enter'){event.preventDefault();refreshBusinessVerificationAdmin(true);}" onpaste="setTimeout(function(){syncBusinessVerificationAdminLoadBtn();refreshBusinessVerificationAdmin(true);},0)">
                 <button type="button" id="btn-load-business-verifications" onclick="refreshBusinessVerificationAdmin(true)" disabled class="flex-shrink-0 whitespace-nowrap px-3 py-1.5 text-[11px] font-bold rounded-lg bg-neutral-900 text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 cursor-pointer transition" title="Load applications">Load</button>
               </div>
               <div id="business-verification-admin-token-error" class="hidden mt-1 text-[10px] font-semibold text-rose-600 leading-tight" role="alert"></div>
