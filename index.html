@@ -4050,6 +4050,11 @@
               let profileChanged = false;
               if (typeof mergeStoredProfileFields === 'function') {
                 profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true });
+                if (typeof settleBusinessDisplayNameAfterRemote === 'function') {
+                  const before = state.currentUser && state.currentUser.dbaName;
+                  settleBusinessDisplayNameAfterRemote(state.currentUser, d);
+                  if ((state.currentUser && state.currentUser.dbaName) !== before) profileChanged = true;
+                }
               } else {
                 if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
                   state.currentUser.bio = d.bio;
@@ -4073,6 +4078,10 @@
                 }
                 if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
                   state.currentUser.accountType = d.accountType;
+                  profileChanged = true;
+                }
+                if (d.dbaName !== undefined && d.dbaName !== state.currentUser.dbaName) {
+                  state.currentUser.dbaName = d.dbaName;
                   profileChanged = true;
                 }
                 const remoteAv = d.photoURL || d.avatar;
@@ -5020,11 +5029,111 @@
       if (label.length > 60) label = label.slice(0, 57) + '…';
       return { ok: true, empty: false, href: href, label: label };
     }
+    function isBusinessProfileUser(user) {
+      const u = user || {};
+      const un = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(u.username || '')
+        : String(u.username || '').toLowerCase().replace(/^@/, '').trim();
+      return u.accountType === 'business' || un === 'pixlynote';
+    }
+    function isDbaNameSettled(user) {
+      const u = user || {};
+      if (Object.prototype.hasOwnProperty.call(u, 'dbaName')) return true;
+      if (u._loadedProfileFields && u._loadedProfileFields.dbaName) return true;
+      return false;
+    }
+    function isBusinessDisplayNamePending(user) {
+      return !!(isBusinessProfileUser(user) && !isDbaNameSettled(user));
+    }
     function publicProfileDisplayName(user) {
       const u = user || {};
       const dba = String(u.dbaName || '').trim();
       const name = String(u.fullName || u.name || '').trim();
+      // Business public name is the DBA / brand. Never flash fullName (Display Name)
+      // while dbaName may still be loading from a slim session or cloud hydrate.
+      if (isBusinessProfileUser(u)) {
+        if (dba) return dba;
+        if (isDbaNameSettled(u)) return name;
+        return '';
+      }
       return dba || name;
+    }
+    function currentPublicAuthorName() {
+      const u = (typeof state !== 'undefined' && state.currentUser) ? state.currentUser : {};
+      const d = publicProfileDisplayName(u);
+      if (d) return d;
+      if (isBusinessDisplayNamePending(u)) return u.username || '';
+      return nameOrUsername(u);
+    }
+    function nameOrUsername(user) {
+      const u = user || {};
+      return String(u.fullName || u.name || u.username || '').trim();
+    }
+    function publicDisplayNameForUsername(username, fallback) {
+      const n = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username || '')
+        : String(username || '').toLowerCase().replace(/^@/, '').trim();
+      const fb = (fallback == null ? '' : String(fallback));
+      if (!n) return fb;
+      try {
+        const cu = (typeof state !== 'undefined' && state.currentUser) ? state.currentUser : null;
+        if (cu && ((typeof normalizeUsername === 'function') ? normalizeUsername(cu.username) : String(cu.username || '').toLowerCase()) === n) {
+          const d = publicProfileDisplayName(cu);
+          if (d) return d;
+          if (!isBusinessDisplayNamePending(cu) && (cu.fullName || cu.username)) return cu.fullName || cu.username;
+        }
+      } catch (e) {}
+      try {
+        const dir = window._exploreUserDir && window._exploreUserDir.users;
+        const rec = dir && dir.get && dir.get(n);
+        if (rec) {
+          const d = publicProfileDisplayName(rec);
+          if (d) return d;
+          if (rec.fullName) return rec.fullName;
+        }
+      } catch (e) {}
+      try {
+        if (typeof getCreatorInfo === 'function') {
+          const info = getCreatorInfo(n);
+          if (info) {
+            const d = publicProfileDisplayName(info);
+            if (d) return d;
+            if (info.fullName) return info.fullName;
+          }
+        }
+      } catch (e) {}
+      return fb || n;
+    }
+    function sessionAccountSnapshot(user, extra) {
+      const u = user || {};
+      const rec = {
+        username: u.username,
+        fullName: u.fullName,
+        email: u.email || '',
+        phone: u.phone || '',
+        avatar: u.avatar,
+        accountType: u.accountType || 'personal'
+      };
+      // Include dbaName when it is known. Omit it when still loading so a later
+      // login stays pending and does not flash Display Name (fullName).
+      if (u.dbaName !== undefined && u.dbaName !== null) rec.dbaName = String(u.dbaName);
+      else if (u._loadedProfileFields && u._loadedProfileFields.dbaName) rec.dbaName = String(u.dbaName || '');
+      if (extra && typeof extra === 'object') Object.assign(rec, extra);
+      return rec;
+    }
+    function settleLocalBusinessDisplayName(user) {
+      if (!user || !isBusinessProfileUser(user) || isDbaNameSettled(user)) return;
+      const cloudPending = !!(window.firebaseReady && window.firebase && window.firebase.db && (window.firebase.getDoc || window.firebase.onSnapshot));
+      if (cloudPending) return;
+      user.dbaName = String(user.dbaName || '');
+      if (typeof markStoredProfileFieldsLoaded === 'function') markStoredProfileFieldsLoaded(user, { dbaName: user.dbaName });
+    }
+    function settleBusinessDisplayNameAfterRemote(user, remote) {
+      if (!user) return;
+      const biz = isBusinessProfileUser(user) || (remote && remote.accountType === 'business');
+      if (!biz || isDbaNameSettled(user)) return;
+      user.dbaName = (remote && remote.dbaName !== undefined && remote.dbaName !== null) ? remote.dbaName : '';
+      if (typeof markStoredProfileFieldsLoaded === 'function') markStoredProfileFieldsLoaded(user, { dbaName: user.dbaName });
     }
     function normalizeAddressVisibility(raw) {
       const s = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -5988,6 +6097,14 @@
     window.normalizeWebsiteUrl = normalizeWebsiteUrl;
     window.isValidSupportEmail = isValidSupportEmail;
     window.publicProfileDisplayName = publicProfileDisplayName;
+    window.isBusinessProfileUser = isBusinessProfileUser;
+    window.isDbaNameSettled = isDbaNameSettled;
+    window.isBusinessDisplayNamePending = isBusinessDisplayNamePending;
+    window.currentPublicAuthorName = currentPublicAuthorName;
+    window.publicDisplayNameForUsername = publicDisplayNameForUsername;
+    window.sessionAccountSnapshot = sessionAccountSnapshot;
+    window.settleLocalBusinessDisplayName = settleLocalBusinessDisplayName;
+    window.settleBusinessDisplayNameAfterRemote = settleBusinessDisplayNameAfterRemote;
     window.normalizeBusinessIndustry = normalizeBusinessIndustry;
     window.businessIndustryLabel = businessIndustryLabel;
     window.normalizeAddressVisibility = normalizeAddressVisibility;
@@ -7579,7 +7696,7 @@ function syncLikedStateToPosts() {
             id: post.id,
             authorId: uid,
             author: state.currentUser.username,
-            authorName: state.currentUser.fullName,
+            authorName: (typeof currentPublicAuthorName === 'function') ? currentPublicAuthorName() : (state.currentUser.fullName),
             authorAvatar: state.currentUser.avatar,
             location: post.location,
             image: post.image,
@@ -7937,10 +8054,16 @@ function syncLikedStateToPosts() {
           avatar: lightAvatar,
           bio: state.currentUser.bio,
           link: state.currentUser.link,
+          accountType: state.currentUser.accountType || 'personal',
           postsCount: state.currentUser.postsCount,
           followersCount: state.currentUser.followersCount,
           followingCount: state.currentUser.followingCount
         };
+        if (state.currentUser.dbaName !== undefined && state.currentUser.dbaName !== null) {
+          cleanUser.dbaName = String(state.currentUser.dbaName);
+        } else if (state.currentUser._loadedProfileFields && state.currentUser._loadedProfileFields.dbaName) {
+          cleanUser.dbaName = String(state.currentUser.dbaName || '');
+        }
         const userStr = JSON.stringify(cleanUser);
         try { localStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
         try { if (lightAvatar) localStorage.setItem(k('pixly_avatar'), lightAvatar); } catch(e) {}
@@ -11086,12 +11209,12 @@ function syncLikedStateToPosts() {
                       <div class="flex items-center space-x-2.5 min-w-0 cursor-pointer open-author-profile" data-author="${creator.username}">
                         <div class="w-10 h-10 rounded-full p-0.5 story-gradient flex-shrink-0">
                           <div class="w-full h-full rounded-full overflow-hidden border border-white">
-                            <img src="${creator.avatar}" alt="${creator.fullName}" class="w-full h-full object-cover">
+                            <img src="${creator.avatar}" alt="${(typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(creator)) || creator.fullName || creator.username}" class="w-full h-full object-cover">
                           </div>
                         </div>
                         <div class="min-w-0">
                           <div class="flex items-center space-x-1 min-w-0">
-                            <span class="font-bold text-xs text-neutral-900 truncate">${creator.fullName}</span>
+                            <span class="font-bold text-xs text-neutral-900 truncate">${(typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(creator)) || creator.fullName || creator.username}</span>
                             ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(creator) : (isViewedCreatorCheckmarkShown(creator) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                           </div>
                           <div class="text-[11px] text-neutral-500 truncate">@${creator.username}</div>
@@ -11604,7 +11727,8 @@ function syncLikedStateToPosts() {
       const nameEl = document.getElementById('profile-full-name');
       if (nameEl) {
         const display = (typeof publicProfileDisplayName === 'function') ? publicProfileDisplayName(state.currentUser) : (state.currentUser.fullName || state.currentUser.username);
-        nameEl.textContent = isPixly ? 'Pixlynote' : (display || state.currentUser.username);
+        const pendingBiz = (typeof isBusinessDisplayNamePending === 'function') && isBusinessDisplayNamePending(state.currentUser);
+        nameEl.textContent = isPixly ? 'Pixlynote' : (pendingBiz ? '' : (display || state.currentUser.username || ''));
       }
       if (typeof maybeMarkBusinessVerificationLegacyExempt === 'function') maybeMarkBusinessVerificationLegacyExempt(state.currentUser);
       
@@ -11920,7 +12044,7 @@ function syncLikedStateToPosts() {
       const creator = getCreatorInfo(note.author);
       const avatarSrc = getNoteAuthorAvatar(note);
 
-      if (authorNameEl) authorNameEl.textContent = note.authorName || creator.fullName || note.author;
+      if (authorNameEl) authorNameEl.textContent = (typeof publicDisplayNameForUsername === 'function' ? publicDisplayNameForUsername(note.author, note.authorName || (creator && creator.fullName) || note.author) : '') || note.authorName || (creator && creator.fullName) || note.author;
       if (typeof paintStatusBadgesForUser === 'function') {
         paintStatusBadgesForUser(creator || { username: note.author }, ['note-modal-verified-badge'], ['note-modal-associated-avatar']);
       } else {
@@ -13298,6 +13422,7 @@ function syncLikedStateToPosts() {
           users.set(u, {
             username: u,
             fullName: String(d.fullName || u),
+            dbaName: (d.dbaName !== undefined && d.dbaName !== null) ? String(d.dbaName) : '',
             bio: String(d.bio || ''),
             avatar: d.avatar || d.photoURL || '',
             category: String(d.category || ''),
@@ -13316,7 +13441,7 @@ function syncLikedStateToPosts() {
           (Array.isArray(d.notes) ? d.notes : []).forEach(n => {
             if (!n || n.id === undefined || n.id === null || !n.text) return;
             if (exploreNorm(n.author || u) !== u) return;                            // only notes the doc owner wrote
-            notes.set(String(n.id), { ...n, author: u, authorName: n.authorName || d.fullName || u, authorAvatar: d.avatar || d.photoURL || n.authorAvatar || '' });
+            notes.set(String(n.id), { ...n, author: u, authorName: (typeof publicProfileDisplayName === 'function' ? publicProfileDisplayName({ username: u, fullName: d.fullName, dbaName: d.dbaName, accountType: d.accountType }) : '') || n.authorName || d.fullName || u, authorAvatar: d.avatar || d.photoURL || n.authorAvatar || '' });
           });
         });
         const likesByPost = new Map(), likesByNote = new Map();
@@ -13488,7 +13613,10 @@ function syncLikedStateToPosts() {
       const viewer = exploreViewer();
       const terms = q ? exploreTerms(q) : [];
       let list = Array.from(dir.users.values()).filter(c => !c.deactivated);
-      if (q) list = list.filter(c => [c.username, c.fullName, c.bio, c.category].some(f => terms.some(t => String(f || '').toLowerCase().includes(t))));
+      if (q) list = list.filter(c => {
+        const pub = (typeof publicProfileDisplayName === 'function') ? publicProfileDisplayName(c) : '';
+        return [c.username, c.fullName, c.dbaName, pub, c.bio, c.category].some(f => terms.some(t => String(f || '').toLowerCase().includes(t)));
+      });
       else list = list.filter(c => c.username !== viewer);
       list = list.map(c => {
         const isSelf = c.username === viewer;
@@ -13712,12 +13840,12 @@ function syncLikedStateToPosts() {
                         <div class="flex items-center space-x-3 min-w-0 pr-2">
                           <div class="w-12 h-12 rounded-2xl p-0.5 story-gradient shadow-xs flex-shrink-0">
                             <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
-                              <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc(c.fullName)}" class="w-full h-full object-cover">
+                              <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc((typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(c)) || c.fullName || c.username)}" class="w-full h-full object-cover">
                             </div>
                           </div>
                           <div class="min-w-0 flex-1">
                             <div class="flex items-center space-x-1.5">
-                              <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${exploreEsc(c.fullName)}</span>
+                              <span class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 transition truncate">${exploreEsc((typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(c)) || c.fullName || c.username)}</span>
                               ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(c) : (isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                               <span class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-md">${exploreEsc(String(chip).split('&')[0].trim())}</span>
                             </div>
@@ -13751,12 +13879,12 @@ function syncLikedStateToPosts() {
                     <div class="explore-account-card flex-shrink-0 w-36 bg-neutral-50/90 hover:bg-neutral-100/80 border border-neutral-100 rounded-2xl p-3 text-center flex flex-col items-center justify-between transition cursor-pointer group shadow-2xs" data-username="${u}" onclick="viewUserProfile('${u}')">
                       <div class="w-14 h-14 rounded-2xl p-0.5 story-gradient shadow-xs mb-2">
                         <div class="w-full h-full rounded-[14px] overflow-hidden bg-white border border-white">
-                          <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc(c.fullName)}" class="w-full h-full object-cover">
+                          <img src="${exploreAccountAvatar(c)}" alt="${exploreEsc((typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(c)) || c.fullName || c.username)}" class="w-full h-full object-cover">
                         </div>
                       </div>
                       <div class="w-full min-w-0">
                         <div class="flex items-center justify-center gap-0.5 min-w-0">
-                          <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc(c.fullName)}</div>
+                          <div class="font-bold text-xs text-neutral-900 truncate group-hover:text-violet-700 transition">${exploreEsc((typeof publicProfileDisplayName === 'function' && publicProfileDisplayName(c)) || c.fullName || c.username)}</div>
                           ${typeof creatorStatusBadgesHtml === 'function' ? creatorStatusBadgesHtml(c) : (isViewedCreatorCheckmarkShown(c) ? (EXPLORE_VERIFIED_SVG || '') : '')}
                         </div>
                         <div class="text-[10px] text-neutral-500 font-medium truncate">@${u}</div>
@@ -15565,7 +15693,7 @@ function syncLikedStateToPosts() {
         }
 
         const currentUsername = (state.currentUser.username || 'bradley_hansen').replace(/^@/, '');
-        const currentFullName = state.currentUser.fullName || 'Bradley Hansen';
+        const currentFullName = (typeof currentPublicAuthorName === 'function') ? (currentPublicAuthorName() || state.currentUser.fullName || 'Bradley Hansen') : (state.currentUser.fullName || 'Bradley Hansen');
         const currentAvatar = state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '');
 
         // 1. Create Story Object (Stored at state.stories[0] for Bradley's Profile Picture)
@@ -15713,7 +15841,7 @@ function syncLikedStateToPosts() {
         }
 
         const currentUsername = (state.currentUser.username || 'bradley_hansen').replace(/^@/, '');
-        const currentFullName = state.currentUser.fullName || 'Bradley Hansen';
+        const currentFullName = (typeof currentPublicAuthorName === 'function') ? (currentPublicAuthorName() || state.currentUser.fullName || 'Bradley Hansen') : (state.currentUser.fullName || 'Bradley Hansen');
         const currentAvatar = state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '');
 
         // Anti-duplicate protection: prevent duplicate post created within 2500ms
@@ -16758,6 +16886,9 @@ function syncLikedStateToPosts() {
         return {
           username: state.currentUser.username,
           fullName: state.currentUser.fullName || state.currentUser.username,
+          dbaName: state.currentUser.dbaName,
+          accountType: state.currentUser.accountType,
+          _loadedProfileFields: state.currentUser._loadedProfileFields,
           bio: state.currentUser.bio || '',
           avatar: state.currentUser.avatar || (cleanU === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : BRADLEY_AVATAR_IMAGE),
           category: state.currentUser.accountType === 'business' ? "Business Profile" : "Personal & Creator",
@@ -16801,6 +16932,8 @@ function syncLikedStateToPosts() {
         return {
           username: accData.username || cleanU,
           fullName: accData.fullName || cleanU,
+          dbaName: accData.dbaName,
+          accountType: accData.accountType,
           bio: accData.bio || '',
           avatar: accData.avatar || (cleanU === 'pixlynote' ? PIXLYNOTE_SHUTTER_ICON : (cleanU === 'digitalassetpro' ? DIGITAL_ASSET_PRO_AVATAR : (cleanU === 'bradley_hansen' ? BRADLEY_AVATAR_IMAGE : NEUTRAL_BLANK_AVATAR))),
           category: accData.category || (accData.accountType === 'business' ? "Business Profile" : (isTestBot ? "Test Account" : "Pixlynote Member")),
@@ -23613,6 +23746,7 @@ function syncLikedStateToPosts() {
           state.currentUser.bio = (accData && accData.bio !== undefined) ? accData.bio : '';
           state.currentUser.link = (accData && accData.link !== undefined) ? accData.link : '';
           state.currentUser.accountType = isBiz ? 'business' : 'personal';
+          if (accData && accData.dbaName !== undefined) state.currentUser.dbaName = accData.dbaName;
           const memAcc = (window._pixlyAccounts && window._pixlyAccounts[cleanUsername.toLowerCase()]) || null;
           state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : ((memAcc && memAcc.avatar) ? memAcc.avatar : (isBiz ? PIXLYNOTE_SHUTTER_ICON : NEUTRAL_BLANK_AVATAR));
           state.currentUser.postsCount = (accData && accData.postsCount !== undefined) ? accData.postsCount : 0;
@@ -23812,6 +23946,8 @@ function syncLikedStateToPosts() {
         } catch(e) {}
       }
 
+      if (typeof settleLocalBusinessDisplayName === 'function') settleLocalBusinessDisplayName(state.currentUser);
+
       renderStories();
       renderFeed();
       renderProfile();
@@ -23821,9 +23957,12 @@ function syncLikedStateToPosts() {
       initCreatePresets();
 
       saveUserProfile();
-      const sessionEntry = {
+      const sessionEntry = (typeof sessionAccountSnapshot === 'function')
+        ? sessionAccountSnapshot(state.currentUser)
+        : {
         username: state.currentUser.username,
         fullName: state.currentUser.fullName,
+        dbaName: (state.currentUser && state.currentUser.dbaName) || '',
         email: state.currentUser.email || '',
         phone: state.currentUser.phone || '',
         avatar: state.currentUser.avatar,
@@ -27614,9 +27753,12 @@ function syncLikedStateToPosts() {
             } catch(err) {}
 
             if (typeof registerSessionAccount === 'function') {
-              registerSessionAccount({
+              registerSessionAccount((typeof sessionAccountSnapshot === 'function')
+                ? sessionAccountSnapshot(state.currentUser)
+                : {
                 username: state.currentUser.username,
                 fullName: state.currentUser.fullName,
+                dbaName: (state.currentUser && state.currentUser.dbaName) || '',
                 email: state.currentUser.email || '',
                 phone: state.currentUser.phone || '',
                 avatar: state.currentUser.avatar,
@@ -28328,7 +28470,7 @@ function syncLikedStateToPosts() {
           const newPost = {
             id: Date.now(),
             author: curU,
-            authorName: (state.currentUser && state.currentUser.fullName) || curU,
+            authorName: (typeof currentPublicAuthorName === 'function' ? currentPublicAuthorName() : '') || (state.currentUser && state.currentUser.fullName) || curU,
             authorAvatar: (state.currentUser && state.currentUser.avatar) || state.activeStory.avatar,
             location: 'Shared from Story',
             image: state.activeStory.image,
@@ -28434,7 +28576,7 @@ function syncLikedStateToPosts() {
             const newNote = {
               id: Date.now(),
               author: (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen',
-              authorName: (state.currentUser && state.currentUser.fullName) ? state.currentUser.fullName : 'Bradley Hansen',
+              authorName: (typeof currentPublicAuthorName === 'function' ? currentPublicAuthorName() : '') || ((state.currentUser && state.currentUser.fullName) ? state.currentUser.fullName : 'Bradley Hansen'),
               authorAvatar: (state.currentUser && state.currentUser.avatar) ? state.currentUser.avatar : PRESET_IMAGES[0].path,
               text: noteText,
               time: 'Just now',
