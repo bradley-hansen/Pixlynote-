@@ -3833,6 +3833,547 @@
     window.firebaseReady = false;
     window.firebase = null;
 
+    if (typeof window.closeAllFirestoreListeners !== 'function') {
+      window.closeAllFirestoreListeners = function() {
+        if (window._bradleyUserDocUnsub) { try { window._bradleyUserDocUnsub(); } catch(e) {} window._bradleyUserDocUnsub = null; }
+        if (window._acDocUnsub) { try { window._acDocUnsub(); } catch(e) {} window._acDocUnsub = null; }
+        if (window._postsCollectionUnsub) { try { window._postsCollectionUnsub(); } catch(e) {} window._postsCollectionUnsub = null; }
+        if (window._activeUserDocUnsub) { try { window._activeUserDocUnsub(); } catch(e) {} window._activeUserDocUnsub = null; }
+        window._activeUserDocName = null;
+        if (window._myFollowersUnsub) { try { window._myFollowersUnsub(); } catch(e) {} window._myFollowersUnsub = null; }
+        window._myFollowersUnsubUser = null;
+        if (window._notifUnsubMap && typeof window._notifUnsubMap === 'object') {
+          Object.keys(window._notifUnsubMap).forEach(k => {
+            try { if (typeof window._notifUnsubMap[k] === 'function') window._notifUnsubMap[k](); } catch(e) {}
+          });
+          window._notifUnsubMap = {};
+        }
+      };
+    }
+
+        // Per-account sync helpers. These used to be defined only inside attachFirestoreListeners(), which runs
+        // only for @bradley_hansen, so other accounts never got cloud hydration / live user-doc / notification
+        // listeners on a fresh tab or reload. Define them once for every account.
+        function defineAccountSyncHelpers() {
+          if (window._accountSyncHelpersDefined) return;
+          window._accountSyncHelpersDefined = true;
+
+          // Per-account live notifications listener for any active account
+          if (!window._notifUnsubMap) window._notifUnsubMap = {};
+          window.attachAccountNotificationsListener = function(username) {
+            const cleanU = (username || (state.currentUser && state.currentUser.username) || 'bradley_hansen').toLowerCase().replace(/^@/, '');
+            if (!cleanU || cleanU === 'bradley_hansen') return;
+            if (window._notifUnsubMap[cleanU]) return;
+            try {
+              const fb = window.firebase || {};
+              if (!fb.db || !fb.doc || !fb.onSnapshot) return;
+              const uRef = fb.doc(fb.db, 'users', cleanU);
+              window._notifUnsubMap[cleanU] = fb.onSnapshot(uRef, (snap) => {
+                if (!snap.exists()) return;
+                const d = snap.data();
+                const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
+                if (curU === cleanU && d && Array.isArray(d.notifications)) {
+                  state.notifications = d.notifications;
+                  try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
+                  if (typeof renderNotifications === 'function') renderNotifications();
+                }
+              }, () => {});
+            } catch(e) {}
+          };
+
+          window.applyFollowingFromRemote = function(cleanU, remoteFollowing, hasPendingWrites = false) {
+            if (!cleanU) return;
+            const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
+            if (curU !== cleanU) return;
+            const graceMs = 10000;
+            const now = Date.now();
+            const followingWasHydrated = (window._followingHydratedFor === cleanU);
+            if (!followingWasHydrated && hasPendingWrites) {
+              // Local latency-compensation snapshot before initial server hydration: keep pending sync until server state arrives.
+              return;
+            }
+            window._followingHydratedFor = cleanU;
+            const hadPendingSync = (window._pendingFollowingSync === cleanU);
+            const recentlyWroteFollowing = (window._lastLocalFollowingWriteUser === cleanU) && ((now - (window._lastLocalFollowingWriteTs || 0)) < graceMs);
+            const overrides = (window._localFollowOverrides && window._localFollowOverrides[cleanU]) || {};
+            const activeOverrideKeys = Object.keys(overrides).filter(k => overrides[k] && (now - overrides[k].ts) < graceMs);
+            const hasActiveOverrides = activeOverrideKeys.length > 0;
+            const localList = (typeof sanitizeFollowingList === 'function')
+              ? sanitizeFollowingList(Array.isArray(state.following) ? state.following : [])
+              : (Array.isArray(state.following) ? state.following : []);
+
+            const repaintFollowingUi = () => {
+              if (state.currentUser) {
+                const activeFollowCount = (typeof getFollowingDisplayCount === 'function')
+                  ? getFollowingDisplayCount()
+                  : (state.following || []).filter(u => u && u.isFollowing !== false).length;
+                state.currentUser.followingCount = String(activeFollowCount);
+              }
+              if (typeof renderProfile === 'function') renderProfile();
+              if (state.viewedCreator && typeof updateCreatorFollowButton === 'function') updateCreatorFollowButton(state.viewedCreator);
+              if (typeof refreshConnectionsUi === 'function') refreshConnectionsUi();
+              if (state.currentTab === 'explore' && typeof renderExplore === 'function') renderExplore();
+            };
+
+            if (!Array.isArray(remoteFollowing)) {
+              state.following = localList;
+              if (hadPendingSync && typeof persistState === 'function') {
+                window._pendingFollowingSync = null;
+                persistState();
+              } else {
+                safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(state.following));
+                if (typeof flushPendingFollowEdges === 'function') flushPendingFollowEdges(cleanU);
+                if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
+                repaintFollowingUi();
+              }
+              return;
+            }
+
+            const sanitizedRemote = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(remoteFollowing) : remoteFollowing;
+            const buildMergedMap = (baseList) => {
+              const map = new Map();
+              (Array.isArray(baseList) ? baseList : []).forEach(f => {
+                if (!f || !f.username) return;
+                const n = normalizeUsername(f.username);
+                if (!n || n === cleanU) return;
+                map.set(n, Object.assign({}, f, { username: n }));
+              });
+              return map;
+            };
+
+            if (hadPendingSync) {
+              const mergedMap = buildMergedMap(sanitizedRemote);
+              localList.forEach(f => {
+                if (!f || !f.username) return;
+                const n = normalizeUsername(f.username);
+                if (!n || n === cleanU) return;
+                const rem = mergedMap.get(n);
+                const isExp = (typeof isExplicitFollowEntry === 'function') && isExplicitFollowEntry(f);
+                if (!rem) {
+                  if (f.isFollowing !== false || isExp) mergedMap.set(n, Object.assign({}, f, { username: n }));
+                } else {
+                  const localTs = Number(f.updatedAt || f.followedAt || 0);
+                  const remTs = Number(rem.updatedAt || rem.followedAt || 0);
+                  if (localTs >= remTs || (f.isFollowing !== false && rem.isFollowing === false && isExp)) {
+                    mergedMap.set(n, Object.assign({}, rem, f, { username: n }));
+                  }
+                }
+              });
+              Object.keys(overrides).forEach(tn => {
+                const ov = overrides[tn];
+                if (!ov) return;
+                const rem = mergedMap.get(tn);
+                if (ov.isFollowing) {
+                  mergedMap.set(tn, Object.assign({}, rem || {}, ov.entry || {}, {
+                    username: tn,
+                    isFollowing: true,
+                    explicit: true,
+                    followedAt: (ov.entry && ov.entry.followedAt) || ov.ts,
+                    updatedAt: ov.ts
+                  }));
+                } else if (rem) {
+                  mergedMap.set(tn, Object.assign({}, rem, { isFollowing: false, explicit: true, updatedAt: ov.ts }));
+                }
+              });
+              const merged = Array.from(mergedMap.values());
+              state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(merged) : merged;
+              window._pendingFollowingSync = null;
+              safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(state.following));
+              repaintFollowingUi();
+              if (typeof persistState === 'function') persistState();
+              if (typeof flushPendingFollowEdges === 'function') flushPendingFollowEdges(cleanU);
+              if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
+              return;
+            }
+
+            if (hasPendingWrites || recentlyWroteFollowing || hasActiveOverrides) {
+              const mergedMap = buildMergedMap(sanitizedRemote);
+              activeOverrideKeys.forEach(tn => {
+                const ov = overrides[tn];
+                if (!ov) return;
+                const rem = mergedMap.get(tn);
+                if (ov.isFollowing) {
+                  if (!rem || rem.isFollowing === false) {
+                    mergedMap.set(tn, Object.assign({}, rem || {}, ov.entry || {}, {
+                      username: tn,
+                      isFollowing: true,
+                      explicit: true,
+                      followedAt: (ov.entry && ov.entry.followedAt) || ov.ts,
+                      updatedAt: ov.ts
+                    }));
+                  }
+                } else if (rem && rem.isFollowing !== false) {
+                  mergedMap.set(tn, Object.assign({}, rem, { isFollowing: false, explicit: true, updatedAt: ov.ts }));
+                }
+              });
+              if (hasPendingWrites || recentlyWroteFollowing) {
+                localList.forEach(f => {
+                  if (!f || !f.username) return;
+                  const n = normalizeUsername(f.username);
+                  if (!n || n === cleanU) return;
+                  if (overrides[n] && (now - overrides[n].ts) < graceMs) return;
+                  const fTs = Number(f.updatedAt || f.followedAt || 0);
+                  const isExp = (typeof isExplicitFollowEntry === 'function') && isExplicitFollowEntry(f);
+                  if (isExp && f.isFollowing !== false && (now - fTs) < graceMs && !mergedMap.has(n)) {
+                    mergedMap.set(n, Object.assign({}, f, { username: n }));
+                  }
+                });
+              }
+              const merged = Array.from(mergedMap.values());
+              const nextList = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(merged) : merged;
+              state.following = nextList;
+              safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(state.following));
+              if (typeof flushPendingFollowEdges === 'function') flushPendingFollowEdges(cleanU);
+              if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
+              repaintFollowingUi();
+              return;
+            }
+
+            state.following = sanitizedRemote;
+            if (typeof snapshotFollowSyncCache === 'function') snapshotFollowSyncCache();
+            if (typeof flushPendingFollowEdges === 'function') flushPendingFollowEdges(cleanU);
+            if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
+            safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(state.following));
+            repaintFollowingUi();
+          };
+
+          // Per-account full Firestore hydration & live listener for ALL accounts (critical after cache clear)
+          window.applyActiveUserDocData = function(cleanU, d, hasPendingWrites = false) {
+            if (!d || !cleanU) return;
+            const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
+            if (curU !== cleanU) return;
+            if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
+            if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
+            const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
+            try { window._activeUserDocCache = { username: cleanU, data: d, at: Date.now() }; } catch (e) {}
+            if (!hasPendingWrites && !recentlyMutatedProfile) {
+              let profileChanged = false;
+              if (typeof mergeStoredProfileFields === 'function') {
+                profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true });
+              } else {
+                if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
+                  state.currentUser.bio = d.bio;
+                  profileChanged = true;
+                }
+                if (typeof d.fullName === 'string' && d.fullName.trim() && d.fullName !== state.currentUser.fullName) {
+                  state.currentUser.fullName = d.fullName;
+                  profileChanged = true;
+                }
+                if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
+                  state.currentUser.email = d.email;
+                  profileChanged = true;
+                }
+                if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
+                  state.currentUser.phone = d.phone;
+                  profileChanged = true;
+                }
+                if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
+                  state.currentUser.link = d.link;
+                  profileChanged = true;
+                }
+                if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
+                  state.currentUser.accountType = d.accountType;
+                  profileChanged = true;
+                }
+                const remoteAv = d.photoURL || d.avatar;
+                if (typeof remoteAv === 'string' && remoteAv && remoteAv !== state.currentUser.avatar) {
+                  state.currentUser.avatar = remoteAv;
+                  profileChanged = true;
+                }
+              }
+              if (profileChanged) {
+                try {
+                  if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[cleanU]) {
+                    CREATOR_DETAILS[cleanU].bio = state.currentUser.bio;
+                    CREATOR_DETAILS[cleanU].fullName = state.currentUser.fullName;
+                    if (state.currentUser.avatar) CREATOR_DETAILS[cleanU].avatar = state.currentUser.avatar;
+                  }
+                } catch(e) {}
+                try {
+                  const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+                  const existingRec = accts[cleanU] || {};
+                  const updatedRec = (typeof publicSafeUserFields === 'function')
+                    ? Object.assign({}, existingRec, publicSafeUserFields(state.currentUser))
+                    : Object.assign({}, existingRec, {
+                    username: state.currentUser.username,
+                    fullName: state.currentUser.fullName,
+                    email: state.currentUser.email || '',
+                    phone: state.currentUser.phone || '',
+                    accountType: state.currentUser.accountType || 'personal',
+                    bio: state.currentUser.bio || '',
+                    link: state.currentUser.link || '',
+                    avatar: state.currentUser.avatar
+                  });
+                  if (typeof STORED_PROFILE_FIELDS !== 'undefined') {
+                    STORED_PROFILE_FIELDS.forEach(function (k) {
+                      if (d[k] === undefined) delete updatedRec[k];
+                    });
+                  }
+                  accts[cleanU] = updatedRec;
+                  localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+                  localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(updatedRec));
+                  if (typeof getAccountStorageKey === 'function') {
+                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(updatedRec));
+                  }
+                  window._pixlyAccounts = window._pixlyAccounts || {};
+                  window._pixlyAccounts[cleanU] = updatedRec;
+                } catch(e) {}
+                try { if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars(); } catch(e) {}
+                if (typeof renderProfile === 'function') renderProfile();
+                if (typeof renderFeed === 'function') renderFeed();
+                if (typeof renderNotes === 'function') renderNotes();
+                try {
+                  const editModal = document.getElementById('modal-edit-profile');
+                  if (editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none') {
+                    const bioInp = document.getElementById('edit-profile-bio');
+                    const nameInp = document.getElementById('edit-profile-name');
+                    const emailInp = document.getElementById('edit-profile-email');
+                    const phoneInp = document.getElementById('edit-profile-phone');
+                    const linkInp = document.getElementById('edit-profile-link');
+                    const ev = state.editProfileVerify || {};
+                    const sameEmail = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+                    const digits = (a) => String(a || '').replace(/\D/g, '');
+                    if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
+                    if (nameInp && document.activeElement !== nameInp) {
+                      const editing = window._editingAccountType || (state.currentUser && state.currentUser.accountType) || 'personal';
+                      nameInp.value = (typeof window.getEditProfileSavedName === 'function')
+                        ? window.getEditProfileSavedName(editing)
+                        : (state.currentUser.fullName || '');
+                    }
+                    if (emailInp && document.activeElement !== emailInp) {
+                      if (!ev.savedEmail || sameEmail(emailInp.value, ev.savedEmail)) emailInp.value = state.currentUser.email || '';
+                    }
+                    if (phoneInp && document.activeElement !== phoneInp) {
+                      if (!ev.savedPhone || digits(phoneInp.value) === digits(ev.savedPhone)) phoneInp.value = state.currentUser.phone || '';
+                    }
+                    if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
+                    if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser, { skipActive: true });
+                  }
+                } catch(e) {}
+              }
+            }
+            if (Array.isArray(d.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
+              window.applyCustomPostsFromRemote(d.customPosts);
+            }
+            if (Array.isArray(d.notes)) {
+              state.notes = d.notes;
+              if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
+              if (typeof renderNotes === 'function') renderNotes();
+            }
+            if (Array.isArray(d.likedPostIds)) {
+              window._likesHydratedFromCloud = true;
+              const recentlyMutated = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+              if ((!hasPendingWrites && !recentlyMutated) || window.pendingLikesSync) {
+                if (typeof window.applyLikesFromRemote === 'function') window.applyLikesFromRemote(d.likedPostIds);
+              }
+            } else if (!window._likesHydratedFromCloud) {
+              // The user doc exists but has no likes array yet (new account): the cloud copy is now known, so
+              // allow likes/saves to sync instead of waiting forever for an array that never arrives.
+              window._likesHydratedFromCloud = true;
+              if (window.pendingLikesSync && typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
+            }
+            // Delete tombstones from other devices (union only, so a delete can never be undone by a stale device)
+            try {
+              let tombChanged = false;
+              if (Array.isArray(d.deletedReplyIds)) {
+                if (!state.deletedReplyIds) state.deletedReplyIds = new Set();
+                d.deletedReplyIds.forEach(id => { const k = String(id); if (!state.deletedReplyIds.has(k)) { state.deletedReplyIds.add(k); tombChanged = true; } });
+              }
+              if (Array.isArray(d.deletedPostIds)) {
+                if (!state.deletedPostIds) state.deletedPostIds = new Set();
+                d.deletedPostIds.forEach(id => { const k = String(id); if (!state.deletedPostIds.has(k)) { state.deletedPostIds.add(k); tombChanged = true; } });
+                if (tombChanged && Array.isArray(state.posts)) state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
+              }
+              if (tombChanged) {
+                if (typeof renderFeed === 'function') renderFeed();
+                if (typeof renderProfile === 'function') renderProfile();
+              }
+            } catch(e) {}
+            // Saved posts / notes for every account (previously only @bradley_hansen's listener applied them)
+            if (cleanU !== 'bradley_hansen') {
+              const recentlySaved = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlySaved && !window.pendingLikesSync) {
+                let savedChanged = false;
+                if (Array.isArray(d.savedPostIds)) {
+                  state.savedPostIds = new Set();
+                  d.savedPostIds.forEach(id => { state.savedPostIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedPostIds.add(num); });
+                  savedChanged = true;
+                }
+                if (Array.isArray(d.savedNoteIds)) {
+                  state.savedNoteIds = new Set();
+                  d.savedNoteIds.forEach(id => { state.savedNoteIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedNoteIds.add(num); });
+                  savedChanged = true;
+                }
+                if (savedChanged) {
+                  try { if (typeof saveAccountSaved === 'function') saveAccountSaved(cleanU); } catch(e) {}
+                  if (typeof renderSaved === 'function') renderSaved();
+                }
+              }
+            }
+            if (d.storyComments && typeof d.storyComments === 'object') {
+              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+              window._remoteUserProfilesCache[cleanU] = window._remoteUserProfilesCache[cleanU] || {};
+              const prevMap = window._remoteUserProfilesCache[cleanU].storyComments || {};
+              const mergedMap = { ...prevMap };
+              Object.keys(d.storyComments).forEach(sid => {
+                const remoteArr = Array.isArray(d.storyComments[sid]) ? d.storyComments[sid] : [];
+                const localArr = Array.isArray(prevMap[sid]) ? prevMap[sid] : [];
+                const byId = new Map();
+                remoteArr.forEach(c => byId.set(String(c.id), c));
+                localArr.forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
+                mergedMap[sid] = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+              });
+              window._remoteUserProfilesCache[cleanU].storyComments = mergedMap;
+              try { localStorage.setItem('pixly_story_comments_' + cleanU, JSON.stringify(mergedMap)); } catch(e) {}
+            }
+            if (Array.isArray(d.userStories)) {
+              state.userStories = d.userStories;
+              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(true);
+              if (typeof renderStories === 'function') renderStories();
+            } else if (d.story && d.story.image) {
+              state.userStories = [d.story];
+              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(true);
+              if (typeof renderStories === 'function') renderStories();
+            } else if (!Array.isArray(state.userStories)) {
+              state.userStories = [];
+              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(false);
+              if (typeof renderStories === 'function') renderStories();
+            }
+            if (Array.isArray(d.notifications)) {
+              const recentlyWroteNotif = (Date.now() - (window._lastLocalNotificationsWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlyWroteNotif) {
+                const mergedNotifs = typeof mergeNotificationLists === 'function'
+                  ? mergeNotificationLists(state.notifications, d.notifications)
+                  : d.notifications;
+                if (JSON.stringify(mergedNotifs) !== JSON.stringify(state.notifications)) {
+                  state.notifications = mergedNotifs;
+                  safeLocalStorageSet('pixly_notifications_' + cleanU, JSON.stringify(mergedNotifs));
+                  if (typeof renderNotifications === 'function') renderNotifications();
+                }
+              }
+            }
+            if (typeof window.applyFollowingFromRemote === 'function') {
+              window.applyFollowingFromRemote(cleanU, d.following, hasPendingWrites);
+            }
+            if (Array.isArray(d.likedStoryIds)) {
+              const recentlyLikedStory = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlyLikedStory) {
+                state.likedStoryIds = new Set(d.likedStoryIds.map(String));
+                if (typeof saveAccountLikes === 'function') {
+                  try { saveAccountLikes(cleanU); } catch(e) {}
+                }
+                if (state.activeStory && typeof getStoryLikeKey === 'function') {
+                  state.activeStory.isLiked = state.likedStoryIds.has(getStoryLikeKey(state.activeStory));
+                  if (typeof updateStoryHeartUI === 'function') updateStoryHeartUI(state.activeStory);
+                }
+              }
+            }
+            if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
+              const recentlyLiked = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlyLiked) {
+                window.applyNoteLikesFromRemote(d.likedNoteIds);
+              }
+            }
+            let pendingCancel = null;
+            let pendingSid = null;
+            try {
+              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
+              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
+            } catch(e) {}
+            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
+              applyStripeSubscriptionCancellation(cleanU);
+            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
+              applyStripeSessionVerification(cleanU, pendingSid);
+            } else {
+              if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
+              else {
+                const isVer = d.isVerified === true;
+                const isPl = Boolean(isVer && d.isPlus === true);
+                state.currentUser.isVerified = isVer && isPl;
+                state.currentUser.isPlus = isVer && isPl;
+                state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
+                if (isPl && d.stripeSessionId) state.currentUser.stripeSessionId = d.stripeSessionId;
+              }
+              if (state.currentUser && state.currentUser.isPlus && state.currentUser.stripeSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId, { kind: 'plus' });
+              }
+              if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
+                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
+              }
+              if (typeof renderProfile === 'function') renderProfile();
+              if (typeof renderNotes === 'function') renderNotes();
+              if (typeof renderFeed === 'function') renderFeed();
+              if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
+            }
+            if (Array.isArray(d.dms)) {
+              const recentlyWroteDm = (Date.now() - (window._lastLocalDmWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlyWroteDm) {
+                state.messages = d.dms;
+                try {
+                  localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(d.dms));
+                } catch(e) {}
+                if (window.idbStorage) {
+                  idbStorage.set('pixly_dms_' + cleanU, JSON.stringify(d.dms));
+                }
+                if (typeof renderMessages === 'function') renderMessages();
+                if (typeof renderActiveChat === 'function' && typeof state.activeDmThreadIndex === 'number') {
+                  renderActiveChat(state.activeDmThreadIndex);
+                }
+              }
+            }
+            if (d.commentsMap && typeof applyCommentsMap === 'function') {
+              window._commentsHydratedFromCloud = true;
+              const recentlyCommented = (Date.now() - (window._lastLocalCommentsWriteTs || 0)) < 3500;
+              if (!hasPendingWrites && !recentlyCommented) {
+                applyCommentsMap(d.commentsMap);
+              }
+            }
+          };
+
+          window.hydrateActiveAccountFromFirestore = async function(username) {
+            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+            const fb = window.firebase || {};
+            const fDb = fb.db;
+            const fDoc = fb.doc;
+            const fGetDoc = fb.getDoc;
+            if (!cleanU || !window.firebaseReady || !fDb || !fDoc || !fGetDoc) return;
+            try {
+              const snap = await fGetDoc(fDoc(fDb, 'users', cleanU));
+              if (snap && snap.exists()) {
+                window.applyActiveUserDocData(cleanU, snap.data(), false);
+              } else if (typeof window.applyFollowingFromRemote === 'function') {
+                window.applyFollowingFromRemote(cleanU, undefined, false);
+              }
+            } catch(e) {}
+          };
+
+          window.attachActiveUserDocListener = function(username) {
+            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+            if (typeof window.attachPostsCollectionListener === 'function') {
+              window.attachPostsCollectionListener();
+            }
+            if (!cleanU || (cleanU === 'bradley_hansen' && window._bradleyUserDocUnsub)) return;
+            const fb = window.firebase || {};
+            const fDb = fb.db;
+            const fDoc = fb.doc;
+            const fOnSnapshot = fb.onSnapshot;
+            if (!fDb || !fDoc || !fOnSnapshot) return;
+            if (window._activeUserDocName === cleanU && window._activeUserDocUnsub) return;
+            if (window._activeUserDocUnsub) {
+              try { window._activeUserDocUnsub(); } catch(e) {}
+              window._activeUserDocUnsub = null;
+            }
+            window._activeUserDocName = cleanU;
+            try {
+              window._activeUserDocUnsub = fOnSnapshot(fDoc(fDb, 'users', cleanU), (snap) => {
+                if (!snap || !snap.exists()) return;
+                window.applyActiveUserDocData(cleanU, snap.data(), Boolean(snap.metadata && snap.metadata.hasPendingWrites));
+              }, () => {});
+            } catch(e) {}
+          };
+        }
+        defineAccountSyncHelpers();
+
     setTimeout(async () => {
       try {
         const { initializeApp } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js");
@@ -4188,6 +4729,11 @@
                 if (typeof window.applyCloudSecurityData === 'function') {
                   window.applyCloudSecurityData('bradley_hansen', data);
                 }
+
+                // 9. Connected / Following sync (same rules, grace window & pending-sync union as all accounts)
+                if (typeof window.applyFollowingFromRemote === 'function') {
+                  window.applyFollowingFromRemote('bradley_hansen', data.following, Boolean(snap.metadata && snap.metadata.hasPendingWrites));
+                }
               }
             }
           }, (err) => console.log("User doc snapshot notice:", err));
@@ -4216,376 +4762,8 @@
             window.attachPostsCollectionListener();
           }
         }
+        window.attachFirestoreListeners = attachFirestoreListeners;
 
-        // Per-account sync helpers. These used to be defined only inside attachFirestoreListeners(), which runs
-        // only for @bradley_hansen, so other accounts never got cloud hydration / live user-doc / notification
-        // listeners on a fresh tab or reload. Define them once for every account.
-        function defineAccountSyncHelpers() {
-          if (window._accountSyncHelpersDefined) return;
-          window._accountSyncHelpersDefined = true;
-
-          // Per-account live notifications listener for any active account
-          if (!window._notifUnsubMap) window._notifUnsubMap = {};
-          window.attachAccountNotificationsListener = function(username) {
-            const cleanU = (username || (state.currentUser && state.currentUser.username) || 'bradley_hansen').toLowerCase().replace(/^@/, '');
-            if (!cleanU || cleanU === 'bradley_hansen') return;
-            if (window._notifUnsubMap[cleanU]) return;
-            try {
-              const uRef = doc(db, 'users', cleanU);
-              window._notifUnsubMap[cleanU] = onSnapshot(uRef, (snap) => {
-                if (!snap.exists()) return;
-                const d = snap.data();
-                const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-                if (curU === cleanU && d && Array.isArray(d.notifications)) {
-                  state.notifications = d.notifications;
-                  try { localStorage.setItem('pixly_notifications_' + cleanU, JSON.stringify(d.notifications)); } catch(e) {}
-                  if (typeof renderNotifications === 'function') renderNotifications();
-                }
-              }, () => {});
-            } catch(e) {}
-          };
-
-          // Per-account full Firestore hydration & live listener for ALL accounts (critical after cache clear)
-          window.applyActiveUserDocData = function(cleanU, d, hasPendingWrites = false) {
-            if (!d || !cleanU) return;
-            const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
-            if (curU !== cleanU) return;
-            if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
-            if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
-            const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
-            try { window._activeUserDocCache = { username: cleanU, data: d, at: Date.now() }; } catch (e) {}
-            if (!hasPendingWrites && !recentlyMutatedProfile) {
-              let profileChanged = false;
-              if (typeof mergeStoredProfileFields === 'function') {
-                profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true });
-              } else {
-                if (typeof d.bio === 'string' && d.bio !== state.currentUser.bio) {
-                  state.currentUser.bio = d.bio;
-                  profileChanged = true;
-                }
-                if (typeof d.fullName === 'string' && d.fullName.trim() && d.fullName !== state.currentUser.fullName) {
-                  state.currentUser.fullName = d.fullName;
-                  profileChanged = true;
-                }
-                if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
-                  state.currentUser.email = d.email;
-                  profileChanged = true;
-                }
-                if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
-                  state.currentUser.phone = d.phone;
-                  profileChanged = true;
-                }
-                if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
-                  state.currentUser.link = d.link;
-                  profileChanged = true;
-                }
-                if (typeof d.accountType === 'string' && (d.accountType === 'personal' || d.accountType === 'business') && d.accountType !== state.currentUser.accountType) {
-                  state.currentUser.accountType = d.accountType;
-                  profileChanged = true;
-                }
-                const remoteAv = d.photoURL || d.avatar;
-                if (typeof remoteAv === 'string' && remoteAv && remoteAv !== state.currentUser.avatar) {
-                  state.currentUser.avatar = remoteAv;
-                  profileChanged = true;
-                }
-              }
-              if (profileChanged) {
-                try {
-                  if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[cleanU]) {
-                    CREATOR_DETAILS[cleanU].bio = state.currentUser.bio;
-                    CREATOR_DETAILS[cleanU].fullName = state.currentUser.fullName;
-                    if (state.currentUser.avatar) CREATOR_DETAILS[cleanU].avatar = state.currentUser.avatar;
-                  }
-                } catch(e) {}
-                try {
-                  const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-                  const existingRec = accts[cleanU] || {};
-                  const updatedRec = (typeof publicSafeUserFields === 'function')
-                    ? Object.assign({}, existingRec, publicSafeUserFields(state.currentUser))
-                    : Object.assign({}, existingRec, {
-                    username: state.currentUser.username,
-                    fullName: state.currentUser.fullName,
-                    email: state.currentUser.email || '',
-                    phone: state.currentUser.phone || '',
-                    accountType: state.currentUser.accountType || 'personal',
-                    bio: state.currentUser.bio || '',
-                    link: state.currentUser.link || '',
-                    avatar: state.currentUser.avatar
-                  });
-                  if (typeof STORED_PROFILE_FIELDS !== 'undefined') {
-                    STORED_PROFILE_FIELDS.forEach(function (k) {
-                      if (d[k] === undefined) delete updatedRec[k];
-                    });
-                  }
-                  accts[cleanU] = updatedRec;
-                  localStorage.setItem('pixly_accounts', JSON.stringify(accts));
-                  localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(updatedRec));
-                  if (typeof getAccountStorageKey === 'function') {
-                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(updatedRec));
-                  }
-                  window._pixlyAccounts = window._pixlyAccounts || {};
-                  window._pixlyAccounts[cleanU] = updatedRec;
-                } catch(e) {}
-                try { if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars(); } catch(e) {}
-                if (typeof renderProfile === 'function') renderProfile();
-                if (typeof renderFeed === 'function') renderFeed();
-                if (typeof renderNotes === 'function') renderNotes();
-                try {
-                  const editModal = document.getElementById('modal-edit-profile');
-                  if (editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none') {
-                    const bioInp = document.getElementById('edit-profile-bio');
-                    const nameInp = document.getElementById('edit-profile-name');
-                    const emailInp = document.getElementById('edit-profile-email');
-                    const phoneInp = document.getElementById('edit-profile-phone');
-                    const linkInp = document.getElementById('edit-profile-link');
-                    const ev = state.editProfileVerify || {};
-                    const sameEmail = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-                    const digits = (a) => String(a || '').replace(/\D/g, '');
-                    if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
-                    if (nameInp && document.activeElement !== nameInp) {
-                      const editing = window._editingAccountType || (state.currentUser && state.currentUser.accountType) || 'personal';
-                      nameInp.value = (typeof window.getEditProfileSavedName === 'function')
-                        ? window.getEditProfileSavedName(editing)
-                        : (state.currentUser.fullName || '');
-                    }
-                    if (emailInp && document.activeElement !== emailInp) {
-                      if (!ev.savedEmail || sameEmail(emailInp.value, ev.savedEmail)) emailInp.value = state.currentUser.email || '';
-                    }
-                    if (phoneInp && document.activeElement !== phoneInp) {
-                      if (!ev.savedPhone || digits(phoneInp.value) === digits(ev.savedPhone)) phoneInp.value = state.currentUser.phone || '';
-                    }
-                    if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
-                    if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser, { skipActive: true });
-                  }
-                } catch(e) {}
-              }
-            }
-            if (Array.isArray(d.customPosts) && typeof window.applyCustomPostsFromRemote === 'function') {
-              window.applyCustomPostsFromRemote(d.customPosts);
-            }
-            if (Array.isArray(d.notes)) {
-              state.notes = d.notes;
-              if (typeof syncLikedStateToPosts === 'function') syncLikedStateToPosts();
-              if (typeof renderNotes === 'function') renderNotes();
-            }
-            if (Array.isArray(d.likedPostIds)) {
-              window._likesHydratedFromCloud = true;
-              const recentlyMutated = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-              if ((!hasPendingWrites && !recentlyMutated) || window.pendingLikesSync) {
-                if (typeof window.applyLikesFromRemote === 'function') window.applyLikesFromRemote(d.likedPostIds);
-              }
-            } else if (!window._likesHydratedFromCloud) {
-              // The user doc exists but has no likes array yet (new account): the cloud copy is now known, so
-              // allow likes/saves to sync instead of waiting forever for an array that never arrives.
-              window._likesHydratedFromCloud = true;
-              if (window.pendingLikesSync && typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
-            }
-            // Delete tombstones from other devices (union only, so a delete can never be undone by a stale device)
-            try {
-              let tombChanged = false;
-              if (Array.isArray(d.deletedReplyIds)) {
-                if (!state.deletedReplyIds) state.deletedReplyIds = new Set();
-                d.deletedReplyIds.forEach(id => { const k = String(id); if (!state.deletedReplyIds.has(k)) { state.deletedReplyIds.add(k); tombChanged = true; } });
-              }
-              if (Array.isArray(d.deletedPostIds)) {
-                if (!state.deletedPostIds) state.deletedPostIds = new Set();
-                d.deletedPostIds.forEach(id => { const k = String(id); if (!state.deletedPostIds.has(k)) { state.deletedPostIds.add(k); tombChanged = true; } });
-                if (tombChanged && Array.isArray(state.posts)) state.posts = state.posts.filter(p => !(typeof isTombstonedPostId === 'function' ? isTombstonedPostId(p.id) : (state.deletedPostIds && state.deletedPostIds.has(String(p.id)))));
-              }
-              if (tombChanged) {
-                if (typeof renderFeed === 'function') renderFeed();
-                if (typeof renderProfile === 'function') renderProfile();
-              }
-            } catch(e) {}
-            // Saved posts / notes for every account (previously only @bradley_hansen's listener applied them)
-            if (cleanU !== 'bradley_hansen') {
-              const recentlySaved = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlySaved && !window.pendingLikesSync) {
-                let savedChanged = false;
-                if (Array.isArray(d.savedPostIds)) {
-                  state.savedPostIds = new Set();
-                  d.savedPostIds.forEach(id => { state.savedPostIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedPostIds.add(num); });
-                  savedChanged = true;
-                }
-                if (Array.isArray(d.savedNoteIds)) {
-                  state.savedNoteIds = new Set();
-                  d.savedNoteIds.forEach(id => { state.savedNoteIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedNoteIds.add(num); });
-                  savedChanged = true;
-                }
-                if (savedChanged) {
-                  try { if (typeof saveAccountSaved === 'function') saveAccountSaved(cleanU); } catch(e) {}
-                  if (typeof renderSaved === 'function') renderSaved();
-                }
-              }
-            }
-            if (d.storyComments && typeof d.storyComments === 'object') {
-              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
-              window._remoteUserProfilesCache[cleanU] = window._remoteUserProfilesCache[cleanU] || {};
-              const prevMap = window._remoteUserProfilesCache[cleanU].storyComments || {};
-              const mergedMap = { ...prevMap };
-              Object.keys(d.storyComments).forEach(sid => {
-                const remoteArr = Array.isArray(d.storyComments[sid]) ? d.storyComments[sid] : [];
-                const localArr = Array.isArray(prevMap[sid]) ? prevMap[sid] : [];
-                const byId = new Map();
-                remoteArr.forEach(c => byId.set(String(c.id), c));
-                localArr.forEach(c => { if (!byId.has(String(c.id))) byId.set(String(c.id), c); });
-                mergedMap[sid] = Array.from(byId.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-              });
-              window._remoteUserProfilesCache[cleanU].storyComments = mergedMap;
-              try { localStorage.setItem('pixly_story_comments_' + cleanU, JSON.stringify(mergedMap)); } catch(e) {}
-            }
-            if (Array.isArray(d.userStories)) {
-              state.userStories = d.userStories;
-              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(true);
-              if (typeof renderStories === 'function') renderStories();
-            } else if (d.story && d.story.image) {
-              state.userStories = [d.story];
-              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(true);
-              if (typeof renderStories === 'function') renderStories();
-            } else if (!Array.isArray(state.userStories)) {
-              state.userStories = [];
-              if (typeof pruneExpiredUserStories === 'function') pruneExpiredUserStories(false);
-              if (typeof renderStories === 'function') renderStories();
-            }
-            if (Array.isArray(d.notifications)) {
-              const recentlyWroteNotif = (Date.now() - (window._lastLocalNotificationsWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlyWroteNotif) {
-                const mergedNotifs = typeof mergeNotificationLists === 'function'
-                  ? mergeNotificationLists(state.notifications, d.notifications)
-                  : d.notifications;
-                if (JSON.stringify(mergedNotifs) !== JSON.stringify(state.notifications)) {
-                  state.notifications = mergedNotifs;
-                  safeLocalStorageSet('pixly_notifications_' + cleanU, JSON.stringify(mergedNotifs));
-                  if (typeof renderNotifications === 'function') renderNotifications();
-                }
-              }
-            }
-            const followingWasHydrated = (window._followingHydratedFor === cleanU);
-            window._followingHydratedFor = cleanU;
-            if (!Array.isArray(d.following) && !followingWasHydrated && window._pendingFollowingSync === cleanU && typeof persistState === 'function') {
-              // Cloud has no following list yet: push the list made on this device before hydration.
-              window._pendingFollowingSync = null;
-              persistState();
-            }
-            if (Array.isArray(d.following) && (!Array.isArray(state.following) || state.following.length === 0 || !hasPendingWrites || !followingWasHydrated)) {
-              window._pendingFollowingSync = null;
-              state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(d.following) : d.following;
-              if (typeof snapshotFollowSyncCache === 'function') snapshotFollowSyncCache();
-              if (!followingWasHydrated && typeof reconcileMyConnectionEdges === 'function') setTimeout(reconcileMyConnectionEdges, 4000);
-              safeLocalStorageSet('pixly_following_' + cleanU, JSON.stringify(d.following));
-              if (state.currentUser) {
-                const activeFollowCount = state.following.filter(u => u && u.isFollowing).length;
-                state.currentUser.followingCount = String(activeFollowCount);
-              }
-              if (typeof renderProfile === 'function') renderProfile();
-            }
-            if (Array.isArray(d.likedStoryIds)) {
-              const recentlyLikedStory = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlyLikedStory) {
-                state.likedStoryIds = new Set(d.likedStoryIds.map(String));
-                if (typeof saveAccountLikes === 'function') {
-                  try { saveAccountLikes(cleanU); } catch(e) {}
-                }
-                if (state.activeStory && typeof getStoryLikeKey === 'function') {
-                  state.activeStory.isLiked = state.likedStoryIds.has(getStoryLikeKey(state.activeStory));
-                  if (typeof updateStoryHeartUI === 'function') updateStoryHeartUI(state.activeStory);
-                }
-              }
-            }
-            if (Array.isArray(d.likedNoteIds) && typeof window.applyNoteLikesFromRemote === 'function') {
-              const recentlyLiked = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlyLiked) {
-                window.applyNoteLikesFromRemote(d.likedNoteIds);
-              }
-            }
-            let pendingCancel = null;
-            let pendingSid = null;
-            try {
-              pendingCancel = localStorage.getItem('pixly_pending_stripe_cancel');
-              pendingSid = localStorage.getItem('pixly_pending_stripe_session');
-            } catch(e) {}
-            if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
-              applyStripeSubscriptionCancellation(cleanU);
-            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
-              applyStripeSessionVerification(cleanU, pendingSid);
-            } else {
-              if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
-              else {
-                const isVer = d.isVerified === true;
-                const isPl = Boolean(isVer && d.isPlus === true);
-                state.currentUser.isVerified = isVer && isPl;
-                state.currentUser.isPlus = isVer && isPl;
-                if (isPl && d.stripeSessionId) state.currentUser.stripeSessionId = d.stripeSessionId;
-              }
-              if (state.currentUser && state.currentUser.isPlus && state.currentUser.stripeSessionId && typeof recheckStripeSubscription === 'function') {
-                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeSessionId, { kind: 'plus' });
-              }
-              if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
-                recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
-              }
-              state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
-              if (typeof renderProfile === 'function') renderProfile();
-              if (typeof renderNotes === 'function') renderNotes();
-              if (typeof renderFeed === 'function') renderFeed();
-              if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
-            }
-            if (Array.isArray(d.dms)) {
-              const recentlyWroteDm = (Date.now() - (window._lastLocalDmWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlyWroteDm) {
-                state.messages = d.dms;
-                try {
-                  localStorage.setItem('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                } catch(e) {}
-                if (window.idbStorage) {
-                  idbStorage.set('pixly_dms_' + cleanU, JSON.stringify(d.dms));
-                }
-                if (typeof renderMessages === 'function') renderMessages();
-                if (typeof renderActiveChat === 'function' && typeof state.activeDmThreadIndex === 'number') {
-                  renderActiveChat(state.activeDmThreadIndex);
-                }
-              }
-            }
-            if (d.commentsMap && typeof applyCommentsMap === 'function') {
-              window._commentsHydratedFromCloud = true;
-              const recentlyCommented = (Date.now() - (window._lastLocalCommentsWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlyCommented) {
-                applyCommentsMap(d.commentsMap);
-              }
-            }
-          };
-
-          window.hydrateActiveAccountFromFirestore = async function(username) {
-            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
-            if (!cleanU || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
-            try {
-              const snap = await getDoc(doc(db, 'users', cleanU));
-              if (snap.exists()) {
-                window.applyActiveUserDocData(cleanU, snap.data(), false);
-              }
-            } catch(e) {}
-          };
-
-          window.attachActiveUserDocListener = function(username) {
-            const cleanU = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
-            if (typeof window.attachPostsCollectionListener === 'function') {
-              window.attachPostsCollectionListener();
-            }
-            if (!cleanU || cleanU === 'bradley_hansen') return;
-            if (window._activeUserDocName === cleanU && window._activeUserDocUnsub) return;
-            if (window._activeUserDocUnsub) {
-              try { window._activeUserDocUnsub(); } catch(e) {}
-              window._activeUserDocUnsub = null;
-            }
-            window._activeUserDocName = cleanU;
-            try {
-              window._activeUserDocUnsub = onSnapshot(doc(db, 'users', cleanU), (snap) => {
-                if (!snap.exists()) return;
-                window.applyActiveUserDocData(cleanU, snap.data(), Boolean(snap.metadata && snap.metadata.hasPendingWrites));
-              }, () => {});
-            } catch(e) {}
-          };
-        }
-        defineAccountSyncHelpers();
 
         // On cold start, ensure anonymous Firebase session if not already authenticated (no hardcoded email/password attempts)
         try {
@@ -7706,6 +7884,7 @@ function syncLikedStateToPosts() {
           } else if (curU !== 'guest') {
             // Not hydrated yet: writing now would wipe follows made on other devices. Flushed after hydration.
             window._pendingFollowingSync = curU;
+            if (typeof flushPendingFollowEdges === 'function') flushPendingFollowEdges(curU);
           }
         }
 
@@ -7783,11 +7962,100 @@ function syncLikedStateToPosts() {
     // --- Cloud followers (users/{target}/followers/{follower}) ---
     // Following lists already sync via users/{me}.following. Followers used to live only in this browser's
     // localStorage, so other people never saw who followed them. We write one small doc per follow edge.
+    function recordLocalFollowOverride(me, targetU, nowFollowing, entry) {
+      try {
+        const owner = normalizeUsername(me || (state.currentUser && state.currentUser.username) || '');
+        const t = normalizeUsername(targetU || '');
+        if (!owner || owner === 'guest' || !t || t === owner) return;
+        const ts = Date.now();
+        window._lastLocalFollowingWriteTs = ts;
+        window._lastLocalFollowingWriteUser = owner;
+        window._localFollowOverrides = window._localFollowOverrides || {};
+        window._localFollowOverrides[owner] = window._localFollowOverrides[owner] || {};
+        window._localFollowOverrides[owner][t] = {
+          isFollowing: !!nowFollowing,
+          ts,
+          edgeConfirmed: false,
+          entry: entry ? Object.assign({}, entry, { username: t }) : null
+        };
+      } catch(e) {}
+    }
+    window.recordLocalFollowOverride = recordLocalFollowOverride;
+
+    function getActiveLocalFollowOverride(me, targetU) {
+      try {
+        const owner = normalizeUsername(me || (state.currentUser && state.currentUser.username) || '');
+        const t = normalizeUsername(targetU || '');
+        const ov = window._localFollowOverrides && window._localFollowOverrides[owner] && window._localFollowOverrides[owner][t];
+        if (!ov) return null;
+        if ((Date.now() - ov.ts) >= 10000) return null;
+        return ov;
+      } catch(e) { return null; }
+    }
+    window.getActiveLocalFollowOverride = getActiveLocalFollowOverride;
+
+    function writeFollowEdgeToCloud(targetU, nowFollowing) {
+      try {
+        if (!state.isLoggedIn) return;
+        const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+        const t = normalizeUsername(targetU || '');
+        if (!me || me === 'guest' || !t || t === me) return;
+        window._explicitUnfollowTargets = window._explicitUnfollowTargets || {};
+        window._explicitUnfollowTargets[me] = window._explicitUnfollowTargets[me] || {};
+        if (nowFollowing) delete window._explicitUnfollowTargets[me][t];
+        else window._explicitUnfollowTargets[me][t] = Date.now();
+
+        if (!window.firebaseReady || !window.firebase || !window.firebase.db || !window.firebase.doc || !window.firebase.setDoc || !window.firebase.deleteDoc) {
+          window._pendingEdgeWrites = window._pendingEdgeWrites || {};
+          window._pendingEdgeWrites[me] = window._pendingEdgeWrites[me] || {};
+          window._pendingEdgeWrites[me][t] = !!nowFollowing;
+          return;
+        }
+        const { db, doc, setDoc, deleteDoc } = window.firebase;
+        const ref = doc(db, 'users', t, 'followers', me);
+        if (!window._followSyncCache || window._followSyncCache.user !== me) snapshotFollowSyncCache();
+        if (window._followSyncCache && window._followSyncCache.user === me) window._followSyncCache.map[t] = !!nowFollowing;
+        if (window._pendingEdgeWrites && window._pendingEdgeWrites[me]) delete window._pendingEdgeWrites[me][t];
+        if (nowFollowing) {
+          setDoc(ref, { username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, followedAt: Date.now() }).catch(() => {});
+        } else {
+          deleteDoc(ref).catch(() => {});
+        }
+      } catch(e) { console.warn('Follow edge write notice:', e); }
+    }
+    window.writeFollowEdgeToCloud = writeFollowEdgeToCloud;
+
+    function flushPendingFollowEdges(username) {
+      try {
+        const me = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
+        if (!me || me === 'guest' || !window.firebaseReady || !window.firebase || !window.firebase.db || !window.firebase.doc || !window.firebase.setDoc || !window.firebase.deleteDoc) return;
+        const pending = window._pendingEdgeWrites && window._pendingEdgeWrites[me];
+        if (!pending) return;
+        const keys = Object.keys(pending);
+        if (!keys.length) return;
+        const { db, doc, setDoc, deleteDoc } = window.firebase;
+        if (!window._followSyncCache || window._followSyncCache.user !== me) snapshotFollowSyncCache();
+        keys.forEach(t => {
+          const wantFollow = pending[t];
+          delete pending[t];
+          if (!t || t === me) return;
+          if (window._followSyncCache && window._followSyncCache.user === me) window._followSyncCache.map[t] = !!wantFollow;
+          const ref = doc(db, 'users', t, 'followers', me);
+          if (wantFollow) {
+            setDoc(ref, { username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, followedAt: Date.now() }).catch(() => {});
+          } else if (window._explicitUnfollowTargets && window._explicitUnfollowTargets[me] && window._explicitUnfollowTargets[me][t]) {
+            deleteDoc(ref).catch(() => {});
+          }
+        });
+      } catch(e) {}
+    }
+    window.flushPendingFollowEdges = flushPendingFollowEdges;
+
     function snapshotFollowSyncCache() {
       try {
         const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
         const map = {};
-        (state.following || []).forEach(f => { if (f && f.username) map[normalizeUsername(f.username)] = !!f.isFollowing; });
+        (state.following || []).forEach(f => { if (f && f.username) map[normalizeUsername(f.username)] = (f.isFollowing !== false); });
         window._followSyncCache = { user: me, map };
       } catch(e) {}
     }
@@ -7798,32 +8066,30 @@ function syncLikedStateToPosts() {
         if (!state.isLoggedIn || !Array.isArray(state.following)) return;
         const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
         if (!me || me === 'guest') return;
+        flushPendingFollowEdges(me);
+        if (!window._followSyncCache || window._followSyncCache.user !== me) snapshotFollowSyncCache();
         const cache = window._followSyncCache;
-        if (!cache || cache.user !== me) { snapshotFollowSyncCache(); return; }
+        if (!cache || cache.user !== me) return;
         if (!window.firebaseReady || !window.firebase || !window.firebase.db || !window.firebase.setDoc || !window.firebase.deleteDoc) return;
         const { db, doc, setDoc, deleteDoc } = window.firebase;
-        const seen = new Set();
+        const explicitUnfollows = (window._explicitUnfollowTargets && window._explicitUnfollowTargets[me]) || {};
         state.following.forEach(f => {
           if (!f || !f.username) return;
           const t = normalizeUsername(f.username);
           if (!t || t === me) return;
-          seen.add(t);
-          const now = !!f.isFollowing;
-          if (cache.map[t] === now) return;
-          cache.map[t] = now;
-          const ref = doc(db, 'users', t, 'followers', me);
+          const now = (f.isFollowing !== false);
           if (now) {
-            setDoc(ref, { username: me, fullName: state.currentUser.fullName || me, followedAt: Date.now() }).catch(() => {});
-          } else {
-            deleteDoc(ref).catch(() => {});
-          }
-        });
-        Object.keys(cache.map).forEach(t => {
-          if (!seen.has(t) && cache.map[t]) {
+            if (cache.map[t] === true) return;
+            cache.map[t] = true;
+            setDoc(doc(db, 'users', t, 'followers', me), { username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, followedAt: Number(f.followedAt || Date.now()) }).catch(() => {});
+          } else if (explicitUnfollows[t]) {
+            if (cache.map[t] === false) return;
             cache.map[t] = false;
             deleteDoc(doc(db, 'users', t, 'followers', me)).catch(() => {});
           }
         });
+        // Never delete edges automatically just because an entry is missing from state.following;
+        // only explicit unfollows delete users/{target}/followers/{me}.
       } catch(e) { console.warn('Follower sync notice:', e); }
     }
     window.syncFollowerDocsFromFollowing = syncFollowerDocsFromFollowing;
@@ -7865,7 +8131,9 @@ function syncLikedStateToPosts() {
         for (const f of active.slice(0, 200)) {
           const t = normalizeUsername(f.username);
           const userSnap = await getDoc(doc(db, 'users', t)).catch(() => null);
-          if (!userSnap || !userSnap.exists() || (userSnap.data() || {}).deactivated === true) continue;
+          if (userSnap && userSnap.exists() && (userSnap.data() || {}).deactivated === true) continue;
+          const allowWithoutDoc = (typeof isSeedDemoUsername === 'function') && isSeedDemoUsername(t);
+          if ((!userSnap || !userSnap.exists()) && !allowWithoutDoc) continue;
           const edge = await getDoc(doc(db, 'users', t, 'followers', me)).catch(() => null);
           if (edge && !edge.exists()) {
             await setDoc(doc(db, 'users', t, 'followers', me), { username: me, fullName: state.currentUser.fullName || me, followedAt: Date.now() }).catch(() => {});
@@ -7874,8 +8142,11 @@ function syncLikedStateToPosts() {
         }
         const qs = await getDocs(collection(db, 'users', me, 'followers')).catch(() => null);
         if (qs) {
-          const edges = []; qs.forEach(d => edges.push(d.id));
-          for (const fid of edges) {
+          const edges = []; qs.forEach(d => edges.push({ id: d.id, data: d.data() || {} }));
+          for (const edgeRec of edges) {
+            const fid = edgeRec.id;
+            const followedAt = Number(edgeRec.data.followedAt || 0);
+            if (followedAt && (Date.now() - followedAt) < 30000) continue;
             const fs = await getDoc(doc(db, 'users', fid)).catch(() => null);
             if (!fs || !fs.exists()) continue;
             const fol = (fs.data() || {}).following;
@@ -7941,6 +8212,10 @@ function syncLikedStateToPosts() {
             if (fm && !fm.classList.contains('hidden') && typeof renderFollowersList === 'function') {
               const si = document.getElementById('followers-search-input');
               renderFollowersList(si ? si.value : '');
+            }
+            const gm = document.getElementById('modal-following');
+            if (gm && !gm.classList.contains('hidden') && typeof paintOwnConnectionTabs === 'function') {
+              paintOwnConnectionTabs('connected');
             }
           }
         }, () => {});
@@ -9656,6 +9931,14 @@ function syncLikedStateToPosts() {
       if (!n || isOfficialAccountUsername(n)) return false;
       return !!(typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[n]);
     }
+    function isExplicitFollowEntry(f) {
+      if (!f || typeof f !== 'object') return false;
+      if (f.explicit === true) return true;
+      if (typeof f.followedAt === 'number' && f.followedAt > 0) return true;
+      if (typeof f.updatedAt === 'number' && f.updatedAt > 0) return true;
+      return false;
+    }
+    window.isExplicitFollowEntry = isExplicitFollowEntry;
     function sanitizeFollowingList(list) {
       if (!Array.isArray(list)) return [];
       const seen = {};
@@ -9663,7 +9946,7 @@ function syncLikedStateToPosts() {
       list.forEach(function (f) {
         if (!f) return;
         const n = (typeof normalizeUsername === 'function') ? normalizeUsername(f.username || '') : String(f.username || '').toLowerCase().replace(/^@/, '');
-        if (!n || isSeedDemoUsername(n) || seen[n]) return;
+        if (!n || (isSeedDemoUsername(n) && !isExplicitFollowEntry(f)) || seen[n]) return;
         seen[n] = true;
         out.push(Object.assign({}, f, { username: n }));
       });
@@ -11073,24 +11356,8 @@ function syncLikedStateToPosts() {
           const targetU = btn.dataset.username;
           if (!targetU) return;
 
-          let userInFollowing = (state.following || []).find(f => f.username === targetU);
-          if (!userInFollowing) {
-            userInFollowing = {
-              id: Date.now(),
-              username: targetU,
-              fullName: targetU,
-              bio: '',
-              avatar: '',
-              isFollowing: false
-            };
-            state.following.push(userInFollowing);
-          }
-          userInFollowing.isFollowing = !userInFollowing.isFollowing;
-
-          try {
-            const followU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
-            localStorage.setItem('pixly_following_' + followU, JSON.stringify(state.following));
-          } catch(err) {}
+          const res = (typeof applyLocalFollowToggle === 'function') ? applyLocalFollowToggle(targetU) : null;
+          if (!res) return;
 
           const displayTotal = getFollowingDisplayCount();
           const profCount = document.getElementById('profile-following-count');
@@ -11099,7 +11366,7 @@ function syncLikedStateToPosts() {
           if (modalCount) modalCount.textContent = displayTotal.toLocaleString();
 
           persistState();
-          showToast(userInFollowing.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
+          showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
           renderFeed();
         });
       });
@@ -16834,62 +17101,97 @@ function syncLikedStateToPosts() {
       if (typeof applyCloseFriendConnectStyle === 'function') applyCloseFriendConnectStyle(cleanU);
     }
 
-    window.toggleFollowCreator = function(username, btnEl) {
-      if (!username) return;
-      const cleanU = username.toLowerCase().replace(/^@/, '');
-      if (state.currentUser && state.currentUser.username.toLowerCase() === cleanU) {
+    function applyLocalFollowToggle(username, forcedState = null, meta = null) {
+      if (!username) return null;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return null;
+      const myUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'user';
+      const myNorm = normalizeUsername(myUsername);
+      if (myNorm && myNorm === cleanU) {
         if (typeof showToast === 'function') showToast("You cannot connect to your own account");
-        return;
+        return null;
       }
 
-      state.following = state.following || [];
-      let existing = state.following.find(f => f.username.toLowerCase() === cleanU);
+      state.following = Array.isArray(state.following) ? state.following : [];
+      let existing = state.following.find(f => f && normalizeUsername(f.username) === cleanU);
+      const ts = Date.now();
       let nowFollowing = false;
 
       if (existing) {
-        existing.isFollowing = !existing.isFollowing;
-        nowFollowing = existing.isFollowing;
+        nowFollowing = (typeof forcedState === 'boolean') ? forcedState : (existing.isFollowing === false);
+        existing.username = cleanU;
+        existing.isFollowing = nowFollowing;
+        existing.explicit = true;
+        existing.updatedAt = ts;
+        if (nowFollowing && !existing.followedAt) existing.followedAt = ts;
       } else {
+        nowFollowing = (typeof forcedState === 'boolean') ? forcedState : true;
         const vcSame = state.viewedCreator && normalizeUsername(state.viewedCreator.username) === cleanU && window._viewedConn && window._viewedConn.doc;
-        const creator = vcSame ? state.viewedCreator : connDisplay({ ...getCreatorInfo(cleanU), username: cleanU });
-        state.following.push({
-          id: Date.now(),
-          username: creator.username,
-          fullName: creator.fullName,
-          bio: creator.bio,
-          avatar: creator.avatar,
-          isFollowing: true
-        });
-        nowFollowing = true;
+        const dirRec = window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(cleanU);
+        const info = vcSame
+          ? state.viewedCreator
+          : (dirRec
+            ? { username: cleanU, fullName: dirRec.fullName || cleanU, bio: dirRec.bio || '', avatar: dirRec.avatar || '' }
+            : (typeof connDisplay === 'function' ? connDisplay({ ...getCreatorInfo(cleanU), username: cleanU }) : { username: cleanU, fullName: cleanU, bio: '', avatar: '' }));
+        existing = {
+          id: ts,
+          username: cleanU,
+          fullName: (meta && meta.fullName) || info.fullName || cleanU,
+          bio: (meta && meta.bio !== undefined) ? meta.bio : (info.bio || ''),
+          avatar: (meta && meta.avatar) || info.avatar || '',
+          isFollowing: nowFollowing,
+          explicit: true,
+          followedAt: ts,
+          updatedAt: ts
+        };
+        state.following.push(existing);
       }
 
-      // Update current user following count
-      state.currentUser.followingCount = String(getFollowingDisplayCount());
+      if (state.currentUser) {
+        state.currentUser.followingCount = String(getFollowingDisplayCount());
+      }
 
-      // Sync target account's followers list in localStorage so switching accounts reflects the new follower
+      try {
+        if (myNorm && myNorm !== 'guest') {
+          localStorage.setItem('pixly_following_' + myNorm, JSON.stringify(state.following));
+        }
+      } catch(e) {}
+
+      // Sync target account's followers list in localStorage so switching accounts / offline mode reflects the change
       try {
         const targetKey = 'pixly_followers_' + cleanU;
         const storedTargetFollowers = JSON.parse(localStorage.getItem(targetKey) || 'null');
         let targetFollowers = Array.isArray(storedTargetFollowers)
           ? storedTargetFollowers
           : (typeof getDefaultFollowersForUser === 'function' ? getDefaultFollowersForUser(cleanU) : []);
-        const myUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'user';
-        const myNorm = myUsername.toLowerCase().replace(/^@/, '');
         if (nowFollowing) {
-          if (!targetFollowers.some(f => (f.username || '').toLowerCase() === myNorm)) {
+          if (!targetFollowers.some(f => normalizeUsername(f && f.username) === myNorm)) {
             targetFollowers.unshift({
-              id: Date.now(),
-              username: myUsername,
-              fullName: state.currentUser.fullName || myUsername,
-              bio: state.currentUser.bio || 'Pixlynote creator',
-              avatar: state.currentUser.avatar || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : '')
+              id: ts,
+              username: myNorm,
+              fullName: (state.currentUser && state.currentUser.fullName) || myNorm,
+              bio: (state.currentUser && state.currentUser.bio) || 'Pixlynote creator',
+              avatar: (state.currentUser && state.currentUser.avatar) || (typeof COMMUNITY_IMAGES !== 'undefined' ? COMMUNITY_IMAGES[0] : '')
             });
           }
         } else {
-          targetFollowers = targetFollowers.filter(f => (f.username || '').toLowerCase() !== myNorm);
+          targetFollowers = targetFollowers.filter(f => normalizeUsername(f && f.username) !== myNorm);
         }
         localStorage.setItem(targetKey, JSON.stringify(targetFollowers));
       } catch(e) {}
+
+      if (typeof recordLocalFollowOverride === 'function') recordLocalFollowOverride(myNorm, cleanU, nowFollowing, existing);
+      if (typeof writeFollowEdgeToCloud === 'function') writeFollowEdgeToCloud(cleanU, nowFollowing);
+
+      return { cleanU, nowFollowing, entry: existing };
+    }
+    window.applyLocalFollowToggle = applyLocalFollowToggle;
+
+    window.toggleFollowCreator = function(username, btnEl) {
+      if (!username) return;
+      const res = applyLocalFollowToggle(username);
+      if (!res) return;
+      const { cleanU, nowFollowing } = res;
 
       // Update button in place if element passed
       if (btnEl) {
@@ -17187,24 +17489,67 @@ function syncLikedStateToPosts() {
     }
     window.renderViewedConnections = renderViewedConnections;
 
+    function reconcileViewedConnectionsWithLocal(u, baseList) {
+      const list = Array.isArray(baseList) ? baseList.slice() : [];
+      const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (!me || me === 'guest' || me === u) return list;
+      const ov = (typeof getActiveLocalFollowOverride === 'function') ? getActiveLocalFollowOverride(me, u) : null;
+      if (ov) {
+        const hasMe = list.some(item => connNorm(item && item.username) === me);
+        if (ov.isFollowing && !hasMe) {
+          list.unshift({ id: ov.ts || Date.now(), username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, avatar: (state.currentUser && state.currentUser.avatar) || '' });
+        } else if (ov.isFollowing && hasMe) {
+          ov.edgeConfirmed = true;
+        } else if (!ov.isFollowing && hasMe) {
+          return list.filter(item => connNorm(item && item.username) !== me);
+        } else if (!ov.isFollowing && !hasMe) {
+          ov.edgeConfirmed = true;
+        }
+      }
+      return list;
+    }
+
     function refreshViewedProfileFromCloud(cleanU) {
       const u = normalizeUsername(cleanU || '');
       if (!u) return;
+      const cachedDoc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
       if (window._viewedConn && window._viewedConn.user === u && (window._viewedConn.unsubs || []).length) {
         // Same profile opened again: listeners are already live, just repaint from the latest snapshot
+        window._viewedConn.connections = reconcileViewedConnectionsWithLocal(u, window._viewedConn.connections || []);
         if (window._viewedConn.doc) applyViewedProfileDoc(u, window._viewedConn.doc);
+        else if (cachedDoc && typeof applyViewedProfileDoc === 'function') applyViewedProfileDoc(u, cachedDoc);
         renderViewedConnections();
         return;
       }
       detachViewedConnections();
-      const v = { user: u, connections: [], connected: [], unsubs: [], loadedDoc: false, loadedEdges: false };
+      const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const hasFirebase = !!(window.firebaseReady && window.firebase && window.firebase.onSnapshot && window.firebase.doc && window.firebase.collection);
+      let seedConnections = [];
+      if (!hasFirebase) {
+        try {
+          const rawFol = JSON.parse(localStorage.getItem('pixly_followers_' + u) || 'null');
+          if (Array.isArray(rawFol)) seedConnections = rawFol;
+        } catch(e) {}
+        if (me && me !== 'guest' && me !== u && typeof isUserFollowingCreator === 'function') {
+          const iFollow = isUserFollowingCreator(u);
+          const hasMe = seedConnections.some(item => connNorm(item && item.username) === me);
+          if (iFollow && !hasMe) {
+            seedConnections.unshift({ id: Date.now(), username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, avatar: (state.currentUser && state.currentUser.avatar) || '' });
+          } else if (!iFollow && hasMe) {
+            seedConnections = seedConnections.filter(item => connNorm(item && item.username) !== me);
+          }
+        }
+      } else if (me && me !== 'guest' && me !== u && typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(u)) {
+        seedConnections.unshift({ id: Date.now(), username: me, fullName: (state.currentUser && state.currentUser.fullName) || me, avatar: (state.currentUser && state.currentUser.avatar) || '' });
+      }
+      seedConnections = reconcileViewedConnectionsWithLocal(u, seedConnections);
+      const v = { user: u, connections: seedConnections, connected: [], unsubs: [], loadedDoc: false, loadedEdges: !hasFirebase };
       window._viewedConn = v;
       renderViewedConnections();
       ensureConnectionsDirectory();
-      const cachedDoc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
       if (cachedDoc && typeof applyViewedProfileDoc === 'function') applyViewedProfileDoc(u, cachedDoc);
       if (typeof refreshViewedProfileStoryRing === 'function') refreshViewedProfileStoryRing();
-      if (!window.firebaseReady || !window.firebase || !window.firebase.onSnapshot || !window.firebase.doc || !window.firebase.collection) return;
+      if (!hasFirebase) return;
       const { db, doc, collection, onSnapshot } = window.firebase;
       const live = () => window._viewedConn === v && state.viewedCreator && normalizeUsername(state.viewedCreator.username) === u;
       try {
@@ -17221,10 +17566,11 @@ function syncLikedStateToPosts() {
           if (!live()) return;
           v.loadedEdges = true;
           const list = [];
-          qs.forEach(ds => { const x = ds.data() || {}; list.push({ id: x.followedAt || 0, username: normalizeUsername(x.username || ds.id), fullName: x.fullName || x.username || ds.id }); });
-          list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
-          v.connections = list;
-          try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(list)); } catch(e) {}
+          qs.forEach(ds => { const x = ds.data() || {}; list.push({ id: x.followedAt || 0, username: normalizeUsername(x.username || ds.id), fullName: x.fullName || x.username || ds.id, avatar: x.avatar || '' }); });
+          const finalList = reconcileViewedConnectionsWithLocal(u, list);
+          finalList.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+          v.connections = finalList;
+          try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(finalList)); } catch(e) {}
           renderViewedConnections();
         }, (e) => { console.warn('Connections live notice:', e && e.code); }));
       } catch(e) { console.warn('Profile cloud refresh notice:', e); }
@@ -18500,7 +18846,6 @@ function syncLikedStateToPosts() {
       
       // Connections / Connected come from this profile's stored following + followers (same source the owner uses).
       if (!(window._viewedConn && window._viewedConn.user === cleanU)) detachViewedConnections();
-      if (cachedProfile && typeof applyViewedProfileDoc === 'function') applyViewedProfileDoc(cleanU, cachedProfile);
       refreshViewedProfileFromCloud(cleanU);
 
       const gridContainer = document.getElementById('user-profile-grid');
@@ -18801,7 +19146,7 @@ function syncLikedStateToPosts() {
         if (!f || !f.username) return false;
         const n = connNorm(f.username);
         if (seenRows.has(n)) return false;
-        const show = (activeSet.has(n) && f.isFollowing) || (keep.has(n) && !f.isFollowing) || (isPixly && activeSet.size === 0 && !f.isFollowing);
+        const show = (activeSet.has(n) && f.isFollowing !== false) || (keep.has(n) && f.isFollowing === false) || (isPixly && activeSet.size === 0 && f.isFollowing === false);
         if (show) seenRows.add(n);
         return show;
       });
@@ -18911,22 +19256,19 @@ function syncLikedStateToPosts() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const targetU = btn.dataset.username;
-          const userObj = state.following.find(u => u.username === targetU);
+          const userObj = (state.following || []).find(u => u && connNorm(u.username) === connNorm(targetU));
           if (userObj) {
-            userObj.isFollowing = !userObj.isFollowing;
-            if (!userObj.isFollowing) { (window._connectedKeepVisible = window._connectedKeepVisible || new Set()).add(connNorm(targetU)); }
-            try {
-              const curU = (state.currentUser.username || 'user').toLowerCase();
-              localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
-            } catch(e) {}
-            
+            const res = (typeof applyLocalFollowToggle === 'function') ? applyLocalFollowToggle(targetU) : null;
+            if (!res) return;
+            if (!res.nowFollowing) { (window._connectedKeepVisible = window._connectedKeepVisible || new Set()).add(connNorm(targetU)); }
+
             const updatedTotal = getFollowingDisplayCount();
             if (countEl) countEl.textContent = updatedTotal.toLocaleString();
             if (profCount) profCount.textContent = updatedTotal.toLocaleString();
             state.currentUser.followingCount = String(updatedTotal);
 
             persistState();
-            showToast(userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
+            showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
             const searchInp = document.getElementById('following-search-input');
             renderFollowingList(searchInp ? searchInp.value : '');
           }
@@ -19093,27 +19435,16 @@ function syncLikedStateToPosts() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const targetU = btn.dataset.username;
-          state.following = state.following || [];
-          let userObj = state.following.find(u => u.username.toLowerCase() === targetU.toLowerCase());
-          if (userObj) {
-            userObj.isFollowing = !userObj.isFollowing;
-          } else {
-            const followerObj = list.find(u => u.username.toLowerCase() === targetU.toLowerCase());
-            const creator = typeof getCreatorInfo === 'function' ? getCreatorInfo(targetU) : null;
-            userObj = {
-              id: Date.now(),
-              username: targetU,
-              fullName: (followerObj && followerObj.fullName) || (creator && creator.fullName) || targetU,
-              bio: (followerObj && followerObj.bio) || (creator && creator.bio) || '',
-              avatar: (followerObj && followerObj.avatar) || (creator && creator.avatar) || '',
-              isFollowing: true
-            };
-            state.following.push(userObj);
-          }
-
-          try {
-            localStorage.setItem('pixly_following_' + curU, JSON.stringify(state.following));
-          } catch(err) {}
+          const followerObj = list.find(u => normalizeUsername(u && u.username) === normalizeUsername(targetU));
+          const creator = typeof getCreatorInfo === 'function' ? getCreatorInfo(targetU) : null;
+          const res = (typeof applyLocalFollowToggle === 'function')
+            ? applyLocalFollowToggle(targetU, null, {
+                fullName: (followerObj && followerObj.fullName) || (creator && creator.fullName) || targetU,
+                bio: (followerObj && followerObj.bio) || (creator && creator.bio) || '',
+                avatar: (followerObj && followerObj.avatar) || (creator && creator.avatar) || ''
+              })
+            : null;
+          if (!res) return;
 
           if (typeof getFollowingDisplayCount === 'function') {
             const updatedFollowingTotal = getFollowingDisplayCount();
@@ -19123,7 +19454,7 @@ function syncLikedStateToPosts() {
           }
 
           persistState();
-          showToast(userObj.isFollowing ? `✨ Connected with @${targetU}!` : `Disconnected from @${targetU}`);
+          showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
           const searchInp = document.getElementById('followers-search-input');
           renderFollowersList(searchInp ? searchInp.value : '');
         });
@@ -23196,8 +23527,13 @@ function syncLikedStateToPosts() {
         saveAccountLikes(oldUsername);
         saveAccountNotifications(oldUsername);
       }
-      if (oldUsername && normalizeUsername(oldUsername) !== cleanUsername.toLowerCase() && typeof window.closeAllFirestoreListeners === 'function') {
-        window.closeAllFirestoreListeners();
+      if (oldUsername && normalizeUsername(oldUsername) !== cleanUsername.toLowerCase()) {
+        if (typeof window.closeAllFirestoreListeners === 'function') window.closeAllFirestoreListeners();
+        window._followingHydratedFor = null;
+        window._pendingFollowingSync = null;
+        window._lastLocalFollowingWriteTs = 0;
+        window._lastLocalFollowingWriteUser = null;
+        window._connReconciledFor = null;
       }
       state.isLoggedIn = true;
       try {
@@ -23387,6 +23723,9 @@ function syncLikedStateToPosts() {
       loadAccountDms(cleanUsername);
       if (typeof renderSaved === 'function') renderSaved();
 
+      if (normLoginU === 'bradley_hansen' && window.firebaseReady && typeof window.attachFirestoreListeners === 'function') {
+        window.attachFirestoreListeners();
+      }
       if (typeof window.attachActiveUserDocListener === 'function') {
         window.attachActiveUserDocListener(normLoginU);
       }
@@ -23396,7 +23735,12 @@ function syncLikedStateToPosts() {
         try {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', normLoginU)).then(snap => {
-            if (!snap.exists()) return;
+            if (!snap || !snap.exists()) {
+              if (typeof window.applyFollowingFromRemote === 'function') {
+                window.applyFollowingFromRemote(normLoginU, undefined, false);
+              }
+              return;
+            }
             const d = snap.data();
             if (!d) return;
             if (typeof window.applyActiveUserDocData === 'function') {
@@ -23446,6 +23790,7 @@ function syncLikedStateToPosts() {
                 const isPl = Boolean(isVer && d.isPlus === true);
                 state.currentUser.isVerified = isVer && isPl;
                 state.currentUser.isPlus = isVer && isPl;
+                state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
                 if (isPl && d.stripeSessionId) state.currentUser.stripeSessionId = d.stripeSessionId;
               }
               if (state.currentUser && state.currentUser.isPlus && state.currentUser.stripeSessionId && typeof recheckStripeSubscription === 'function') {
@@ -23454,7 +23799,6 @@ function syncLikedStateToPosts() {
               if (state.currentUser && state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId && typeof recheckStripeSubscription === 'function') {
                 recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
               }
-              state.currentUser.subscriptionStatus = (isVer && isPl) ? (d.subscriptionStatus || 'active') : (d.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
               if (typeof renderProfile === 'function') renderProfile();
               if (typeof renderNotes === 'function') renderNotes();
               if (typeof renderFeed === 'function') renderFeed();
@@ -24521,9 +24865,11 @@ function syncLikedStateToPosts() {
           const savedFollowing = localStorage.getItem('pixly_following_' + bootFollowU) || (bootFollowU === 'bradley_hansen' ? localStorage.getItem('pixly_following') : null);
           if (savedFollowing) {
             const parsed = JSON.parse(savedFollowing);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               state.following = (typeof sanitizeFollowingList === 'function') ? sanitizeFollowingList(parsed) : parsed;
             }
+          } else if (typeof sanitizeFollowingList === 'function') {
+            state.following = sanitizeFollowingList(state.following);
           }
         } catch(e) {}
 
