@@ -441,8 +441,19 @@
 
 
     #modal-delete-confirm.hidden { display: none !important; }
+    #modal-delete-confirm { z-index: 85 !important; }
+    #modal-submit-feedback { z-index: 85 !important; }
+    #post-options-menu { z-index: 70 !important; }
     #modal-create-post.hidden { display: none !important; }
     #modal-drafts.hidden { display: none !important; }
+    /* DMs: the global .hidden !important beat Tailwind's sm:flex, so the chat panel never showed at >=640px.
+       On tablet/desktop both the thread list and the chat panel are always shown side by side. */
+    @media (min-width: 640px) {
+      #modal-messages #dm-chat-panel,
+      #modal-messages #dm-chat-panel.hidden,
+      #modal-messages #dm-sidebar,
+      #modal-messages #dm-sidebar.hidden { display: flex !important; }
+    }
     #toast { z-index: 80 !important; }
     #auth-view.hidden { display: none !important; }
     input.secret-mask {
@@ -474,6 +485,7 @@
     }
     #pixai-content-context:not(.hidden) { display: block; }
     .btn-pixai-content img, .cf-content-label img { display: block; }
+    .btn-pixai-content.btn-pixai-comment .pixai-content-icon { width: 0.875rem; height: 0.875rem; }
     .btn-pixai-content .pixai-content-icon { width: 1.5rem; height: 1.5rem; display: block; flex-shrink: 0; }
     .profile-note-card .btn-pixai-content .pixai-content-icon,
     .explore-note-card .btn-pixai-content .pixai-content-icon,
@@ -502,13 +514,13 @@
 <body class="bg-neutral-50 text-neutral-900 min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
 
   <!-- Modal: Custom In-Page Delete Confirmation (Canvas-Safe, No blocked window.confirm) -->
-  <div id="modal-delete-confirm" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="modal-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title" style="z-index: 75;" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 text-center space-y-4 shadow-2xl border border-neutral-200">
       <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
       </div>
       <div class="space-y-1">
-        <h4 class="text-sm font-bold text-neutral-900">Delete Post?</h4>
+        <h4 id="delete-confirm-title" class="text-sm font-bold text-neutral-900">Delete Post?</h4>
         <p class="text-xs text-neutral-500">Are you sure you want to permanently delete this post? This cannot be undone.</p>
       </div>
       <div class="flex space-x-2 pt-1">
@@ -522,6 +534,59 @@
   <!-- Toast Notification Container -->
   <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 text-white px-5 py-2.5 rounded-full text-xs md:text-sm font-medium shadow-xl opacity-0 pointer-events-none transition-all duration-300 flex items-center space-x-2 border border-neutral-700">
     <span id="toast-text">Notification message</span>
+    <button type="button" id="toast-action" class="hidden ml-2 px-2 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-violet-200 font-bold text-xs cursor-pointer">Undo</button>
+  </div>
+
+  <!-- Feed post "..." options popover -->
+  <div id="post-options-menu" role="menu" aria-label="Post options" class="hidden fixed w-52 bg-white border border-neutral-200 rounded-xl shadow-2xl py-1 text-xs text-neutral-800" style="display: none; z-index: 70;">
+    <button type="button" id="btn-post-menu-copy" role="menuitem" onclick="handlePostMenuCopy()" class="w-full text-left px-3.5 py-2.5 hover:bg-neutral-50 flex items-center gap-2.5 cursor-pointer">
+      <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+      <span class="font-semibold">Copy link</span>
+    </button>
+    <button type="button" id="btn-post-menu-not-interested" role="menuitem" onclick="handlePostMenuNotInterested()" class="w-full text-left px-3.5 py-2.5 hover:bg-neutral-50 flex items-center gap-2.5 cursor-pointer">
+      <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+      <span><span class="font-semibold block">Not interested</span><span class="text-[10px] text-neutral-400">Hide this and see less like it</span></span>
+    </button>
+    <div class="border-t border-neutral-100 my-1"></div>
+    <button type="button" id="btn-post-menu-help" role="menuitem" aria-haspopup="true" aria-expanded="false" onclick="event.stopPropagation(); togglePostMenuHelp()" class="w-full text-left px-3.5 py-2.5 hover:bg-neutral-50 flex items-center justify-between gap-2.5 cursor-pointer">
+      <span class="flex items-center gap-2.5"><svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="font-semibold">Help</span></span>
+      <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <div id="post-menu-help-sub" class="hidden bg-neutral-50/80">
+      <button type="button" id="btn-post-menu-feedback" role="menuitem" onclick="openSubmitFeedbackModal()" class="w-full text-left pl-10 pr-3.5 py-2 hover:bg-neutral-100 font-semibold text-violet-700 cursor-pointer">Submit feedback</button>
+    </div>
+  </div>
+
+  <!-- Submit feedback modal (sends to support@pixlynote.com) -->
+  <div id="modal-submit-feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center p-4" style="display: none; z-index: 75;" onclick="if (event.target === this) closeSubmitFeedbackModal()">
+    <form id="form-submit-feedback" onsubmit="event.preventDefault(); submitPostFeedback();" class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-neutral-200">
+      <div class="flex items-center justify-between">
+        <h4 id="feedback-title" class="text-sm font-bold text-neutral-900">Submit feedback</h4>
+        <button type="button" id="btn-feedback-close" onclick="closeSubmitFeedbackModal()" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-lg cursor-pointer" aria-label="Close">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p id="feedback-context" class="text-[11px] text-neutral-500">General feedback</p>
+      <label class="block text-[11px] font-semibold text-neutral-700">Topic
+        <select id="feedback-category" class="mt-1 w-full border border-neutral-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:border-violet-500">
+          <option value="bug">Something isn't working</option>
+          <option value="content">Problem with this post</option>
+          <option value="safety">Safety or abuse</option>
+          <option value="idea">Idea or suggestion</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label class="block text-[11px] font-semibold text-neutral-700">Message
+        <textarea id="feedback-message" rows="4" maxlength="2000" placeholder="Tell us what happened or what you'd like to see..." class="mt-1 w-full border border-neutral-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-violet-500 resize-none"></textarea>
+      </label>
+      <p id="feedback-status" class="text-[11px] min-h-[1rem]" aria-live="polite"></p>
+      <a id="feedback-mailto-link" href="mailto:support@pixlynote.com" class="hidden text-[11px] font-semibold text-violet-700 underline">Email support@pixlynote.com instead</a>
+      <div class="flex space-x-2 pt-1">
+        <button type="button" id="btn-feedback-cancel" onclick="closeSubmitFeedbackModal()" class="flex-1 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition cursor-pointer">Cancel</button>
+        <button type="submit" id="btn-feedback-send" class="flex-1 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition cursor-pointer disabled:opacity-50">Send</button>
+      </div>
+      <p class="text-[10px] text-neutral-400">Sent to support@pixlynote.com with your @username.</p>
+    </form>
   </div>
 
   <!-- AUTH / LOGIN VIEW -->
@@ -907,8 +972,11 @@
 
             <!-- Notifications Dropdown Sheet -->
             <div id="notifications-dropdown" class="hidden fixed left-4 right-4 top-16 max-w-sm mx-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 bg-white border border-neutral-200 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-neutral-100">
-              <div class="p-3 bg-neutral-50/80 flex items-center justify-between">
-                <span class="text-xs font-semibold text-neutral-800">Recent Activity</span>
+              <div class="p-3 bg-neutral-50/80 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1" role="tablist" aria-label="Notification view">
+                  <button type="button" id="btn-notif-tab-highlights" role="tab" aria-selected="true" onclick="event.stopPropagation(); setNotificationMode('highlights')" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-900 text-white cursor-pointer transition" title="Mentions, comments and connections first">Highlights</button>
+                  <button type="button" id="btn-notif-tab-all" role="tab" aria-selected="false" onclick="event.stopPropagation(); setNotificationMode('all')" class="px-2.5 py-1 rounded-full text-[11px] font-semibold text-neutral-600 hover:bg-neutral-200/70 cursor-pointer transition" title="Everything, newest first">All</button>
+                </div>
                 <span class="text-[11px] text-violet-600 hover:text-violet-800 cursor-pointer font-bold" id="btn-mark-all-read" onclick="markAllNotificationsRead()">Mark all read</span>
               </div>
               <div id="notifications-list" class="max-h-72 overflow-y-auto divide-y divide-neutral-50 text-xs">
@@ -9132,6 +9200,8 @@ function syncLikedStateToPosts() {
       const toast = document.getElementById('toast');
       const toastText = document.getElementById('toast-text');
       toastText.textContent = msg;
+      const toastAction = document.getElementById('toast-action');
+      if (toastAction) { toastAction.classList.add('hidden'); toastAction.onclick = null; }
       toast.classList.remove('opacity-0', 'pointer-events-none');
       toast.classList.add('opacity-100');
       clearTimeout(window._toastTimeout);
@@ -9140,6 +9210,407 @@ function syncLikedStateToPosts() {
         toast.classList.add('opacity-0', 'pointer-events-none');
       }, 2600);
     }
+
+    // ===== Feed post "..." menu: Copy link, Not interested, Help > Submit feedback =====
+    var PIXLY_SUPPORT_EMAIL = 'support@pixlynote.com';
+    function pixlyCurrentUserKey() {
+      return normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '') || '';
+    }
+    function emptyNotInterested() { return { postIds: [], authors: {}, tags: {}, updatedAt: 0 }; }
+    function sanitizeNotInterested(raw) {
+      const out = emptyNotInterested();
+      if (!raw || typeof raw !== 'object') return out;
+      if (Array.isArray(raw.postIds)) out.postIds = raw.postIds.map(String).filter(Boolean).slice(-500);
+      const cleanMap = (m) => {
+        const r = {};
+        if (m && typeof m === 'object') Object.keys(m).slice(0, 300).forEach(k => {
+          const n = Math.max(0, Math.min(50, Number(m[k]) || 0));
+          const key = String(k).toLowerCase().replace(/[^a-z0-9_#.-]/g, '').slice(0, 60);
+          if (n > 0 && key) r[key] = n;
+        });
+        return r;
+      };
+      out.authors = cleanMap(raw.authors);
+      out.tags = cleanMap(raw.tags);
+      out.updatedAt = Number(raw.updatedAt) || 0;
+      return out;
+    }
+    // Stored per account: localStorage pixly_not_interested_<username> and users/{u}.notInterested.
+    function getNotInterested(username) {
+      const u = normalizeUsername(username || pixlyCurrentUserKey());
+      if (!u) return emptyNotInterested();
+      window._pixlyNotInterested = window._pixlyNotInterested || {};
+      if (!window._pixlyNotInterested[u]) {
+        let rec = emptyNotInterested();
+        try { rec = sanitizeNotInterested(JSON.parse(localStorage.getItem('pixly_not_interested_' + u) || 'null')); } catch (e) {}
+        window._pixlyNotInterested[u] = rec;
+        loadNotInterestedFromCloud(u);
+      }
+      return window._pixlyNotInterested[u];
+    }
+    function loadNotInterestedFromCloud(u) {
+      try {
+        window._pixlyNotInterestedCloud = window._pixlyNotInterestedCloud || {};
+        if (window._pixlyNotInterestedCloud[u]) return;
+        if (!(window.firebaseReady && window.firebase && window.firebase.getDoc && window.firebase.doc && window.firebase.db)) return;
+        window._pixlyNotInterestedCloud[u] = true;
+        const { db, doc, getDoc } = window.firebase;
+        getDoc(doc(db, 'users', u)).then(snap => {
+          if (!snap || !snap.exists()) return;
+          const remote = sanitizeNotInterested(snap.data().notInterested);
+          const local = window._pixlyNotInterested && window._pixlyNotInterested[u];
+          if (!local) return;
+          const ids = new Set(local.postIds.concat(remote.postIds));
+          local.postIds = Array.from(ids).slice(-500);
+          ['authors', 'tags'].forEach(k => {
+            Object.keys(remote[k]).forEach(key => { local[k][key] = Math.max(local[k][key] || 0, remote[k][key]); });
+          });
+          try { localStorage.setItem('pixly_not_interested_' + u, JSON.stringify(local)); } catch (e) {}
+          if (remote.postIds.length || Object.keys(remote.authors).length) {
+            try { if (typeof renderFeed === 'function') renderFeed(); } catch (e) {}
+          }
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    function saveNotInterested(u, rec) {
+      if (!u) return;
+      rec.updatedAt = Date.now();
+      window._pixlyNotInterested = window._pixlyNotInterested || {};
+      window._pixlyNotInterested[u] = rec;
+      try { localStorage.setItem('pixly_not_interested_' + u, JSON.stringify(rec)); } catch (e) {}
+      try {
+        if (window.firebaseReady && window.firebase && window.firebase.setDoc && window.firebase.doc && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          Promise.resolve(setDoc(doc(db, 'users', u), { notInterested: sanitizeNotInterested(rec) }, { merge: true })).catch(() => {});
+        }
+      } catch (e) {}
+    }
+    function postTagKeys(post) {
+      return (Array.isArray(post && post.tags) ? post.tags : [])
+        .map(t => String(t || '').toLowerCase().replace(/^#/, '').replace(/[^a-z0-9_]/g, ''))
+        .filter(Boolean).slice(0, 10);
+    }
+    function isPostNotInterested(post) {
+      if (!post || post.id === undefined || post.id === null) return false;
+      const rec = getNotInterested();
+      return rec.postIds.indexOf(String(post.id)) !== -1;
+    }
+    // Penalty used to down-rank similar content (same author or shared tags) for this user only.
+    function notInterestedPenalty(post) {
+      if (!post) return 0;
+      const rec = getNotInterested();
+      const a = normalizeUsername(post.author || post.username || '');
+      let pen = (a && rec.authors[a]) ? rec.authors[a] * 2 : 0;
+      postTagKeys(post).forEach(t => { if (rec.tags[t]) pen += rec.tags[t]; });
+      return pen;
+    }
+    function markPostNotInterested(postId) {
+      const u = pixlyCurrentUserKey();
+      if (!u || postId === undefined || postId === null) return false;
+      const post = (typeof getPostById === 'function' ? getPostById(postId) : null) || findContentByKindId('post', postId);
+      const author = normalizeUsername(post && post.author ? post.author : '');
+      if (author && author === u) return false; // never on your own posts
+      const rec = getNotInterested(u);
+      const sid = String(postId);
+      const snapshot = JSON.parse(JSON.stringify(rec));
+      if (rec.postIds.indexOf(sid) === -1) rec.postIds.push(sid);
+      rec.postIds = rec.postIds.slice(-500);
+      if (author) rec.authors[author] = Math.min(50, (rec.authors[author] || 0) + 1);
+      postTagKeys(post).forEach(t => { rec.tags[t] = Math.min(50, (rec.tags[t] || 0) + 1); });
+      saveNotInterested(u, rec);
+      window._pixlyNotInterestedUndo = { u: u, snapshot: snapshot, postId: sid };
+      try { if (typeof renderFeed === 'function') renderFeed(); } catch (e) {}
+      try { if (typeof scheduleExploreRender === 'function') scheduleExploreRender(); } catch (e) {}
+      return true;
+    }
+    function undoNotInterested() {
+      const undo = window._pixlyNotInterestedUndo;
+      if (!undo || undo.u !== pixlyCurrentUserKey()) return false;
+      saveNotInterested(undo.u, sanitizeNotInterested(undo.snapshot));
+      window._pixlyNotInterestedUndo = null;
+      try { if (typeof renderFeed === 'function') renderFeed(); } catch (e) {}
+      try { if (typeof scheduleExploreRender === 'function') scheduleExploreRender(); } catch (e) {}
+      return true;
+    }
+    function showToastWithAction(msg, actionLabel, onAction, ms) {
+      showToast(msg);
+      const toast = document.getElementById('toast');
+      const btn = document.getElementById('toast-action');
+      if (!toast || !btn) return;
+      btn.textContent = actionLabel;
+      btn.classList.remove('hidden');
+      btn.onclick = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        btn.classList.add('hidden');
+        btn.onclick = null;
+        try { onAction(); } catch (err) {}
+      };
+      toast.classList.remove('pointer-events-none');
+      clearTimeout(window._toastTimeout);
+      window._toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+        btn.classList.add('hidden');
+      }, ms || 5000);
+    }
+    function buildPostShareUrl(postId) {
+      let base = '';
+      try { base = window.location.origin + window.location.pathname; } catch (e) {}
+      if (!base || base.indexOf('http') !== 0) base = 'https://bradley-hansen.github.io/Pixlynote-/';
+      return base + '?post=' + encodeURIComponent(String(postId));
+    }
+    function copyTextReliably(text) {
+      const fallback = () => {
+        let ok = false;
+        try {
+          const temp = document.createElement('textarea');
+          temp.value = text;
+          temp.setAttribute('readonly', '');
+          temp.style.position = 'fixed';
+          temp.style.opacity = '0';
+          document.body.appendChild(temp);
+          temp.select();
+          ok = document.execCommand('copy');
+          document.body.removeChild(temp);
+        } catch (e) {}
+        return ok;
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text).then(() => true, () => fallback());
+        }
+      } catch (e) {}
+      return Promise.resolve(fallback());
+    }
+    function copyPostLink(postId) {
+      const url = buildPostShareUrl(postId);
+      window._pixlyLastCopiedLink = url;
+      return copyTextReliably(url).then(ok => {
+        showToast(ok ? 'Link copied to clipboard' : ('Copy this link: ' + url));
+        return ok;
+      });
+    }
+    function closePostOptionsMenu() {
+      const m = document.getElementById('post-options-menu');
+      if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+      const help = document.getElementById('post-menu-help-sub');
+      if (help) help.classList.add('hidden');
+      const hb = document.getElementById('btn-post-menu-help');
+      if (hb) hb.setAttribute('aria-expanded', 'false');
+      window._postMenuPostId = null;
+      window._postMenuAnchor = null;
+    }
+    function openPostOptionsMenu(anchorEl, postId) {
+      const m = document.getElementById('post-options-menu');
+      if (!m || postId === undefined || postId === null) return;
+      if (window._postMenuPostId === String(postId) && !m.classList.contains('hidden')) { closePostOptionsMenu(); return; }
+      window._postMenuPostId = String(postId);
+      window._postMenuAnchor = anchorEl;
+      const post = (typeof getPostById === 'function' ? getPostById(postId) : null) || findContentByKindId('post', postId);
+      const own = !!(post && normalizeUsername(post.author || '') === pixlyCurrentUserKey());
+      const ni = document.getElementById('btn-post-menu-not-interested');
+      if (ni) ni.classList.toggle('hidden', own);
+      const help = document.getElementById('post-menu-help-sub');
+      if (help) help.classList.add('hidden');
+      m.classList.remove('hidden');
+      m.style.display = 'block';
+      positionPostOptionsMenu();
+      const first = m.querySelector('button:not(.hidden)');
+      if (first) { try { first.focus({ preventScroll: true }); } catch (e) {} }
+    }
+    function positionPostOptionsMenu() {
+      const m = document.getElementById('post-options-menu');
+      const anchorEl = window._postMenuAnchor;
+      if (!m || !anchorEl || m.classList.contains('hidden')) return;
+      try {
+        const r = anchorEl.getBoundingClientRect();
+        if (!anchorEl.isConnected || r.bottom < 0 || r.top > window.innerHeight) { closePostOptionsMenu(); return; }
+        const w = m.offsetWidth || 208;
+        const h = m.offsetHeight || 160;
+        let left = Math.min(window.innerWidth - w - 8, r.right - w);
+        left = Math.max(8, left);
+        let top = r.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+        m.style.left = left + 'px';
+        m.style.top = top + 'px';
+      } catch (e) {}
+    }
+    function handlePostMenuCopy() {
+      const pid = window._postMenuPostId;
+      closePostOptionsMenu();
+      if (pid) copyPostLink(pid);
+    }
+    function handlePostMenuNotInterested() {
+      const pid = window._postMenuPostId;
+      closePostOptionsMenu();
+      if (!pid) return;
+      if (markPostNotInterested(pid)) {
+        showToastWithAction("Post hidden. You'll see less like this.", 'Undo', () => {
+          if (undoNotInterested()) showToast('Post restored');
+        });
+      }
+    }
+    function togglePostMenuHelp() {
+      const sub = document.getElementById('post-menu-help-sub');
+      const hb = document.getElementById('btn-post-menu-help');
+      if (!sub) return;
+      const open = sub.classList.contains('hidden');
+      sub.classList.toggle('hidden', !open);
+      if (hb) hb.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function openSubmitFeedbackModal(postId) {
+      const pid = postId !== undefined && postId !== null ? postId : window._postMenuPostId;
+      closePostOptionsMenu();
+      window._feedbackPostId = pid != null ? String(pid) : '';
+      const m = document.getElementById('modal-submit-feedback');
+      if (!m) return;
+      const msg = document.getElementById('feedback-message');
+      const st = document.getElementById('feedback-status');
+      const cat = document.getElementById('feedback-category');
+      const ctx = document.getElementById('feedback-context');
+      const link = document.getElementById('feedback-mailto-link');
+      if (msg) msg.value = '';
+      if (cat) cat.value = 'bug';
+      if (st) { st.textContent = ''; st.className = 'text-[11px] min-h-[1rem]'; }
+      if (link) link.classList.add('hidden');
+      const post = window._feedbackPostId ? ((typeof getPostById === 'function' ? getPostById(window._feedbackPostId) : null) || findContentByKindId('post', window._feedbackPostId)) : null;
+      if (ctx) ctx.textContent = post ? ('About a post by @' + normalizeUsername(post.author || '') + ' (#' + window._feedbackPostId + ')') : 'General feedback';
+      const send = document.getElementById('btn-feedback-send');
+      if (send) send.disabled = false;
+      m.classList.remove('hidden');
+      m.style.display = 'flex';
+      if (msg) { try { msg.focus(); } catch (e) {} }
+    }
+    function closeSubmitFeedbackModal() {
+      const m = document.getElementById('modal-submit-feedback');
+      if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+    }
+    function buildFeedbackMailto(payload) {
+      const subject = 'Pixlynote feedback (' + payload.category + ')' + (payload.postId ? ' - post ' + payload.postId : '');
+      const body = payload.message + '\n\n---\nFrom: @' + (payload.username || 'guest')
+        + (payload.postId ? ('\nPost: ' + payload.postId + (payload.postAuthor ? ' by @' + payload.postAuthor : '') + '\nLink: ' + payload.url) : '');
+      return 'mailto:' + PIXLY_SUPPORT_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body.slice(0, 1800));
+    }
+    function openMailtoFallback(href) {
+      if (typeof window.__pixlyOpenMailto === 'function') { window.__pixlyOpenMailto(href); return; }
+      try {
+        const a = document.createElement('a');
+        a.href = href;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {}
+    }
+    async function submitPostFeedback() {
+      const msgEl = document.getElementById('feedback-message');
+      const st = document.getElementById('feedback-status');
+      const cat = document.getElementById('feedback-category');
+      const send = document.getElementById('btn-feedback-send');
+      const link = document.getElementById('feedback-mailto-link');
+      const message = String(msgEl && msgEl.value || '').trim().slice(0, 2000);
+      if (message.length < 3) {
+        if (st) { st.textContent = 'Please describe the problem or idea.'; st.className = 'text-[11px] min-h-[1rem] text-rose-600'; }
+        return { ok: false, reason: 'empty' };
+      }
+      const pid = window._feedbackPostId || '';
+      const post = pid ? ((typeof getPostById === 'function' ? getPostById(pid) : null) || findContentByKindId('post', pid)) : null;
+      const payload = {
+        to: PIXLY_SUPPORT_EMAIL,
+        category: ['bug', 'safety', 'content', 'idea', 'other'].indexOf(cat && cat.value) !== -1 ? cat.value : 'other',
+        message: message,
+        username: pixlyCurrentUserKey(),
+        postId: pid,
+        postAuthor: post ? normalizeUsername(post.author || '') : '',
+        url: pid ? buildPostShareUrl(pid) : ''
+      };
+      if (send) send.disabled = true;
+      if (st) { st.textContent = 'Sending...'; st.className = 'text-[11px] min-h-[1rem] text-neutral-500'; }
+      let sent = false;
+      try {
+        if (typeof PIXLYNOTE_API_ENDPOINT === 'string' && PIXLYNOTE_API_ENDPOINT) {
+          const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+          const timer = ctl ? setTimeout(() => ctl.abort(), 8000) : null;
+          const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/support/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: ctl ? ctl.signal : undefined
+          });
+          if (timer) clearTimeout(timer);
+          const data = await res.json().catch(() => ({}));
+          sent = !!(res.ok && data && data.ok);
+        }
+      } catch (e) { sent = false; }
+      if (send) send.disabled = false;
+      if (sent) {
+        closeSubmitFeedbackModal();
+        showToast('Thanks! Your feedback was sent to Pixlynote support.');
+        return { ok: true, via: 'worker' };
+      }
+      // Fail safe: hand the message to the user's email app, addressed to support@pixlynote.com.
+      const href = buildFeedbackMailto(payload);
+      window._pixlyLastFeedbackMailto = href;
+      if (link) { link.href = href; link.classList.remove('hidden'); }
+      if (st) { st.textContent = 'Opening your email app to send this to ' + PIXLY_SUPPORT_EMAIL + '.'; st.className = 'text-[11px] min-h-[1rem] text-amber-700'; }
+      openMailtoFallback(href);
+      return { ok: true, via: 'mailto' };
+    }
+    function openSharedPostFromUrl() {
+      let pid = '';
+      try { pid = new URLSearchParams(window.location.search).get('post') || ''; } catch (e) {}
+      pid = String(pid).replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 64);
+      if (!pid) return;
+      let tries = 0;
+      const attempt = () => {
+        tries++;
+        if (state.isLoggedIn && typeof openPostDetailModal === 'function') {
+          const p = (typeof getPostById === 'function' ? getPostById(pid) : null) || findContentByKindId('post', pid);
+          if (p) { try { openPostDetailModal(p.id); } catch (e) {} return; }
+        }
+        if (tries < 20) setTimeout(attempt, 750);
+      };
+      setTimeout(attempt, 1200);
+    }
+    window.getNotInterested = getNotInterested;
+    window.isPostNotInterested = isPostNotInterested;
+    window.notInterestedPenalty = notInterestedPenalty;
+    window.markPostNotInterested = markPostNotInterested;
+    window.undoNotInterested = undoNotInterested;
+    window.showToastWithAction = showToastWithAction;
+    window.buildPostShareUrl = buildPostShareUrl;
+    window.copyPostLink = copyPostLink;
+    window.openPostOptionsMenu = openPostOptionsMenu;
+    window.closePostOptionsMenu = closePostOptionsMenu;
+    window.handlePostMenuCopy = handlePostMenuCopy;
+    window.handlePostMenuNotInterested = handlePostMenuNotInterested;
+    window.togglePostMenuHelp = togglePostMenuHelp;
+    window.openSubmitFeedbackModal = openSubmitFeedbackModal;
+    window.closeSubmitFeedbackModal = closeSubmitFeedbackModal;
+    window.submitPostFeedback = submitPostFeedback;
+    window.buildFeedbackMailto = buildFeedbackMailto;
+    (function wirePostOptionsMenuGlobal() {
+      document.addEventListener('click', function (e) {
+        const m = document.getElementById('post-options-menu');
+        if (!m || m.classList.contains('hidden')) return;
+        if (m.contains(e.target) || (e.target.closest && e.target.closest('.btn-post-options'))) return;
+        closePostOptionsMenu();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const m = document.getElementById('post-options-menu');
+        if (m && !m.classList.contains('hidden')) closePostOptionsMenu();
+        const f = document.getElementById('modal-submit-feedback');
+        if (f && !f.classList.contains('hidden')) closeSubmitFeedbackModal();
+        const d = document.getElementById('modal-delete-confirm');
+        if (d && !d.classList.contains('hidden') && typeof cancelDeletePostConfirm === 'function') cancelDeletePostConfirm();
+      });
+      // Follow the "..." button while scrolling; close only once it leaves the screen.
+      window.addEventListener('scroll', function () { positionPostOptionsMenu(); }, { passive: true, capture: true });
+      window.addEventListener('resize', function () { closePostOptionsMenu(); });
+      openSharedPostFromUrl();
+    })();
 
     function copyToClipboard(text, successMsg) {
       try {
@@ -10078,10 +10549,25 @@ function syncLikedStateToPosts() {
     function pixaiContentIconSvg() {
       return '<svg class="pixai-content-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>';
     }
-    function pixaiContentBtnHtml(kind, id) {
-      const k = String(kind || 'post').replace(/"/g, '');
-      const i = String(id == null ? '' : id).replace(/"/g, '&quot;');
-      return '<button type="button" class="btn-pixai-content p-0.5 rounded-lg text-neutral-800 hover:text-violet-600 hover:bg-neutral-100 transition cursor-pointer flex items-center" data-kind="' + k + '" data-id="' + i + '" title="Ask Pixlynote AI" aria-label="Ask Pixlynote AI" onclick="event.stopPropagation(); openPixaiWithContentFromEl(this)">' +
+    function pixaiContentBtnHtml(kind, id, extra) {
+      const k = String(kind || 'post').replace(/[^a-z]/gi, '');
+      const attr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const i = attr(id);
+      const isComment = (k === 'comment' || k === 'reply');
+      let dataExtra = '';
+      if (extra && typeof extra === 'object') {
+        if (extra.parentKind) dataExtra += ' data-parent-kind="' + attr(extra.parentKind) + '"';
+        if (extra.parentId != null) dataExtra += ' data-parent-id="' + attr(extra.parentId) + '"';
+        if (extra.commentId != null) dataExtra += ' data-comment-id="' + attr(extra.commentId) + '"';
+        if (extra.replyId != null) dataExtra += ' data-reply-id="' + attr(extra.replyId) + '"';
+        if (extra.author) dataExtra += ' data-fallback-author="' + attr(extra.author) + '"';
+        if (extra.text) dataExtra += ' data-fallback-text="' + attr(String(extra.text).slice(0, 500)) + '"';
+      }
+      const cls = isComment
+        ? 'btn-pixai-content btn-pixai-comment p-0.5 rounded-md text-neutral-300 hover:text-violet-600 transition cursor-pointer flex items-center flex-shrink-0'
+        : 'btn-pixai-content p-0.5 rounded-lg text-neutral-800 hover:text-violet-600 hover:bg-neutral-100 transition cursor-pointer flex items-center';
+      const label = isComment ? ('Ask Pixlynote AI about this ' + k) : 'Ask Pixlynote AI';
+      return '<button type="button" class="' + cls + '" data-kind="' + k + '" data-id="' + i + '"' + dataExtra + ' title="' + label + '" aria-label="' + label + '" onclick="event.stopPropagation(); openPixaiWithContentFromEl(this)">' +
         pixaiContentIconSvg() +
         '</button>';
     }
@@ -10410,9 +10896,28 @@ function syncLikedStateToPosts() {
           const found = arr.find(function (n) { return n && String(n.id) === sid; });
           if (found) return found;
         }
+        const dirNotes = window._exploreUserDir && window._exploreUserDir.notes;
+        if (dirNotes && typeof dirNotes.forEach === 'function') {
+          let hit = null;
+          try {
+            if (typeof dirNotes.get === 'function' && dirNotes.get(sid) && !Array.isArray(dirNotes.get(sid))) hit = dirNotes.get(sid);
+            if (!hit) dirNotes.forEach(function (v) {
+              if (hit || !v) return;
+              if (Array.isArray(v)) { const f = v.find(function (n) { return n && String(n.id) === sid; }); if (f) hit = f; }
+              else if (String(v.id) === sid) hit = v;
+            });
+          } catch (e) {}
+          if (hit) return hit;
+        }
         return null;
       }
-      const postPools = [state.posts, state.explorePosts];
+      const postPools = [
+        state.posts,
+        state.explorePosts,
+        window._explorePaged && window._explorePaged.posts,
+        window._exploreUserDir && window._exploreUserDir.posts,
+        window._userProfilePosts
+      ];
       for (let i = 0; i < postPools.length; i++) {
         const arr = postPools[i];
         if (!Array.isArray(arr)) continue;
@@ -10423,7 +10928,22 @@ function syncLikedStateToPosts() {
         const cached = state.explorePostsArchive.get(sid);
         if (cached) return cached;
       }
+      if (typeof getPostById === 'function') {
+        try { const p = getPostById(id); if (p) return p; } catch (e) {}
+      }
       return null;
+    }
+    // Resolve a comment or reply (and its parent post/note) for the Sparkle AI button.
+    function findCommentContentForPixai(parentKind, parentId, commentId, replyId) {
+      const pk = parentKind === 'note' ? 'note' : 'post';
+      const parent = findContentByKindId(pk, parentId);
+      if (!parent || !Array.isArray(parent.comments)) return { parent: parent || null, item: null, parentKind: pk };
+      const c = parent.comments.find(function (x) { return x && String(x.id) === String(commentId); }) || null;
+      let item = c;
+      if (c && replyId !== undefined && replyId !== null && replyId !== '') {
+        item = (Array.isArray(c.replies) ? c.replies : []).find(function (r) { return r && String(r.id) === String(replyId); }) || null;
+      }
+      return { parent: parent, item: item, comment: c, parentKind: pk };
     }
     function openPixaiWithContent(opts) {
       opts = opts || {};
@@ -10432,7 +10952,10 @@ function syncLikedStateToPosts() {
         id: opts.id || '',
         author: privacyNorm(opts.author || ''),
         text: opts.text ? String(opts.text) : '',
-        hasImage: !!opts.hasImage
+        hasImage: !!opts.hasImage,
+        parentKind: opts.parentKind || '',
+        parentAuthor: opts.parentAuthor ? privacyNorm(opts.parentAuthor) : '',
+        parentText: opts.parentText ? String(opts.parentText).slice(0, 300) : ''
       };
       if (typeof openPixaiModal === 'function') openPixaiModal();
       setTimeout(function () { paintPixaiContentContext(); }, 30);
@@ -10441,6 +10964,26 @@ function syncLikedStateToPosts() {
       if (!el) return;
       const kind = el.getAttribute('data-kind') || 'post';
       const id = el.getAttribute('data-id');
+      if (kind === 'comment' || kind === 'reply') {
+        const parentKind = el.getAttribute('data-parent-kind') || 'post';
+        const parentId = el.getAttribute('data-parent-id');
+        const commentId = el.getAttribute('data-comment-id') || id;
+        const replyId = kind === 'reply' ? (el.getAttribute('data-reply-id') || id) : null;
+        const res = findCommentContentForPixai(parentKind, parentId, commentId, replyId);
+        const it = res.item || {};
+        const par = res.parent || {};
+        openPixaiWithContent({
+          kind: kind,
+          id: id,
+          author: it.user || it.username || el.getAttribute('data-fallback-author') || '',
+          text: it.text || el.getAttribute('data-fallback-text') || '',
+          hasImage: false,
+          parentKind: res.parentKind,
+          parentAuthor: par.author || par.username || '',
+          parentText: res.parentKind === 'note' ? (par.text || '') : (par.caption || par.text || '')
+        });
+        return;
+      }
       const item = findContentByKindId(kind, id) || {};
       const author = item.author || item.username || '';
       const text = (kind === 'note') ? (item.text || '') : (item.caption || item.text || '');
@@ -10459,13 +11002,20 @@ function syncLikedStateToPosts() {
       const author = ctx.author || 'unknown';
       const text = ctx.text || '';
       const snippet = text.length > 140 ? text.slice(0, 137) + '\u2026' : text;
+      const onParent = (ctx.parentKind && ctx.parentAuthor) ? (' on @' + ctx.parentAuthor + "'s " + ctx.parentKind) : '';
       if (banner) {
         banner.classList.remove('hidden');
-        banner.textContent = 'Discussing this ' + kind + ' by @' + author + (snippet ? ': \u201c' + snippet + '\u201d' : '.') + (ctx.hasImage ? ' Image not sent \u2014 chat is text-only.' : '');
+        banner.textContent = 'Discussing this ' + kind + ' by @' + author + onParent + (snippet ? ': \u201c' + snippet + '\u201d' : '.') + (ctx.hasImage ? ' Image not sent \u2014 chat is text-only.' : '');
       }
-      if (input && !input.value.trim()) {
-        input.value = "Let's talk about this " + kind + " by @" + author + ": " + (text || '(no text)');
-        try { input.focus(); } catch (e) {}
+      if (input) {
+        const cur = input.value.trim();
+        // Replace an empty box or our own earlier auto-prefill; never overwrite text the user typed.
+        if (!cur || (window._pixaiLastAutoPrefill && cur === window._pixaiLastAutoPrefill.trim())) {
+          const prefill = "Let's talk about this " + kind + " by @" + author + onParent + ": " + (text || '(no text)');
+          input.value = prefill;
+          window._pixaiLastAutoPrefill = prefill;
+          try { input.focus(); } catch (e) {}
+        }
       }
     }
     function buildPixaiOutgoingMessage(userText) {
@@ -10477,13 +11027,21 @@ function syncLikedStateToPosts() {
       const author = ctx.author || 'unknown';
       const body = ctx.text ? String(ctx.text) : 'No text.';
       const imgNote = ctx.hasImage ? ' The content includes an image, but this chat is text-only so the image was not sent.' : '';
-      const prefix = '[Context: ' + kind + ' by @' + author + '. ' + body + imgNote + ']\n\n';
+      const parentNote = (ctx.parentKind && ctx.parentAuthor)
+        ? (' It was left on a ' + ctx.parentKind + ' by @' + ctx.parentAuthor + (ctx.parentText ? (': ' + String(ctx.parentText).slice(0, 300)) : '') + '.')
+        : '';
+      const prefix = '[Context: ' + kind + ' by @' + author + '. ' + body + parentNote + imgNote + ']\n\n';
       return (prefix + text).slice(0, 2000);
     }
     function clearPixaiContentContext() {
       window._pixaiContentContext = null;
       const banner = document.getElementById('pixai-content-context');
       if (banner) { banner.classList.add('hidden'); banner.textContent = ''; }
+      const input = document.getElementById('pixai-chat-input');
+      if (input && window._pixaiLastAutoPrefill && input.value.trim() === window._pixaiLastAutoPrefill.trim()) {
+        input.value = '';
+      }
+      window._pixaiLastAutoPrefill = '';
     }
 
     function addCloseFriendFromSearch() {
@@ -10556,6 +11114,8 @@ function syncLikedStateToPosts() {
     window.pixaiContentBtnHtml = pixaiContentBtnHtml;
     window.openPixaiWithContent = openPixaiWithContent;
     window.openPixaiWithContentFromEl = openPixaiWithContentFromEl;
+    window.findContentByKindId = findContentByKindId;
+    window.findCommentContentForPixai = findCommentContentForPixai;
     window.buildPixaiOutgoingMessage = buildPixaiOutgoingMessage;
     window.paintPixaiContentContext = paintPixaiContentContext;
     window.clearPixaiContentContext = clearPixaiContentContext;
@@ -11116,7 +11676,7 @@ function syncLikedStateToPosts() {
         state.posts.forEach(p => {
           const strId = String(p.id);
           if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
-          if ((!state.deletedPostIds || !state.deletedPostIds.has(strId)) && !isAuthorHiddenFromFeed(p.author) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(p))) {
+          if ((!state.deletedPostIds || !state.deletedPostIds.has(strId)) && !isAuthorHiddenFromFeed(p.author) && !isPostNotInterested(p) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(p))) {
             feedPosts.push(p);
             seenIds.add(strId);
           }
@@ -11129,7 +11689,7 @@ function syncLikedStateToPosts() {
           const strId = String(ep.id);
           if (typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(ep)) return;
           if (!seenIds.has(strId) && (!state.deletedPostIds || !state.deletedPostIds.has(strId))) {
-            if ((followedUsernames.has(ep.author) || ep.author === state.currentUser.username) && !isAuthorHiddenFromFeed(ep.author) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(ep))) {
+            if ((followedUsernames.has(ep.author) || ep.author === state.currentUser.username) && !isAuthorHiddenFromFeed(ep.author) && !isPostNotInterested(ep) && (typeof canSeeAudienceContent !== 'function' || canSeeAudienceContent(ep))) {
               feedPosts.push(ep);
               seenIds.add(strId);
             }
@@ -11146,6 +11706,15 @@ function syncLikedStateToPosts() {
         return 0;
       };
       feedPosts.sort((a, b) => getFeedPostTimestamp(b) - getFeedPostTimestamp(a));
+      // "Not interested" down-ranks similar posts (same author / shared tags) a few slots per strike, per user.
+      try {
+        const ranked = feedPosts.map((p, i) => ({ p, k: i + notInterestedPenalty(p) * 3, i }));
+        if (ranked.some(r => r.k !== r.i)) {
+          ranked.sort((a, b) => (a.k - b.k) || (a.i - b.i));
+          feedPosts.length = 0;
+          ranked.forEach(r => feedPosts.push(r.p));
+        }
+      } catch (e) {}
 
       // Helper to generate Suggested Creators cards
       function getSuggestedCreators() {
@@ -11676,8 +12245,12 @@ function syncLikedStateToPosts() {
 
       // Post options menu
       document.querySelectorAll('.btn-post-options').forEach(btn => {
-        btn.addEventListener('click', () => {
-          showToast('Post URL copied to clipboard');
+        btn.setAttribute('aria-haspopup', 'menu');
+        btn.setAttribute('aria-label', 'Post options');
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openPostOptionsMenu(btn, btn.dataset.postId);
         });
       });
     }
@@ -12236,10 +12809,13 @@ function syncLikedStateToPosts() {
                     <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                   </div>
                 </div>
+                <div class="flex items-center space-x-0.5 flex-shrink-0">
+                ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('reply', r.id, { parentKind: 'note', parentId: note.id, commentId: c.id, replyId: r.id }) : ''}
                 <button type="button" onclick="toggleLikeNoteComment('${note.id}', '${c.id}', '${r.id}')" class="flex items-center space-x-1 ${rLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
                   <svg class="w-3 h-3 ${rLiked ? 'fill-rose-500' : ''}" fill="${rLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                   ${rLikesCount > 0 ? `<span class="text-[10px]">${rLikesCount}</span>` : ''}
                 </button>
+                </div>
               </div>
             `;
           }).join('');
@@ -12256,6 +12832,7 @@ function syncLikedStateToPosts() {
                     <span class="text-[10px] text-neutral-400">@${c.user} · ${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                   </div>
                   <div class="flex items-center space-x-1 flex-shrink-0">
+                    ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('comment', c.id, { parentKind: 'note', parentId: note.id, commentId: c.id }) : ''}
                     <button type="button" onclick="toggleCommentSpam('note', '${note.id}', '${c.id}')" class="text-neutral-300 hover:text-amber-600 p-0.5 cursor-pointer transition" title="Flag as Spam">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
                     </button>
@@ -12944,6 +13521,7 @@ function syncLikedStateToPosts() {
               </div>
             </div>
             <div class="flex items-center space-x-2 flex-shrink-0">
+              ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml(item.replyId ? 'reply' : 'comment', item.replyId || item.commentId, { parentKind: item.kind === 'note' ? 'note' : 'post', parentId: item.targetId, commentId: item.commentId, replyId: item.replyId || null, author: profileU, text: item.text }) : ''}
               ${item.targetImage ? `
                 <div class="w-9 h-9 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex-shrink-0">
                   <img src="${item.targetImage}" alt="Post" class="w-full h-full object-cover">
@@ -13531,6 +14109,7 @@ function syncLikedStateToPosts() {
       src.forEach((cp, sid) => {
         if (!cp || !cp.image) return;
         if (state.deletedPostIds && state.deletedPostIds.has(sid)) return;
+        if (typeof isPostNotInterested === 'function' && isPostNotInterested(cp)) return;
         const author = exploreNorm(cp.author || cp.username);
         if (!author || author === viewer || isExploreAuthorHidden(author)) return;
         if (typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(cp)) return;
@@ -13547,7 +14126,8 @@ function syncLikedStateToPosts() {
         }
         p.isLiked = !!(state.likedPostIds && state.likedPostIds.has(sid));
         if (window._exploreUserDir) p.likes = exploreRealLikeCount('post', sid);
-        out.push({ item: p, score: exploreScore(p, p.likes, now), t: exploreTimeMs(p) });
+        const niPen = (typeof notInterestedPenalty === 'function') ? notInterestedPenalty(p) : 0;
+        out.push({ item: p, score: exploreScore(p, p.likes, now) / (1 + niPen), t: exploreTimeMs(p) });
       });
       out.sort((a, b) => (b.score - a.score) || (b.t - a.t));
       return out.map(x => x.item);
@@ -14129,10 +14709,13 @@ function syncLikedStateToPosts() {
                   <span class="text-[10px] text-neutral-400 mr-1">${formatPixlyTimestamp(r, r.timestamp || 'Just now')}</span>
                   <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                 </div>
+                <div class="flex items-center space-x-0.5 flex-shrink-0">
+                ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('reply', r.id, { parentKind: 'post', parentId: post.id, commentId: c.id, replyId: r.id }) : ''}
                 <button type="button" onclick="toggleLikePostComment('${post.id}', '${c.id}', '${r.id}')" class="flex items-center space-x-1 ${rLiked ? 'text-rose-500' : 'text-neutral-300 hover:text-rose-500'} p-0.5 cursor-pointer flex-shrink-0">
                   <svg class="w-3 h-3 ${rLiked ? 'fill-rose-500' : ''}" fill="${rLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                   ${rLikesCount > 0 ? `<span class="text-[10px]">${rLikesCount}</span>` : ''}
                 </button>
+                </div>
               </div>
             `;
           }).join('');
@@ -14155,6 +14738,7 @@ function syncLikedStateToPosts() {
               </div>
             </div>
             <div class="flex items-center space-x-1 flex-shrink-0">
+              ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('comment', c.id, { parentKind: 'post', parentId: post.id, commentId: c.id }) : ''}
               <button type="button" onclick="toggleCommentSpam('post', '${post.id}', '${c.id}')" class="text-neutral-300 hover:text-amber-600 p-0.5 cursor-pointer transition" title="Flag as Spam">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
               </button>
@@ -15543,6 +16127,32 @@ function syncLikedStateToPosts() {
     window.toggleSaveNote = toggleSaveNote;
 
     // --- Comprehensive Universal Delete Action Controller ---
+    // Delete Post now asks first: the in-page confirm modal (no window.confirm, canvas-safe).
+    function requestDeletePostConfirm(targetPostId) {
+      const pid = targetPostId || state.currentModalPostId;
+      if (!pid) return;
+      window._pendingDeletePostId = String(pid);
+      const m = document.getElementById('modal-delete-confirm');
+      if (!m) { handleDeletePostAction(pid); return; }
+      m.classList.remove('hidden');
+      m.style.display = 'flex';
+      const cancel = document.getElementById('btn-cancel-delete');
+      if (cancel) { try { cancel.focus(); } catch (e) {} }
+    }
+    function cancelDeletePostConfirm() {
+      window._pendingDeletePostId = null;
+      const m = document.getElementById('modal-delete-confirm');
+      if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+    }
+    function confirmDeletePostConfirm() {
+      const pid = window._pendingDeletePostId;
+      cancelDeletePostConfirm();
+      if (pid) handleDeletePostAction(pid);
+    }
+    window.requestDeletePostConfirm = requestDeletePostConfirm;
+    window.cancelDeletePostConfirm = cancelDeletePostConfirm;
+    window.confirmDeletePostConfirm = confirmDeletePostConfirm;
+
     function handleDeletePostAction(targetPostId) {
       try {
         const pid = targetPostId || state.currentModalPostId;
@@ -20165,10 +20775,22 @@ function syncLikedStateToPosts() {
         mainView.classList.add('hidden');
         mainView.style.display = 'none';
       }
-      if (typeof switchAuthMode === 'function') {
-        switchAuthMode(mode || 'login');
+      const authMode = (mode === 'signup') ? 'signup' : 'login';
+      if (typeof window.setAuthMode === 'function') {
+        window.setAuthMode(authMode);
+      } else {
+        // Fail safe: show the auth card directly if the setter is not wired yet.
+        const splash = document.getElementById('splash-container');
+        const card = document.getElementById('auth-card-container');
+        const loginBox = document.getElementById('auth-login-container');
+        const signupBox = document.getElementById('auth-signup-container');
+        if (splash) { splash.classList.add('hidden'); splash.style.display = 'none'; }
+        if (card) { card.classList.remove('hidden'); card.style.display = 'block'; }
+        if (loginBox) { loginBox.classList.toggle('hidden', authMode !== 'login'); loginBox.style.display = authMode === 'login' ? 'block' : 'none'; }
+        if (signupBox) { signupBox.classList.toggle('hidden', authMode !== 'signup'); signupBox.style.display = authMode === 'signup' ? 'block' : 'none'; }
       }
     }
+    window.openAuthFromSwitcher = openAuthFromSwitcher;
 
     // --- Phone Uniqueness & Account Center Authentication Helpers ---
     function normalizePhoneDigits(phone) {
@@ -21930,6 +22552,125 @@ function syncLikedStateToPosts() {
     }
 
     // --- Render Notifications ---
+    // ===== Notifications: grouped likes + Highlights / All =====
+    const NOTIF_LIKE_FAMILIES = {
+      like_post: 'photo', like: 'photo', like_note: 'note', story_like: 'story', like_comment: 'comment', like_reply: 'reply'
+    };
+    function notifTimestamp(n) {
+      if (!n) return 0;
+      const t = Number(n.timestamp);
+      if (t > 0) return t;
+      const id = Number(n.id);
+      return (id > 1000000000) ? id : 0;
+    }
+    function notifLikeGroupKey(n) {
+      if (!n) return '';
+      const fam = NOTIF_LIKE_FAMILIES[n.type];
+      if (!fam) return '';
+      let target = '';
+      if (fam === 'photo') target = n.postId;
+      else if (fam === 'note') target = n.noteId;
+      else if (fam === 'story') target = n.storyId;
+      else target = [n.postId || n.noteId || '', n.commentId || '', n.replyId || ''].join('/');
+      if (target === undefined || target === null || target === '') return '';
+      return fam + ':' + String(target);
+    }
+    // Priority tiers for Highlights: invites/account > mentions/comments/replies > connections > likes and the rest.
+    function notifPriorityTier(n) {
+      const t = n && n.type;
+      if ((t === 'privileged_access_invite' || t === 'business_associate_invite') && n.status !== 'accepted' && n.status !== 'declined') return 0;
+      if (t === 'password_updated' || t === 'business_verification') return 0;
+      if (t === 'mention' || t === 'comment_post' || t === 'comment_note' || t === 'reply_comment' || t === 'story_reply') return 1;
+      if (t === 'follow' || t === 'follow_back') return 2;
+      if (NOTIF_LIKE_FAMILIES[t]) return 3;
+      return 3;
+    }
+    function formatGroupedLikeText(users, fam) {
+      const names = users.map(u => '@' + u);
+      const what = 'liked your ' + (fam || 'photo');
+      if (names.length <= 1) return (names[0] || '') + ' ' + what;
+      if (names.length === 2) return names[0] + ' and ' + names[1] + ' ' + what;
+      if (names.length === 3) return names[0] + ', ' + names[1] + ' and ' + names[2] + ' ' + what;
+      const others = names.length - 3;
+      return names[0] + ', ' + names[1] + ', ' + names[2] + ' and ' + others + ' other' + (others === 1 ? '' : 's') + ' ' + what;
+    }
+    function buildNotificationDisplayGroups(list, mode) {
+      const arr = Array.isArray(list) ? list : [];
+      const groups = [];
+      const byKey = new Map();
+      arr.forEach((n, idx) => {
+        if (!n) return;
+        const key = notifLikeGroupKey(n);
+        if (key && byKey.has(key)) {
+          const g = byKey.get(key);
+          g.members.push(idx);
+          if (notifTimestamp(n) > notifTimestamp(arr[g.rep])) g.rep = idx;
+          return;
+        }
+        const g = { key: key, members: [idx], rep: idx, firstPos: groups.length };
+        groups.push(g);
+        if (key) byKey.set(key, g);
+      });
+      groups.forEach(g => {
+        const members = g.members.map(i => arr[i]).sort((a, b) => notifTimestamp(b) - notifTimestamp(a));
+        const seen = new Set();
+        g.users = [];
+        g.avatars = {};
+        members.forEach(m => {
+          const u = normalizeUsername(m.fromUser || m.user || '');
+          if (u && !seen.has(u)) { seen.add(u); g.users.push(u); g.avatars[u] = m.fromAvatar || ''; }
+        });
+        g.unread = g.members.some(i => !arr[i].read);
+        g.ts = Math.max.apply(null, g.members.map(i => notifTimestamp(arr[i])).concat([0]));
+        g.tier = notifPriorityTier(arr[g.rep]);
+        g.fam = NOTIF_LIKE_FAMILIES[arr[g.rep].type] || '';
+        g.isGroup = !!g.key && g.users.length > 1;
+      });
+      if (mode === 'highlights') {
+        groups.sort((a, b) => (a.tier - b.tier) || (b.ts - a.ts) || (a.firstPos - b.firstPos));
+      }
+      return groups;
+    }
+    function getNotificationMode() {
+      const u = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      if (state.notifModeUser === u && (state.notifMode === 'all' || state.notifMode === 'highlights')) return state.notifMode;
+      state.notifModeUser = u;
+      let m = '';
+      try { m = localStorage.getItem('pixly_notif_mode_' + u) || ''; } catch (e) {}
+      state.notifMode = (m === 'all') ? 'all' : 'highlights';
+      return state.notifMode;
+    }
+    function setNotificationMode(mode) {
+      const m = mode === 'all' ? 'all' : 'highlights';
+      state.notifMode = m;
+      const u = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '');
+      state.notifModeUser = u;
+      try { if (u) localStorage.setItem('pixly_notif_mode_' + u, m); } catch (e) {}
+      renderNotifications(true);
+    }
+    function paintNotificationModeTabs(mode) {
+      const on = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-900 text-white cursor-pointer transition';
+      const off = 'px-2.5 py-1 rounded-full text-[11px] font-semibold text-neutral-600 hover:bg-neutral-200/70 cursor-pointer transition';
+      const h = document.getElementById('btn-notif-tab-highlights');
+      const a = document.getElementById('btn-notif-tab-all');
+      if (h) { h.className = mode === 'highlights' ? on : off; h.setAttribute('aria-selected', mode === 'highlights' ? 'true' : 'false'); }
+      if (a) { a.className = mode === 'all' ? on : off; a.setAttribute('aria-selected', mode === 'all' ? 'true' : 'false'); }
+    }
+    function notifStackedAvatarsHtml(users, avatars) {
+      const top = users.slice(0, 3);
+      return '<div class="notif-avatar-stack relative flex-shrink-0" style="width:' + (26 + (top.length - 1) * 14) + 'px;height:32px;">' +
+        top.map((u, i) => {
+          const av = resolveLiveAvatar(u, (avatars && avatars[u]) || '');
+          return '<div class="absolute w-7 h-7 rounded-full overflow-hidden bg-neutral-200 border-2 border-white shadow-2xs" style="left:' + (i * 14) + 'px;top:2px;z-index:' + (3 - i) + ';">' +
+            '<img src="' + av + '" alt="' + escapeHtml(u) + '" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]"></div>';
+        }).join('') + '</div>';
+    }
+    window.buildNotificationDisplayGroups = buildNotificationDisplayGroups;
+    window.formatGroupedLikeText = formatGroupedLikeText;
+    window.notifPriorityTier = notifPriorityTier;
+    window.setNotificationMode = setNotificationMode;
+    window.getNotificationMode = getNotificationMode;
+
     function renderNotifications(force = false) {
       const list = document.getElementById('notifications-list');
       const badge = document.getElementById('notif-badge');
@@ -21938,7 +22679,9 @@ function syncLikedStateToPosts() {
       if (!state.notifications || !Array.isArray(state.notifications)) {
         state.notifications = [];
       }
-      const nextHash = JSON.stringify(state.notifications);
+      const notifMode = getNotificationMode();
+      paintNotificationModeTabs(notifMode);
+      const nextHash = notifMode + '|' + JSON.stringify(state.notifications);
       if (!force && window._lastRenderedNotifHash === nextHash && list.children.length > 0) {
         return;
       }
@@ -21970,7 +22713,11 @@ function syncLikedStateToPosts() {
         return;
       }
 
-      list.innerHTML = state.notifications.map((n, idx) => {
+      const notifGroups = buildNotificationDisplayGroups(state.notifications, notifMode);
+      list.innerHTML = notifGroups.map((g) => {
+        const idx = g.rep;
+        const n = state.notifications[idx];
+        const isGroup = g.isGroup;
         const u = n.fromUser || n.user || 'creator';
         const av = resolveLiveAvatar(u, n.fromAvatar);
         const isStoryNotif = (n.type === 'story_like' || n.type === 'story_reply') && n.storyId !== undefined && n.storyId !== null;
@@ -21982,16 +22729,30 @@ function syncLikedStateToPosts() {
           ? (storyActive ? (ownStories.length > 1 ? `Story ${storyIdx + 1} of ${ownStories.length}` : 'Your story') : 'Expired story')
           : '';
         return `
-          <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${!n.read ? 'bg-violet-50/40' : ''}" data-idx="${idx}">
+          <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${isGroup ? 'notif-group' : ''} ${g.unread ? 'bg-violet-50/40' : ''}" data-idx="${idx}" data-members="${g.members.join(',')}" data-tier="${g.tier}">
             <div class="flex items-center space-x-2.5 min-w-0 pr-2">
+              ${isGroup ? notifStackedAvatarsHtml(g.users, g.avatars) : `
               <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 border border-neutral-100 flex-shrink-0">
                 <img src="${av}" alt="${u}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
-              </div>
+              </div>`}
               <div class="text-xs min-w-0 space-y-0.5">
+                ${isGroup ? `
+                <div class="leading-snug notif-group-text">
+                  ${(() => {
+                    const shown = g.users.slice(0, 3);
+                    const others = g.users.length - shown.length;
+                    const nameHtml = shown.map(x => '<span class="font-bold text-neutral-900">@' + escapeHtml(x) + '</span>');
+                    const joined = others > 0
+                      ? nameHtml.join(', ') + ' <span class="text-neutral-600">and</span> <span class="font-bold text-neutral-900">' + others + ' other' + (others === 1 ? '' : 's') + '</span>'
+                      : (nameHtml.length === 2 ? nameHtml[0] + ' <span class="text-neutral-600">and</span> ' + nameHtml[1] : nameHtml.slice(0, -1).join(', ') + ' <span class="text-neutral-600">and</span> ' + nameHtml[nameHtml.length - 1]);
+                    return joined + ' <span class="text-neutral-600">liked your ' + escapeHtml(g.fam || 'photo') + '</span>';
+                  })()}
+                  <span class="sr-only">${escapeHtml(formatGroupedLikeText(g.users, g.fam))}</span>
+                </div>` : `
                 <div class="leading-snug">
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>${authorStatusBadgesHtml(u)}
                   <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
-                </div>
+                </div>`}
                 <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
                 ${n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined' ? `
                   <div class="flex items-center space-x-2 pt-1.5">
@@ -22014,7 +22775,7 @@ function syncLikedStateToPosts() {
                   <img src="${n.postImage}" alt="Post" class="w-full h-full object-cover">
                 </div>
               ` : '')}
-              ${!n.read ? '<span class="w-2 h-2 rounded-full bg-violet-600"></span>' : ''}
+              ${g.unread ? '<span class="w-2 h-2 rounded-full bg-violet-600"></span>' : ''}
             </div>
           </div>
         `;
@@ -22067,6 +22828,11 @@ function syncLikedStateToPosts() {
           const notif = state.notifications[idx];
           if (!notif) return;
 
+          // A grouped row marks every like in the group read.
+          String(item.dataset.members || '').split(',').forEach(m => {
+            const mi = parseInt(m, 10);
+            if (!isNaN(mi) && state.notifications[mi]) state.notifications[mi].read = true;
+          });
           notif.read = true;
           saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
           renderNotifications();
@@ -22569,7 +23335,7 @@ function syncLikedStateToPosts() {
 
       if (!state.messages || !Array.isArray(state.messages)) state.messages = [];
 
-      let idx = state.messages.findIndex(m => m.user.toLowerCase() === cleanTarget.toLowerCase());
+      let idx = state.messages.findIndex(m => m && typeof m.user === 'string' && m.user.toLowerCase() === cleanTarget.toLowerCase());
       if (idx === -1) {
         let foundName = targetName;
         let foundAvatar = targetAvatar;
@@ -22801,7 +23567,8 @@ function syncLikedStateToPosts() {
         const idx = parseInt(item.dataset.idx, 10);
         const m = state.messages[idx];
         if (!m) return;
-        if (!q || m.name.toLowerCase().includes(q) || m.user.toLowerCase().includes(q) || (m.lastMsg && m.lastMsg.toLowerCase().includes(q))) {
+        const hay = [m.name, m.user, m.lastMsg].map(v => String(v == null ? '' : v).toLowerCase());
+        if (!q || hay.some(v => v.includes(q))) {
           item.classList.remove('hidden');
         } else {
           item.classList.add('hidden');
@@ -24052,7 +24819,7 @@ function syncLikedStateToPosts() {
         mainView.classList.add('hidden');
         mainView.style.display = 'none';
       }
-      try { setAuthMode('splash'); } catch(e) {}
+      try { if (typeof window.setAuthMode === 'function') window.setAuthMode('splash'); } catch(e) {}
       showToast('Logged out of Pixlynote');
     }
 
@@ -25209,6 +25976,7 @@ function syncLikedStateToPosts() {
             if (loginUserInp && !loginUserInp.value) loginUserInp.focus();
           }
         }
+        window.setAuthMode = setAuthMode;
 
         function renderSignUpPresetAvatars() {
           const list = document.getElementById('signup-preset-avatar-list');
@@ -27858,8 +28626,12 @@ function syncLikedStateToPosts() {
         });
         bind('btn-modal-delete-post', 'click', (e) => {
           e.preventDefault();
-          handleDeletePostAction();
+          requestDeletePostConfirm();
         });
+        bind('btn-cancel-delete', 'click', (e) => { if (e) e.preventDefault(); cancelDeletePostConfirm(); });
+        bind('btn-confirm-delete', 'click', (e) => { if (e) e.preventDefault(); confirmDeletePostConfirm(); });
+        const delConfirmModal = document.getElementById('modal-delete-confirm');
+        if (delConfirmModal) delConfirmModal.addEventListener('click', (e) => { if (e.target === delConfirmModal) cancelDeletePostConfirm(); });
         bind('btn-close-post-modal', 'click', closePostDetailModal);
         const modal = document.getElementById('modal-post-detail');
         if (modal) modal.addEventListener('click', (e) => { if (e.target.id === 'modal-post-detail') closePostDetailModal(); });
@@ -28821,6 +29593,11 @@ function syncLikedStateToPosts() {
       const sheet = document.getElementById('pixai-sheet-card');
       if (!modal || !backdrop || !sheet) return;
 
+      // A close started less than 300ms ago must not hide (or wipe the context of) this reopen.
+      if (window._pixaiCloseTimer) {
+        clearTimeout(window._pixaiCloseTimer);
+        window._pixaiCloseTimer = null;
+      }
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
 
@@ -28848,7 +29625,9 @@ function syncLikedStateToPosts() {
       sheet.classList.remove('translate-y-0');
       sheet.classList.add('translate-y-full');
 
-      setTimeout(() => {
+      if (window._pixaiCloseTimer) clearTimeout(window._pixaiCloseTimer);
+      window._pixaiCloseTimer = setTimeout(() => {
+        window._pixaiCloseTimer = null;
         modal.classList.add('hidden');
         modal.style.display = 'none';
         if (typeof clearPixaiContentContext === 'function') clearPixaiContentContext();

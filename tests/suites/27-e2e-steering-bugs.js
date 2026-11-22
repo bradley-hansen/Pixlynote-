@@ -109,9 +109,14 @@ module.exports = {
         await h.loginAs(page, account);
 
         try {
+          await page.evaluate(() => {
+            state.following = (state.following || []).concat([{ username: 'menu_creator', fullName: 'Menu Creator', isFollowing: true }]);
+            state.posts.unshift({ id: 8899, author: 'menu_creator', authorName: 'Menu Creator', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', caption: 'Menu test', tags: [], likes: 0, comments: [], createdAtMs: Date.now() + 60000 });
+          });
           await h.gotoMainTab(page, 'feed');
+          await page.evaluate(() => renderFeed());
           await page.waitForTimeout(150);
-          const btn = page.locator('.btn-post-options').first();
+          const btn = page.locator('.btn-post-options[data-post-id="8899"]').first();
           a.ok(await btn.count() > 0, 'Feed post options (...) button exists');
           await btn.click();
           await page.waitForTimeout(150);
