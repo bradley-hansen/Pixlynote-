@@ -31,7 +31,7 @@ function hasAttr(tag, name) {
 function fnFromHandler(expr) {
   if (!expr) return '';
   const s = String(expr).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-  const m = s.match(/(?:event\.(?:stopPropagation|preventDefault)\(\);\s*)*(?:window\.)?([A-Za-z_$][\w$]*)\s*\(/);
+  const m = s.match(/(?:event\.(?:stopPropagation|preventDefault)\(\);\s*|return\s+)*(?:window\.)?([A-Za-z_$][\w$]*)\s*\(/);
   return m ? m[1] : '';
 }
 
@@ -43,7 +43,7 @@ function collectStaticElements(html) {
   const markup = stripScripts(html);
   const items = [];
   const seenIds = new Map();
-  const tagRe = /<\s*(button|a|input|select|textarea|label|form|summary)(\s[^>]*)?>/gi;
+  const tagRe = /<\s*(button|a|input|select|textarea|label|form|summary|div|span|stripe-buy-button)(\s[^>]*)?>/gi;
   let m;
   while ((m = tagRe.exec(markup))) {
     const tagName = m[1].toLowerCase();
@@ -56,7 +56,9 @@ function collectStaticElements(html) {
     const type = (attr(raw, 'type') || (tagName === 'button' ? 'button' : '')).toLowerCase();
     const role = (attr(raw, 'role') || '').toLowerCase();
     const name = attr(raw, 'name') || attr(raw, 'aria-label') || attr(raw, 'title') || id || '';
-    const interactive = INTERACTIVE_TAGS.has(tagName) || !!onclick || role === 'button' || role === 'tab' || role === 'link' || tagName === 'form';
+    const isCustomInteractive = tagName === 'stripe-buy-button' ||
+      (!!id && (/^(btn-|stat-|user-stat-|pixai-drag-handle|profile-avatar-container|user-profile-avatar-container)/.test(id) || (!!onclick && !/^modal-/.test(id))));
+    const interactive = INTERACTIVE_TAGS.has(tagName) || role === 'button' || role === 'tab' || role === 'link' || tagName === 'form' || isCustomInteractive;
     if (!interactive) continue;
     // Skip purely decorative labels without for/id
     if (tagName === 'label' && !attr(raw, 'for') && !id && !onclick) continue;
@@ -93,7 +95,7 @@ function collectTemplateHandlers(html) {
   const items = [];
   const seen = new Set();
   // onclick in JS template strings and HTML strings
-  const re = /onclick\s*=\s*(?:"([^"]+)"|'([^']+)'|\\?["']([^"']+)\\?["'])/g;
+  const re = /\bon(?:click|change|input|submit)\s*=\s*(?:"([^"]+)"|'([^']+)'|\\?["']([^"']+)\\?["'])/g;
   let m;
   while ((m = re.exec(html))) {
     const expr = m[1] || m[2] || m[3] || '';
@@ -130,6 +132,29 @@ function collectListeners(html) {
     if (!id || id.includes('${')) continue;
     // Ignore purely lifecycle events on window/document-like
     if (['resize', 'pagehide', 'visibilitychange', 'DOMContentLoaded'].includes(event)) continue;
+    const key = `listener:#${id}:${event}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({
+      key,
+      kind: 'listener',
+      tag: 'listener',
+      id,
+      type: event,
+      href: '',
+      onclick: '',
+      onsubmit: '',
+      fn: '',
+      name: `${id} ${event}`,
+      source: 'listener'
+    });
+  }
+  const bindRe = /\bbind\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g;
+  while ((m = bindRe.exec(html))) {
+    const id = m[1];
+    const event = m[2];
+    if (!id || id.includes('${')) continue;
+    if (!new RegExp('\\bid\\s*=\\s*["\']' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\']').test(html)) continue;
     const key = `listener:#${id}:${event}`;
     if (seen.has(key)) continue;
     seen.add(key);

@@ -11,7 +11,15 @@ const SKIP_CLICK_IDS = new Set([
   'btn-story-delete',
   'confirmDeleteDmThread',
   'btn-ac-confirm-deactivate',
-  'btn-confirm-deactivate'
+  'btn-confirm-deactivate',
+  'btn-ac-info-logout',
+  'btn-ac-confirm-logout-others',
+  'btn-ac-logout-other-sessions',
+  'btn-confirm-delete-draft',
+  'btn-modal-delete-post',
+  'btn-ac-leave-associated-business',
+  'btn-leave-associated-business',
+  'btn-logout'
 ]);
 
 const SKIP_CLICK_FNS = new Set([
@@ -168,6 +176,10 @@ async function reveal(page, h, item) {
   }
   if (/^modal-edit-content|^edit-content/.test(id) || /EditContent|saveEditedContent/.test(fn)) {
     await page.evaluate(() => { if (typeof openEditContentModal === 'function') openEditContentModal(); });
+    return;
+  }
+  if (/drafts|draft/i.test(id + fn)) {
+    await page.evaluate(() => { if (typeof openDraftsPage === 'function') openDraftsPage(); });
     return;
   }
   if (/contact-pref|openContactPreferences/.test(id + fn)) {
