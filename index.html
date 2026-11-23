@@ -4151,7 +4151,7 @@
             if (!hasPendingWrites && !recentlyMutatedProfile) {
               let profileChanged = false;
               if (typeof mergeStoredProfileFields === 'function') {
-                profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true });
+                profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true, protectContact: true });
                 if (typeof settleBusinessDisplayNameAfterRemote === 'function') {
                   const before = state.currentUser && state.currentUser.dbaName;
                   settleBusinessDisplayNameAfterRemote(state.currentUser, d);
@@ -4167,12 +4167,16 @@
                   profileChanged = true;
                 }
                 if (typeof d.email === 'string' && d.email !== state.currentUser.email) {
-                  state.currentUser.email = d.email;
-                  profileChanged = true;
+                  if (!(typeof isBlankProfileField === 'function' && isBlankProfileField(d.email) && !isBlankProfileField(state.currentUser.email))) {
+                    state.currentUser.email = d.email;
+                    profileChanged = true;
+                  }
                 }
                 if (typeof d.phone === 'string' && d.phone !== state.currentUser.phone) {
-                  state.currentUser.phone = d.phone;
-                  profileChanged = true;
+                  if (!(typeof isBlankProfileField === 'function' && isBlankProfileField(d.phone) && !isBlankProfileField(state.currentUser.phone))) {
+                    state.currentUser.phone = d.phone;
+                    profileChanged = true;
+                  }
                 }
                 if (typeof d.link === 'string' && d.link !== state.currentUser.link) {
                   state.currentUser.link = d.link;
@@ -4230,7 +4234,9 @@
                         subFields[fieldKey] = state.currentUser[fieldKey];
                       }
                     });
-                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(Object.assign({}, updatedRec, subFields)));
+                    const nextUserRec = Object.assign({}, updatedRec, subFields);
+                    preserveNonEmptyContactFields(nextUserRec, readStoredUserRecord(cleanU) || existingRec);
+                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(nextUserRec));
                   }
                   window._pixlyAccounts = window._pixlyAccounts || {};
                   window._pixlyAccounts[cleanU] = updatedRec;
@@ -5326,6 +5332,31 @@
       'businessAddressVisibility', 'businessHours', 'businessSupportEmail',
       'personalName', 'businessName'
     ];
+    var STORED_ACCOUNT_FLAG_FIELDS = [
+      'isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus',
+      'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId',
+      'stripeBusinessSessionId', 'stripeBusinessSubscriptionId',
+      'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd',
+      'verificationType', 'verificationStatus', 'governmentBadgeColor',
+      'verificationEntityName', 'verificationEmail', 'verificationEmailVerified',
+      'verificationUrl', 'verificationNotes', 'verificationNeedsManualReview',
+      'verificationRequestedAt', 'verificationUpdatedAt', 'verificationBaseAccountType',
+      'businessVerificationStatus', 'businessVerificationUpdatedAt',
+      'businessVerificationSubmittedAt', 'businessVerificationLegacyExempt',
+      'associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar'
+    ];
+    function mergeStoredAccountFlags(target, source) {
+      if (!target || !source) return false;
+      let changed = false;
+      STORED_ACCOUNT_FLAG_FIELDS.forEach(function (k) {
+        if (source[k] === undefined || source[k] === null) return;
+        if (target[k] !== source[k]) {
+          target[k] = source[k];
+          changed = true;
+        }
+      });
+      return changed;
+    }
     function markStoredProfileFieldsLoaded(user, source) {
       if (!user) return;
       const loaded = user._loadedProfileFields || {};
@@ -5355,6 +5386,11 @@
         }
         if (k === 'fullName' && !String(source[k] || '').trim()) return;
         if (k === 'accountType' && source[k] !== 'personal' && source[k] !== 'business') return;
+        // Same-user hydration must not let a blank remote phone/email wipe a local value.
+        // Login/account-switch uses replace without protectContact so a different account can be empty.
+        if (opts && opts.protectContact && (k === 'phone' || k === 'email') && typeof isBlankProfileField === 'function' && isBlankProfileField(source[k]) && !isBlankProfileField(target[k])) {
+          return;
+        }
         if (target[k] !== source[k]) {
           target[k] = source[k];
           changed = true;
@@ -5380,6 +5416,8 @@
       return rec;
     }
     window.STORED_PROFILE_FIELDS = STORED_PROFILE_FIELDS;
+    window.STORED_ACCOUNT_FLAG_FIELDS = STORED_ACCOUNT_FLAG_FIELDS;
+    window.mergeStoredAccountFlags = mergeStoredAccountFlags;
     window.markStoredProfileFieldsLoaded = markStoredProfileFieldsLoaded;
     function clearStoredProfileFields(user) {
       if (!user) return;
@@ -5391,7 +5429,12 @@
     function resetProfileStateForAccountSwitch(nextUsername) {
       if (typeof state !== 'undefined' && state && state.currentUser) {
         clearStoredProfileFields(state.currentUser);
-        ['uid', 'id', 'isBusinessPlus', 'verificationType', 'verificationStatus', 'governmentBadgeColor', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'stripeSessionId', 'stripeBusinessSessionId', '_avatarPendingIdb'].forEach(function (k) {
+        const switchClear = ['uid', 'id', '_avatarPendingIdb'];
+        (typeof STORED_ACCOUNT_FLAG_FIELDS !== 'undefined' ? STORED_ACCOUNT_FLAG_FIELDS : [
+          'isBusinessPlus', 'verificationType', 'verificationStatus', 'governmentBadgeColor',
+          'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar',
+          'stripeSessionId', 'stripeBusinessSessionId', 'businessVerificationStatus'
+        ]).concat(switchClear).forEach(function (k) {
           if (Object.prototype.hasOwnProperty.call(state.currentUser, k)) delete state.currentUser[k];
         });
       }
@@ -5427,6 +5470,35 @@
     window.resetProfileStateForAccountSwitch = resetProfileStateForAccountSwitch;
     window.writeTargetsActiveAccount = writeTargetsActiveAccount;
     window.omitUnloadedPublicUserFields = omitUnloadedPublicUserFields;
+    var PROTECTED_CONTACT_FIELDS = ['phone', 'email'];
+    function isBlankProfileField(v) {
+      return v == null || (typeof v === 'string' && !String(v).trim());
+    }
+    function omitBlankProtectedFields(rec) {
+      if (!rec || typeof rec !== 'object') return rec;
+      PROTECTED_CONTACT_FIELDS.forEach(function (k) {
+        if (Object.prototype.hasOwnProperty.call(rec, k) && isBlankProfileField(rec[k])) delete rec[k];
+      });
+      return rec;
+    }
+    function preserveNonEmptyContactFields(nextRec, existingRec) {
+      if (!nextRec || typeof nextRec !== 'object') return nextRec;
+      const prev = existingRec && typeof existingRec === 'object' ? existingRec : {};
+      PROTECTED_CONTACT_FIELDS.forEach(function (k) {
+        if (isBlankProfileField(nextRec[k]) && !isBlankProfileField(prev[k])) nextRec[k] = prev[k];
+      });
+      return nextRec;
+    }
+    function readStoredUserRecord(cleanU) {
+      try {
+        const key = (typeof getAccountStorageKey === 'function') ? getAccountStorageKey('pixlynote_user', cleanU) : ('pixlynote_user_' + cleanU);
+        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+    window.isBlankProfileField = isBlankProfileField;
+    window.omitBlankProtectedFields = omitBlankProtectedFields;
+    window.preserveNonEmptyContactFields = preserveNonEmptyContactFields;
     function publicSafeUserFields(user, extra) {
       const u = user || {};
       const linkN = normalizeWebsiteUrl(u.link);
@@ -5469,7 +5541,7 @@
       if (!user || !user.username) return;
       const normU = (typeof normalizeUsername === 'function') ? normalizeUsername(user.username) : String(user.username || '').toLowerCase();
       if (typeof writeTargetsActiveAccount === 'function' && !writeTargetsActiveAccount(normU)) return;
-      const payload = publicSafeUserFields(Object.assign({}, user, extra || {}));
+      const payload = omitBlankProtectedFields(publicSafeUserFields(Object.assign({}, user, extra || {})));
       recordUserDocWrite(payload, 'persistPublicUserFields');
       try {
         if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
@@ -8200,11 +8272,20 @@ function syncLikedStateToPosts() {
             }
           });
         }
-        ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd'].forEach(function (fieldKey) {
+        ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd', 'verificationType', 'verificationStatus', 'governmentBadgeColor', 'businessVerificationStatus', 'businessVerificationUpdatedAt', 'businessVerificationSubmittedAt', 'businessVerificationLegacyExempt', 'associatedBusiness'].forEach(function (fieldKey) {
           if (state.currentUser[fieldKey] !== undefined && state.currentUser[fieldKey] !== null) {
             cleanUser[fieldKey] = state.currentUser[fieldKey];
           }
         });
+        try {
+          const allowBlank = window._pixlyAllowBlankContactPersist || {};
+          const existingUser = readStoredUserRecord(curU);
+          if (existingUser) {
+            if (!allowBlank.phone) preserveNonEmptyContactFields(cleanUser, existingUser);
+            else if (allowBlank.email) { /* phone may be blank; still keep email unless allowed */ }
+            if (!allowBlank.email && existingUser.email && isBlankProfileField(cleanUser.email)) cleanUser.email = existingUser.email;
+          }
+        } catch (ePreserve) {}
         if (state.currentUser.dbaName !== undefined && state.currentUser.dbaName !== null) {
           cleanUser.dbaName = String(state.currentUser.dbaName);
         } else if (state.currentUser._loadedProfileFields && state.currentUser._loadedProfileFields.dbaName) {
@@ -8212,6 +8293,9 @@ function syncLikedStateToPosts() {
         }
         const userStr = JSON.stringify(cleanUser);
         try { localStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
+        try {
+          if (cleanUser.phone && !isBlankProfileField(cleanUser.phone)) localStorage.setItem(k('pixly_user_phone'), cleanUser.phone);
+        } catch (ePhoneKey) {}
         try { if (lightAvatar) localStorage.setItem(k('pixly_avatar'), lightAvatar); } catch(e) {}
         try { sessionStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
         if (window.idbStorage && !(state.currentUser && state.currentUser._avatarPendingIdb)) {
@@ -8629,10 +8713,15 @@ function syncLikedStateToPosts() {
             if (parsed && typeof parsed === 'object' && (!parsed.username || normalizeUsername(parsed.username) === curU)) {
               Object.assign(state.currentUser, parsed);
               if (typeof markStoredProfileFieldsLoaded === 'function') markStoredProfileFieldsLoaded(state.currentUser, parsed);
-              const hasActivePlus = (parsed.isVerified === true && parsed.isPlus === true && parsed.subscriptionStatus === 'active');
+              if (typeof isBlankProfileField === 'function' && isBlankProfileField(parsed.phone) && savedPhone) {
+                state.currentUser.phone = savedPhone;
+              }
+              const hasActivePlus = (parsed.isVerified === true && parsed.isPlus === true && (parsed.subscriptionStatus === 'active' || parsed.subscriptionStatus === 'cancel_at_period_end'));
+              const hasActiveBizPlus = (parsed.isBusinessPlus === true && (parsed.subscriptionStatus === 'active' || parsed.subscriptionStatus === 'cancel_at_period_end'));
               state.currentUser.isVerified = hasActivePlus;
               state.currentUser.isPlus = hasActivePlus;
-              if (!hasActivePlus) state.currentUser.subscriptionStatus = 'inactive';
+              if (parsed.isBusinessPlus === true) state.currentUser.isBusinessPlus = true;
+              if (!hasActivePlus && !hasActiveBizPlus) state.currentUser.subscriptionStatus = 'inactive';
             }
           } catch(e) {}
         }
@@ -19179,6 +19268,11 @@ function syncLikedStateToPosts() {
       if (!state || !state.currentUser || !data) return;
       const keys = ['verificationType', 'verificationStatus', 'governmentBadgeColor', 'verificationEntityName', 'verificationEmail', 'verificationEmailVerified', 'verificationUrl', 'verificationNotes', 'verificationNeedsManualReview', 'verificationRequestedAt', 'verificationUpdatedAt', 'verificationBaseAccountType'];
       keys.forEach((k) => { if (data[k] !== undefined) state.currentUser[k] = data[k]; });
+      ['businessVerificationStatus', 'businessVerificationUpdatedAt', 'businessVerificationSubmittedAt', 'businessVerificationLegacyExempt'].forEach((k) => {
+        if (data[k] === undefined) return;
+        if (k === 'businessVerificationStatus' && typeof isBlankProfileField === 'function' && isBlankProfileField(data[k]) && !isBlankProfileField(state.currentUser[k])) return;
+        state.currentUser[k] = data[k];
+      });
       if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(state.currentUser.username, { persist: false });
     }
     function targetVerificationUserIsCurrent(username) {
@@ -25135,21 +25229,8 @@ function syncLikedStateToPosts() {
       if (accData && state.currentUser && typeof mergeStoredProfileFields === 'function') {
         mergeStoredProfileFields(state.currentUser, accData, { replace: true });
       }
-      // performLogin starts Plus off so a stale local flag cannot leak across accounts.
-      // Re-apply a complete stored grant immediately so a hard reload is not Plus-less
-      // until Firestore returns (or if the getDoc fails).
-      if (accData && state.currentUser && accData.isPlus === true && accData.isVerified === true && accData.subscriptionStatus !== 'canceled' && accData.subscriptionStatus !== 'inactive') {
-        if (typeof applyRemoteSubscriptionFields === 'function') {
-          applyRemoteSubscriptionFields(accData);
-        } else {
-          state.currentUser.isVerified = true;
-          state.currentUser.isPlus = true;
-          state.currentUser.subscriptionStatus = accData.subscriptionStatus || 'active';
-          if (accData.stripeSessionId) state.currentUser.stripeSessionId = accData.stripeSessionId;
-          if (accData.stripeSubscriptionId) state.currentUser.stripeSubscriptionId = accData.stripeSubscriptionId;
-          if (accData.stripeCustomerId) state.currentUser.stripeCustomerId = accData.stripeCustomerId;
-          if (accData.stripeCurrentPeriodEnd) state.currentUser.stripeCurrentPeriodEnd = accData.stripeCurrentPeriodEnd;
-        }
+      if (accData && state.currentUser && typeof mergeStoredAccountFlags === 'function') {
+        mergeStoredAccountFlags(state.currentUser, accData);
       }
       if (state.currentUser && 'password' in state.currentUser) delete state.currentUser.password;
       if (password) {
@@ -25222,6 +25303,22 @@ function syncLikedStateToPosts() {
         mainView.classList.remove('hidden');
         mainView.style.display = 'flex';
       }
+      // Re-apply a stored Plus grant only after the signed-in shell is visible, so a
+      // hydration error cannot leave a returning user stuck on the welcome screen.
+      try {
+        if (accData && state.currentUser && accData.subscriptionStatus !== 'canceled' && accData.subscriptionStatus !== 'inactive' && ((accData.isPlus === true && accData.isVerified === true) || accData.isBusinessPlus === true)) {
+          if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(accData);
+          else {
+            state.currentUser.isVerified = true;
+            state.currentUser.isPlus = true;
+            state.currentUser.subscriptionStatus = accData.subscriptionStatus || 'active';
+            if (accData.stripeSessionId) state.currentUser.stripeSessionId = accData.stripeSessionId;
+            if (accData.stripeSubscriptionId) state.currentUser.stripeSubscriptionId = accData.stripeSubscriptionId;
+            if (accData.stripeCustomerId) state.currentUser.stripeCustomerId = accData.stripeCustomerId;
+            if (accData.stripeCurrentPeriodEnd) state.currentUser.stripeCurrentPeriodEnd = accData.stripeCurrentPeriodEnd;
+          }
+        }
+      } catch (ePlus) {}
       if (typeof disarmAuthCredentialForms === 'function') disarmAuthCredentialForms();
 
       // Update header & dock avatars from the signed-in user only (never the app logo or a viewed profile).
@@ -25530,7 +25627,14 @@ function syncLikedStateToPosts() {
       }
 
 
-      // Default to Splash screen on initial launch
+      // Restore a saved session before painting the splash, so a hard reload
+      // does not leave a signed-in user on "Join Pixlynote".
+      try {
+        if (!state.isLoggedIn && localStorage.getItem('pixly_is_logged_in') === '1') {
+          const savedU = localStorage.getItem('pixly_active_username');
+          if (savedU && typeof performLogin === 'function') performLogin(savedU);
+        }
+      } catch (e) {}
       try {
         const authView = document.getElementById('auth-view');
         const mainView = document.getElementById('main-view');
@@ -25698,11 +25802,9 @@ function syncLikedStateToPosts() {
         }
         if (typeof updateChatHeadBadge === 'function') updateChatHeadBadge();
         try {
-          if (localStorage.getItem('pixly_is_logged_in') === '1') {
+          if (!state.isLoggedIn && localStorage.getItem('pixly_is_logged_in') === '1') {
             const savedU = localStorage.getItem('pixly_active_username');
-            if (savedU && typeof performLogin === 'function') {
-              performLogin(savedU);
-            }
+            if (savedU && typeof performLogin === 'function') performLogin(savedU);
           }
         } catch(e) {}
       } catch(e) {}
@@ -29278,6 +29380,12 @@ function syncLikedStateToPosts() {
             }
             window._lastLocalProfileWriteTs = Date.now();
             try {
+              window._pixlyAllowBlankContactPersist = {
+                phone: !phone,
+                email: !email
+              };
+            } catch (eAllow) {}
+            try {
               const normUKey = normalizeUsername(state.currentUser.username);
               if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS[normUKey]) {
                 CREATOR_DETAILS[normUKey].bio = state.currentUser.bio;
@@ -31216,8 +31324,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const isPl = Boolean(isVer && data.isPlus === true);
       state.currentUser.isVerified = isVer && isPl;
       state.currentUser.isPlus = isVer && isPl;
-      state.currentUser.subscriptionStatus = (isVer && isPl) ? (data.subscriptionStatus || 'active') : (data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive');
       state.currentUser.isBusinessPlus = data.isBusinessPlus === true;
+      const bizOn = data.isBusinessPlus === true;
+      if (isPl || bizOn) {
+        state.currentUser.subscriptionStatus = data.subscriptionStatus || 'active';
+      } else {
+        state.currentUser.subscriptionStatus = data.subscriptionStatus === 'canceled' ? 'canceled' : 'inactive';
+      }
       if (data.stripeSessionId) state.currentUser.stripeSessionId = data.stripeSessionId;
       if (data.stripeBusinessSessionId) state.currentUser.stripeBusinessSessionId = data.stripeBusinessSessionId;
       if (data.stripeSubscriptionId) state.currentUser.stripeSubscriptionId = data.stripeSubscriptionId;
