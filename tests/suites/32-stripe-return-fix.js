@@ -64,6 +64,42 @@ async function mockVerify(page, bodies) {
   });
 }
 
+async function clearStoredPlus(page) {
+  await page.evaluate(() => {
+    if (state && state.currentUser) {
+      state.currentUser.isPlus = false;
+      state.currentUser.isVerified = false;
+      state.currentUser.isBusinessPlus = false;
+      state.currentUser.subscriptionStatus = 'inactive';
+      delete state.currentUser.stripeSessionId;
+      delete state.currentUser.stripeSubscriptionId;
+      delete state.currentUser.stripeCustomerId;
+      delete state.currentUser.stripeCurrentPeriodEnd;
+    }
+    try {
+      const u = state && state.currentUser && state.currentUser.username;
+      if (u && typeof getAccountStorageKey === 'function') {
+        const key = getAccountStorageKey('pixlynote_user', u);
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const rec = JSON.parse(raw);
+          rec.isPlus = false;
+          rec.isVerified = false;
+          rec.isBusinessPlus = false;
+          rec.subscriptionStatus = 'inactive';
+          delete rec.stripeSessionId;
+          delete rec.stripeSubscriptionId;
+          delete rec.stripeCustomerId;
+          delete rec.stripeCurrentPeriodEnd;
+          localStorage.setItem(key, JSON.stringify(rec));
+          try { sessionStorage.setItem(key, JSON.stringify(rec)); } catch (e2) {}
+        }
+      }
+    } catch (e) {}
+    if (typeof persistState === 'function') persistState();
+  });
+}
+
 async function gotoReturn(page, qs) {
   const port = Number(new URL(page.url()).port);
   const url = 'http://127.0.0.1:' + port + '/index.html?' + qs + '&cb=' + Date.now();
@@ -179,6 +215,7 @@ module.exports = {
       covers: ['handler:handleStripeRedirectOnLoad'],
       async run(ctx) {
         const { page, a, account } = ctx;
+        await clearStoredPlus(page);
         await mockVerify(page, { [FAKE_SID]: unpaidBody() });
         await gotoReturn(page, 'subscribed=true&session_id=' + FAKE_SID);
         const st = await readState(page);
@@ -200,6 +237,7 @@ module.exports = {
       covers: ['handler:stripeSessionIdentityMatches'],
       async run(ctx) {
         const { page, a, account } = ctx;
+        await clearStoredPlus(page);
         await mockVerify(page, { [PAID_SID]: paidPlus('other_account') });
         await gotoReturn(page, 'subscribed=true&session_id=' + PAID_SID);
         const st = await readState(page);
@@ -217,6 +255,7 @@ module.exports = {
       async run(ctx) {
         const { page, a, account } = ctx;
         a.ok(account.accountType === 'business', 'This case runs as a business account');
+        await clearStoredPlus(page);
         await mockVerify(page, { [BIZ_SID]: paidBusiness(account.username) });
         await gotoReturn(page, 'subscribed=business&session_id=' + BIZ_SID);
         const st = await readState(page);

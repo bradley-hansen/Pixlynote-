@@ -154,6 +154,7 @@ async function main() {
         const accs = normalizeAccountList(test.accounts);
         if (!accs.includes(key)) continue;
         try { await h.closeOverlays(page); await h.installAppStubs(page); } catch (e) {}
+        try { await h.resetMembershipFlags(page); } catch (e) {}
         await runOne(test, key, page);
       }
       await page.context().close();

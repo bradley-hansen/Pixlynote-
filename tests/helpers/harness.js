@@ -583,6 +583,25 @@ async function loadApp(page, session) {
   await seedAccountsStore(page);
 }
 
+async function resetMembershipFlags(page) {
+  await page.evaluate(() => {
+    if (!(window.state && state.currentUser)) return;
+    const cur = state.currentUser;
+    cur.isPlus = false;
+    cur.isVerified = false;
+    cur.isBusinessPlus = false;
+    cur.subscriptionStatus = 'inactive';
+    cur.stripeCancelAtPeriodEnd = false;
+    delete cur.stripeSessionId;
+    delete cur.stripeSubscriptionId;
+    delete cur.stripeCustomerId;
+    delete cur.stripeBusinessSessionId;
+    delete cur.stripeBusinessSubscriptionId;
+    delete cur.stripeCurrentPeriodEnd;
+    if (typeof persistCurrentUserSubscription === 'function') persistCurrentUserSubscription();
+  });
+}
+
 async function clearLoginSession(page) {
   await page.evaluate(() => {
     try {
@@ -620,6 +639,7 @@ module.exports = {
   newPage,
   loadApp,
   clearLoginSession,
+  resetMembershipFlags,
   resetToSignedOut,
   loginAs,
   seedContent,

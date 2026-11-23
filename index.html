@@ -4224,7 +4224,13 @@
                   localStorage.setItem('pixly_accounts', JSON.stringify(accts));
                   localStorage.setItem('pixly_account_' + cleanU, JSON.stringify(updatedRec));
                   if (typeof getAccountStorageKey === 'function') {
-                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(updatedRec));
+                    const subFields = {};
+                    ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd'].forEach(function (fieldKey) {
+                      if (state.currentUser && state.currentUser[fieldKey] !== undefined && state.currentUser[fieldKey] !== null) {
+                        subFields[fieldKey] = state.currentUser[fieldKey];
+                      }
+                    });
+                    localStorage.setItem(getAccountStorageKey('pixlynote_user', cleanU), JSON.stringify(Object.assign({}, updatedRec, subFields)));
                   }
                   window._pixlyAccounts = window._pixlyAccounts || {};
                   window._pixlyAccounts[cleanU] = updatedRec;
@@ -8194,6 +8200,11 @@ function syncLikedStateToPosts() {
             }
           });
         }
+        ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd'].forEach(function (fieldKey) {
+          if (state.currentUser[fieldKey] !== undefined && state.currentUser[fieldKey] !== null) {
+            cleanUser[fieldKey] = state.currentUser[fieldKey];
+          }
+        });
         if (state.currentUser.dbaName !== undefined && state.currentUser.dbaName !== null) {
           cleanUser.dbaName = String(state.currentUser.dbaName);
         } else if (state.currentUser._loadedProfileFields && state.currentUser._loadedProfileFields.dbaName) {
@@ -25124,6 +25135,22 @@ function syncLikedStateToPosts() {
       if (accData && state.currentUser && typeof mergeStoredProfileFields === 'function') {
         mergeStoredProfileFields(state.currentUser, accData, { replace: true });
       }
+      // performLogin starts Plus off so a stale local flag cannot leak across accounts.
+      // Re-apply a complete stored grant immediately so a hard reload is not Plus-less
+      // until Firestore returns (or if the getDoc fails).
+      if (accData && state.currentUser && accData.isPlus === true && accData.isVerified === true && accData.subscriptionStatus !== 'canceled' && accData.subscriptionStatus !== 'inactive') {
+        if (typeof applyRemoteSubscriptionFields === 'function') {
+          applyRemoteSubscriptionFields(accData);
+        } else {
+          state.currentUser.isVerified = true;
+          state.currentUser.isPlus = true;
+          state.currentUser.subscriptionStatus = accData.subscriptionStatus || 'active';
+          if (accData.stripeSessionId) state.currentUser.stripeSessionId = accData.stripeSessionId;
+          if (accData.stripeSubscriptionId) state.currentUser.stripeSubscriptionId = accData.stripeSubscriptionId;
+          if (accData.stripeCustomerId) state.currentUser.stripeCustomerId = accData.stripeCustomerId;
+          if (accData.stripeCurrentPeriodEnd) state.currentUser.stripeCurrentPeriodEnd = accData.stripeCurrentPeriodEnd;
+        }
+      }
       if (state.currentUser && 'password' in state.currentUser) delete state.currentUser.password;
       if (password) {
         const pwUserKey = normalizeUsername(cleanUsername);
@@ -31153,6 +31180,36 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return false;
     }
     window.applyPendingStripeSession = applyPendingStripeSession;
+    const SUBSCRIPTION_PERSIST_FIELDS = ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd'];
+    function persistCurrentUserSubscription() {
+      if (!state || !state.currentUser) return;
+      const curU = (typeof getActiveFirestoreUsername === 'function')
+        ? getActiveFirestoreUsername()
+        : (typeof normalizeUsername === 'function' ? normalizeUsername(state.currentUser.username || '') : String(state.currentUser.username || '').toLowerCase());
+      if (!curU || curU === 'guest') return;
+      const patch = { username: state.currentUser.username || curU };
+      SUBSCRIPTION_PERSIST_FIELDS.forEach(function (fieldKey) {
+        if (state.currentUser[fieldKey] !== undefined && state.currentUser[fieldKey] !== null) {
+          patch[fieldKey] = state.currentUser[fieldKey];
+        }
+      });
+      const mergeInto = function (raw) {
+        let rec = {};
+        try { rec = raw ? JSON.parse(raw) : {}; } catch (e) { rec = {}; }
+        if (!rec || typeof rec !== 'object') rec = {};
+        return JSON.stringify(Object.assign({}, rec, patch));
+      };
+      try {
+        const key = (typeof getAccountStorageKey === 'function') ? getAccountStorageKey('pixlynote_user', curU) : ('pixlynote_user_' + curU);
+        const next = mergeInto(localStorage.getItem(key));
+        localStorage.setItem(key, next);
+        try { sessionStorage.setItem(key, next); } catch (e2) {}
+        if (window.idbStorage && typeof window.idbStorage.set === 'function') {
+          try { window.idbStorage.set(key, next); } catch (e3) {}
+        }
+      } catch (e) {}
+    }
+    window.persistCurrentUserSubscription = persistCurrentUserSubscription;
     function applyRemoteSubscriptionFields(data) {
       if (!state.currentUser || !data) return;
       const isVer = data.isVerified === true;
@@ -31171,6 +31228,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (Array.isArray(data.businessAssociates)) state.currentUser.businessAssociates = data.businessAssociates;
       if (typeof applyRemoteVerificationFields === 'function') applyRemoteVerificationFields(data);
       if (typeof maybeDowngradeExpiredMembership === 'function') maybeDowngradeExpiredMembership(state.currentUser && state.currentUser.username);
+      persistCurrentUserSubscription();
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
     }
     window.applyRemoteSubscriptionFields = applyRemoteSubscriptionFields;
     async function verifyStripeSessionWithServer(sessionId, username) {
@@ -31187,12 +31246,20 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.STRIPE_BILLING_PORTAL_URL = STRIPE_BILLING_PORTAL_URL;
     const STRIPE_CANCEL_AT_PERIOD_END_PATH = '/cancel-subscription-at-period-end';
 
+    function normalizeStripePeriodEndSeconds(raw) {
+      const n = Number(raw);
+      if (!n || !isFinite(n) || n < 0) return 0;
+      // Stripe sends seconds. Values already in ms (13+ digits) must not be multiplied again.
+      if (n > 1e12) return Math.floor(n / 1000);
+      return Math.floor(n);
+    }
     function stripePeriodEndSeconds(data, user) {
       if (data) {
-        if (data.current_period_end) return Number(data.current_period_end);
-        if (data.subscription && data.subscription.current_period_end) return Number(data.subscription.current_period_end);
+        const fromData = normalizeStripePeriodEndSeconds(data.current_period_end)
+          || normalizeStripePeriodEndSeconds(data.subscription && data.subscription.current_period_end);
+        if (fromData) return fromData;
       }
-      if (user && user.stripeCurrentPeriodEnd) return Number(user.stripeCurrentPeriodEnd);
+      if (user && user.stripeCurrentPeriodEnd) return normalizeStripePeriodEndSeconds(user.stripeCurrentPeriodEnd);
       return 0;
     }
     function formatStripePeriodEnd(epochSec) {
@@ -31215,6 +31282,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (!data) return false;
       const now = nowMs || Date.now();
       const status = data.subscription_status || (data.subscription && data.subscription.status) || '';
+      // Never lapse an explicitly active Plus grant because period-end is missing or oddly scaled.
+      if (data.plus_active === true) return false;
       if (['canceled', 'unpaid', 'incomplete_expired'].includes(status)) return true;
       const endSec = stripePeriodEndSeconds(data);
       if (endSec && endSec * 1000 <= now) return true;
@@ -31345,6 +31414,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (maybeForceRecheckAfterPortalVisit()) clearStripePortalVisit();
       });
     }
+    window.normalizeStripePeriodEndSeconds = normalizeStripePeriodEndSeconds;
     window.stripePeriodEndSeconds = stripePeriodEndSeconds;
     window.formatStripePeriodEnd = formatStripePeriodEnd;
     window.stripeSubscriptionShouldDowngrade = stripeSubscriptionShouldDowngrade;
@@ -31478,6 +31548,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         }, 400);
         setTimeout(() => clearInterval(retryTimer), 12000);
       }
+      persistCurrentUserSubscription();
       if (typeof showToast === 'function') {
         showToast('Pixlynote Plus activated! Blue badge enabled ✓');
       }
