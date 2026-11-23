@@ -393,7 +393,9 @@ module.exports = {
 
         // 4. Unfollow both via real UI with stale snapshot race & flicker polling
         await page.evaluate(() => window.__mockFsSetEdgeDelay(250));
-        await page.click('#btn-user-profile-follow'); // unfollow real_creator
+        await page.click('#btn-user-profile-follow'); // opens disconnect confirm for real_creator
+        await page.waitForSelector('#menu-disconnect-confirm:not(.hidden)', { timeout: 3000 });
+        await page.click('#btn-disconnect-confirm');
         await page.evaluate((u) => {
           window.__mockFsEmitStaleUser(u, { username: u, following: [
             { username: 'elena_eats', isFollowing: true, explicit: true },
@@ -411,7 +413,9 @@ module.exports = {
         await h.gotoMainTab(page, 'explore');
         await page.click('.explore-account-card[data-username="elena_eats"]');
         await page.waitForTimeout(100);
-        await page.click('#btn-user-profile-follow'); // unfollow elena_eats
+        await page.click('#btn-user-profile-follow'); // opens disconnect confirm for elena_eats
+        await page.waitForSelector('#menu-disconnect-confirm:not(.hidden)', { timeout: 3000 });
+        await page.click('#btn-disconnect-confirm');
         await page.evaluate((u) => {
           window.__mockFsEmitStaleUser(u, { username: u, following: [
             { username: 'elena_eats', isFollowing: true, explicit: true }

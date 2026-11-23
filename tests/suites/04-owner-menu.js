@@ -1,7 +1,7 @@
 'use strict';
 
 const { ALL_ACCOUNT_KEYS } = require('../helpers/harness');
-const EXPECT = ['Profile', 'Subscription', 'Settings and info', 'Info & about'];
+const EXPECT = ['Profile', 'Subscription', 'Settings and info', 'Help Center', 'Info & about'];
 
 module.exports = {
   name: 'Owner menu',
@@ -38,7 +38,7 @@ module.exports = {
         a.ok(s.open, 'Owner menu is open');
         a.equal(s.user, '@' + account.username, 'Username is at the top');
         a.ok(s.under.length === 0, 'Nothing under the username: ' + JSON.stringify(s.under));
-        a.ok(JSON.stringify(s.items) === JSON.stringify(EXPECT), 'Four items in order: ' + JSON.stringify(s.items));
+        a.ok(JSON.stringify(s.items) === JSON.stringify(EXPECT), 'Five items in order: ' + JSON.stringify(s.items));
         a.ok(!s.footer, 'No version footer');
       }
     },

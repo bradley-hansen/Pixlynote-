@@ -470,12 +470,12 @@ async function closeOverlays(page) {
     const closers = [
       'closeProfileMenu', 'closeEditProfileModal', 'closePostDetailModal', 'closeNoteDetailModal',
       'closePixaiModal', 'closeMessagesModal', 'closeDmShareModal', 'closeDiscoverCreatorsModal',
-      'closeSubscriptionModal', 'closeTermsPoliciesModal', 'closeCreatePostModal', 'closeEditContentModal'
+      'closeSubscriptionModal', 'closeTermsPoliciesModal', 'closeCreatePostModal', 'closeEditContentModal', 'closeHelpCenterModal', 'closeDisconnectConfirm'
     ];
     closers.forEach((fn) => {
       try { if (typeof window[fn] === 'function') window[fn](); } catch (e) {}
     });
-    document.querySelectorAll('[id^="modal-"], [id$="-dropdown"], [id$="-sheet"], [id$="-backdrop"]').forEach((el) => {
+    document.querySelectorAll('[id^="modal-"], [id$="-dropdown"], [id$="-sheet"], [id$="-backdrop"], #menu-disconnect-confirm').forEach((el) => {
       if (!el || el.id === 'main-view' || el.id === 'auth-view') return;
       el.classList.add('hidden');
       if (el.style) el.style.display = 'none';

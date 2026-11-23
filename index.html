@@ -673,7 +673,7 @@
 
         <!-- Log In Form Container -->
         <div id="auth-login-container" class="space-y-3 text-left">
-          <form id="login-form" class="space-y-3 text-left">
+          <form id="login-form" onsubmit="return false;" class="space-y-3 text-left">
             <div>
               <label class="block text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">Username, Email, or Phone</label>
               <input type="text" id="login-username" value="" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Phone number, username, or email" class="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400">
@@ -927,13 +927,14 @@
       <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         
         <!-- Pixlynote Shutter Brand & Modern Sans Wordmark -->
-        <button type="button" id="nav-brand-btn" class="flex items-center space-x-2.5 text-left group cursor-pointer">
-          <div class="w-8 h-8 rounded-xl overflow-hidden shadow-sm shadow-pink-500/20 group-hover:scale-105 group-hover:rotate-6 transition duration-200 border border-neutral-200/50">
+        <button type="button" id="nav-brand-btn" class="flex items-center space-x-2 text-left group cursor-pointer flex-shrink-0 min-w-0">
+          <div class="w-8 h-8 rounded-xl overflow-hidden shadow-sm shadow-pink-500/20 group-hover:scale-105 group-hover:rotate-6 transition duration-200 border border-neutral-200/50 flex-shrink-0">
             <img src="data:image/png;base64,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" alt="Pixlynote Shutter" class="w-full h-full object-cover">
           </div>
-          <span class="brand-font text-2xl font-black tracking-tight text-neutral-900 flex items-center select-none">
+          <span class="brand-font text-xl sm:text-2xl font-black tracking-tight text-neutral-900 flex items-center select-none">
             <span>Pixly</span><span class="pixly-gradient-text">note</span><span class="w-1.5 h-1.5 rounded-full bg-pink-500 ml-1 inline-block"></span>
           </span>
+          <span id="nav-beta-pill" class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-100/90 text-violet-700 border border-violet-200/80 leading-none select-none flex-shrink-0" title="Pixlynote Beta — early access">Beta</span>
         </button>
 
         <!-- Search Bar (Desktop/Tablet) -->
@@ -1368,6 +1369,10 @@
                   <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
                     <span class="text-neutral-400">Category</span>
                     <span class="font-medium text-neutral-800" id="own-info-category"></span>
+                  </div>
+                  <div class="flex items-center justify-between py-1 border-b border-neutral-200/60">
+                    <span class="text-neutral-400">App Stage</span>
+                    <span class="font-semibold text-violet-700" id="own-info-app-release">Pixlynote Beta (Early Access)</span>
                   </div>
                 </div>
               </div>
@@ -2673,7 +2678,16 @@
   </div>
 
     <div id="menu-user-profile-cf" class="hidden" role="menu">
+    <button type="button" id="btn-cf-menu-connect" class="hidden w-full text-left px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 border-b border-neutral-100 cursor-pointer" role="menuitem">Connect</button>
     <button type="button" id="btn-cf-menu-toggle" class="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-emerald-50 cursor-pointer" role="menuitem">Add to Close Friends</button>
+  </div>
+  <div id="menu-disconnect-confirm" class="hidden fixed z-[90] w-56 bg-white border border-neutral-200 rounded-2xl shadow-2xl p-3 space-y-2.5" role="dialog" aria-modal="false" aria-labelledby="disconnect-confirm-title">
+    <p id="disconnect-confirm-title" class="text-xs font-bold text-neutral-900">Disconnect @user?</p>
+    <p class="text-[11px] text-neutral-500 leading-snug">Are you sure you want to remove this connection?</p>
+    <div class="flex items-center gap-2">
+      <button type="button" id="btn-disconnect-cancel" class="flex-1 py-1.5 px-2.5 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">Cancel</button>
+      <button type="button" id="btn-disconnect-confirm" class="flex-1 py-1.5 px-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition cursor-pointer">Disconnect</button>
+    </div>
   </div>
   <div id="menu-user-profile-more" class="hidden" role="menu">
     <button type="button" id="btn-menu-block" class="w-full text-left px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 cursor-pointer" role="menuitem">Block</button>
@@ -3978,6 +3992,7 @@
                 state.currentUser.followingCount = String(activeFollowCount);
               }
               if (typeof renderProfile === 'function') renderProfile();
+              if (typeof renderStories === 'function') renderStories();
               if (state.viewedCreator && typeof updateCreatorFollowButton === 'function') updateCreatorFollowButton(state.viewedCreator);
               if (typeof refreshConnectionsUi === 'function') refreshConnectionsUi();
               if (state.currentTab === 'explore' && typeof renderExplore === 'function') renderExplore();
@@ -4107,9 +4122,10 @@
 
           // Per-account full Firestore hydration & live listener for ALL accounts (critical after cache clear)
           window.applyActiveUserDocData = function(cleanU, d, hasPendingWrites = false) {
-            if (!d || !cleanU) return;
+            if (!d || !cleanU || !state.isLoggedIn) return;
             const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : '');
             if (curU !== cleanU) return;
+            if (d.uid && (!d.username || normalizeUsername(d.username) === cleanU)) state.currentUser.uid = String(d.uid);
             if (typeof applyContactPrefsFromDoc === 'function') applyContactPrefsFromDoc(cleanU, d, hasPendingWrites);
             if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
             const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
@@ -4195,7 +4211,12 @@
                   window._pixlyAccounts = window._pixlyAccounts || {};
                   window._pixlyAccounts[cleanU] = updatedRec;
                 } catch(e) {}
-                try { if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars(); } catch(e) {}
+                try {
+                  if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars();
+                  if (typeof registerSessionAccount === 'function' && typeof sessionAccountSnapshot === 'function') {
+                    registerSessionAccount(sessionAccountSnapshot(state.currentUser));
+                  }
+                } catch(e) {}
                 if (typeof renderProfile === 'function') renderProfile();
                 if (typeof renderFeed === 'function') renderFeed();
                 if (typeof renderNotes === 'function') renderNotes();
@@ -4414,8 +4435,10 @@
             const fDoc = fb.doc;
             const fGetDoc = fb.getDoc;
             if (!cleanU || !window.firebaseReady || !fDb || !fDoc || !fGetDoc) return;
+            const gen = window._pixlyLoginGen || 0;
             try {
               const snap = await fGetDoc(fDoc(fDb, 'users', cleanU));
+              if ((window._pixlyLoginGen || 0) !== gen || !state.isLoggedIn || normalizeUsername((state.currentUser && state.currentUser.username) || '') !== cleanU) return;
               if (snap && snap.exists()) {
                 window.applyActiveUserDocData(cleanU, snap.data(), false);
               } else if (typeof window.applyFollowingFromRemote === 'function') {
@@ -4853,11 +4876,13 @@
 
         // Listen for Auth changes and attach live listeners only for the active logged-in user
         onAuthStateChanged(auth, async (user) => {
-          if (user) {
-            console.log("Firebase Auth verified. UID:", user.uid);
-          }
+          if (!user) return;
+          console.log("Firebase Auth verified. UID:", user.uid);
           if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
             const activeNorm = String(state.currentUser.username).toLowerCase().replace(/^@/, '').trim();
+            if (activeNorm !== 'bradley_hansen' && window._bradleyUserDocUnsub) {
+              try { window.closeAllFirestoreListeners(); } catch(e) {}
+            }
             if (activeNorm === 'bradley_hansen') {
               attachFirestoreListeners();
             }
@@ -5174,7 +5199,9 @@
     }
     function sessionAccountSnapshot(user, extra) {
       const u = user || {};
+      const normU = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username || '') : String(u.username || '').toLowerCase().replace(/^@/, '').trim();
       const rec = {
+        uid: u.uid || normU,
         username: u.username,
         fullName: u.fullName,
         email: u.email || '',
@@ -5334,7 +5361,12 @@
       if (Object.prototype.hasOwnProperty.call(user, '_loadedProfileFields')) delete user._loadedProfileFields;
     }
     function resetProfileStateForAccountSwitch(nextUsername) {
-      if (typeof state !== 'undefined' && state && state.currentUser) clearStoredProfileFields(state.currentUser);
+      if (typeof state !== 'undefined' && state && state.currentUser) {
+        clearStoredProfileFields(state.currentUser);
+        ['uid', 'id', 'isBusinessPlus', 'verificationType', 'verificationStatus', 'governmentBadgeColor', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'stripeSessionId', 'stripeBusinessSessionId', '_avatarPendingIdb'].forEach(function (k) {
+          if (Object.prototype.hasOwnProperty.call(state.currentUser, k)) delete state.currentUser[k];
+        });
+      }
       try {
         const cache = window._activeUserDocCache;
         const nextU = (typeof normalizeUsername === 'function') ? normalizeUsername(nextUsername || '') : String(nextUsername || '').toLowerCase().replace(/^@/, '').trim();
@@ -5651,6 +5683,8 @@
       const user = state && state.currentUser;
       const dba = document.getElementById('bizver-dba-name');
       if (dba && user && !dba.value) dba.value = user.dbaName || '';
+      const domEm = document.getElementById('bizver-domain-email');
+      if (domEm && user && !domEm.value && user.businessSupportEmail) domEm.value = user.businessSupportEmail;
       const banner = document.getElementById('business-verification-form-banner');
       const status = normalizeBusinessVerificationStatus(user && user.businessVerificationStatus);
       if (banner) {
@@ -8116,9 +8150,11 @@ function syncLikedStateToPosts() {
         // 5. Save Profile data safely without plain-text password or >30KB base64 avatar in localStorage
         const lightAvatar = (typeof state.currentUser.avatar === 'string' && state.currentUser.avatar.startsWith('data:image/') && state.currentUser.avatar.length > 30000) ? '' : state.currentUser.avatar;
         const cleanUser = {
+          uid: state.currentUser.uid || curU,
           username: state.currentUser.username,
           fullName: state.currentUser.fullName,
           email: state.currentUser.email,
+          phone: state.currentUser.phone || '',
           avatar: lightAvatar,
           bio: state.currentUser.bio,
           link: state.currentUser.link,
@@ -8127,6 +8163,13 @@ function syncLikedStateToPosts() {
           followersCount: state.currentUser.followersCount,
           followingCount: state.currentUser.followingCount
         };
+        if (typeof STORED_PROFILE_FIELDS !== 'undefined') {
+          STORED_PROFILE_FIELDS.forEach(function (fieldKey) {
+            if (state.currentUser[fieldKey] !== undefined && state.currentUser[fieldKey] !== null) {
+              cleanUser[fieldKey] = state.currentUser[fieldKey];
+            }
+          });
+        }
         if (state.currentUser.dbaName !== undefined && state.currentUser.dbaName !== null) {
           cleanUser.dbaName = String(state.currentUser.dbaName);
         } else if (state.currentUser._loadedProfileFields && state.currentUser._loadedProfileFields.dbaName) {
@@ -8136,7 +8179,7 @@ function syncLikedStateToPosts() {
         try { localStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
         try { if (lightAvatar) localStorage.setItem(k('pixly_avatar'), lightAvatar); } catch(e) {}
         try { sessionStorage.setItem(k('pixlynote_user'), userStr); } catch(e) {}
-        if (window.idbStorage) {
+        if (window.idbStorage && !(state.currentUser && state.currentUser._avatarPendingIdb)) {
           const fullUserStr = JSON.stringify({ ...cleanUser, avatar: state.currentUser.avatar });
           idbStorage.set(k('pixlynote_user'), fullUserStr);
           idbStorage.set(k('pixly_avatar'), state.currentUser.avatar);
@@ -8331,6 +8374,41 @@ function syncLikedStateToPosts() {
             report.added.push(t);
           }
         }
+        const activeSet = new Set(active.map(f => normalizeUsername(f.username)));
+        const candidateTargets = new Set();
+        (Array.isArray(state.following) ? state.following : []).forEach(f => {
+          const tn = f && normalizeUsername(f.username);
+          if (tn && tn !== me && !activeSet.has(tn)) candidateTargets.add(tn);
+        });
+        if (typeof CREATOR_DETAILS !== 'undefined' && CREATOR_DETAILS) {
+          Object.keys(CREATOR_DETAILS).forEach(k => {
+            const tn = normalizeUsername(k);
+            if (tn && tn !== me && !activeSet.has(tn)) candidateTargets.add(tn);
+          });
+        }
+        if (window._exploreUserDir && window._exploreUserDir.users) {
+          window._exploreUserDir.users.forEach((_, k) => {
+            const tn = normalizeUsername(k);
+            if (tn && tn !== me && !activeSet.has(tn)) candidateTargets.add(tn);
+          });
+        }
+        for (const t of Array.from(candidateTargets).slice(0, 200)) {
+          const ov = (typeof getActiveLocalFollowOverride === 'function') ? getActiveLocalFollowOverride(me, t) : null;
+          if (ov && ov.isFollowing) continue;
+          const edge = await getDoc(doc(db, 'users', t, 'followers', me)).catch(() => null);
+          if (edge && edge.exists()) {
+            const followedAt = Number((edge.data() || {}).followedAt || 0);
+            if (followedAt && (Date.now() - followedAt) < 30000) continue;
+            await deleteDoc(doc(db, 'users', t, 'followers', me)).catch(() => {});
+            try {
+              const tFol = JSON.parse(localStorage.getItem('pixly_followers_' + t) || 'null');
+              if (Array.isArray(tFol)) {
+                localStorage.setItem('pixly_followers_' + t, JSON.stringify(tFol.filter(x => normalizeUsername(x && x.username) !== me)));
+              }
+            } catch(e) {}
+            report.removedStale.push('outbound:' + t);
+          }
+        }
         const qs = await getDocs(collection(db, 'users', me, 'followers')).catch(() => null);
         if (qs) {
           const edges = []; qs.forEach(d => edges.push({ id: d.id, data: d.data() || {} }));
@@ -8477,7 +8555,7 @@ function syncLikedStateToPosts() {
 
         // 2. Restore Profile Information & Avatar
         let savedPhone = null;
-        try { savedPhone = localStorage.getItem('pixly_user_phone'); } catch(e) {}
+        try { savedPhone = localStorage.getItem(k('pixly_user_phone')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_user_phone') : null); } catch(e) {}
         if (savedPhone && state.currentUser.username === 'bradley_hansen') {
           state.currentUser.phone = savedPhone;
         } else if (state.currentUser.username === 'pixlynote') {
@@ -8491,8 +8569,21 @@ function syncLikedStateToPosts() {
         }
 
         let savedAccType = null;
-        try { savedAccType = localStorage.getItem('pixly_account_type'); } catch(e) {}
+        try { savedAccType = localStorage.getItem(k('pixly_account_type')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_account_type') : null); } catch(e) {}
         if (savedAccType) state.currentUser.accountType = savedAccType;
+
+        let savedAccountFallback = null;
+        try {
+          const rawAcc = localStorage.getItem('pixly_account_' + curU);
+          if (rawAcc) savedAccountFallback = JSON.parse(rawAcc);
+          else {
+            const allAccs = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            if (allAccs && allAccs[curU]) savedAccountFallback = allAccs[curU];
+          }
+        } catch(e) {}
+        if (savedAccountFallback && typeof mergeStoredProfileFields === 'function') {
+          mergeStoredProfileFields(state.currentUser, savedAccountFallback);
+        }
 
         let savedUser = null;
         try { savedUser = localStorage.getItem(k('pixlynote_user')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixlynote_user') : null); } catch(e) {}
@@ -8500,8 +8591,9 @@ function syncLikedStateToPosts() {
         if (savedUser) {
           try {
             const parsed = JSON.parse(savedUser);
-            if (parsed && typeof parsed === 'object') {
+            if (parsed && typeof parsed === 'object' && (!parsed.username || normalizeUsername(parsed.username) === curU)) {
               Object.assign(state.currentUser, parsed);
+              if (typeof markStoredProfileFieldsLoaded === 'function') markStoredProfileFieldsLoaded(state.currentUser, parsed);
               const hasActivePlus = (parsed.isVerified === true && parsed.isPlus === true && parsed.subscriptionStatus === 'active');
               state.currentUser.isVerified = hasActivePlus;
               state.currentUser.isPlus = hasActivePlus;
@@ -8656,6 +8748,7 @@ function syncLikedStateToPosts() {
       isLoggedIn: false,
       isSignUpMode: false,
       currentUser: {
+        uid: "bradley_hansen",
         username: "bradley_hansen",
         fullName: "Bradley Hansen",
         email: "bradley.g.hansen@hotmail.com",
@@ -9032,12 +9125,7 @@ function syncLikedStateToPosts() {
       ],
 
       stories: [
-        { id: 1, username: "Your Story", avatar: PRESET_IMAGES[0].path, image: PRESET_IMAGES[0].path, time: "Just now", isUser: true },
-        { id: 2, username: "elena_eats", avatar: PRESET_IMAGES[1].path, image: PRESET_IMAGES[1].path, time: "42m ago" },
-        { id: 3, username: "city_vibe", avatar: PRESET_IMAGES[2].path, image: PRESET_IMAGES[2].path, time: "2h ago" },
-        { id: 4, username: "marcus_pups", avatar: PRESET_IMAGES[3].path, image: PRESET_IMAGES[3].path, time: "5h ago" },
-        { id: 5, username: "arch_digest", avatar: PRESET_IMAGES[4].path, image: PRESET_IMAGES[4].path, time: "7h ago" },
-        { id: 6, username: "wander_tropics", avatar: PRESET_IMAGES[5].path, image: PRESET_IMAGES[5].path, time: "11h ago" }
+        { id: 1, username: "Your Story", avatar: PRESET_IMAGES[0].path, image: PRESET_IMAGES[0].path, time: "Just now", isUser: true }
       ],
 
       posts: [
@@ -10088,9 +10176,7 @@ function syncLikedStateToPosts() {
           const st = state.stories && state.stories[Number(el.dataset.storyIdx)];
           const ring = el.querySelector('[data-story-ring], .story-gradient, .story-ring-viewed');
           if (!st || !ring) return;
-          const owner = storyOwnerOf(st);
-          const list = (typeof isOwnStoryObj === 'function' && isOwnStoryObj(st)) ? own : [{ ...st, timestamp: st.timestamp || Date.now() }];
-          applyStoryRingState(ring, getStoryRingState(owner, list));
+          applyStoryRingState(ring, feedStoryRingState(st));
         });
       } catch(e) {}
     }
@@ -10181,12 +10267,106 @@ function syncLikedStateToPosts() {
       const owner = (typeof storyOwnerOf === 'function') ? storyOwnerOf(story) : raw;
       return !!(cur && owner && cur === owner);
     }
+    var SEED_STORIES_BY_USER = {
+      elena_eats: { id: 2, username: "elena_eats", avatar: PRESET_IMAGES[1].path, image: PRESET_IMAGES[1].path, time: "42m ago" },
+      city_vibe: { id: 3, username: "city_vibe", avatar: PRESET_IMAGES[2].path, image: PRESET_IMAGES[2].path, time: "2h ago" },
+      marcus_pups: { id: 4, username: "marcus_pups", avatar: PRESET_IMAGES[3].path, image: PRESET_IMAGES[3].path, time: "5h ago" },
+      arch_digest: { id: 5, username: "arch_digest", avatar: PRESET_IMAGES[4].path, image: PRESET_IMAGES[4].path, time: "7h ago" },
+      wander_tropics: { id: 6, username: "wander_tropics", avatar: PRESET_IMAGES[5].path, image: PRESET_IMAGES[5].path, time: "11h ago" }
+    };
+    function collectActiveStoriesForUser(username) {
+      const u = normalizeUsername(username || '');
+      if (!u) return [];
+      const now = Date.now();
+      const cacheDoc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+      const dirRec = window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(u);
+      let raw = [];
+      if (cacheDoc && Array.isArray(cacheDoc.userStories) && cacheDoc.userStories.length) {
+        raw = cacheDoc.userStories;
+      } else if (dirRec && Array.isArray(dirRec.userStories) && dirRec.userStories.length) {
+        raw = dirRec.userStories;
+      } else if (cacheDoc && cacheDoc.story && cacheDoc.story.image) {
+        raw = [cacheDoc.story];
+      } else if (dirRec && dirRec.story && dirRec.story.image) {
+        raw = [dirRec.story];
+      } else {
+        try {
+          const ls = JSON.parse(localStorage.getItem('pixly_user_stories_' + u) || 'null');
+          if (Array.isArray(ls) && ls.length) raw = ls;
+          else if (ls && ls.image) raw = [ls];
+        } catch(e) {}
+      }
+      if ((!raw || !raw.length) && SEED_STORIES_BY_USER[u]) {
+        raw = [Object.assign({}, SEED_STORIES_BY_USER[u], { timestamp: now - 1800000 })];
+      }
+      return (Array.isArray(raw) ? raw : []).filter(s => {
+        if (!s || !s.image || s.isEmptyPlaceholder) return false;
+        const ts = typeof s.timestamp === 'number' ? s.timestamp : now;
+        if ((now - ts) >= STORY_TTL_MS) return false;
+        const cand = Object.assign({}, s, { author: u, username: u, timestamp: ts });
+        return (typeof isStoryVisibleToViewer === 'function') ? isStoryVisibleToViewer(cand) : true;
+      }).map(s => Object.assign({}, s, {
+        author: u,
+        username: u,
+        timestamp: typeof s.timestamp === 'number' ? s.timestamp : now,
+        time: formatStoryRelativeTime(typeof s.timestamp === 'number' ? s.timestamp : now)
+      }));
+    }
+    function buildConnectedStoryEntries() {
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (!curU || curU === 'guest') return [];
+      const connected = (typeof getActiveConnectedEntries === 'function')
+        ? getActiveConnectedEntries(state.following || [], curU)
+        : (state.following || []).filter(f => f && f.username && f.isFollowing !== false && normalizeUsername(f.username) !== curU);
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      const out = [];
+      connected.forEach(f => {
+        const u = normalizeUsername(f.username);
+        if (!u || u === curU) return;
+        if (typeof isConnectionDeactivated === 'function' && isConnectionDeactivated(u)) return;
+        if (typeof shouldHideAuthorEverywhere === 'function' && shouldHideAuthorEverywhere(u)) return;
+        const dirRec = dir ? dir.get(u) : null;
+        const cacheRec = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+        const avatar = (dirRec && dirRec.avatar) || (cacheRec && (cacheRec.avatar || cacheRec.photoURL)) || (typeof connAvatar === 'function' ? connAvatar(f) : f.avatar) || NEUTRAL_BLANK_AVATAR;
+        const activeSlides = collectActiveStoriesForUser(u);
+        if (activeSlides.length > 0) {
+          const latest = activeSlides[activeSlides.length - 1];
+          out.push(Object.assign({}, latest, {
+            id: latest.id || ('story_' + u),
+            username: u,
+            author: u,
+            avatar: avatar || latest.avatar || NEUTRAL_BLANK_AVATAR,
+            userStories: activeSlides,
+            hasActiveStory: true,
+            isConnectedPlaceholder: false
+          }));
+        } else {
+          out.push({
+            id: 'connected_no_story_' + u,
+            username: u,
+            author: u,
+            avatar: avatar || NEUTRAL_BLANK_AVATAR,
+            image: avatar || NEUTRAL_BLANK_AVATAR,
+            time: '',
+            caption: '',
+            hasActiveStory: false,
+            isConnectedPlaceholder: true
+          });
+        }
+      });
+      return out;
+    }
+    window.buildConnectedStoryEntries = buildConnectedStoryEntries;
     function feedStoryRingState(story) {
       if (!story) return 'none';
       const owner = storyOwnerOf(story);
       const own = Array.isArray(state.userStories) ? state.userStories : [];
-      const list = (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story))
-        ? own
+      if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) {
+        return getStoryRingState(owner, own);
+      }
+      if (story.isConnectedPlaceholder) return 'none';
+      const list = (Array.isArray(story.userStories) && story.userStories.length)
+        ? story.userStories
         : [{ ...story, timestamp: story.timestamp || Date.now() }];
       return getStoryRingState(owner, list);
     }
@@ -10195,9 +10375,10 @@ function syncLikedStateToPosts() {
       const items = state.stories.map((story, idx) => ({ story, idx, pinned: isPinnedFeedStory(story), ring: feedStoryRingState(story) }));
       const pinned = items.filter(x => x.pinned).sort((a, b) => a.idx - b.idx);
       const rest = items.filter(x => !x.pinned);
-      const unviewed = rest.filter(x => x.ring !== 'viewed').sort((a, b) => a.idx - b.idx);
+      const unviewed = rest.filter(x => x.ring === 'unviewed').sort((a, b) => a.idx - b.idx);
       const viewed = rest.filter(x => x.ring === 'viewed').sort((a, b) => a.idx - b.idx);
-      state.stories = pinned.concat(unviewed, viewed).map(x => x.story);
+      const none = rest.filter(x => x.ring === 'none').sort((a, b) => a.idx - b.idx);
+      state.stories = pinned.concat(unviewed, viewed, none).map(x => x.story);
       return state.stories;
     }
     window.isPinnedFeedStory = isPinnedFeedStory;
@@ -10206,17 +10387,33 @@ function syncLikedStateToPosts() {
 
     function renderStories() {
       pruneExpiredUserStories(true);
+      const ownEntry = (Array.isArray(state.stories) && state.stories.find(st => isPinnedFeedStory(st))) || {
+        id: 'empty_owner_story',
+        username: (normalizeUsername((state.currentUser && state.currentUser.username) || '') === 'bradley_hansen') ? 'Your Story' : ('@' + ((state.currentUser && state.currentUser.username) || 'user')),
+        avatar: (state.currentUser && state.currentUser.avatar) || PRESET_IMAGES[0].path,
+        image: (state.currentUser && state.currentUser.avatar) || PRESET_IMAGES[0].path,
+        time: '',
+        caption: '',
+        isUser: true,
+        isEmptyPlaceholder: true
+      };
+      if (state.isLoggedIn && state.currentUser && state.currentUser.username && normalizeUsername(state.currentUser.username) !== 'guest') {
+        state.stories = [ownEntry].concat(buildConnectedStoryEntries());
+        if (typeof ensureConnectionsDirectory === 'function') ensureConnectionsDirectory();
+      }
       sortFeedStoriesByViewed();
       const container = document.getElementById('stories-container');
       if (!container) return;
       container.innerHTML = state.stories.map((story, idx) => {
         if (typeof isStoryVisibleToViewer === 'function' && !isStoryVisibleToViewer(story)) return '';
         const cfMark = (typeof isCloseFriendsAudience === 'function' && isCloseFriendsAudience(story)) ? '<span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 flex items-center justify-center">' + closeFriendsStarSvg('cf-star-emblem w-4 h-4', 16) + '</span>' : '';
+        const ringState = feedStoryRingState(story);
+        const ringClass = ringState === 'unviewed' ? 'story-gradient' : (ringState === 'viewed' ? 'story-ring-viewed' : 'bg-neutral-200');
         return `
-        <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}">
-          <div class="relative w-16 h-16 rounded-full p-0.5 story-gradient flex items-center justify-center hover:scale-105 transition shadow-xs" data-story-ring="unviewed">
+        <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}" data-story-user="${escapeHtml(story.author || story.username || '')}">
+          <div class="relative w-16 h-16 rounded-full p-0.5 ${ringClass} flex items-center justify-center hover:scale-105 transition shadow-xs" data-story-ring="${ringState}">
             <div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white">
-              <img src="${story.avatar}" alt="${story.username}" class="w-full h-full object-cover">
+              <img src="${story.avatar}" alt="${story.username}" class="w-full h-full object-cover" onerror="this.src=NEUTRAL_BLANK_AVATAR">
             </div>
             ${cfMark}
           </div>
@@ -10537,13 +10734,39 @@ function syncLikedStateToPosts() {
       if (!Array.isArray(list)) return [];
       const seen = {};
       const out = [];
+      const stripped = [];
       list.forEach(function (f) {
         if (!f) return;
         const n = (typeof normalizeUsername === 'function') ? normalizeUsername(f.username || '') : String(f.username || '').toLowerCase().replace(/^@/, '');
-        if (!n || (isSeedDemoUsername(n) && !isExplicitFollowEntry(f)) || seen[n]) return;
+        if (!n || seen[n]) return;
+        if (isSeedDemoUsername(n) && !isExplicitFollowEntry(f)) {
+          stripped.push(n);
+          return;
+        }
         seen[n] = true;
         out.push(Object.assign({}, f, { username: n }));
       });
+      if (stripped.length && typeof state !== 'undefined' && state && state.currentUser && state.currentUser.username) {
+        const me = (typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase();
+        if (me && me !== 'guest') {
+          stripped.forEach(function (t) {
+            try {
+              const key = 'pixly_followers_' + t;
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  const next = parsed.filter(function (x) {
+                    const xu = x && ((typeof normalizeUsername === 'function') ? normalizeUsername(x.username || '') : String(x.username || '').toLowerCase());
+                    return xu !== me;
+                  });
+                  if (next.length !== parsed.length) localStorage.setItem(key, JSON.stringify(next));
+                }
+              }
+            } catch (e) {}
+          });
+        }
+      }
       return out;
     }
     function pixaiContentIconSvg() {
@@ -10758,13 +10981,18 @@ function syncLikedStateToPosts() {
       const icon = document.getElementById('user-profile-follow-icon');
       const caret = document.getElementById('btn-user-profile-cf-caret');
       const menuBtn = document.getElementById('btn-cf-menu-toggle');
+      const cfConnectBtn = document.getElementById('btn-cf-menu-connect');
       const n = privacyNorm(cleanU);
-      const on = n && isCloseFriend(n);
+      const on = !!(n && isCloseFriend(n));
+      const isFollowing = !!(n && typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(n));
       if (btn && on) {
         btn.className = CF_CONNECT_GREEN;
         if (icon) {
-          icon.innerHTML = '<svg class="w-3.5 h-3.5 text-emerald-700" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+          icon.innerHTML = isFollowing
+            ? '<svg class="w-3.5 h-3.5 text-emerald-700" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>'
+            : '<svg class="w-3.5 h-3.5 text-emerald-700 fill-none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>';
         }
+        btn.title = isFollowing ? 'Close Friend & Connected • Tap to disconnect' : 'In Close Friends • Tap to connect';
       }
       if (caret) {
         caret.className = on
@@ -10774,6 +11002,14 @@ function syncLikedStateToPosts() {
         if (star) {
           if (on) star.classList.remove('hidden');
           else star.classList.add('hidden');
+        }
+      }
+      if (cfConnectBtn) {
+        if (n && !isFollowing) {
+          cfConnectBtn.classList.remove('hidden');
+          cfConnectBtn.textContent = 'Connect';
+        } else {
+          cfConnectBtn.classList.add('hidden');
         }
       }
       if (menuBtn) menuBtn.textContent = on ? 'Remove from Close Friends' : 'Add to Close Friends';
@@ -10841,6 +11077,17 @@ function syncLikedStateToPosts() {
       const n = viewedProfileUsername();
       applyCloseFriendConnectStyle(n);
       placeMenuBelow(menu, btn);
+    }
+    function onCfMenuConnectClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const n = viewedProfileUsername();
+      if (!n) return;
+      hideProfileMenus();
+      if (typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(n)) return;
+      if (typeof window.toggleFollowCreator === 'function') {
+        window.toggleFollowCreator(n, document.getElementById('btn-user-profile-follow'), { confirmed: true });
+      }
     }
     function onCfMenuToggleClick(e) {
       e.preventDefault();
@@ -11061,6 +11308,8 @@ function syncLikedStateToPosts() {
       if (caret) caret.addEventListener('click', onCfCaretClick);
       const more = document.getElementById('btn-user-profile-more');
       if (more) more.addEventListener('click', onProfileMoreClick);
+      const cfConnect = document.getElementById('btn-cf-menu-connect');
+      if (cfConnect) cfConnect.addEventListener('click', onCfMenuConnectClick);
       const cfToggle = document.getElementById('btn-cf-menu-toggle');
       if (cfToggle) cfToggle.addEventListener('click', onCfMenuToggleClick);
       const blk = document.getElementById('btn-menu-block');
@@ -12047,19 +12296,26 @@ function syncLikedStateToPosts() {
           e.stopPropagation();
           const targetU = btn.dataset.username;
           if (!targetU) return;
+          const performToggle = () => {
+            const res = (typeof applyLocalFollowToggle === 'function') ? applyLocalFollowToggle(targetU) : null;
+            if (!res) return;
 
-          const res = (typeof applyLocalFollowToggle === 'function') ? applyLocalFollowToggle(targetU) : null;
-          if (!res) return;
+            const displayTotal = getFollowingDisplayCount();
+            const profCount = document.getElementById('profile-following-count');
+            if (profCount) profCount.textContent = displayTotal.toLocaleString();
+            const modalCount = document.getElementById('following-modal-count');
+            if (modalCount) modalCount.textContent = displayTotal.toLocaleString();
 
-          const displayTotal = getFollowingDisplayCount();
-          const profCount = document.getElementById('profile-following-count');
-          if (profCount) profCount.textContent = displayTotal.toLocaleString();
-          const modalCount = document.getElementById('following-modal-count');
-          if (modalCount) modalCount.textContent = displayTotal.toLocaleString();
-
-          persistState();
-          showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
-          renderFeed();
+            persistState();
+            if (typeof renderStories === 'function') renderStories();
+            showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
+            renderFeed();
+          };
+          if (typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(targetU) && typeof openDisconnectConfirm === 'function') {
+            openDisconnectConfirm(targetU, btn, performToggle);
+          } else {
+            performToggle();
+          }
         });
       });
 
@@ -12407,7 +12663,9 @@ function syncLikedStateToPosts() {
       }
 
       // Set avatar: @pixlynote gets PIXLYNOTE_SHUTTER_ICON; @bradley_hansen gets BRADLEY_AVATAR_IMAGE
-      const targetAvatar = isPixly ? PIXLYNOTE_SHUTTER_ICON : (isBradley ? (state.currentUser.avatar || BRADLEY_AVATAR_IMAGE) : (state.currentUser.avatar || NEUTRAL_BLANK_AVATAR));
+      const rawOwnAv = (state.currentUser && typeof state.currentUser.avatar === 'string') ? state.currentUser.avatar : '';
+      const validOwnAv = (rawOwnAv && !(!isPixly && typeof isAppLogoAvatar === 'function' && isAppLogoAvatar(rawOwnAv))) ? rawOwnAv : '';
+      const targetAvatar = isPixly ? PIXLYNOTE_SHUTTER_ICON : (isBradley ? (validOwnAv || BRADLEY_AVATAR_IMAGE) : (validOwnAv || NEUTRAL_BLANK_AVATAR));
       state.currentUser.avatar = targetAvatar;
 
       const profAv = document.getElementById('profile-page-avatar');
@@ -13997,6 +14255,9 @@ function syncLikedStateToPosts() {
           const following = Array.isArray(d.following)
             ? Array.from(new Set(d.following.filter(f => f && f.username && f.isFollowing !== false).map(f => exploreNorm(f.username)).filter(x => x && x !== u)))
             : [];
+          const nowTs = Date.now();
+          const activeUserStories = (Array.isArray(d.userStories) ? d.userStories : (d.story && d.story.image ? [d.story] : []))
+            .filter(st => st && st.image && !st.isEmptyPlaceholder && (nowTs - (typeof st.timestamp === 'number' ? st.timestamp : nowTs)) < STORY_TTL_MS);
           users.set(u, {
             username: u,
             fullName: String(d.fullName || u),
@@ -14009,6 +14270,8 @@ function syncLikedStateToPosts() {
             isPlus: d.isPlus === true,
             deactivated: d.deactivated === true,
             following,
+            userStories: activeUserStories,
+            story: activeUserStories.length ? activeUserStories[activeUserStories.length - 1] : null,
             likedPostIds: Array.isArray(d.likedPostIds) ? d.likedPostIds.map(String) : [],
             likedNoteIds: Array.isArray(d.likedNoteIds) ? d.likedNoteIds.map(String) : [],
             deletedNoteIds: new Set(Array.isArray(d.deletedNoteIds) ? d.deletedNoteIds.map(String) : []),
@@ -14016,6 +14279,8 @@ function syncLikedStateToPosts() {
             followersCount: 0,
             followingCount: following.length
           });
+          window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+          window._remoteUserProfilesCache[u] = Object.assign({}, window._remoteUserProfilesCache[u] || {}, d, { userStories: activeUserStories });
           (Array.isArray(d.notes) ? d.notes : []).forEach(n => {
             if (!n || n.id === undefined || n.id === null || !n.text) return;
             if (exploreNorm(n.author || u) !== u) return;                            // only notes the doc owner wrote
@@ -14039,6 +14304,7 @@ function syncLikedStateToPosts() {
         window._exploreUserDir = fresh;
         window._exploreUserDirLastFail = 0;
         scheduleExploreRender();
+        if (typeof renderStories === 'function') renderStories();
         return fresh;
       }).catch(e => {
         window._exploreUserDirLastFail = Date.now();
@@ -14220,14 +14486,17 @@ function syncLikedStateToPosts() {
     window.exploreToggleFollow = function(username, btnEl) {
       const u = exploreSafeUser(username);
       if (!u || typeof window.toggleFollowCreator !== 'function') return;
-      window.toggleFollowCreator(u, btnEl);
-      const rec = window._exploreUserDir && window._exploreUserDir.users.get(u);
-      const entry = (state.following || []).find(f => f && exploreNorm(f.username) === u);
-      if (rec && entry) {
-        entry.fullName = rec.fullName; entry.bio = rec.bio;
-        if (rec.avatar) entry.avatar = rec.avatar;
-      }
-      scheduleExploreRender();
+      window.toggleFollowCreator(u, btnEl, {
+        onDone: function () {
+          const rec = window._exploreUserDir && window._exploreUserDir.users.get(u);
+          const entry = (state.following || []).find(f => f && exploreNorm(f.username) === u);
+          if (rec && entry) {
+            entry.fullName = rec.fullName; entry.bio = rec.bio;
+            if (rec.avatar) entry.avatar = rec.avatar;
+          }
+          scheduleExploreRender();
+        }
+      });
     };
 
     window.exploreLoadMore = function(kind) {
@@ -14667,7 +14936,7 @@ function syncLikedStateToPosts() {
           followBtn.classList.remove('hidden');
           const paintFollow = () => { followBtn.textContent = isUserFollowingCreator(pAuthor) ? 'Connected' : 'Connect'; };
           paintFollow();
-          followBtn.onclick = (e) => { e.stopPropagation(); window.toggleFollowCreator(pAuthor); paintFollow(); };
+          followBtn.onclick = (e) => { e.stopPropagation(); window.toggleFollowCreator(pAuthor, followBtn, { onDone: paintFollow }); };
         }
       }
 
@@ -17930,14 +18199,96 @@ function syncLikedStateToPosts() {
     }
     window.applyLocalFollowToggle = applyLocalFollowToggle;
 
-    window.toggleFollowCreator = function(username, btnEl) {
-      if (!username) return;
-      const res = applyLocalFollowToggle(username);
-      if (!res) return;
-      const { cleanU, nowFollowing } = res;
+    window._pendingDisconnectConfirm = null;
+    function closeDisconnectConfirm() {
+      const menu = document.getElementById('menu-disconnect-confirm');
+      if (menu) menu.classList.add('hidden');
+      window._pendingDisconnectConfirm = null;
+    }
+    window.closeDisconnectConfirm = closeDisconnectConfirm;
 
-      // Update button in place if element passed
-      if (btnEl) {
+    function openDisconnectConfirm(username, anchorEl, onConfirm) {
+      const cleanU = normalizeUsername(username || '');
+      if (!cleanU) return;
+      const menu = document.getElementById('menu-disconnect-confirm');
+      if (!menu) {
+        if (typeof onConfirm === 'function') onConfirm();
+        return;
+      }
+      const title = document.getElementById('disconnect-confirm-title');
+      if (title) title.textContent = `Disconnect @${cleanU}?`;
+      window._pendingDisconnectConfirm = { username: cleanU, onConfirm };
+      if (typeof hideProfileMenus === 'function') hideProfileMenus();
+      menu.classList.remove('hidden');
+      const mw = menu.offsetWidth || 224;
+      const mh = menu.offsetHeight || 110;
+      if (anchorEl && typeof anchorEl.getBoundingClientRect === 'function') {
+        const r = anchorEl.getBoundingClientRect();
+        let left = r.left;
+        if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+        if (left < 8) left = 8;
+        let top = r.bottom + 6;
+        if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+      } else {
+        menu.style.left = Math.max(8, Math.round((window.innerWidth - mw) / 2)) + 'px';
+        menu.style.top = Math.max(8, Math.round((window.innerHeight - mh) / 2)) + 'px';
+      }
+    }
+    window.openDisconnectConfirm = openDisconnectConfirm;
+
+    (function bindDisconnectConfirmMenu() {
+      const menu = document.getElementById('menu-disconnect-confirm');
+      const btnCancel = document.getElementById('btn-disconnect-cancel');
+      const btnConfirm = document.getElementById('btn-disconnect-confirm');
+      if (menu) menu.addEventListener('click', (e) => { e.stopPropagation(); });
+      if (btnCancel) btnCancel.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        closeDisconnectConfirm();
+      });
+      if (btnConfirm) btnConfirm.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const pending = window._pendingDisconnectConfirm;
+        closeDisconnectConfirm();
+        if (pending && typeof pending.onConfirm === 'function') pending.onConfirm();
+      });
+      document.addEventListener('click', (e) => {
+        const m = document.getElementById('menu-disconnect-confirm');
+        if (!m || m.classList.contains('hidden')) return;
+        if (e && e.target && m.contains(e.target)) return;
+        closeDisconnectConfirm();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e && e.key === 'Escape') {
+          closeDisconnectConfirm();
+          if (typeof closeHelpCenterModal === 'function') closeHelpCenterModal();
+        }
+      });
+      window.addEventListener('resize', closeDisconnectConfirm);
+    })();
+
+    window.toggleFollowCreator = function(username, btnEl, opts) {
+      if (!username) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      const alreadyConnected = (typeof isUserFollowingCreator === 'function') && isUserFollowingCreator(cleanU);
+      if (alreadyConnected && !(opts && opts.confirmed === true)) {
+        const fallbackAnchor = (state.viewedCreator && normalizeUsername(state.viewedCreator.username) === cleanU)
+          ? document.getElementById('btn-user-profile-follow')
+          : null;
+        openDisconnectConfirm(cleanU, btnEl || fallbackAnchor, () => {
+          window.toggleFollowCreator(cleanU, btnEl, Object.assign({}, opts || {}, { confirmed: true }));
+        });
+        return;
+      }
+
+      const res = applyLocalFollowToggle(cleanU);
+      if (!res) return;
+      const { nowFollowing } = res;
+
+      // Update button in place if element passed (preserve split profile button styling)
+      if (btnEl && btnEl.id !== 'btn-user-profile-follow') {
         if (nowFollowing) {
           btnEl.className = "flex-shrink-0 transition-all duration-200 cursor-pointer px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-violet-50 hover:bg-rose-50 border border-violet-200 hover:border-rose-200 text-violet-700 hover:text-rose-600";
           btnEl.innerHTML = "Connected ✓";
@@ -17964,11 +18315,15 @@ function syncLikedStateToPosts() {
       if (myFollowingEl) myFollowingEl.textContent = getFollowingDisplayCount().toLocaleString();
 
       persistState();
+      if (typeof renderStories === 'function') renderStories();
       if (nowFollowing && typeof sendFollowNotification === 'function') {
         sendFollowNotification(cleanU);
       }
       if (typeof showToast === 'function') {
         showToast(nowFollowing ? `✨ Connected with @${cleanU}!` : `Disconnected from @${cleanU}`);
+      }
+      if (opts && typeof opts.onDone === 'function') {
+        try { opts.onDone(res); } catch(e) {}
       }
     };
 
@@ -18248,6 +18603,20 @@ function syncLikedStateToPosts() {
         } else if (!ov.isFollowing && !hasMe) {
           ov.edgeConfirmed = true;
         }
+        return list;
+      }
+      const hydrated = (window._followingHydratedFor === me) || !(window.firebaseReady && window.firebase && window.firebase.db);
+      if (hydrated && typeof isUserFollowingCreator === 'function' && !isUserFollowingCreator(u)) {
+        const hasMe = list.some(item => connNorm(item && item.username) === me);
+        if (hasMe) {
+          if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.deleteDoc) {
+            try {
+              const { db, doc, deleteDoc } = window.firebase;
+              deleteDoc(doc(db, 'users', u, 'followers', me)).catch(() => {});
+            } catch(e) {}
+          }
+          return list.filter(item => connNorm(item && item.username) !== me);
+        }
       }
       return list;
     }
@@ -18422,8 +18791,7 @@ function syncLikedStateToPosts() {
       }));
       box.querySelectorAll('.btn-viewed-conn-toggle').forEach(b => b.addEventListener('click', (e) => {
         e.stopPropagation();
-        window.toggleFollowCreator(b.dataset.username);
-        renderViewedConnectionsList();
+        window.toggleFollowCreator(b.dataset.username, b, { onDone: renderViewedConnectionsList });
       }));
     }
     window.renderViewedConnectionsList = renderViewedConnectionsList;
@@ -18669,7 +19037,7 @@ function syncLikedStateToPosts() {
       try {
         const u = (typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : String(state.currentUser.username || '').toLowerCase();
         localStorage.setItem('pixlynote_user_' + u, JSON.stringify(state.currentUser));
-        localStorage.setItem('pixlynote_user', JSON.stringify(state.currentUser));
+        if (u === 'bradley_hansen') localStorage.setItem('pixlynote_user', JSON.stringify(state.currentUser));
       } catch (e) {}
       if (typeof persistState === 'function') { try { persistState(); } catch (e) {} }
     }
@@ -20000,7 +20368,8 @@ function syncLikedStateToPosts() {
           e.stopPropagation();
           const targetU = btn.dataset.username;
           const userObj = (state.following || []).find(u => u && connNorm(u.username) === connNorm(targetU));
-          if (userObj) {
+          if (!userObj) return;
+          const performToggle = () => {
             const res = (typeof applyLocalFollowToggle === 'function') ? applyLocalFollowToggle(targetU) : null;
             if (!res) return;
             if (!res.nowFollowing) { (window._connectedKeepVisible = window._connectedKeepVisible || new Set()).add(connNorm(targetU)); }
@@ -20011,9 +20380,15 @@ function syncLikedStateToPosts() {
             state.currentUser.followingCount = String(updatedTotal);
 
             persistState();
+            if (typeof renderStories === 'function') renderStories();
             showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
             const searchInp = document.getElementById('following-search-input');
             renderFollowingList(searchInp ? searchInp.value : '');
+          };
+          if (userObj.isFollowing !== false && typeof openDisconnectConfirm === 'function') {
+            openDisconnectConfirm(targetU, btn, performToggle);
+          } else {
+            performToggle();
           }
         });
       });
@@ -20178,28 +20553,36 @@ function syncLikedStateToPosts() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const targetU = btn.dataset.username;
-          const followerObj = list.find(u => normalizeUsername(u && u.username) === normalizeUsername(targetU));
-          const creator = typeof getCreatorInfo === 'function' ? getCreatorInfo(targetU) : null;
-          const res = (typeof applyLocalFollowToggle === 'function')
-            ? applyLocalFollowToggle(targetU, null, {
-                fullName: (followerObj && followerObj.fullName) || (creator && creator.fullName) || targetU,
-                bio: (followerObj && followerObj.bio) || (creator && creator.bio) || '',
-                avatar: (followerObj && followerObj.avatar) || (creator && creator.avatar) || ''
-              })
-            : null;
-          if (!res) return;
+          const performToggle = () => {
+            const followerObj = list.find(u => normalizeUsername(u && u.username) === normalizeUsername(targetU));
+            const creator = typeof getCreatorInfo === 'function' ? getCreatorInfo(targetU) : null;
+            const res = (typeof applyLocalFollowToggle === 'function')
+              ? applyLocalFollowToggle(targetU, null, {
+                  fullName: (followerObj && followerObj.fullName) || (creator && creator.fullName) || targetU,
+                  bio: (followerObj && followerObj.bio) || (creator && creator.bio) || '',
+                  avatar: (followerObj && followerObj.avatar) || (creator && creator.avatar) || ''
+                })
+              : null;
+            if (!res) return;
 
-          if (typeof getFollowingDisplayCount === 'function') {
-            const updatedFollowingTotal = getFollowingDisplayCount();
-            const profFollowingEl = document.getElementById('profile-following-count');
-            if (profFollowingEl) profFollowingEl.textContent = updatedFollowingTotal.toLocaleString();
-            state.currentUser.followingCount = String(updatedFollowingTotal);
+            if (typeof getFollowingDisplayCount === 'function') {
+              const updatedFollowingTotal = getFollowingDisplayCount();
+              const profFollowingEl = document.getElementById('profile-following-count');
+              if (profFollowingEl) profFollowingEl.textContent = updatedFollowingTotal.toLocaleString();
+              state.currentUser.followingCount = String(updatedFollowingTotal);
+            }
+
+            persistState();
+            if (typeof renderStories === 'function') renderStories();
+            showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
+            const searchInp = document.getElementById('followers-search-input');
+            renderFollowersList(searchInp ? searchInp.value : '');
+          };
+          if (typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(targetU) && typeof openDisconnectConfirm === 'function') {
+            openDisconnectConfirm(targetU, btn, performToggle);
+          } else {
+            performToggle();
           }
-
-          persistState();
-          showToast(res.nowFollowing ? `✨ Connected with @${res.cleanU}!` : `Disconnected from @${res.cleanU}`);
-          const searchInp = document.getElementById('followers-search-input');
-          renderFollowersList(searchInp ? searchInp.value : '');
         });
       });
 
@@ -20437,9 +20820,14 @@ function syncLikedStateToPosts() {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const targetU = btn.dataset.username;
-          if (typeof toggleFollowCreator === 'function') toggleFollowCreator(targetU);
-          const searchInp = document.getElementById('discover-creators-search-input');
-          renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
+          if (typeof toggleFollowCreator === 'function') {
+            toggleFollowCreator(targetU, btn, {
+              onDone: () => {
+                const searchInp = document.getElementById('discover-creators-search-input');
+                renderDiscoverCreatorsList(searchInp ? searchInp.value : '');
+              }
+            });
+          }
         });
       });
 
@@ -20523,6 +20911,7 @@ function syncLikedStateToPosts() {
       return (Array.isArray(list) ? list : []).filter(a => a && a.username).map(a => {
         const av = (typeof a.avatar === 'string' && a.avatar.length > 180000) ? '' : (a.avatar || '');
         return {
+          uid: a.uid || (typeof normalizeUsername === 'function' ? normalizeUsername(a.username) : String(a.username || '').toLowerCase().replace(/^@/, '')),
           username: a.username,
           fullName: a.fullName || a.username,
           email: a.email || '',
@@ -20601,9 +20990,11 @@ function syncLikedStateToPosts() {
       if (!(window.firebaseReady && window.firebase && window.firebase.db)) return;
       const ownerU = getAccountCenterOwner();
       if (!ownerU || ownerU === 'guest') return;
+      const gen = window._pixlyLoginGen || 0;
       try {
         const { db, doc, getDoc } = window.firebase;
         getDoc(doc(db, 'accountCenters', ownerU)).then(snap => {
+          if ((window._pixlyLoginGen || 0) !== gen || getAccountCenterOwner() !== ownerU) return;
           if (snap.exists()) {
             const d = snap.data();
             if (d && Array.isArray(d.accounts)) {
@@ -20661,14 +21052,32 @@ function syncLikedStateToPosts() {
       if (!acc || !acc.username) return;
       const norm = normalizeUsername(acc.username);
       if (window._pixlyDeletedUsernames) window._pixlyDeletedUsernames.delete(norm);
-      const list = getSessionAccounts();
+      const baseList = getSessionAccounts();
+      const preAdd = Array.isArray(window._pixlyPreAddSessionAccounts) ? window._pixlyPreAddSessionAccounts : [];
+      const list = [];
+      const seen = new Set();
+      preAdd.concat(baseList).forEach(item => {
+        if (!item || !item.username) return;
+        const k = normalizeUsername(item.username);
+        if (!k || seen.has(k)) return;
+        if (typeof getDeactivationRecord === 'function' && getDeactivationRecord(k)) return;
+        if (window._pixlyDeletedUsernames && window._pixlyDeletedUsernames.has(k)) return;
+        seen.add(k);
+        list.push({ ...item });
+      });
       const idx = list.findIndex(a => normalizeUsername(a.username) === norm);
-      if (idx === -1) list.push(acc);
+      if (idx === -1) list.push({ ...acc });
       else list[idx] = { ...list[idx], ...acc };
       try {
         sessionStorage.setItem('pixly_current_session_accounts', JSON.stringify(list));
       } catch(e) {}
       syncAccountCenterToFirestore(list);
+      if (typeof renderAccountSwitcherList === 'function') renderAccountSwitcherList();
+      if (typeof renderAccountCenterList === 'function') {
+        const acModal = document.getElementById('modal-account-center');
+        if (acModal && !acModal.classList.contains('hidden')) renderAccountCenterList();
+      }
+      return list;
     }
     window.registerSessionAccount = registerSessionAccount;
 
@@ -20729,13 +21138,13 @@ function syncLikedStateToPosts() {
 
       container.querySelectorAll('.account-switcher-row').forEach(row => {
         row.addEventListener('click', () => {
-          const targetU = row.dataset.username;
+          const targetU = normalizeUsername(row.dataset.username);
           if (!targetU) return;
-          if (targetU.toLowerCase() === curNorm) {
+          if (targetU === normalizeUsername(curNorm)) {
             closeAccountSwitcher();
             return;
           }
-          const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
+          const acc = accounts.find(a => normalizeUsername(a.username) === targetU);
           closeAccountSwitcher();
           if (acc && typeof requestAccountSwitchWithAuth === 'function') {
             requestAccountSwitchWithAuth(acc);
@@ -20745,11 +21154,27 @@ function syncLikedStateToPosts() {
     }
 
     function openAuthFromSwitcher(mode) {
+      if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
+        const snap = (typeof sessionAccountSnapshot === 'function')
+          ? sessionAccountSnapshot(state.currentUser)
+          : {
+              username: state.currentUser.username,
+              fullName: state.currentUser.fullName || state.currentUser.username,
+              email: state.currentUser.email || '',
+              phone: state.currentUser.phone || '',
+              avatar: state.currentUser.avatar || '',
+              accountType: state.currentUser.accountType || 'personal'
+            };
+        if (typeof registerSessionAccount === 'function') registerSessionAccount(snap);
+        window._pixlyPreAddSessionAccounts = getSessionAccounts().map(a => ({ ...a }));
+      }
       window._pixlyReturningSessionUser = state.currentUser ? { ...state.currentUser } : null;
       window._pixlyAccountCenterAddOwner = (state.isLoggedIn && state.currentUser && state.currentUser.username)
         ? normalizeUsername(state.currentUser.username)
         : null;
       closeAccountSwitcher();
+      if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal();
+      if (typeof closeProfileMenu === 'function') closeProfileMenu();
 
       const retWrap = document.getElementById('auth-return-session-wrap');
       const retUser = document.getElementById('auth-return-username');
@@ -22143,9 +22568,9 @@ function syncLikedStateToPosts() {
       container.querySelectorAll('.ac-switch-row, .ac-switch-btn').forEach(el => {
         el.addEventListener('click', (e) => {
           e.stopPropagation();
-          const targetU = el.dataset.username;
-          if (!targetU || targetU.toLowerCase() === curNorm) return;
-          const acc = accounts.find(a => (a.username || '').toLowerCase() === targetU.toLowerCase());
+          const targetU = normalizeUsername(el.dataset.username);
+          if (!targetU || targetU === normalizeUsername(curNorm)) return;
+          const acc = accounts.find(a => normalizeUsername(a.username) === targetU);
           closeAccountCenterModal();
           if (acc && typeof requestAccountSwitchWithAuth === 'function') {
             requestAccountSwitchWithAuth(acc);
@@ -22512,8 +22937,18 @@ function syncLikedStateToPosts() {
 
       const story = (typeof idxOrStory === 'object' && idxOrStory !== null) ? idxOrStory : state.stories[idxOrStory];
       if (!story) return;
+      if (story.isConnectedPlaceholder) {
+        const targetU = normalizeUsername(story.author || story.username || '');
+        if (targetU && typeof viewUserProfile === 'function') {
+          viewUserProfile(targetU, 'feed');
+        } else if (typeof showToast === 'function') {
+          showToast('No active stories from @' + (targetU || 'creator'));
+        }
+        return;
+      }
       state.activeStoryIndex = (typeof idxOrStory === 'number') ? idxOrStory : -1;
-      openStoryQueue([story]);
+      const slides = (Array.isArray(story.userStories) && story.userStories.length > 0) ? story.userStories : [story];
+      openStoryQueue(slides);
     }
 
     function closeStoryViewer() {
@@ -24410,8 +24845,10 @@ function syncLikedStateToPosts() {
     window.disarmAuthCredentialForms = disarmAuthCredentialForms;
     window.armAuthCredentialForms = armAuthCredentialForms;
 
-    function performLogin(username, fullName, email, password = null, phone = null, accountType = null) {
+    function performLogin(username, fullName, email, password = null, phone = null, accountType = null, switchSeedAcc = null) {
+      const loginGen = (window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1);
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
+      const normTargetU = normalizeUsername(cleanUsername);
       const localDeact = getDeactivationRecord(cleanUsername);
       if (localDeact && localDeact.deactivated) {
         if (localDeact.scheduledDeletionAt && Date.now() >= localDeact.scheduledDeletionAt) {
@@ -24434,6 +24871,7 @@ function syncLikedStateToPosts() {
         window._lastLocalFollowingWriteTs = 0;
         window._lastLocalFollowingWriteUser = null;
         window._connReconciledFor = null;
+        window._pixlyDeletedUsernames = new Set();
       }
       state.isLoggedIn = true;
       try {
@@ -24441,21 +24879,65 @@ function syncLikedStateToPosts() {
         localStorage.setItem('pixly_active_username', cleanUsername.toLowerCase());
       } catch(e) {}
 
-      // Look up account data if available (prefer persisted user-saved data over in-memory defaults)
+      // Look up account data strictly scoped to normTargetU (never let another account's alias overwrite it)
+      const matchesTargetRec = (rec) => !!(rec && typeof rec === 'object' && (!rec.username || normalizeUsername(rec.username) === normTargetU));
+      const mergeAccountCandidate = (dst, src) => {
+        if (!matchesTargetRec(src)) return dst;
+        const out = dst ? { ...dst } : {};
+        Object.keys(src).forEach((key) => {
+          const val = src[key];
+          if (val === undefined || val === null) return;
+          if (key === 'avatar' || key === 'photoURL') {
+            const sVal = String(val);
+            const isLogoPlaceholder = (typeof isAppLogoAvatar === 'function') && isAppLogoAvatar(sVal) && normTargetU !== 'pixlynote';
+            const isBlank = !sVal || isLogoPlaceholder || (typeof NEUTRAL_BLANK_AVATAR === 'string' && sVal === NEUTRAL_BLANK_AVATAR);
+            if (isLogoPlaceholder && out[key]) return;
+            if (!isBlank || !out[key]) out[key] = isLogoPlaceholder ? '' : sVal;
+            return;
+          }
+          if (key === 'username') {
+            if (!out.username && normalizeUsername(val) === normTargetU) out.username = val;
+            return;
+          }
+          if (val !== '' || out[key] === undefined) out[key] = val;
+        });
+        return out;
+      };
       let accData = null;
       try {
-        const stored = localStorage.getItem('pixly_account_' + cleanUsername.toLowerCase());
-        if (stored) accData = JSON.parse(stored);
+        const sessList = (typeof getSessionAccounts === 'function') ? getSessionAccounts() : [];
+        const preList = Array.isArray(window._pixlyPreAddSessionAccounts) ? window._pixlyPreAddSessionAccounts : [];
+        const sessMatch = preList.concat(sessList).find(a => a && normalizeUsername(a.username) === normTargetU);
+        if (sessMatch) accData = mergeAccountCandidate(accData, sessMatch);
       } catch(e) {}
-      if (!accData) {
-        try {
-          const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-          accData = accts[cleanUsername.toLowerCase()];
-        } catch(e) {}
+      if (switchSeedAcc && matchesTargetRec(switchSeedAcc)) {
+        accData = mergeAccountCandidate(accData, switchSeedAcc);
       }
-      if (!accData && window._pixlyAccounts && window._pixlyAccounts[cleanUsername.toLowerCase()]) {
-        accData = window._pixlyAccounts[cleanUsername.toLowerCase()];
-      }
+      try {
+        if (window._pixlyAccounts && matchesTargetRec(window._pixlyAccounts[normTargetU])) {
+          accData = mergeAccountCandidate(accData, window._pixlyAccounts[normTargetU]);
+        }
+      } catch(e) {}
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && matchesTargetRec(accts[normTargetU])) accData = mergeAccountCandidate(accData, accts[normTargetU]);
+      } catch(e) {}
+      try {
+        const stored = localStorage.getItem('pixly_account_' + normTargetU);
+        if (stored) accData = mergeAccountCandidate(accData, JSON.parse(stored));
+      } catch(e) {}
+      try {
+        const userKey = getAccountStorageKey('pixlynote_user', normTargetU);
+        const rawUser = localStorage.getItem(userKey) || sessionStorage.getItem(userKey);
+        if (rawUser) accData = mergeAccountCandidate(accData, JSON.parse(rawUser));
+      } catch(e) {}
+      try {
+        const storedAv = localStorage.getItem(getAccountStorageKey('pixly_avatar', normTargetU));
+        const curAv = accData && accData.avatar ? String(accData.avatar) : '';
+        const curIsReal = !!curAv && !(typeof NEUTRAL_BLANK_AVATAR === 'string' && curAv === NEUTRAL_BLANK_AVATAR) && !((typeof isAppLogoAvatar === 'function') && isAppLogoAvatar(curAv) && normTargetU !== 'pixlynote');
+        const storedIsLogo = !!(storedAv && (typeof isAppLogoAvatar === 'function') && isAppLogoAvatar(storedAv) && normTargetU !== 'pixlynote');
+        if (storedAv && !storedIsLogo && !curIsReal) accData = mergeAccountCandidate(accData, { avatar: storedAv });
+      } catch(e) {}
 
       if (typeof resetProfileStateForAccountSwitch === 'function') {
         resetProfileStateForAccountSwitch(cleanUsername);
@@ -24463,6 +24945,7 @@ function syncLikedStateToPosts() {
       state.currentUser.isVerified = false;
       state.currentUser.isPlus = false;
       state.currentUser.subscriptionStatus = 'inactive';
+      state.currentUser.uid = (accData && accData.uid) ? String(accData.uid) : normTargetU;
 
       if (cleanUsername.toLowerCase() === 'bradley_hansen') {
         // Load Bradley Hansen personal account, preferring persisted/cloud data over hardcoded defaults
@@ -24483,7 +24966,7 @@ function syncLikedStateToPosts() {
         const isDAP = (cleanUsername.toLowerCase() === 'digitalassetpro' || cleanUsername.toLowerCase() === 'digital_asset_pro' || cleanUsername.toLowerCase() === 'digital assetpro');
         const isBiz = (isPixly || isDAP || accountType === 'business' || (accData && accData.accountType === 'business'));
         
-        state.currentUser.username = isPixly ? 'pixlynote' : (isDAP ? 'digitalassetpro' : ((accData && accData.username) ? accData.username : cleanUsername));
+        state.currentUser.username = isPixly ? 'pixlynote' : (isDAP ? 'digitalassetpro' : ((accData && accData.username && normalizeUsername(accData.username) === normTargetU) ? accData.username : cleanUsername));
         state.currentUser.fullName = isPixly ? 'Pixlynote' : (isDAP ? ((accData && accData.fullName) ? accData.fullName : 'Digital AssetPro') : ((accData && accData.fullName) ? accData.fullName : (fullName || (isBiz ? 'Pixlynote' : cleanUsername))));
         
         if (isPixly) {
@@ -24515,7 +24998,8 @@ function syncLikedStateToPosts() {
           state.currentUser.accountType = isBiz ? 'business' : 'personal';
           if (accData && accData.dbaName !== undefined) state.currentUser.dbaName = accData.dbaName;
           const memAcc = (window._pixlyAccounts && window._pixlyAccounts[cleanUsername.toLowerCase()]) || null;
-          state.currentUser.avatar = (accData && accData.avatar) ? accData.avatar : ((memAcc && memAcc.avatar) ? memAcc.avatar : (isBiz ? PIXLYNOTE_SHUTTER_ICON : NEUTRAL_BLANK_AVATAR));
+          const rawCandidateAv = (accData && accData.avatar) ? accData.avatar : ((memAcc && memAcc.avatar && !((typeof isAppLogoAvatar === 'function') && isAppLogoAvatar(memAcc.avatar))) ? memAcc.avatar : '');
+          state.currentUser.avatar = (rawCandidateAv && !((typeof isAppLogoAvatar === 'function') && isAppLogoAvatar(rawCandidateAv))) ? rawCandidateAv : NEUTRAL_BLANK_AVATAR;
           state.currentUser.postsCount = (accData && accData.postsCount !== undefined) ? accData.postsCount : 0;
           state.currentUser.followersCount = (accData && accData.followersCount !== undefined) ? accData.followersCount : "0";
           state.currentUser.followingCount = (accData && accData.followingCount !== undefined) ? accData.followingCount : "0";
@@ -24636,6 +25120,7 @@ function syncLikedStateToPosts() {
         try {
           const { db, doc, getDoc } = window.firebase;
           getDoc(doc(db, 'users', normLoginU)).then(snap => {
+            if (window._pixlyLoginGen !== loginGen || !state.isLoggedIn || normalizeUsername((state.currentUser && state.currentUser.username) || '') !== normLoginU) return;
             if (!snap || !snap.exists()) {
               if (typeof window.applyFollowingFromRemote === 'function') {
                 window.applyFollowingFromRemote(normLoginU, undefined, false);
@@ -24723,7 +25208,25 @@ function syncLikedStateToPosts() {
       renderMessages();
       initCreatePresets();
 
+      const hasRealAvatar = !!(state.currentUser && state.currentUser.avatar && !(typeof NEUTRAL_BLANK_AVATAR === 'string' && state.currentUser.avatar === NEUTRAL_BLANK_AVATAR));
+      if (window.idbStorage && !hasRealAvatar) state.currentUser._avatarPendingIdb = true;
       saveUserProfile();
+      if (window.idbStorage && !hasRealAvatar) {
+        const avIdbKey = getAccountStorageKey('pixly_avatar', normTargetU);
+        idbStorage.get(avIdbKey).then(idbAv => {
+          if (window._pixlyLoginGen !== loginGen || !state.isLoggedIn || normalizeUsername((state.currentUser && state.currentUser.username) || '') !== normTargetU) return;
+          delete state.currentUser._avatarPendingIdb;
+          if (idbAv && idbAv !== NEUTRAL_BLANK_AVATAR) {
+            state.currentUser.avatar = idbAv;
+            if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars();
+            const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = idbAv;
+            if (typeof renderProfile === 'function') renderProfile();
+            if (typeof registerSessionAccount === 'function' && typeof sessionAccountSnapshot === 'function') {
+              registerSessionAccount(sessionAccountSnapshot(state.currentUser));
+            }
+          }
+        }).catch(() => { if (state.currentUser) delete state.currentUser._avatarPendingIdb; });
+      }
       const sessionEntry = (typeof sessionAccountSnapshot === 'function')
         ? sessionAccountSnapshot(state.currentUser)
         : {
@@ -24738,9 +25241,11 @@ function syncLikedStateToPosts() {
       if (typeof registerSessionAccount === 'function') {
         registerSessionAccount(sessionEntry);
       }
+      window._pixlyPreAddSessionAccounts = null;
       if (window._pixlyAccountCenterAddOwner && window._pixlyAccountCenterAddOwner !== normalizeUsername(state.currentUser.username)) {
         if (typeof addAccountToSpecificAccountCenter === 'function') {
-          addAccountToSpecificAccountCenter(window._pixlyAccountCenterAddOwner, sessionEntry);
+          const allSessionAccs = (typeof getSessionAccounts === 'function') ? getSessionAccounts() : [sessionEntry];
+          allSessionAccs.forEach(a => addAccountToSpecificAccountCenter(window._pixlyAccountCenterAddOwner, a));
         }
         window._pixlyAccountCenterAddOwner = null;
       }
@@ -24756,6 +25261,7 @@ function syncLikedStateToPosts() {
     }
 
     function performLogout() {
+      window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1;
       if (typeof closeSwitchPasswordModal === 'function') closeSwitchPasswordModal();
       if (typeof closeAccountSwitcher === 'function') closeAccountSwitcher();
       if (typeof window.closeAllFirestoreListeners === 'function') {
@@ -24796,6 +25302,7 @@ function syncLikedStateToPosts() {
       window._pendingFollowingSync = null;
       window._lastRemoteCommentsMap = null;
       window._pixlyAccountCenterAddOwner = null;
+      window._pixlyPreAddSessionAccounts = null;
       state.activeDmThreadIndex = 0;
       if (typeof armAuthCredentialForms === 'function') armAuthCredentialForms();
       if (typeof clearPasswordFields === 'function') clearPasswordFields();
@@ -24946,6 +25453,7 @@ function syncLikedStateToPosts() {
           // 0. Restore Highlights from IndexedDB (scoped to active user)
           const hlIdbU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || 'bradley_hansen');
           idbStorage.get(getAccountStorageKey('pixly_highlights', hlIdbU)).then(idbH => {
+            if (normalizeUsername((state.currentUser && state.currentUser.username) || '') !== hlIdbU) return;
             if (idbH !== null && idbH !== undefined) {
               try {
                 const parsed = JSON.parse(idbH);
@@ -25003,19 +25511,29 @@ function syncLikedStateToPosts() {
             }
           }).catch(() => {});
 
-          // 3. Restore Avatar (Strictly for Bradley Hansen personal account)
-          idbStorage.get('pixly_avatar').then(idbAv => {
-            if (idbAv && state.currentUser.username === 'bradley_hansen') {
-              state.currentUser.avatar = idbAv;
-              if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars();
-              const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = idbAv;
-              state.posts.forEach(p => { if (p.author === state.currentUser.username) p.authorAvatar = idbAv; });
-              renderProfile();
-            } else if (state.currentUser.username === 'pixlynote') {
-              state.currentUser.avatar = PIXLYNOTE_SHUTTER_ICON;
-              const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = PIXLYNOTE_SHUTTER_ICON;
-            }
-          }).catch(() => {});
+          // 3. Restore Avatar strictly scoped to the active account
+          const avBootU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || '');
+          if (avBootU) {
+            const avPromise = (avBootU === 'bradley_hansen')
+              ? idbStorage.get(getAccountStorageKey('pixly_avatar', avBootU)).then(v => v || idbStorage.get('pixly_avatar'))
+              : idbStorage.get(getAccountStorageKey('pixly_avatar', avBootU));
+            avPromise.then(idbAv => {
+              if (!state.isLoggedIn || normalizeUsername((state.currentUser && state.currentUser.username) || '') !== avBootU) return;
+              if (idbAv && idbAv !== NEUTRAL_BLANK_AVATAR) {
+                state.currentUser.avatar = idbAv;
+                if (typeof paintSignedInChromeAvatars === 'function') paintSignedInChromeAvatars();
+                const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = idbAv;
+                state.posts.forEach(p => { if (normalizeUsername(p.author) === avBootU) p.authorAvatar = idbAv; });
+                renderProfile();
+                if (typeof registerSessionAccount === 'function' && typeof sessionAccountSnapshot === 'function') {
+                  registerSessionAccount(sessionAccountSnapshot(state.currentUser));
+                }
+              } else if (avBootU === 'pixlynote') {
+                state.currentUser.avatar = PIXLYNOTE_SHUTTER_ICON;
+                const pAv = document.getElementById('profile-page-avatar'); if (pAv) pAv.src = PIXLYNOTE_SHUTTER_ICON;
+              }
+            }).catch(() => {});
+          }
 
           // 4. Remove legacy unscoped Account Center key in IndexedDB to prevent ghost accounts
           try { if (typeof idbStorage.remove === 'function') idbStorage.remove('pixly_session_accounts'); } catch(e) {}
@@ -25749,9 +26267,10 @@ function syncLikedStateToPosts() {
 
         const btnUserFollow = document.getElementById('btn-user-profile-follow');
         if (btnUserFollow) {
-          btnUserFollow.addEventListener('click', () => {
+          btnUserFollow.addEventListener('click', (e) => {
+            if (e) e.stopPropagation();
             if (!state.viewedCreator) return;
-            window.toggleFollowCreator(state.viewedCreator.username);
+            window.toggleFollowCreator(state.viewedCreator.username, btnUserFollow);
           });
         }
 
@@ -25934,6 +26453,7 @@ function syncLikedStateToPosts() {
             if (step2) { step2.classList.add('hidden'); step2.style.display = 'none'; }
             state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
             if (typeof resetSignupVerifyPanels === 'function') resetSignupVerifyPanels();
+            if (typeof setSignUpAccountType === 'function') setSignUpAccountType('personal');
 
             const fnInp = document.getElementById('login-fullname');
             if (fnInp) {
@@ -25948,6 +26468,17 @@ function syncLikedStateToPosts() {
             if (unInp) unInp.value = '';
             const pwInp = document.getElementById('signup-password');
             if (pwInp) pwInp.value = '';
+            const dbaInp = document.getElementById('signup-dba-name');
+            if (dbaInp) dbaInp.value = '';
+            const indInp = document.getElementById('signup-business-industry');
+            if (indInp) indInp.value = '';
+            const indOtherInp = document.getElementById('signup-business-industry-other');
+            if (indOtherInp) indOtherInp.value = '';
+            const bioInpS = document.getElementById('signup-bio');
+            if (bioInpS) bioInpS.value = '';
+            const linkInpS = document.getElementById('signup-link');
+            if (linkInpS) linkInpS.value = '';
+            if (typeof syncBusinessIndustryOther === 'function') syncBusinessIndustryOther('signup');
             if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
           } else {
             state.authViewMode = 'login';
@@ -27460,6 +27991,8 @@ function syncLikedStateToPosts() {
           const newAccount = {
             username: u,
             fullName: fullName,
+            businessName: isBiz ? fullName : '',
+            personalName: isBiz ? '' : fullName,
             dbaName: isBiz ? signupDba : '',
             email: em,
             phone: phone,
@@ -27541,6 +28074,8 @@ function syncLikedStateToPosts() {
                 const signupDoc = {
                   username: u.toLowerCase(),
                   fullName: fullName,
+                  businessName: newAccount.businessName || '',
+                  personalName: newAccount.personalName || '',
                   dbaName: newAccount.dbaName || '',
                   email: em,
                   phone: phone,
@@ -27569,6 +28104,7 @@ function syncLikedStateToPosts() {
           } catch(err) {}
 
           state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
+          window._lastLocalProfileWriteTs = Date.now();
           showToast(`🎉 Account created! Welcome, @${u}`);
           performLogin(u, fullName, em, null, phone, accountType);
           try {
@@ -27618,39 +28154,48 @@ function syncLikedStateToPosts() {
           // Match against accounts using phone, username, business name, or email
           let matchedAccount = null;
 
-          // 1. Search in-memory registry
-          if (window._pixlyAccounts) {
-            if (window._pixlyAccounts[cleanInput]) matchedAccount = window._pixlyAccounts[cleanInput];
-            else if (phoneDigits.length >= 7 && window._pixlyAccounts[phoneDigits]) matchedAccount = window._pixlyAccounts[phoneDigits];
-            else if (window._pixlyAccounts[rawInput]) matchedAccount = window._pixlyAccounts[rawInput];
+          const normCleanU = normalizeUsername(u);
+          // 1. Search exact username in-memory / localStorage first so shared phone/name aliases never hijack login
+          try {
+            const indivByU = localStorage.getItem('pixly_account_' + normCleanU);
+            if (indivByU) {
+              const parsedU = JSON.parse(indivByU);
+              if (parsedU && (!parsedU.username || normalizeUsername(parsedU.username) === normCleanU)) matchedAccount = parsedU;
+            }
+          } catch(e) {}
+          if (!matchedAccount && window._pixlyAccounts) {
+            const memU = window._pixlyAccounts[normCleanU] || window._pixlyAccounts[cleanInput];
+            if (memU && (!memU.username || normalizeUsername(memU.username) === normCleanU)) matchedAccount = memU;
           }
-
-          // 2. Search localStorage accounts
           if (!matchedAccount) {
             try {
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
-              if (accts[cleanInput]) {
-                matchedAccount = accts[cleanInput];
-              } else if (phoneDigits.length >= 7 && accts[phoneDigits]) {
-                matchedAccount = accts[phoneDigits];
-              } else if (phoneDigits.length >= 7 && accts[rawInput]) {
-                matchedAccount = accts[rawInput];
-              } else {
+              const byU = accts[normCleanU] || accts[cleanInput];
+              if (byU && (!byU.username || normalizeUsername(byU.username) === normCleanU)) matchedAccount = byU;
+              if (!matchedAccount) {
                 for (const k in accts) {
                   const acc = accts[k];
-                  if (acc && typeof acc === 'object') {
-                    if (acc.username && acc.username.toLowerCase() === cleanInput) {
-                      matchedAccount = acc; break;
-                    }
-                    if (acc.fullName && acc.fullName.toLowerCase() === cleanInput) {
-                      matchedAccount = acc; break;
-                    }
-                    if (acc.email && acc.email.toLowerCase() === cleanInput) {
-                      matchedAccount = acc; break;
-                    }
-                    if (acc.phone && phoneDigits.length >= 7 && acc.phone.replace(/\D/g, '') === phoneDigits) {
-                      matchedAccount = acc; break;
-                    }
+                  if (acc && typeof acc === 'object' && acc.username && normalizeUsername(acc.username) === normCleanU) { matchedAccount = acc; break; }
+                }
+              }
+              if (!matchedAccount) {
+                for (const k in accts) {
+                  const acc = accts[k];
+                  if (acc && typeof acc === 'object' && acc.email && acc.email.toLowerCase() === cleanInput) { matchedAccount = acc; break; }
+                }
+              }
+              if (!matchedAccount) {
+                for (const k in accts) {
+                  const acc = accts[k];
+                  if (acc && typeof acc === 'object' && acc.fullName && acc.fullName.toLowerCase() === cleanInput) { matchedAccount = acc; break; }
+                }
+              }
+              if (!matchedAccount && phoneDigits.length >= 7) {
+                matchedAccount = accts[phoneDigits] || accts[rawInput] || null;
+                if (!matchedAccount) {
+                  for (const k in accts) {
+                    const acc = accts[k];
+                    if (acc && typeof acc === 'object' && acc.phone && acc.phone.replace(/\D/g, '') === phoneDigits) { matchedAccount = acc; break; }
                   }
                 }
               }
@@ -27756,34 +28301,55 @@ function syncLikedStateToPosts() {
 
           const pwHash = await hashPassword(pw);
           // Persist account record with strict identity isolation (hashed password only, no plain text)
-          const accRec = {
+          const targetKey = targetUsername.toLowerCase();
+          let existingStoredAcc = {};
+          try {
+            const rawStored = localStorage.getItem('pixly_account_' + targetKey);
+            const parsedStored = rawStored ? (JSON.parse(rawStored) || {}) : {};
+            if (!parsedStored.username || normalizeUsername(parsedStored.username) === normalizeUsername(targetKey)) existingStoredAcc = parsedStored;
+          } catch(e) {}
+          const isDapTarget = (targetKey === 'digitalassetpro' || targetKey === 'digital_asset_pro');
+          const resolvedAvatar = isBradley
+            ? ((matchedAccount && (matchedAccount.avatar || matchedAccount.photoURL)) || (existingStoredAcc && existingStoredAcc.avatar) || BRADLEY_AVATAR_IMAGE)
+            : (isPixlynote
+              ? PIXLYNOTE_SHUTTER_ICON
+              : (isDapTarget
+                ? ((matchedAccount && (matchedAccount.avatar || matchedAccount.photoURL)) || (existingStoredAcc && existingStoredAcc.avatar) || DIGITAL_ASSET_PRO_AVATAR)
+                : ((matchedAccount && (matchedAccount.avatar || matchedAccount.photoURL)) || (existingStoredAcc && existingStoredAcc.avatar) || NEUTRAL_BLANK_AVATAR)));
+          const accRec = Object.assign({}, existingStoredAcc, (matchedAccount && typeof matchedAccount === 'object') ? matchedAccount : {}, {
             username: targetUsername,
             fullName: isPixlynote ? 'Pixlynote' : targetFullName,
             email: isPixlynote ? ((matchedAccount && matchedAccount.email !== undefined) ? (matchedAccount.email || '') : '') : targetEmail,
             phone: isPixlynote ? ((matchedAccount && matchedAccount.phone !== undefined) ? (matchedAccount.phone || '') : '') : targetPhone,
             accountType: targetType,
             passwordHash: pwHash,
-            bio: isBradley ? (state.currentUser.bio || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (isPixlynote ? ((matchedAccount && matchedAccount.bio !== undefined) ? (matchedAccount.bio || '') : '') : (matchedAccount ? (matchedAccount.bio || '') : '')),
-            link: isBradley ? 't.me/bradley_hansen' : (isPixlynote ? ((matchedAccount && matchedAccount.link !== undefined) ? (matchedAccount.link || '') : '') : (matchedAccount ? (matchedAccount.link || '') : '')),
-            avatar: isBradley ? (state.currentUser.avatar || (PRESET_IMAGES && PRESET_IMAGES[0] ? PRESET_IMAGES[0].path : '')) : (isPixlynote ? PIXLYNOTE_SHUTTER_ICON : (matchedAccount ? matchedAccount.avatar : PIXLYNOTE_SHUTTER_ICON)),
-            postsCount: isBradley ? 6 : 0,
-            followersCount: "0",
-            followingCount: "0"
-          };
+            bio: isBradley ? ((existingStoredAcc && existingStoredAcc.bio) || 'Fitness 🏋️‍♂️ | Airplanes ✈️ | Cryptocurrency 📈🌎📍') : (isPixlynote ? ((matchedAccount && matchedAccount.bio !== undefined) ? (matchedAccount.bio || '') : '') : (matchedAccount && matchedAccount.bio !== undefined ? matchedAccount.bio : (existingStoredAcc.bio || ''))),
+            link: isBradley ? ((existingStoredAcc && existingStoredAcc.link) || 't.me/bradley_hansen') : (isPixlynote ? ((matchedAccount && matchedAccount.link !== undefined) ? (matchedAccount.link || '') : '') : (matchedAccount && matchedAccount.link !== undefined ? matchedAccount.link : (existingStoredAcc.link || ''))),
+            avatar: resolvedAvatar,
+            postsCount: (existingStoredAcc && existingStoredAcc.postsCount !== undefined) ? existingStoredAcc.postsCount : (isBradley ? 6 : 0),
+            followersCount: (existingStoredAcc && existingStoredAcc.followersCount !== undefined) ? existingStoredAcc.followersCount : "0",
+            followingCount: (existingStoredAcc && existingStoredAcc.followingCount !== undefined) ? existingStoredAcc.followingCount : "0"
+          });
+          if ('password' in accRec) delete accRec.password;
 
           window._pixlyAccounts = window._pixlyAccounts || {};
-          window._pixlyAccounts[targetUsername.toLowerCase()] = accRec;
+          window._pixlyAccounts[targetKey] = accRec;
           window._pixlyAccounts[targetFullName.toLowerCase()] = accRec;
 
           try {
             const lightAccRec = stripHeavyImagesForLocalStorage(accRec);
-            localStorage.setItem('pixly_account_' + targetUsername.toLowerCase(), JSON.stringify(lightAccRec));
-            localStorage.setItem('pixly_user_password_' + targetUsername.toLowerCase(), pwHash);
-            localStorage.setItem('pixlynote_user_' + targetUsername.toLowerCase(), JSON.stringify(lightAccRec));
+            const acctsMap = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            acctsMap[targetKey] = lightAccRec;
+            localStorage.setItem('pixly_accounts', JSON.stringify(acctsMap));
+            localStorage.setItem('pixly_account_' + targetKey, JSON.stringify(lightAccRec));
+            localStorage.setItem('pixly_user_password_' + targetKey, pwHash);
+            const existingUserRec = JSON.parse(localStorage.getItem('pixlynote_user_' + targetKey) || 'null') || {};
+            localStorage.setItem('pixlynote_user_' + targetKey, JSON.stringify(Object.assign({}, existingUserRec, lightAccRec)));
           } catch(e) {}
 
           showToast(`Welcome back, @${targetUsername}!`);
-          performLogin(targetUsername, targetFullName, targetEmail, null, targetPhone, targetType);
+          accRec.uid = accRec.uid || normalizeUsername(targetUsername);
+          performLogin(targetUsername, targetFullName, targetEmail, null, targetPhone, targetType, accRec);
           recordLoginActivityEvent('login', 'Signed in with active password', targetUsername);
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
@@ -27791,16 +28357,27 @@ function syncLikedStateToPosts() {
             setDoc(doc(db, 'users', normalizeUsername(targetUsername)), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
           }
         }
-        const loginForm = document.getElementById('login-form');
-        if (loginForm) {
+        const getLoginEl = (id) => {
+          const direct = document.getElementById(id);
+          if (direct) return direct;
+          if (window._detachedLoginForm) {
+            if (window._detachedLoginForm.id === id) return window._detachedLoginForm;
+            return window._detachedLoginForm.querySelector('#' + id);
+          }
+          return null;
+        };
+        const loginForm = getLoginEl('login-form');
+        if (loginForm && !loginForm.dataset.submitBound) {
+          loginForm.dataset.submitBound = '1';
           loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             handleLoginAction();
           });
         }
 
-        const authSubmitBtn = document.getElementById('btn-auth-submit');
-        if (authSubmitBtn) {
+        const authSubmitBtn = getLoginEl('btn-auth-submit');
+        if (authSubmitBtn && !authSubmitBtn.dataset.clickBound) {
+          authSubmitBtn.dataset.clickBound = '1';
           authSubmitBtn.addEventListener('click', (e) => {
             e.preventDefault();
             handleLoginAction();
@@ -27808,9 +28385,10 @@ function syncLikedStateToPosts() {
         }
 
         // Wire Show / Hide Password toggle buttons
-        const btnTogglePw = document.getElementById('btn-toggle-password');
-        const pwInput = document.getElementById('login-password');
-        if (btnTogglePw && pwInput) {
+        const btnTogglePw = getLoginEl('btn-toggle-password');
+        const pwInput = getLoginEl('login-password');
+        if (btnTogglePw && pwInput && !btnTogglePw.dataset.toggleBound) {
+          btnTogglePw.dataset.toggleBound = '1';
           btnTogglePw.addEventListener('click', (e) => {
             e.preventDefault();
             if (pwInput.type === 'password') {
@@ -28486,8 +29064,15 @@ function syncLikedStateToPosts() {
             }
 
             try {
-              if (phone) localStorage.setItem('pixly_user_phone', phone);
-              localStorage.setItem('pixly_user_email', email || '');
+              const uKey = state.currentUser.username.toLowerCase();
+              if (phone) localStorage.setItem(getAccountStorageKey('pixly_user_phone', uKey), phone);
+              else localStorage.removeItem(getAccountStorageKey('pixly_user_phone', uKey));
+              localStorage.setItem(getAccountStorageKey('pixly_user_email', uKey), email || '');
+              if (uKey === 'bradley_hansen') {
+                if (phone) localStorage.setItem('pixly_user_phone', phone);
+                else localStorage.removeItem('pixly_user_phone');
+                localStorage.setItem('pixly_user_email', email || '');
+              }
               const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
               const rec = (typeof publicSafeUserFields === 'function')
                 ? publicSafeUserFields(state.currentUser)
@@ -28503,7 +29088,6 @@ function syncLikedStateToPosts() {
               };
               rec.phone = phone;
               rec.avatar = state.currentUser.avatar;
-              const uKey = state.currentUser.username.toLowerCase();
               accts[uKey] = rec;
               if (email) accts[email.toLowerCase()] = rec;
               if (phone) {
@@ -30017,6 +30601,27 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.openProfileInfoAbout = openProfileInfoAbout;
 
+    function openHelpCenterModal() {
+      if (typeof closeProfileMenu === 'function') closeProfileMenu();
+      const modal = document.getElementById('modal-help-center');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+    }
+    function closeHelpCenterModal() {
+      const modal = document.getElementById('modal-help-center');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+    function openHelpCenterFeedback() {
+      closeHelpCenterModal();
+      if (typeof openSubmitFeedbackModal === 'function') openSubmitFeedbackModal('');
+    }
+    window.openHelpCenterModal = openHelpCenterModal;
+    window.closeHelpCenterModal = closeHelpCenterModal;
+    window.openHelpCenterFeedback = openHelpCenterFeedback;
+
     function toggleDrawerUserMetricsList() {
       const listEl = document.getElementById('drawer-metrics-accounts-list');
       const chevEl = document.getElementById('drawer-metrics-list-chevron');
@@ -31181,11 +31786,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.respondToPrivilegedAccessInvite = respondToPrivilegedAccessInvite;
 
     let _pendingSwitchAccountObj = null;
+    let _switchRequestSeq = 0;
     async function requestAccountSwitchWithAuth(acc) {
       if (!acc || !acc.username) return;
+      const reqSeq = ++_switchRequestSeq;
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
       const targetU = normalizeUsername(acc.username);
-      if (curU === targetU) return;
+      if (!targetU || curU === targetU) return;
 
       // Allow passwordless switch ONLY if current user has accepted Privileged Access for targetU
       if (hasAcceptedPrivilegedAccess(curU, targetU)) {
@@ -31194,6 +31801,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           try {
             const { db, doc, getDoc } = window.firebase;
             const snap = await getDoc(doc(db, 'users', targetU));
+            if (reqSeq !== _switchRequestSeq) return;
             if (snap.exists()) {
               const d = snap.data() || {};
               const granted = Array.isArray(d.privilegedAccessGranted) ? d.privilegedAccessGranted : [];
@@ -31201,12 +31809,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             }
           } catch(e) {}
         }
+        if (reqSeq !== _switchRequestSeq) return;
         if (verifiedByTarget) {
-          performLogin(acc.username, acc.fullName || '', acc.email || '', '', acc.phone || '', acc.accountType || 'personal');
+          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc);
           return;
         }
       }
 
+      if (reqSeq !== _switchRequestSeq) return;
       _pendingSwitchAccountObj = acc;
       const modal = document.getElementById('modal-switch-password');
       const targetEl = document.getElementById('switch-password-target');
@@ -31261,6 +31871,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
 
       const ok = storedPw ? await verifyPassword(pw, storedPw) : false;
+      if (_pendingSwitchAccountObj !== acc) return;
       if (!ok) {
         if (errEl) { errEl.textContent = 'Incorrect password for @' + acc.username; errEl.classList.remove('hidden'); }
         if (inp) { inp.value = ''; inp.focus(); }
@@ -31268,7 +31879,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
 
       closeSwitchPasswordModal();
-      performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal');
+      performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc);
     }
 
     (function wirePrivilegedAndSwitchModals() {
@@ -32037,6 +32648,19 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           </button>
         </div>
 
+        <button type="button" id="btn-drawer-help-center" onclick="openHelpCenterModal()" class="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold group-hover:scale-105 transition shadow-2xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-800 transition">Help Center</div>
+              <div class="text-[10px] text-neutral-500">FAQ &amp; submit feedback</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
         <button type="button" id="btn-drawer-info-about" onclick="openProfileInfoAbout()" class="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-violet-50/70 border border-transparent hover:border-violet-100 transition text-left group cursor-pointer">
           <div class="flex items-center space-x-3">
             <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold group-hover:scale-105 transition shadow-2xs">
@@ -32053,6 +32677,60 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       </div>
 
 
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- HELP CENTER MODAL (FAQ & SUPPORT FEEDBACK) -->
+  <!-- ========================================================================= -->
+  <div id="modal-help-center" role="dialog" aria-modal="true" aria-labelledby="help-center-title" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs items-center justify-center p-3 sm:p-4 overflow-y-auto" style="display: none;" onclick="if(event.target === this) closeHelpCenterModal();">
+    <div class="relative bg-white rounded-3xl border border-neutral-200/90 shadow-2xl max-w-lg w-full max-h-[88vh] flex flex-col overflow-hidden my-auto">
+      <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/80 flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <h3 id="help-center-title" class="text-sm font-bold text-neutral-900">Help Center</h3>
+          <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-100 text-violet-700 border border-violet-200/80">Beta</span>
+        </div>
+        <button type="button" id="btn-close-help-center" onclick="closeHelpCenterModal()" class="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-full hover:bg-neutral-200/60 transition cursor-pointer" title="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 overflow-y-auto space-y-4 text-xs text-neutral-700">
+        <div>
+          <h4 class="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2">Frequently Asked Questions</h4>
+          <div id="help-center-faq-list" class="space-y-2.5">
+            <div class="p-3 rounded-2xl bg-neutral-50 border border-neutral-100 space-y-1">
+              <p class="font-bold text-neutral-900">What is the difference between Connections, Connected, and Close Friends?</p>
+              <p class="text-neutral-600 leading-relaxed">Connecting with someone adds them to your Connected list so their posts and stories appear in your feed. Close Friends is a smaller green-starred circle for private stories; use the caret next to Connect/Connected to manage Close Friends or finish connecting.</p>
+            </div>
+            <div class="p-3 rounded-2xl bg-neutral-50 border border-neutral-100 space-y-1">
+              <p class="font-bold text-neutral-900">How do Stories and Highlights work?</p>
+              <p class="text-neutral-600 leading-relaxed">Stories stay active for 24 hours for your Connections (or Close Friends only if selected). You can save favorite moments to Highlights on your profile anytime.</p>
+            </div>
+            <div class="p-3 rounded-2xl bg-neutral-50 border border-neutral-100 space-y-1">
+              <p class="font-bold text-neutral-900">How do Business profiles and Edit Profile details work?</p>
+              <p class="text-neutral-600 leading-relaxed">Pick Business during sign-up or switch in Edit Profile. Any DBA, industry, bio, or website entered at sign-up carries into Edit Profile so you can add hours, address visibility, and a public support email.</p>
+            </div>
+            <div class="p-3 rounded-2xl bg-neutral-50 border border-neutral-100 space-y-1">
+              <p class="font-bold text-neutral-900">How do Plus, Business Plus, and Government / Organization badges work?</p>
+              <p class="text-neutral-600 leading-relaxed">Pixlynote Plus unlocks the blue check for Personal accounts; Business Plus unlocks the green check once business verification is approved. Approved Government (Slate or Deep Navy) and Organization (teal) badges display while your matching plan is active.</p>
+            </div>
+            <div class="p-3 rounded-2xl bg-neutral-50 border border-neutral-100 space-y-1">
+              <p class="font-bold text-neutral-900">Why does Pixlynote show Beta?</p>
+              <p class="text-neutral-600 leading-relaxed">Pixlynote is in early access while we polish features and cloud sync. Send feedback anytime below if you spot a bug or have a feature request.</p>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-sky-50 border border-violet-200/80 space-y-2.5">
+          <div>
+            <p class="font-bold text-neutral-900 text-xs">Need help or want to share feedback?</p>
+            <p class="text-[11px] text-neutral-600 mt-0.5">Send a note directly to our support team or email us anytime.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="btn-help-center-feedback" onclick="openHelpCenterFeedback()" class="px-4 py-2 text-xs font-bold text-white rounded-xl story-gradient hover:opacity-95 transition cursor-pointer">Submit feedback</button>
+            <a id="help-center-support-mailto" href="mailto:support@pixlynote.com?subject=Pixlynote%20Support" class="px-3 py-2 text-xs font-semibold text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 rounded-xl transition">support@pixlynote.com</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -116,6 +116,18 @@ async function reveal(page, h, item) {
     });
     return;
   }
+  if (/help-center|HelpCenter/.test(id + fn)) {
+    await page.evaluate(() => {
+      if (typeof openHelpCenterModal === 'function') openHelpCenterModal();
+    });
+    return;
+  }
+  if (/disconnect/i.test(id)) {
+    await page.evaluate(() => {
+      if (typeof openDisconnectConfirm === 'function') openDisconnectConfirm('elena_eats', null, () => {});
+    });
+    return;
+  }
   if (/^modal-terms|^btn-.*policy|PolicyTab/.test(id + fn) || /TermsPolicies|switchPolicyTab/.test(fn)) {
     await page.evaluate(() => {
       if (typeof handleDrawerTermsClick === 'function') handleDrawerTermsClick();
