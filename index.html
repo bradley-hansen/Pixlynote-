@@ -10114,11 +10114,18 @@ function syncLikedStateToPosts() {
       return map;
     }
     window.getViewedStoriesMap = getViewedStoriesMap;
+    function isOwnStoryLabel(val) {
+      const soft = String(val || '').trim().toLowerCase().replace(/^@/, '');
+      if (!soft) return false;
+      return soft === 'your story' || soft === 'your_story' || soft === 'yourstory';
+    }
     function storyOwnerOf(story) {
       if (!story) return '';
+      const raw = String(story.author || story.username || '').trim();
+      const norm = raw ? (typeof normalizeUsername === 'function' ? normalizeUsername(raw) : raw.toLowerCase().replace(/^@/, '')) : '';
+      if (norm && !isOwnStoryLabel(raw) && !isOwnStoryLabel(norm)) return norm;
       if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) return storyViewerKey();
-      const raw = String(story.username || '').trim();
-      if (!raw || raw.toLowerCase() === 'your story') return storyViewerKey();
+      if (!raw || isOwnStoryLabel(raw)) return storyViewerKey();
       return normalizeUsername(raw);
     }
     function storyViewId(owner, story) {
@@ -10304,13 +10311,21 @@ function syncLikedStateToPosts() {
         const ts = typeof s.timestamp === 'number' ? s.timestamp : now;
         if ((now - ts) >= STORY_TTL_MS) return false;
         const cand = Object.assign({}, s, { author: u, username: u, timestamp: ts });
+        delete cand.isUser;
+        delete cand.isEmptyPlaceholder;
         return (typeof isStoryVisibleToViewer === 'function') ? isStoryVisibleToViewer(cand) : true;
-      }).map(s => Object.assign({}, s, {
-        author: u,
-        username: u,
-        timestamp: typeof s.timestamp === 'number' ? s.timestamp : now,
-        time: formatStoryRelativeTime(typeof s.timestamp === 'number' ? s.timestamp : now)
-      }));
+      }).map(s => {
+        // Never copy the owner's isUser / isEmptyPlaceholder onto a connected slide.
+        const out = Object.assign({}, s, {
+          author: u,
+          username: u,
+          timestamp: typeof s.timestamp === 'number' ? s.timestamp : now,
+          time: formatStoryRelativeTime(typeof s.timestamp === 'number' ? s.timestamp : now)
+        });
+        delete out.isUser;
+        delete out.isEmptyPlaceholder;
+        return out;
+      });
     }
     function buildConnectedStoryEntries() {
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
@@ -10331,7 +10346,7 @@ function syncLikedStateToPosts() {
         const activeSlides = collectActiveStoriesForUser(u);
         if (activeSlides.length > 0) {
           const latest = activeSlides[activeSlides.length - 1];
-          out.push(Object.assign({}, latest, {
+          const entry = Object.assign({}, latest, {
             id: latest.id || ('story_' + u),
             username: u,
             author: u,
@@ -10339,7 +10354,10 @@ function syncLikedStateToPosts() {
             userStories: activeSlides,
             hasActiveStory: true,
             isConnectedPlaceholder: false
-          }));
+          });
+          delete entry.isUser;
+          delete entry.isEmptyPlaceholder;
+          out.push(entry);
         } else {
           out.push({
             id: 'connected_no_story_' + u,
@@ -10356,6 +10374,7 @@ function syncLikedStateToPosts() {
       });
       return out;
     }
+    window.collectActiveStoriesForUser = collectActiveStoriesForUser;
     window.buildConnectedStoryEntries = buildConnectedStoryEntries;
     function feedStoryRingState(story) {
       if (!story) return 'none';
@@ -10682,12 +10701,13 @@ function syncLikedStateToPosts() {
     }
     function storyAuthorUsername(story) {
       if (!story) return '';
+      let u = story.author || story.username || '';
+      u = String(u).replace(/^@/, '');
+      if (u && !isOwnStoryLabel(u)) return privacyNorm(u);
       try {
         if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) return privacyOwner();
       } catch (e) {}
-      let u = story.username || story.author || '';
-      u = String(u).replace(/^@/, '');
-      if (u === 'Your Story') return privacyOwner();
+      if (isOwnStoryLabel(u)) return privacyOwner();
       return privacyNorm(u);
     }
     function isStoryVisibleToViewer(story) {
@@ -22655,11 +22675,26 @@ function syncLikedStateToPosts() {
 
     function isOwnStoryObj(story) {
       if (!story) return false;
-      if (story.isUser === true) return true;
-      const sUser = (story.username || '').toLowerCase().replace(/^@/, '');
-      const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase().replace(/^@/, '');
-      return sUser === 'your story' || (curU && sUser === curU);
+      const ident = (val) => {
+        const raw = String(val || '').trim();
+        if (!raw) return '';
+        return (typeof normalizeUsername === 'function') ? normalizeUsername(raw) : raw.toLowerCase().replace(/^@/, '');
+      };
+      const curU = ident(state.currentUser && state.currentUser.username);
+      const sUser = ident(story.username);
+      const sAuthor = ident(story.author);
+      const isViewer = (u) => !!(u && curU && u === curU);
+      const userIsOwn = isOwnStoryLabel(story.username) || isOwnStoryLabel(sUser);
+      const authorIsOwn = isOwnStoryLabel(story.author) || isOwnStoryLabel(sAuthor);
+      // If a stored author/username exists and is someone else, this is not the viewer's
+      // story — even if the owner's saved object still has isUser:true.
+      if (sUser && !userIsOwn && !isViewer(sUser)) return false;
+      if (sAuthor && !authorIsOwn && !isViewer(sAuthor)) return false;
+      if (isViewer(sUser) || userIsOwn || isViewer(sAuthor) || authorIsOwn) return true;
+      // Fall back to isUser only for the true own entry (no foreign identity).
+      return story.isUser === true;
     }
+    window.isOwnStoryObj = isOwnStoryObj;
 
     function updateStoryHeartUI(story) {
       const heartBtn = document.getElementById('btn-story-send-heart');
@@ -29351,9 +29386,11 @@ function syncLikedStateToPosts() {
         const resolveStoryTargetUser = (story) => {
           const curU = normalizeUsername((state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen') || 'bradley_hansen';
           if (!story) return curU;
+          const raw = String(story.author || story.username || '').trim();
+          const norm = raw ? normalizeUsername(raw) : '';
+          if (norm && !isOwnStoryLabel(raw) && !isOwnStoryLabel(norm)) return norm;
           if (typeof isOwnStoryObj === 'function' && isOwnStoryObj(story)) return curU;
-          const raw = (story.username || '').trim();
-          if (!raw || raw.toLowerCase() === 'your story') return curU;
+          if (!raw || isOwnStoryLabel(raw)) return curU;
           return normalizeUsername(raw);
         };
         const getLocalStoryCommentsMap = (targetU) => {
@@ -29781,7 +29818,7 @@ function syncLikedStateToPosts() {
           showToast('Story options: Copy link or Mute');
         });
         bind('btn-story-viewers', 'click', () => {
-          if (!state.activeStory) return;
+          if (!state.activeStory || (typeof isOwnStoryObj === 'function' && !isOwnStoryObj(state.activeStory))) return;
           state.storyPaused = true;
           const sheet = document.getElementById('story-viewers-sheet');
           const list = document.getElementById('story-viewers-list');
@@ -29811,6 +29848,7 @@ function syncLikedStateToPosts() {
           showToast('Story link copied! 🔗');
         });
         bind('btn-story-owner-more', 'click', () => {
+          if (!state.activeStory || (typeof isOwnStoryObj === 'function' && !isOwnStoryObj(state.activeStory))) return;
           state.storyPaused = true;
           const menu = document.getElementById('story-owner-menu');
           if (menu) menu.classList.remove('hidden');
