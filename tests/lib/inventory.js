@@ -225,7 +225,13 @@ const NAV_PATHS = [
   { key: 'nav:explore:notes', name: 'Explore: Notes tab', id: 'explore-tab-btn-notes' },
   { key: 'nav:user-profile:posts', name: 'Visitor profile: Posts tab', id: 'user-tab-btn-posts' },
   { key: 'nav:user-profile:notes', name: 'Visitor profile: Notes tab', id: 'user-tab-btn-notes' },
-  { key: 'nav:user-profile:replies', name: 'Visitor profile: Replies tab', id: 'user-tab-btn-replies' }
+  { key: 'nav:user-profile:replies', name: 'Visitor profile: Replies tab', id: 'user-tab-btn-replies' },
+  { key: 'nav:gesture:pull-to-refresh', name: 'Gesture: pull down to refresh the feed or Explore', id: '' },
+  { key: 'nav:shortcut:escape-closes-menus', name: 'Shortcut: Escape closes menus and confirmations', id: '' },
+  { key: 'nav:shortcut:header-search-enter', name: 'Shortcut: Enter in header search opens Explore', id: 'header-search-input' },
+  { key: 'nav:shortcut:story-reply-enter', name: 'Shortcut: Enter sends a story reply', id: 'story-reply-input' },
+  { key: 'nav:shortcut:signup-email-code-enter', name: 'Shortcut: Enter verifies the signup email code', id: 'signup-email-code' },
+  { key: 'nav:shortcut:signup-phone-code-enter', name: 'Shortcut: Enter verifies the signup phone code', id: 'signup-phone-code' }
 ];
 
 function collectNavPaths() {
