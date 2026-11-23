@@ -4380,8 +4380,10 @@
             } catch(e) {}
             if (pendingCancel === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
               applyStripeSubscriptionCancellation(cleanU);
-            } else if (pendingSid && typeof applyStripeSessionVerification === 'function') {
-              applyStripeSessionVerification(cleanU, pendingSid);
+            } else if (pendingSid && typeof applyPendingStripeSession === 'function') {
+              applyPendingStripeSession(cleanU).then((ok) => {
+                if (!ok && typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
+              });
             } else {
               if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
               else {
@@ -4776,8 +4778,10 @@
                 } catch(e) {}
                 if (pendingCancelBH === 'true' && typeof applyStripeSubscriptionCancellation === 'function') {
                   applyStripeSubscriptionCancellation('bradley_hansen');
-                } else if (pendingSidBH && typeof applyStripeSessionVerification === 'function') {
-                  applyStripeSessionVerification('bradley_hansen', pendingSidBH);
+                } else if (pendingSidBH && typeof applyPendingStripeSession === 'function') {
+                  applyPendingStripeSession('bradley_hansen').then((ok) => {
+                    if (!ok && typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(data);
+                  });
                 } else {
                   if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(data);
                   else {
@@ -9467,6 +9471,18 @@ function syncLikedStateToPosts() {
         : String(author || '').trim().toLowerCase().replace(/^@+/, '');
       return base.replace(/\/+$/, '') + '/@' + encodeURIComponent(u) + '/note/' + encodeURIComponent(String(noteId));
     }
+    function buildStoryShareUrl(story) {
+      const base = (typeof PIXLYNOTE_SITE_ORIGIN === 'string' && PIXLYNOTE_SITE_ORIGIN.indexOf('http') === 0)
+        ? PIXLYNOTE_SITE_ORIGIN
+        : 'https://pixlynote.com';
+      const id = String((story && (story.id || story.storyId)) || '');
+      const user = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((story && (story.author || story.username)) || '')
+        : String((story && (story.author || story.username)) || '').trim().toLowerCase().replace(/^@+/, '');
+      let url = base.replace(/\/+$/, '') + '/?story=' + encodeURIComponent(id);
+      if (user) url += '&user=' + encodeURIComponent(user);
+      return url;
+    }
     function copyTextReliably(text) {
       const fallback = () => {
         let ok = false;
@@ -9681,6 +9697,34 @@ function syncLikedStateToPosts() {
       };
       setTimeout(attempt, 1200);
     }
+    function openSharedStoryFromUrl() {
+      let sid = '';
+      let user = '';
+      try {
+        const params = new URLSearchParams(window.location.search);
+        sid = String(params.get('story') || '').trim();
+        user = (typeof normalizeUsername === 'function') ? normalizeUsername(params.get('user') || '') : String(params.get('user') || '').replace(/^@/, '').toLowerCase();
+      } catch (e) {}
+      if (!sid) return;
+      let tries = 0;
+      const attempt = () => {
+        tries++;
+        if (state.isLoggedIn && typeof openStoryViewer === 'function') {
+          const match = (s) => s && String(s.id || '') === String(sid);
+          let story = null;
+          if (Array.isArray(state.stories)) story = state.stories.find(match) || null;
+          if (!story && user && typeof collectActiveStoriesForUser === 'function') {
+            const slides = collectActiveStoriesForUser(user) || [];
+            const hit = slides.find(match);
+            if (hit) story = Object.assign({}, hit, { username: user, author: user, userStories: slides });
+          }
+          if (story) { try { openStoryViewer(story); } catch (e) {} return; }
+        }
+        if (tries < 20) setTimeout(attempt, 750);
+      };
+      setTimeout(attempt, 1200);
+    }
+    window.openSharedStoryFromUrl = openSharedStoryFromUrl;
     window.getNotInterested = getNotInterested;
     window.isPostNotInterested = isPostNotInterested;
     window.notInterestedPenalty = notInterestedPenalty;
@@ -9690,6 +9734,7 @@ function syncLikedStateToPosts() {
     window.buildPostShareUrl = buildPostShareUrl;
     window.buildProfileShareUrl = buildProfileShareUrl;
     window.buildNoteShareUrl = buildNoteShareUrl;
+    window.buildStoryShareUrl = buildStoryShareUrl;
     window.copyPostLink = copyPostLink;
     window.openPostOptionsMenu = openPostOptionsMenu;
     window.closePostOptionsMenu = closePostOptionsMenu;
@@ -9720,6 +9765,7 @@ function syncLikedStateToPosts() {
       window.addEventListener('scroll', function () { positionPostOptionsMenu(); }, { passive: true, capture: true });
       window.addEventListener('resize', function () { closePostOptionsMenu(); });
       openSharedPostFromUrl();
+      openSharedStoryFromUrl();
     })();
 
     function copyToClipboard(text, successMsg) {
@@ -12428,7 +12474,8 @@ function syncLikedStateToPosts() {
               read: false
             });
           }
-          copyToClipboard(window.location.href, 'Post link copied to clipboard!');
+          if (pid && typeof copyPostLink === 'function') copyPostLink(pid);
+          else if (pid && typeof buildPostShareUrl === 'function') copyToClipboard(buildPostShareUrl(pid), 'Post link copied to clipboard!');
         });
       });
 
@@ -14643,7 +14690,7 @@ function syncLikedStateToPosts() {
                   <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${idJs}');" class="flex items-center hover:text-violet-600 transition btn-dm-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="Send via DM">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.6 8.2C17.2 5.4 14.3 3.7 11 3.7 6.3 3.7 2.8 7.2 2.8 11.7c0 1.8.6 3.5 1.7 4.9L3.3 20.4l4.1-1.4c1.1.5 2.3.7 3.6.7 3.3 0 6.2-1.7 7.6-4.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.5 12h9m0 0l-3.3-3.3M21.5 12l-3.3 3.3"/></svg>
                   </button>
-                  <button type="button" onclick="event.stopPropagation();" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" title="Share">
+                  <button type="button" onclick="event.stopPropagation();" class="flex items-center space-x-1 hover:text-neutral-800 transition btn-share-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" data-note-author="${author}" title="Share">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                   </button>
                 </div>
@@ -14862,7 +14909,13 @@ function syncLikedStateToPosts() {
           btn.addEventListener('click', (e) => { e.stopPropagation(); openNoteDetailModal(btn.dataset.noteId); });
         });
         notesList.querySelectorAll('.btn-share-explore-note').forEach(btn => {
-          btn.addEventListener('click', () => copyToClipboard(window.location.href, 'Note link copied to clipboard!'));
+          btn.addEventListener('click', () => {
+            const nid = btn.getAttribute('data-note-id') || btn.dataset.noteId;
+            const author = btn.getAttribute('data-note-author') || btn.dataset.noteAuthor;
+            if (nid && author && typeof buildNoteShareUrl === 'function') {
+              copyToClipboard(buildNoteShareUrl(author, nid), 'Note link copied to clipboard!');
+            }
+          });
         });
         observeExploreLoadMore(notesList);
       }
@@ -25211,7 +25264,11 @@ function syncLikedStateToPosts() {
             }
             let pendingSid = null;
             try { pendingSid = localStorage.getItem('pixly_pending_stripe_session'); } catch(e) {}
-            if (pendingSid) {
+            if (pendingSid && typeof applyPendingStripeSession === 'function') {
+              applyPendingStripeSession(normLoginU).then((ok) => {
+                if (!ok && typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
+              });
+            } else if (pendingSid) {
               applyStripeSessionVerification(normLoginU, pendingSid);
             } else {
               if (typeof applyRemoteSubscriptionFields === 'function') applyRemoteSubscriptionFields(d);
@@ -25302,6 +25359,17 @@ function syncLikedStateToPosts() {
       } else {
         showToast(`Welcome back, @${state.currentUser.username}!`);
       }
+      try {
+        const pendingSidNow = localStorage.getItem('pixly_pending_stripe_session');
+        if (pendingSidNow) {
+          const pendingUser = cleanUsername;
+          const runPending = () => {
+            if (typeof applyPendingStripeSession === 'function') applyPendingStripeSession(pendingUser);
+          };
+          if (typeof applyPendingStripeSession === 'function') runPending();
+          else setTimeout(runPending, 0);
+        }
+      } catch (e) {}
     }
 
     function performLogout() {
@@ -29294,7 +29362,8 @@ function syncLikedStateToPosts() {
               read: false
             });
           }
-          copyToClipboard(window.location.href, 'Post link copied!');
+          if (state.currentModalPostId && typeof copyPostLink === 'function') copyPostLink(state.currentModalPostId);
+          else if (state.currentModalPostId && typeof buildPostShareUrl === 'function') copyToClipboard(buildPostShareUrl(state.currentModalPostId), 'Post link copied!');
         });
         bind('btn-modal-focus-comment', 'click', () => { const inp = document.getElementById('modal-comment-input'); if (inp) inp.focus(); });
 
@@ -29822,7 +29891,9 @@ function syncLikedStateToPosts() {
           });
         }
         bind('btn-story-viewer-share', 'click', () => {
-          if (navigator.clipboard) navigator.clipboard.writeText(window.location.href).catch(() => {});
+          const url = (typeof buildStoryShareUrl === 'function') ? buildStoryShareUrl(state.activeStory) : '';
+          if (url && navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+          else if (url) copyToClipboard(url, 'Story link copied! 🔗');
           showToast('Story link copied! 🔗');
         });
         bind('btn-story-viewer-more', 'click', () => {
@@ -29855,7 +29926,9 @@ function syncLikedStateToPosts() {
           state.storyPaused = false;
         });
         bind('btn-story-owner-share', 'click', () => {
-          if (navigator.clipboard) navigator.clipboard.writeText(window.location.href).catch(() => {});
+          const url = (typeof buildStoryShareUrl === 'function') ? buildStoryShareUrl(state.activeStory) : '';
+          if (url && navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+          else if (url) copyToClipboard(url, 'Story link copied! 🔗');
           showToast('Story link copied! 🔗');
         });
         bind('btn-story-owner-more', 'click', () => {
@@ -30985,22 +31058,83 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.applyStripeIdsFromSessionData = applyStripeIdsFromSessionData;
     window.cancelStripeSubscriptionForAccount = cancelStripeSubscriptionForAccount;
     window.fetchStripeSessionStatus = fetchStripeSessionStatus;
-    // Paid Plus purchase, subscription still active, and bought by this account (client_reference_id = username).
+    const STRIPE_PAYMENT_UNCONFIRMED_TOAST = "We couldn't confirm your payment yet. Contact support@pixlynote.com.";
+    window.STRIPE_PAYMENT_UNCONFIRMED_TOAST = STRIPE_PAYMENT_UNCONFIRMED_TOAST;
+    function stripeSessionIsPaid(data) {
+      if (!data) return false;
+      return data.payment_status === 'paid' || data.payment_status === 'no_payment_required' || data.status === 'complete' || data.session_paid === true;
+    }
+    function stripeSessionIdentityMatches(data, username) {
+      if (!data || !username) return false;
+      const u = normalizeUsername(username);
+      if (!u) return false;
+      const ref = data.client_reference_id ? normalizeUsername(data.client_reference_id) : '';
+      if (ref) return ref === u;
+      const email = String(data.customer_email || '').trim().toLowerCase();
+      const userEmail = String((state.currentUser && state.currentUser.email) || '').trim().toLowerCase();
+      if (email && userEmail && email === userEmail) return true;
+      const cid = String(data.customer_id || '').trim();
+      const stored = String((state.currentUser && state.currentUser.stripeCustomerId) || '').trim();
+      if (cid && stored && cid === stored) return true;
+      return false;
+    }
+    // Paid Plus purchase, still active, and the session is owned by this account.
+    // A missing identity on the session, or a different username, must not grant Plus.
     function stripeSessionGrantsPlus(data, username) {
       if (!data || data.verified !== true || data.plus_active === false) return false;
-      if (!(data.payment_status === 'paid' || data.status === 'complete')) return false;
-      const ref = data.client_reference_id ? normalizeUsername(data.client_reference_id) : '';
-      return !ref || !username || ref === normalizeUsername(username);
+      if (!stripeSessionIsPaid(data)) return false;
+      return stripeSessionIdentityMatches(data, username);
     }
+    window.stripeSessionIsPaid = stripeSessionIsPaid;
+    window.stripeSessionIdentityMatches = stripeSessionIdentityMatches;
     window.stripeSessionGrantsPlus = stripeSessionGrantsPlus;
     function stripeSessionConfirmsPaid(data, username) {
-      if (!data) return false;
-      const paid = data.payment_status === 'paid' || data.status === 'complete' || data.session_paid === true;
-      if (!paid) return false;
-      const ref = data.client_reference_id ? normalizeUsername(data.client_reference_id) : '';
-      return !ref || !username || ref === normalizeUsername(username);
+      if (!stripeSessionIsPaid(data)) return false;
+      return stripeSessionIdentityMatches(data, username);
     }
     window.stripeSessionConfirmsPaid = stripeSessionConfirmsPaid;
+    function resolveStripeCheckoutPlan(data, hintKind) {
+      if (data && (data.plan === 'plus' || data.plan === 'business')) return data.plan;
+      if (hintKind === 'business') return 'business';
+      if (data && data.verified === true) return 'plus';
+      if (hintKind === 'plus') return 'plus';
+      return 'plus';
+    }
+    window.resolveStripeCheckoutPlan = resolveStripeCheckoutPlan;
+    async function applyPendingStripeSession(username) {
+      let pendingSid = null;
+      let pendingKind = '';
+      try {
+        pendingSid = localStorage.getItem('pixly_pending_stripe_session');
+        pendingKind = localStorage.getItem('pixly_pending_stripe_kind') || '';
+      } catch (e) {}
+      if (!pendingSid || !username) return false;
+      const data = await fetchStripeSessionStatus(pendingSid);
+      const plan = resolveStripeCheckoutPlan(data, pendingKind);
+      if (plan === 'business' && stripeSessionConfirmsPaid(data, username)) {
+        if (typeof isBusinessAccount === 'function' && state.currentUser && !isBusinessAccount(state.currentUser)) {
+          try {
+            localStorage.removeItem('pixly_pending_stripe_session');
+            localStorage.removeItem('pixly_pending_stripe_kind');
+          } catch (e) {}
+          return false;
+        }
+        applyBusinessPlusVerification(username, pendingSid);
+        try { localStorage.removeItem('pixly_pending_stripe_kind'); } catch (e) {}
+        return true;
+      }
+      if (plan === 'plus' && stripeSessionGrantsPlus(data, username)) {
+        applyStripeSessionVerification(username, pendingSid, true);
+        try { localStorage.removeItem('pixly_pending_stripe_kind'); } catch (e) {}
+        return true;
+      }
+      try {
+        localStorage.removeItem('pixly_pending_stripe_session');
+        localStorage.removeItem('pixly_pending_stripe_kind');
+      } catch (e) {}
+      return false;
+    }
+    window.applyPendingStripeSession = applyPendingStripeSession;
     function applyRemoteSubscriptionFields(data) {
       if (!state.currentUser || !data) return;
       const isVer = data.isVerified === true;
@@ -31976,16 +32110,33 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const sessionId = params.get('session_id');
         const token = (sessionId && sessionId.trim()) || '';
         const isValidStripeToken = /^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(token);
-        let checkoutTs = 0;
-        try {
-          checkoutTs = Number(localStorage.getItem('pixly_stripe_checkout_initiated') || sessionStorage.getItem('pixly_stripe_checkout_initiated') || 0);
-        } catch(e) {}
-        const hasRecentCheckout = checkoutTs > 0 && (Date.now() - checkoutTs) < 2 * 60 * 60 * 1000;
+        const clearStripeReturnQuery = () => {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        };
+        const failStripeReturn = (msg) => {
+          if (typeof showToast === 'function') {
+            showToast(msg || STRIPE_PAYMENT_UNCONFIRMED_TOAST);
+          }
+          try {
+            localStorage.removeItem('pixly_stripe_checkout_initiated');
+            sessionStorage.removeItem('pixly_stripe_checkout_initiated');
+          } catch (e) {}
+          clearStripeReturnQuery();
+        };
+        const clearCheckoutMarkers = () => {
+          try {
+            localStorage.removeItem('pixly_pending_stripe_cancel');
+            localStorage.removeItem('pixly_stripe_checkout_initiated');
+            sessionStorage.removeItem('pixly_stripe_checkout_initiated');
+            localStorage.removeItem('pixly_stripe_checkout_kind');
+            sessionStorage.removeItem('pixly_stripe_checkout_kind');
+          } catch (e) {}
+        };
 
         if (canceled === 'true') {
           localStorage.removeItem('pixly_stripe_checkout_initiated');
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
+          clearStripeReturnQuery();
           setTimeout(() => {
             if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
               try {
@@ -31997,45 +32148,64 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               if (state.currentUser.stripeBusinessSessionId) recheckStripeSubscription(state.currentUser.username, state.currentUser.stripeBusinessSessionId, { kind: 'business' });
             }
           }, 1500);
-        } else if (isValidStripeToken && hasRecentCheckout) {
-          localStorage.removeItem('pixly_pending_stripe_cancel');
-          localStorage.removeItem('pixly_stripe_checkout_initiated');
-          try { sessionStorage.removeItem('pixly_stripe_checkout_initiated'); } catch(e) {}
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
-          (async () => {
-            try {
-              const data = await fetchStripeSessionStatus(token);
-              if (!data) throw new Error('Stripe verification endpoint error');
-              const forUser = state.isLoggedIn && state.currentUser ? state.currentUser.username : '';
-              let checkoutKind = '';
-              try { checkoutKind = localStorage.getItem('pixly_stripe_checkout_kind') || sessionStorage.getItem('pixly_stripe_checkout_kind') || ''; } catch(e) {}
-              const isBusinessCheckout = subscribed === 'business' || checkoutKind === 'business';
-              try { localStorage.removeItem('pixly_stripe_checkout_kind'); sessionStorage.removeItem('pixly_stripe_checkout_kind'); } catch(e) {}
-              if (isBusinessCheckout && typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser) && stripeSessionConfirmsPaid(data, forUser)) {
-                localStorage.setItem('pixly_pending_stripe_session', token);
-                if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-                  applyBusinessPlusVerification(state.currentUser.username, token);
-                }
-              } else if (!isBusinessCheckout && stripeSessionGrantsPlus(data, forUser)) {
-                localStorage.setItem('pixly_pending_stripe_session', token);
-                if (state.isLoggedIn && state.currentUser && state.currentUser.username) {
-                  applyStripeSessionVerification(state.currentUser.username, token, true);
-                }
-              } else if (typeof showToast === 'function') {
-                showToast('Stripe payment could not be verified.');
-              }
-            } catch(err) {
-              if (typeof showToast === 'function') {
-                showToast('Unable to verify Stripe session with server.');
-              }
-            }
-          })();
-        } else if (token || subscribed !== null) {
-          // Arbitrary URL parameter without legitimate checkout initiation: strip URL and do nothing
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
+          return;
         }
+
+        if (!isValidStripeToken) {
+          if (token || subscribed !== null) failStripeReturn();
+          return;
+        }
+
+        // Valid Checkout Session id: always ask the worker. Do not strip the query
+        // until that decision is made. The 2-hour checkout marker is not a hard gate.
+        (async () => {
+          try {
+            const data = await fetchStripeSessionStatus(token);
+            if (!data) {
+              failStripeReturn();
+              return;
+            }
+            const signedIn = !!(state.isLoggedIn && state.currentUser && state.currentUser.username);
+            const forUser = signedIn ? state.currentUser.username : '';
+            let checkoutKind = '';
+            try { checkoutKind = localStorage.getItem('pixly_stripe_checkout_kind') || sessionStorage.getItem('pixly_stripe_checkout_kind') || ''; } catch (e) {}
+            const hintKind = (subscribed === 'business' || checkoutKind === 'business') ? 'business' : 'plus';
+            const plan = resolveStripeCheckoutPlan(data, hintKind);
+
+            if (!signedIn) {
+              const looksPayable = (plan === 'plus' && data.verified === true && data.plus_active !== false && stripeSessionIsPaid(data))
+                || (plan === 'business' && stripeSessionIsPaid(data) && (data.plan === 'business' || data.verified !== true));
+              const hasIdentity = !!(data.client_reference_id || data.customer_email || data.customer_id);
+              if (looksPayable && hasIdentity) {
+                try {
+                  localStorage.setItem('pixly_pending_stripe_session', token);
+                  localStorage.setItem('pixly_pending_stripe_kind', plan);
+                } catch (e) {}
+                clearCheckoutMarkers();
+                clearStripeReturnQuery();
+              } else {
+                failStripeReturn();
+              }
+              return;
+            }
+
+            if (plan === 'business' && typeof isBusinessAccount === 'function' && isBusinessAccount(state.currentUser) && stripeSessionConfirmsPaid(data, forUser) && (data.plan === 'business' || data.verified !== true)) {
+              try { localStorage.setItem('pixly_pending_stripe_session', token); } catch (e) {}
+              clearCheckoutMarkers();
+              clearStripeReturnQuery();
+              applyBusinessPlusVerification(forUser, token);
+            } else if (plan === 'plus' && stripeSessionGrantsPlus(data, forUser)) {
+              try { localStorage.setItem('pixly_pending_stripe_session', token); } catch (e) {}
+              clearCheckoutMarkers();
+              clearStripeReturnQuery();
+              applyStripeSessionVerification(forUser, token, true);
+            } else {
+              failStripeReturn();
+            }
+          } catch (err) {
+            failStripeReturn();
+          }
+        })();
       } catch(e) {}
     })();
 
@@ -32187,6 +32357,18 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.updateSubscriptionModalUI = updateSubscriptionModalUI;
 
+    function markStripeCheckoutInitiated(kind) {
+      const nowStr = String(Date.now());
+      try { sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr); } catch (e) {}
+      if (typeof safeLocalStorageSet === 'function') safeLocalStorageSet('pixly_stripe_checkout_initiated', nowStr);
+      else { try { localStorage.setItem('pixly_stripe_checkout_initiated', nowStr); } catch (e) {} }
+      if (kind) {
+        try { sessionStorage.setItem('pixly_stripe_checkout_kind', kind); } catch (e) {}
+        if (typeof safeLocalStorageSet === 'function') safeLocalStorageSet('pixly_stripe_checkout_kind', kind);
+        else { try { localStorage.setItem('pixly_stripe_checkout_kind', kind); } catch (e) {} }
+      }
+    }
+    window.markStripeCheckoutInitiated = markStripeCheckoutInitiated;
     function wireStripeBuyButton(buyBtn, kind) {
       if (!buyBtn || buyBtn.dataset.checkoutWired) return;
       buyBtn.dataset.checkoutWired = '1';
@@ -32203,13 +32385,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             const u = state && state.currentUser;
             if (u && !u.isBusinessPlus && !businessVerificationAllowsCheckout(u)) return;
           }
-          const nowStr = String(Date.now());
-          try {
-            sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr);
-            sessionStorage.setItem('pixly_stripe_checkout_kind', kind || 'plus');
-          } catch(e) {}
-          safeLocalStorageSet('pixly_stripe_checkout_initiated', nowStr);
-          safeLocalStorageSet('pixly_stripe_checkout_kind', kind || 'plus');
+          markStripeCheckoutInitiated(kind || 'plus');
         });
       });
     }
@@ -32222,6 +32398,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
     }
     function openSubscriptionModal() {
+      if (typeof markStripeCheckoutInitiated === 'function') markStripeCheckoutInitiated();
       const modal = document.getElementById('modal-subscription');
       const buyBtn = document.getElementById('pixly-stripe-buy-btn');
       const bizBuyBtn = document.getElementById('pixly-stripe-business-buy-btn');
