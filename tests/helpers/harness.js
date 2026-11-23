@@ -418,14 +418,15 @@ async function hideToasts(page) {
   await page.evaluate(() => {
     const toast = document.getElementById('toast');
     if (toast) {
-      // #toast uses class "flex", and the app stylesheet has `.flex { display: flex !important; }`.
-      // Setting display:none on the container therefore loses, while hiding #toast-text (also
-      // matched by [id*="toast"]) would leave an empty ~40x20 black pill over the header.
+      // Hide with the same classes showToast uses. Do not set display:none (`.flex` is
+      // `display:flex !important`, and hiding #toast-text alone leaves an empty black pill)
+      // and do not leave sticky !important inline styles that would block later toasts.
       toast.classList.remove('opacity-100');
       toast.classList.add('opacity-0', 'pointer-events-none');
-      toast.style.setProperty('opacity', '0', 'important');
-      toast.style.setProperty('visibility', 'hidden', 'important');
-      toast.style.setProperty('pointer-events', 'none', 'important');
+      toast.style.removeProperty('opacity');
+      toast.style.removeProperty('visibility');
+      toast.style.removeProperty('pointer-events');
+      toast.style.removeProperty('display');
       try { clearTimeout(window._toastTimeout); } catch (e) {}
     }
     document.querySelectorAll('[class*="toast"], [id*="toast"]').forEach((el) => {
