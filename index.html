@@ -4484,6 +4484,9 @@
             if (typeof window.attachPostsCollectionListener === 'function') {
               window.attachPostsCollectionListener();
             }
+            if (typeof window.hydrateOwnPostsFromCollection === 'function') {
+              window.hydrateOwnPostsFromCollection(cleanU);
+            }
             if (!cleanU || (cleanU === 'bradley_hansen' && window._bradleyUserDocUnsub)) return;
             const fb = window.firebase || {};
             const fDb = fb.db;
@@ -4606,8 +4609,30 @@
                 window.applyCustomPostsFromRemote(cloudPosts);
               }
               if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
+              if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
             }, (err) => console.log("Posts collection query notice:", err));
           } catch(e) {}
+        };
+        window.hydrateOwnPostsFromCollection = async function(username) {
+          const cleanU = (typeof normalizeUsername === 'function')
+            ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '')
+            : String(username || (state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+          if (!cleanU || !window.firebaseReady || !window.firebase) return;
+          try {
+            const { db, collection, query, where, getDocs } = window.firebase;
+            if (!db || !collection || !query || !where || !getDocs) return;
+            const qs = await getDocs(query(collection(db, 'posts'), where('author', '==', cleanU)));
+            if (!state.isLoggedIn || normalizeUsername((state.currentUser && state.currentUser.username) || '') !== cleanU) return;
+            const cloudPosts = [];
+            qs.forEach(function (pDoc) {
+              const pData = pDoc.data();
+              if (pData && pData.id) cloudPosts.push(pData);
+            });
+            if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
+              window.applyCustomPostsFromRemote(cloudPosts);
+              if (typeof renderProfile === 'function') renderProfile();
+            }
+          } catch (e) {}
         };
 
         function attachFirestoreListeners() {
@@ -8211,9 +8236,23 @@ function syncLikedStateToPosts() {
 
         // 2. Save Custom User Posts (lightweight in localStorage to avoid 5MB quota errors, full in idbStorage)
         const customPosts = state.posts.filter(p => typeof p.id === "number" && p.id > 1000);
-        const lightPosts = stripHeavyImagesForLocalStorage(customPosts);
-        safeLocalStorageSet(k('pixly_custom_posts'), JSON.stringify(lightPosts));
-        if (window.idbStorage) idbStorage.set(k('pixly_custom_posts'), JSON.stringify(customPosts));
+        const postsHydrated = window._pixlyCustomPostsHydratedFor === curU;
+        let skipEmptyCustomPostsWrite = false;
+        if (customPosts.length === 0 && !postsHydrated) {
+          try {
+            const existingCustom = localStorage.getItem(k('pixly_custom_posts')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_custom_posts') : null);
+            if (existingCustom) {
+              const parsedExisting = JSON.parse(existingCustom);
+              if (Array.isArray(parsedExisting) && parsedExisting.length > 0) skipEmptyCustomPostsWrite = true;
+            }
+          } catch (eSkipPosts) {}
+        }
+        if (!skipEmptyCustomPostsWrite) {
+          const lightPosts = stripHeavyImagesForLocalStorage(customPosts);
+          safeLocalStorageSet(k('pixly_custom_posts'), JSON.stringify(lightPosts));
+          if (window.idbStorage) idbStorage.set(k('pixly_custom_posts'), JSON.stringify(customPosts));
+        }
+        if (customPosts.length > 0) window._pixlyCustomPostsHydratedFor = curU;
 
         // 3. Save Saved Notes IDs
         if (state.savedNoteIds) {
@@ -8562,6 +8601,68 @@ function syncLikedStateToPosts() {
     }
     window.fetchCloudFollowers = fetchCloudFollowers;
 
+    // Merge a cloud followers snapshot into local state. An empty or cached-empty
+    // snapshot must not overwrite a non-empty Connections list (refresh flip-flop).
+    function applyFollowersCloudSnapshot(username, cloudList, opts) {
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username || '')
+        : String(username || '').toLowerCase().replace(/^@/, '');
+      if (!u) return { applied: false, count: 0 };
+      const fromCache = !!(opts && opts.fromCache);
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem('pixly_followers_' + u) || '[]') || []; } catch (e) {}
+      if (!Array.isArray(local)) local = [];
+      const byU = {};
+      local.forEach(function (f) { if (f && f.username) byU[normalizeUsername(f.username)] = f; });
+      const list = [];
+      (Array.isArray(cloudList) ? cloudList : []).forEach(function (v) {
+        if (!v) return;
+        const fu = normalizeUsername(v.username || v.id || '');
+        if (!fu) return;
+        const prev = byU[fu] || {};
+        list.push({ ...prev, id: prev.id || v.followedAt || v.id || Date.now(), username: fu, fullName: v.fullName || prev.fullName || fu });
+      });
+      let cloudSeen = false;
+      try { cloudSeen = localStorage.getItem('pixly_followers_cloud_' + u) === '1'; } catch (e) {}
+      if (list.length > 0) { try { localStorage.setItem('pixly_followers_cloud_' + u, '1'); } catch (e) {} }
+      if (list.length === 0 && local.length > 0) {
+        const shownKeep = typeof cleanConnectionsList === 'function' ? cleanConnectionsList(local, u).length : local.length;
+        return { applied: false, keptLocal: true, count: shownKeep };
+      }
+      if (list.length > 0 || cloudSeen || local.length === 0) {
+        try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(list)); } catch (e) {}
+        const shown = typeof cleanConnectionsList === 'function' ? cleanConnectionsList(list, u).length : list.length;
+        if (state.currentUser && normalizeUsername(state.currentUser.username || '') === u) {
+          state.currentUser.followersCount = String(shown);
+        }
+        const el = document.getElementById('profile-followers-count');
+        if (el) el.textContent = shown.toLocaleString();
+        const fm = document.getElementById('modal-followers');
+        if (fm && !fm.classList.contains('hidden') && typeof renderFollowersList === 'function') {
+          const si = document.getElementById('followers-search-input');
+          renderFollowersList(si ? si.value : '');
+        }
+        const gm = document.getElementById('modal-following');
+        if (gm && !gm.classList.contains('hidden') && typeof paintOwnConnectionTabs === 'function') {
+          paintOwnConnectionTabs('connected');
+        }
+        return { applied: true, count: shown };
+      }
+      return { applied: false, count: 0 };
+    }
+    window.applyFollowersCloudSnapshot = applyFollowersCloudSnapshot;
+
+    async function refreshOwnFollowersFromCloud(username) {
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username || (state.currentUser && state.currentUser.username) || '')
+        : String(username || '').toLowerCase();
+      if (!u) return;
+      const list = await fetchCloudFollowers(u);
+      if (!list) return;
+      applyFollowersCloudSnapshot(u, list, { fromCache: false });
+    }
+    window.refreshOwnFollowersFromCloud = refreshOwnFollowersFromCloud;
+
     function attachMyFollowersListener(username) {
       const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
       if (!u || !window.firebaseReady || !window.firebase || !window.firebase.onSnapshot || !window.firebase.collection) return;
@@ -8574,38 +8675,13 @@ function syncLikedStateToPosts() {
         window._myFollowersUnsub = onSnapshot(collection(db, 'users', u, 'followers'), (qs) => {
           const cur = normalizeUsername((state.currentUser && state.currentUser.username) || '');
           if (cur !== u) return;
-          let local = [];
-          try { local = JSON.parse(localStorage.getItem('pixly_followers_' + u) || '[]') || []; } catch(e) {}
-          const byU = {};
-          (Array.isArray(local) ? local : []).forEach(f => { if (f && f.username) byU[normalizeUsername(f.username)] = f; });
-          const list = [];
+          const cloudList = [];
           qs.forEach(d => {
             const v = d.data() || {};
-            const fu = normalizeUsername(v.username || d.id);
-            const prev = byU[fu] || {};
-            list.push({ ...prev, id: prev.id || v.followedAt || Date.now(), username: fu, fullName: v.fullName || prev.fullName || fu });
+            cloudList.push({ id: v.followedAt || Date.now(), username: v.username || d.id, fullName: v.fullName || v.username || d.id });
           });
-          // Cloud is authoritative once it has ever had data for this account; until then an empty cloud list
-          // keeps any legacy local-only followers recorded on this device before cloud followers existed.
-          let cloudSeen = false;
-          try { cloudSeen = localStorage.getItem('pixly_followers_cloud_' + u) === '1'; } catch(e) {}
-          if (list.length > 0) { try { localStorage.setItem('pixly_followers_cloud_' + u, '1'); } catch(e) {} }
-          if (list.length > 0 || cloudSeen || (Array.isArray(local) && local.length === 0)) {
-            try { localStorage.setItem('pixly_followers_' + u, JSON.stringify(list)); } catch(e) {}
-            const shown = typeof cleanConnectionsList === 'function' ? cleanConnectionsList(list, u).length : list.length;
-            if (state.currentUser) state.currentUser.followersCount = String(shown);
-            const el = document.getElementById('profile-followers-count');
-            if (el) el.textContent = shown.toLocaleString();
-            const fm = document.getElementById('modal-followers');
-            if (fm && !fm.classList.contains('hidden') && typeof renderFollowersList === 'function') {
-              const si = document.getElementById('followers-search-input');
-              renderFollowersList(si ? si.value : '');
-            }
-            const gm = document.getElementById('modal-following');
-            if (gm && !gm.classList.contains('hidden') && typeof paintOwnConnectionTabs === 'function') {
-              paintOwnConnectionTabs('connected');
-            }
-          }
+          const fromCache = !!(qs.metadata && qs.metadata.fromCache);
+          applyFollowersCloudSnapshot(u, cloudList, { fromCache: fromCache });
         }, () => {});
       } catch(e) {}
     }
@@ -8633,6 +8709,7 @@ function syncLikedStateToPosts() {
 
         // 2. Restore Custom Posts (excluding any deleted posts and deduplicating twin bug posts)
         try {
+          window._pixlyCustomPostsHydratedFor = curU;
           let savedCustom = null;
           try { savedCustom = localStorage.getItem(k('pixly_custom_posts')) || (curU === 'bradley_hansen' ? localStorage.getItem('pixly_custom_posts') : null); } catch(e) {}
           if (savedCustom) {
@@ -25627,6 +25704,11 @@ function syncLikedStateToPosts() {
       }
 
 
+      // Load local posts/notes/profile BEFORE session restore. performLogin calls
+      // saveUserProfile/persistState; doing that first would write empty
+      // pixly_custom_posts over a stored array and blank the Posts tab.
+      try { loadUserProfile(); } catch(e) {}
+
       // Restore a saved session before painting the splash, so a hard reload
       // does not leave a signed-in user on "Join Pixlynote".
       try {
@@ -25650,8 +25732,6 @@ function syncLikedStateToPosts() {
           setAuthMode('splash');
         }
       } catch(e) {}
-
-      try { loadUserProfile(); } catch(e) {}
 
       // Render all views immediately (preserve saved avatar!)
       try {
@@ -25743,8 +25823,13 @@ function syncLikedStateToPosts() {
             }
           }).catch(() => {});
 
-          // 2. Restore Custom Posts
-          idbStorage.get('pixly_custom_posts').then(idbPosts => {
+          // 2. Restore Custom Posts (account-scoped key first, legacy unscoped fallback)
+          const idbPostsU = normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || '');
+          const idbPostsKey = (typeof getAccountStorageKey === 'function' && idbPostsU) ? getAccountStorageKey('pixly_custom_posts', idbPostsU) : 'pixly_custom_posts';
+          const idbPostsPromise = (idbPostsU === 'bradley_hansen')
+            ? idbStorage.get(idbPostsKey).then(v => v || idbStorage.get('pixly_custom_posts'))
+            : idbStorage.get(idbPostsKey);
+          idbPostsPromise.then(idbPosts => {
             if (idbPosts) {
               try {
                 const parsed = JSON.parse(idbPosts);
@@ -25830,6 +25915,36 @@ function syncLikedStateToPosts() {
           return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
         }
 
+        async function applyPullRefreshData() {
+          // Always reload local posts/profile first so a refresh cannot paint 0 POSTS
+          // or a blank phone over values still sitting in localStorage.
+          try { if (typeof loadPersistedState === 'function') loadPersistedState(); } catch (e) {}
+          const refreshU = (typeof normalizeUsername === 'function')
+            ? normalizeUsername((state.currentUser && state.currentUser.username) || localStorage.getItem('pixly_active_username') || '')
+            : '';
+          const hydrates = [];
+          if (refreshU && typeof window.hydrateOwnPostsFromCollection === 'function') {
+            hydrates.push(Promise.resolve(window.hydrateOwnPostsFromCollection(refreshU)).catch(function () {}));
+          }
+          if (refreshU && typeof window.refreshOwnFollowersFromCloud === 'function') {
+            hydrates.push(Promise.resolve(window.refreshOwnFollowersFromCloud(refreshU)).catch(function () {}));
+          }
+          if (hydrates.length) await Promise.all(hydrates);
+          if (window.firebaseReady && window.firebase && window.firebase.db && (window._likesHydratedFromCloud || window.pendingLikesSync)) {
+            try { syncAllLikesToFirestore(); } catch (e) {}
+          }
+          try { repopulateExploreContent(); } catch (e) {}
+          if (typeof window.refreshExploreRealData === 'function') {
+            try { await Promise.resolve(window.refreshExploreRealData()); } catch (e) {}
+          }
+          try { renderFeed(); } catch (e) { console.error('renderFeed error:', e); }
+          try { renderProfile(); } catch (e) { console.error('renderProfile error:', e); }
+          try { renderExplore(); } catch (e) { console.error('renderExplore error:', e); }
+          try { renderLikes(); } catch (e) { console.error('renderLikes error:', e); }
+          try { renderStories(); } catch (e) { console.error('renderStories error:', e); }
+        }
+        window.applyPullRefreshData = applyPullRefreshData;
+
         function triggerRefreshRoutine() {
           if (isRefreshing) return;
           isRefreshing = true;
@@ -25844,41 +25959,21 @@ function syncLikedStateToPosts() {
           if (refreshTimer) clearTimeout(refreshTimer);
           // Runs in 2.5 seconds (within user-requested 2-5s window) then BAM: new content!
           refreshTimer = setTimeout(() => {
-            try {
-              if (!window._likesHydratedFromCloud) {
-                loadPersistedState();
-              }
-              if (window.firebaseReady && window.firebase && window.firebase.db && (window._likesHydratedFromCloud || window.pendingLikesSync)) {
-                syncAllLikesToFirestore();
-              }
-              
-              // 1. Repopulate Explore with fresh posts & notes
-              repopulateExploreContent();
-              if (typeof window.refreshExploreRealData === 'function') window.refreshExploreRealData();
-
-              // 2. Render all active UI views safely
-              try { renderFeed(); } catch(e) { console.error('renderFeed error:', e); }
-              try { renderProfile(); } catch(e) { console.error('renderProfile error:', e); }
-              try { renderExplore(); } catch(e) { console.error('renderExplore error:', e); }
-              try { renderLikes(); } catch(e) { console.error('renderLikes error:', e); }
-              try { renderStories(); } catch(e) { console.error('renderStories error:', e); }
-
-              const isExploreActive = state.activeTab === 'explore' || 
+            Promise.resolve(applyPullRefreshData()).then(() => {
+              const isExploreActive = state.activeTab === 'explore' ||
                 (document.getElementById('tab-explore') && !document.getElementById('tab-explore').classList.contains('hidden'));
-              
-              showToast(isExploreActive 
-                ? '✨ Explore refreshed with new posts & notes! 💥' 
+              showToast(isExploreActive
+                ? '✨ Explore refreshed with new posts & notes! 💥'
                 : 'Refreshed! 💥');
-            } catch (err) {
+            }).catch((err) => {
               console.error('Refresh routine error:', err);
               showToast('Refreshed!');
-            } finally {
-              // Guaranteed unlock so refresh NEVER gets stuck
+            }).finally(() => {
               if (refreshIndicator) refreshIndicator.classList.add('hidden');
               isRefreshing = false;
               isPulling = false;
               pullDistance = 0;
-            }
+            });
           }, 2500);
         }
         window.triggerRefreshRoutine = triggerRefreshRoutine;
