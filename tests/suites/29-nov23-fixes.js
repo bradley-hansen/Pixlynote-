@@ -4,7 +4,7 @@
  * Unit + UI E2E tests for Nov 23 fixes (branch grokbot/nov23-fixes):
  * 1. Government (Slate #64748B / Navy #1E3A8A) and Organization (Teal #14B8A6) unit + E2E gating/badges/signup-upgrade
  * 2. Subtle Beta indicator (#nav-beta-pill + #own-info-app-release in About) with mobile non-overlap check
- * 3. Story bar includes connected users' stories / avatars (not just self/demo)
+ * 3. Story bar includes connected users with active stories only (no empty avatars); viewed sorts after unviewed
  * 4. Business sign-up fields prefilled into Edit Profile Business Package section (and preserved across reload)
  * 5. Disconnect confirm dropdown ("Disconnect @user?") on all Connected buttons (Cancel keeps, Disconnect removes)
  * 6. Connections fixes: (a) stale outbound follower edges / self leakage cleaned up; (b) Close Friends caret Connect action & clean state transitions
@@ -299,13 +299,14 @@ module.exports = {
 
     // Item 3: Story bar includes connected users
     {
-      name: 'Item 3: Story bar includes connected users (active stories and connected avatars) and excludes unconnected demo stories',
+      name: 'Item 3: Story bar includes connected users with active stories, hides connections without stories, and sorts viewed after unviewed',
       accounts: ['personal'],
-      covers: ['el:#stories-container', 'handler:openStory'],
+      covers: ['el:#stories-container', 'handler:openStory', 'handler:buildConnectedStoryEntries', 'handler:sortFeedStoriesByViewed'],
       async run(ctx) {
         const { page, h, a, account } = ctx;
         const port = await freshMobile(page, h, account);
         const installFn = installMockFsFn();
+        const now = Date.now();
 
         await page.evaluate(installFn, {
           seed: {
@@ -314,8 +315,9 @@ module.exports = {
                 username: account.username,
                 fullName: account.fullName,
                 following: [
-                  { id: 1, username: 'conn_story_user', fullName: 'Conn Story User', isFollowing: true, explicit: true, followedAt: Date.now() },
-                  { id: 2, username: 'conn_quiet_user', fullName: 'Conn Quiet User', isFollowing: true, explicit: true, followedAt: Date.now() }
+                  { id: 1, username: 'conn_viewed_user', fullName: 'Conn Viewed User', isFollowing: true, explicit: true, followedAt: Date.now() },
+                  { id: 2, username: 'conn_quiet_user', fullName: 'Conn Quiet User', isFollowing: true, explicit: true, followedAt: Date.now() },
+                  { id: 3, username: 'conn_story_user', fullName: 'Conn Story User', isFollowing: true, explicit: true, followedAt: Date.now() }
                 ]
               },
               conn_story_user: {
@@ -323,8 +325,16 @@ module.exports = {
                 fullName: 'Conn Story User',
                 avatar: TINY_IMG,
                 userStories: [
-                  { id: 'cs-1', image: TINY_IMG, time: '10m ago', createdAtMs: Date.now() - 600000, caption: 'Connected slide 1', audience: 'everyone', likes: 0, likedByMe: false, views: [] },
-                  { id: 'cs-2', image: TINY_IMG, time: '5m ago', createdAtMs: Date.now() - 300000, caption: 'Connected slide 2', audience: 'everyone', likes: 0, likedByMe: false, views: [] }
+                  { id: 'cs-1', image: TINY_IMG, time: '10m ago', timestamp: now - 600000, createdAtMs: now - 600000, caption: 'Connected slide 1', audience: 'everyone', likes: 0, likedByMe: false, views: [] },
+                  { id: 'cs-2', image: TINY_IMG, time: '5m ago', timestamp: now - 300000, createdAtMs: now - 300000, caption: 'Connected slide 2', audience: 'everyone', likes: 0, likedByMe: false, views: [] }
+                ]
+              },
+              conn_viewed_user: {
+                username: 'conn_viewed_user',
+                fullName: 'Conn Viewed User',
+                avatar: TINY_IMG,
+                userStories: [
+                  { id: 'cv-1', image: TINY_IMG, time: '20m ago', timestamp: now - 1200000, createdAtMs: now - 1200000, caption: 'Already seen', audience: 'everyone', likes: 0, likedByMe: false, views: [] }
                 ]
               },
               conn_quiet_user: {
@@ -338,12 +348,13 @@ module.exports = {
                 fullName: 'Unconnected Stranger',
                 avatar: TINY_IMG,
                 userStories: [
-                  { id: 'us-1', image: TINY_IMG, time: '2m ago', createdAtMs: Date.now() - 120000, caption: 'Should not appear', audience: 'everyone', likes: 0, likedByMe: false, views: [] }
+                  { id: 'us-1', image: TINY_IMG, time: '2m ago', timestamp: now - 120000, createdAtMs: now - 120000, caption: 'Should not appear', audience: 'everyone', likes: 0, likedByMe: false, views: [] }
                 ]
               }
             },
             edges: {
               conn_story_user: { [account.username]: { username: account.username, followedAt: Date.now() } },
+              conn_viewed_user: { [account.username]: { username: account.username, followedAt: Date.now() } },
               conn_quiet_user: { [account.username]: { username: account.username, followedAt: Date.now() } }
             }
           }
@@ -352,26 +363,40 @@ module.exports = {
         await h.gotoMainTab(page, 'feed');
         await page.evaluate(async () => {
           state.following = [
-            { id: 1, username: 'conn_story_user', fullName: 'Conn Story User', isFollowing: true, explicit: true, followedAt: Date.now() },
-            { id: 2, username: 'conn_quiet_user', fullName: 'Conn Quiet User', isFollowing: true, explicit: true, followedAt: Date.now() }
+            { id: 1, username: 'conn_viewed_user', fullName: 'Conn Viewed User', isFollowing: true, explicit: true, followedAt: Date.now() },
+            { id: 2, username: 'conn_quiet_user', fullName: 'Conn Quiet User', isFollowing: true, explicit: true, followedAt: Date.now() },
+            { id: 3, username: 'conn_story_user', fullName: 'Conn Story User', isFollowing: true, explicit: true, followedAt: Date.now() }
           ];
           window._exploreUserDir = null;
           if (typeof loadExploreUserDirectory === 'function') await loadExploreUserDirectory(true);
           if (typeof renderStories === 'function') renderStories();
+          const viewedEntry = (state.stories || []).find((s) => normalizeUsername(s.username || s.author || '') === 'conn_viewed_user');
+          if (viewedEntry && typeof markStoryViewed === 'function') {
+            (viewedEntry.userStories || [viewedEntry]).forEach((st) => markStoryViewed(st));
+          }
+          if (typeof renderStories === 'function') renderStories();
         });
 
-        const barUsers = await page.evaluate(() =>
+        const bar = await page.evaluate(() =>
           Array.from(document.querySelectorAll('#stories-container .story-trigger')).map((el) => ({
-            userAttr: el.getAttribute('data-story-user'),
-            text: el.textContent.replace(/\s+/g, ' ').trim()
+            userAttr: (el.getAttribute('data-story-user') || '').replace(/^@/, '').toLowerCase(),
+            ring: ((el.querySelector('[data-story-ring]') || {}).getAttribute('data-story-ring') || '')
           }))
         );
-        const names = barUsers.map((x) => (x.userAttr || '').replace(/^@/, '').toLowerCase());
-        a.ok(barUsers.length >= 3, 'Self + connected users rendered in story bar: ' + JSON.stringify(barUsers));
-        a.ok(names.includes('conn_story_user'), 'Connected user with active story appears in story bar: ' + JSON.stringify(names));
-        a.ok(names.includes('conn_quiet_user'), 'Connected user without active story still appears in story bar: ' + JSON.stringify(names));
+        const names = bar.map((x) => x.userAttr);
+        a.ok(names.includes('conn_story_user'), 'Connected user with an active story appears in the story bar: ' + JSON.stringify(names));
+        a.ok(!names.includes('conn_quiet_user'), 'Connected user with no active story is absent from the story bar: ' + JSON.stringify(names));
         a.ok(!names.includes('unconnected_stranger') && !names.includes('elena_eats'),
-          'Unconnected demo/stranger users do not appear in story bar: ' + JSON.stringify(names));
+          'Unconnected demo/stranger users do not appear in the story bar: ' + JSON.stringify(names));
+        a.ok(names.includes('conn_viewed_user'), 'Connected user whose story has been viewed still appears: ' + JSON.stringify(names));
+        const unviewedIdx = names.indexOf('conn_story_user');
+        const viewedIdx = names.indexOf('conn_viewed_user');
+        a.ok(unviewedIdx !== -1 && viewedIdx !== -1 && unviewedIdx < viewedIdx,
+          'Viewed stories sort after unviewed stories (to the right): ' + JSON.stringify(bar));
+        const viewedRing = (bar.find((x) => x.userAttr === 'conn_viewed_user') || {}).ring;
+        const unviewedRing = (bar.find((x) => x.userAttr === 'conn_story_user') || {}).ring;
+        a.equal(unviewedRing, 'unviewed', 'Unseen connected story has an unviewed ring');
+        a.equal(viewedRing, 'viewed', 'Seen connected story has a viewed ring');
 
         // Tapping connected user with active stories opens multi-slide story viewer
         await page.click('#stories-container .story-trigger[data-story-user="conn_story_user"]');
@@ -387,13 +412,6 @@ module.exports = {
         const cap2 = (await page.textContent('#story-viewer-caption')).trim();
         a.equal(cap2, 'Connected slide 2', 'Next slide advances to second story');
         await page.click('#btn-close-story');
-
-        // Tapping connected user with no active story opens their profile safely
-        await page.click('#stories-container .story-trigger[data-story-user="conn_quiet_user"]');
-        await page.waitForSelector('#tab-user-profile:not(.hidden)', { timeout: 3000 });
-        const viewed = (await page.textContent('#user-profile-username')).trim();
-        a.equal(viewed, 'conn_quiet_user', 'Tapping connected avatar without story opens their profile');
-
 
         await page.evaluate(() => { delete window.firebase; window.firebaseReady = false; delete window.__mockFs; });
         await h.loadApp(page, { port });

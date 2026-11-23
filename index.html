@@ -10344,33 +10344,20 @@ function syncLikedStateToPosts() {
         const cacheRec = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
         const avatar = (dirRec && dirRec.avatar) || (cacheRec && (cacheRec.avatar || cacheRec.photoURL)) || (typeof connAvatar === 'function' ? connAvatar(f) : f.avatar) || NEUTRAL_BLANK_AVATAR;
         const activeSlides = collectActiveStoriesForUser(u);
-        if (activeSlides.length > 0) {
-          const latest = activeSlides[activeSlides.length - 1];
-          const entry = Object.assign({}, latest, {
-            id: latest.id || ('story_' + u),
-            username: u,
-            author: u,
-            avatar: avatar || latest.avatar || NEUTRAL_BLANK_AVATAR,
-            userStories: activeSlides,
-            hasActiveStory: true,
-            isConnectedPlaceholder: false
-          });
-          delete entry.isUser;
-          delete entry.isEmptyPlaceholder;
-          out.push(entry);
-        } else {
-          out.push({
-            id: 'connected_no_story_' + u,
-            username: u,
-            author: u,
-            avatar: avatar || NEUTRAL_BLANK_AVATAR,
-            image: avatar || NEUTRAL_BLANK_AVATAR,
-            time: '',
-            caption: '',
-            hasActiveStory: false,
-            isConnectedPlaceholder: true
-          });
-        }
+        if (!activeSlides.length) return; // Connections with no active story do not appear in the bar
+        const latest = activeSlides[activeSlides.length - 1];
+        const entry = Object.assign({}, latest, {
+          id: latest.id || ('story_' + u),
+          username: u,
+          author: u,
+          avatar: avatar || latest.avatar || NEUTRAL_BLANK_AVATAR,
+          userStories: activeSlides,
+          hasActiveStory: true,
+          isConnectedPlaceholder: false
+        });
+        delete entry.isUser;
+        delete entry.isEmptyPlaceholder;
+        out.push(entry);
       });
       return out;
     }
