@@ -2774,7 +2774,7 @@
               <span>🔒 Google Cloud Domain Restriction Guide</span>
             </div>
             <p>
-              In Google Cloud Console under <strong>Credentials &gt; Key Restrictions</strong>, select <strong>Websites (HTTP referrers)</strong> and add your site domain(s) (e.g. <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-violet-700 font-semibold">https://*.github.io/*</code> or your custom domain). This guarantees only your website can execute requests using this key!
+              In Google Cloud Console under <strong>Credentials &gt; Key Restrictions</strong>, select <strong>Websites (HTTP referrers)</strong> and add your site domain(s) (e.g. <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-violet-700 font-semibold">https://pixlynote.com/*</code> and <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-violet-700 font-semibold">https://www.pixlynote.com/*</code>). This guarantees only your website can execute requests using this key!
             </p>
             <p class="text-neutral-500 text-[10px]">
               You can also paste your key directly into the file at <code class="bg-white border border-neutral-200 px-1 py-0.5 rounded text-neutral-700">const PIXAI_GOOGLE_API_KEY = "..."</code>.
@@ -3905,7 +3905,7 @@
     // You can paste your Google Gemini API key here directly, or enter it in
     // the Pixai bottom popup in your browser.
     // In Google Cloud Console, add an HTTP Referrer restriction so only your
-    // domain (e.g., https://*.github.io/*) can use this key!
+    // domain (e.g., https://pixlynote.com/* and https://www.pixlynote.com/*) can use this key!
     // =========================================================================
     window.PIXAI_GOOGLE_API_KEY = "";
     const PIXAI_GOOGLE_API_KEY = window.PIXAI_GOOGLE_API_KEY;
@@ -6393,6 +6393,8 @@
     // Sign-up email/SMS verification lives on the staging Worker until Bradley says Go.
     var PIXLYNOTE_VERIFY_ENDPOINT = 'https://misty-frog-0c99.brad-g-hansen.workers.dev';
     window.PIXLYNOTE_VERIFY_ENDPOINT = PIXLYNOTE_VERIFY_ENDPOINT;
+    var PIXLYNOTE_SITE_ORIGIN = 'https://pixlynote.com';
+    window.PIXLYNOTE_SITE_ORIGIN = PIXLYNOTE_SITE_ORIGIN;
 
     function normalizeUsername(u) {
       if (!u) return '';
@@ -9442,10 +9444,28 @@ function syncLikedStateToPosts() {
       }, ms || 5000);
     }
     function buildPostShareUrl(postId) {
-      let base = '';
-      try { base = window.location.origin + window.location.pathname; } catch (e) {}
-      if (!base || base.indexOf('http') !== 0) base = 'https://bradley-hansen.github.io/Pixlynote-/';
-      return base + '?post=' + encodeURIComponent(String(postId));
+      const base = (typeof PIXLYNOTE_SITE_ORIGIN === 'string' && PIXLYNOTE_SITE_ORIGIN.indexOf('http') === 0)
+        ? PIXLYNOTE_SITE_ORIGIN
+        : 'https://pixlynote.com';
+      return base.replace(/\/+$/, '') + '/?post=' + encodeURIComponent(String(postId));
+    }
+    function buildProfileShareUrl(username) {
+      const base = (typeof PIXLYNOTE_SITE_ORIGIN === 'string' && PIXLYNOTE_SITE_ORIGIN.indexOf('http') === 0)
+        ? PIXLYNOTE_SITE_ORIGIN
+        : 'https://pixlynote.com';
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username)
+        : String(username || '').trim().toLowerCase().replace(/^@+/, '');
+      return base.replace(/\/+$/, '') + '/@' + encodeURIComponent(u);
+    }
+    function buildNoteShareUrl(author, noteId) {
+      const base = (typeof PIXLYNOTE_SITE_ORIGIN === 'string' && PIXLYNOTE_SITE_ORIGIN.indexOf('http') === 0)
+        ? PIXLYNOTE_SITE_ORIGIN
+        : 'https://pixlynote.com';
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(author)
+        : String(author || '').trim().toLowerCase().replace(/^@+/, '');
+      return base.replace(/\/+$/, '') + '/@' + encodeURIComponent(u) + '/note/' + encodeURIComponent(String(noteId));
     }
     function copyTextReliably(text) {
       const fallback = () => {
@@ -9668,6 +9688,8 @@ function syncLikedStateToPosts() {
     window.undoNotInterested = undoNotInterested;
     window.showToastWithAction = showToastWithAction;
     window.buildPostShareUrl = buildPostShareUrl;
+    window.buildProfileShareUrl = buildProfileShareUrl;
+    window.buildNoteShareUrl = buildNoteShareUrl;
     window.copyPostLink = copyPostLink;
     window.openPostOptionsMenu = openPostOptionsMenu;
     window.closePostOptionsMenu = closePostOptionsMenu;
@@ -13367,7 +13389,7 @@ function syncLikedStateToPosts() {
       if (!state.currentModalNoteId) return;
       const note = getNoteById(state.currentModalNoteId);
       if (!note) return;
-      navigator.clipboard.writeText(`https://pixlynote.com/@${note.author}/note/${note.id}`);
+      navigator.clipboard.writeText(buildNoteShareUrl(note.author, note.id));
       showToast('Note link copied to clipboard! 📋');
     }
     window.handleNoteModalShare = handleNoteModalShare;
@@ -13443,7 +13465,7 @@ function syncLikedStateToPosts() {
                   <button type="button" onclick="event.stopPropagation(); openDmShareModal('note', '${n.id}');" class="flex items-center text-neutral-400 hover:text-violet-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Send via DM">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.6 8.2C17.2 5.4 14.3 3.7 11 3.7 6.3 3.7 2.8 7.2 2.8 11.7c0 1.8.6 3.5 1.7 4.9L3.3 20.4l4.1-1.4c1.1.5 2.3.7 3.6.7 3.3 0 6.2-1.7 7.6-4.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.5 12h9m0 0l-3.3-3.3M21.5 12l-3.3 3.3"/></svg>
                   </button>
-                  <button type="button" onclick="event.stopPropagation(); copyToClipboard('https://pixlynote.com/@${n.author}/note/${n.id}', 'Note link copied to clipboard!');" class="flex items-center text-neutral-400 hover:text-neutral-800 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Share">
+                  <button type="button" onclick="event.stopPropagation(); copyToClipboard(buildNoteShareUrl('${n.author}', '${n.id}'), 'Note link copied to clipboard!');" class="flex items-center text-neutral-400 hover:text-neutral-800 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Share">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                   </button>
                 </div>
@@ -26271,7 +26293,8 @@ function syncLikedStateToPosts() {
         if (btnShareUserProfile) {
           btnShareUserProfile.addEventListener('click', () => {
             const u = state.viewedCreator ? state.viewedCreator.username : 'creator';
-            showToast(`Profile link copied: pixlynote.com/@${u}`);
+            const url = buildProfileShareUrl(u);
+            copyToClipboard(url, 'Profile link copied: ' + url.replace(/^https:\/\//, ''));
           });
         }
 
@@ -28948,18 +28971,19 @@ function syncLikedStateToPosts() {
         bind('btn-cancel-edit-profile', 'click', closeEditProfileModal);
         bind('btn-profile-pic', 'click', () => openStoryViewer(0));
         bind('btn-share-profile', 'click', () => {
+          const url = buildProfileShareUrl(state.currentUser && state.currentUser.username);
           if (navigator.share) {
             navigator.share({
               title: `${state.currentUser.fullName} (@${state.currentUser.username}) on Pixlynote`,
               text: `Check out @${state.currentUser.username} on Pixlynote!`,
-              url: window.location.href
+              url
             }).catch(() => {});
           } else {
             try {
-              navigator.clipboard.writeText(window.location.href);
+              navigator.clipboard.writeText(url);
               showToast('Profile link copied to clipboard!');
             } catch(e) {
-              showToast(`Profile link: pixlynote.com/@${state.currentUser.username}`);
+              showToast('Profile link: ' + url.replace(/^https:\/\//, ''));
             }
           }
         });
