@@ -141,7 +141,11 @@ function mockWorker(req) {
   if (/verify-stripe-session/i.test(pathPart)) {
     return { valid: false, status: 'unpaid' };
   }
-  if (/\/cancel-subscription/i.test(pathPart)) {
+  if (/\/cancel-subscription-at-period-end/i.test(pathPart)) {
+    // Default: simulate the live worker, which does not have this route yet.
+    return { error: 'not_found' };
+  }
+  if (/\/cancel-subscription(?:\?|$)/i.test(pathPart) || /\/cancel-subscription$/i.test(pathPart.split('?')[0])) {
     return { ok: true, canceled: true, status: 'canceled', test: true };
   }
   if (/\/business-verification\/submit/i.test(pathPart)) {

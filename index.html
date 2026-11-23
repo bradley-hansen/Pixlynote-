@@ -442,6 +442,8 @@
 
     #modal-delete-confirm.hidden { display: none !important; }
     #modal-delete-confirm { z-index: 85 !important; }
+    #modal-cancel-membership.hidden { display: none !important; }
+    #modal-cancel-membership { z-index: 90 !important; }
     #modal-submit-feedback { z-index: 85 !important; }
     #post-options-menu { z-index: 70 !important; }
     #modal-create-post.hidden { display: none !important; }
@@ -526,6 +528,22 @@
       <div class="flex space-x-2 pt-1">
         <button type="button" id="btn-cancel-delete" class="flex-1 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition">Cancel</button>
         <button type="button" id="btn-confirm-delete" class="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-cancel-membership" role="dialog" aria-modal="true" aria-labelledby="cancel-membership-title" style="z-index: 90; display: none;" class="hidden fixed inset-0 z-[90] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xs w-full p-5 text-center space-y-4 shadow-2xl border border-neutral-200">
+      <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+      </div>
+      <div class="space-y-1">
+        <h4 id="cancel-membership-title" class="text-sm font-bold text-neutral-900">Cancel membership?</h4>
+        <p id="cancel-membership-copy" class="text-xs text-neutral-500 leading-relaxed">You'll keep Plus until the end of your current paid period. This will not refund the current period. Future charges will stop.</p>
+      </div>
+      <div class="flex space-x-2 pt-1">
+        <button type="button" id="btn-dismiss-cancel-membership" class="flex-1 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition cursor-pointer">Keep membership</button>
+        <button type="button" id="btn-confirm-cancel-membership" class="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">Confirm cancel</button>
       </div>
     </div>
   </div>
@@ -31145,9 +31163,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       state.currentUser.isBusinessPlus = data.isBusinessPlus === true;
       if (data.stripeSessionId) state.currentUser.stripeSessionId = data.stripeSessionId;
       if (data.stripeBusinessSessionId) state.currentUser.stripeBusinessSessionId = data.stripeBusinessSessionId;
+      if (data.stripeSubscriptionId) state.currentUser.stripeSubscriptionId = data.stripeSubscriptionId;
+      if (data.stripeBusinessSubscriptionId) state.currentUser.stripeBusinessSubscriptionId = data.stripeBusinessSubscriptionId;
+      if (data.stripeCancelAtPeriodEnd != null) state.currentUser.stripeCancelAtPeriodEnd = data.stripeCancelAtPeriodEnd === true;
+      if (data.stripeCurrentPeriodEnd) state.currentUser.stripeCurrentPeriodEnd = data.stripeCurrentPeriodEnd;
       if (data.associatedBusiness !== undefined) state.currentUser.associatedBusiness = data.associatedBusiness || null;
       if (Array.isArray(data.businessAssociates)) state.currentUser.businessAssociates = data.businessAssociates;
       if (typeof applyRemoteVerificationFields === 'function') applyRemoteVerificationFields(data);
+      if (typeof maybeDowngradeExpiredMembership === 'function') maybeDowngradeExpiredMembership(state.currentUser && state.currentUser.username);
     }
     window.applyRemoteSubscriptionFields = applyRemoteSubscriptionFields;
     async function verifyStripeSessionWithServer(sessionId, username) {
@@ -31156,31 +31179,258 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.verifyStripeSessionWithServer = verifyStripeSessionWithServer;
 
-    // Cancellation happens in the Stripe billing portal, which does not call back into the app. So a Plus account
-    // re-checks its subscription with the Worker at most every 6 hours and downgrades only on a definite answer
-    // (subscription canceled / unpaid / ended). Network errors never downgrade anyone.
+    // Recheck the Stripe subscription and downgrade only when the paid period has
+    // clearly ended, or Stripe says canceled / unpaid / incomplete_expired.
+    // past_due keeps Plus (Stripe is still retrying). Network errors never downgrade.
+    // At most every 6 hours, unless opts.force (after a billing-portal visit or modal reopen after one).
+    const STRIPE_BILLING_PORTAL_URL = 'https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00';
+    window.STRIPE_BILLING_PORTAL_URL = STRIPE_BILLING_PORTAL_URL;
+    const STRIPE_CANCEL_AT_PERIOD_END_PATH = '/cancel-subscription-at-period-end';
+
+    function stripePeriodEndSeconds(data, user) {
+      if (data) {
+        if (data.current_period_end) return Number(data.current_period_end);
+        if (data.subscription && data.subscription.current_period_end) return Number(data.subscription.current_period_end);
+      }
+      if (user && user.stripeCurrentPeriodEnd) return Number(user.stripeCurrentPeriodEnd);
+      return 0;
+    }
+    function formatStripePeriodEnd(epochSec) {
+      const ms = Number(epochSec) * 1000;
+      if (!ms || !isFinite(ms)) return '';
+      try {
+        return new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'long', day: 'numeric', year: 'numeric' });
+      } catch (e) {
+        return new Date(ms).toLocaleDateString();
+      }
+    }
+    function stripeSubscriptionIsScheduledToEnd(data, user) {
+      if (data && (data.cancel_at_period_end === true || (data.subscription && data.subscription.cancel_at_period_end === true))) return true;
+      if (user && user.stripeCancelAtPeriodEnd === true) return true;
+      return false;
+    }
+    // Keep Plus during past_due (grace / retry window). Downgrade when the period has
+    // ended, or when Stripe has stopped the sub (canceled / unpaid / incomplete_expired).
+    function stripeSubscriptionShouldDowngrade(data, nowMs) {
+      if (!data) return false;
+      const now = nowMs || Date.now();
+      const status = data.subscription_status || (data.subscription && data.subscription.status) || '';
+      if (['canceled', 'unpaid', 'incomplete_expired'].includes(status)) return true;
+      const endSec = stripePeriodEndSeconds(data);
+      if (endSec && endSec * 1000 <= now) return true;
+      return false;
+    }
+    function markStripePortalVisit() {
+      try { sessionStorage.setItem('pixly_stripe_portal_visit', '1'); } catch (e) {}
+      try { localStorage.setItem('pixly_stripe_portal_visit', '1'); } catch (e) {}
+    }
+    function consumeStripePortalVisit() {
+      let flagged = false;
+      try { flagged = sessionStorage.getItem('pixly_stripe_portal_visit') === '1' || localStorage.getItem('pixly_stripe_portal_visit') === '1'; } catch (e) {}
+      return flagged;
+    }
+    function clearStripePortalVisit() {
+      try { sessionStorage.removeItem('pixly_stripe_portal_visit'); } catch (e) {}
+      try { localStorage.removeItem('pixly_stripe_portal_visit'); } catch (e) {}
+    }
+    function fallbackToStripeBillingPortal(reason) {
+      markStripePortalVisit();
+      try { window.open(STRIPE_BILLING_PORTAL_URL, '_blank', 'noopener,noreferrer'); } catch (e) {}
+      if (typeof showToast === 'function') {
+        showToast(reason || "We couldn't cancel from Pixlynote. Use the Stripe billing portal to stop future charges.");
+      }
+    }
+    function currentMembershipKind() {
+      if (state.currentUser && state.currentUser.isBusinessPlus === true) return 'business';
+      return 'plus';
+    }
+    function currentMembershipIds() {
+      const cur = (state && state.currentUser) || {};
+      const kind = currentMembershipKind();
+      return {
+        kind,
+        sessionId: kind === 'business' ? cur.stripeBusinessSessionId : cur.stripeSessionId,
+        subscriptionId: kind === 'business' ? cur.stripeBusinessSubscriptionId : cur.stripeSubscriptionId
+      };
+    }
+    function membershipLabel(kind) {
+      return kind === 'business' ? 'Business Plus' : 'Plus';
+    }
+    function applyStripeCancelAtPeriodEnd(username, kind, periodEndSec) {
+      if (!username) return;
+      const cleanU = normalizeUsername(username);
+      if (!cleanU) return;
+      const endSec = Number(periodEndSec) || 0;
+      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+        state.currentUser.stripeCancelAtPeriodEnd = true;
+        if (endSec) state.currentUser.stripeCurrentPeriodEnd = endSec;
+        state.currentUser.subscriptionStatus = 'cancel_at_period_end';
+      }
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
+      const write = () => {
+        if (window.firebaseReady && window.firebase && window.firebase.db) {
+          const { db, doc, setDoc } = window.firebase;
+          const fields = { stripeCancelAtPeriodEnd: true, subscriptionStatus: 'cancel_at_period_end', plusCancelScheduledAt: Date.now() };
+          if (endSec) fields.stripeCurrentPeriodEnd = endSec;
+          setDoc(doc(db, 'users', cleanU), fields, { merge: true }).catch(() => {});
+          return true;
+        }
+        return false;
+      };
+      if (!write()) {
+        const retryTimer = setInterval(() => { if (write()) clearInterval(retryTimer); }, 400);
+        setTimeout(() => clearInterval(retryTimer), 12000);
+      }
+    }
+    function periodEndAlreadyPassed(user, nowMs) {
+      const endSec = user && Number(user.stripeCurrentPeriodEnd);
+      return !!(endSec && endSec * 1000 <= (nowMs || Date.now()));
+    }
+    function maybeDowngradeExpiredMembership(username) {
+      const cur = state.currentUser;
+      const cleanU = normalizeUsername(username || (cur && cur.username) || '');
+      if (!cur || !cleanU || normalizeUsername(cur.username) !== cleanU) return false;
+      if (!periodEndAlreadyPassed(cur)) return false;
+      if (cur.isBusinessPlus) applyBusinessPlusCancellation(cleanU);
+      else if (cur.isPlus) applyStripeSubscriptionCancellation(cleanU);
+      else return false;
+      return true;
+    }
+    window.maybeDowngradeExpiredMembership = maybeDowngradeExpiredMembership;
     function recheckStripeSubscription(username, sessionId, opts) {
       const cleanU = normalizeUsername(username || '');
-      if (!cleanU || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId))) return;
+      if (!cleanU) return;
+      if (maybeDowngradeExpiredMembership(cleanU)) return;
+      if (!sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId))) return;
       const kind = (opts && opts.kind) || 'plus';
+      const force = !!(opts && opts.force);
       const key = 'pixly_stripe_recheck_' + kind + '_' + cleanU;
-      try { if (Date.now() - Number(localStorage.getItem(key) || 0) < 6 * 3600 * 1000) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
+      try {
+        if (!force && Date.now() - Number(localStorage.getItem(key) || 0) < 6 * 3600 * 1000) return;
+        localStorage.setItem(key, String(Date.now()));
+      } catch(e) {}
       fetchStripeSessionStatus(sessionId).then(data => {
         if (!data) return;
-        const canceled = data.subscription && ['canceled', 'unpaid', 'incomplete_expired'].includes(data.subscription_status);
-        if (kind === 'business') {
-          if (canceled && state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
-            applyBusinessPlusCancellation(cleanU);
-          }
+        if (!(state.currentUser && normalizeUsername(state.currentUser.username) === cleanU)) return;
+        const endSec = stripePeriodEndSeconds(data, state.currentUser);
+        if (endSec) state.currentUser.stripeCurrentPeriodEnd = endSec;
+        if (stripeSubscriptionIsScheduledToEnd(data, state.currentUser)) state.currentUser.stripeCancelAtPeriodEnd = true;
+        if (stripeSubscriptionShouldDowngrade(data)) {
+          if (kind === 'business') applyBusinessPlusCancellation(cleanU);
+          else applyStripeSubscriptionCancellation(cleanU);
           return;
         }
-        if (data.verified !== true || !data.subscription) return;
-        if (data.plus_active === false && canceled) {
-          if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) applyStripeSubscriptionCancellation(cleanU);
-        }
+        if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
       }).catch(() => {});
     }
+    function recheckCurrentMembership(opts) {
+      if (!(state.currentUser && state.currentUser.username)) return;
+      const u = state.currentUser.username;
+      if (state.currentUser.isPlus && state.currentUser.stripeSessionId) {
+        recheckStripeSubscription(u, state.currentUser.stripeSessionId, Object.assign({ kind: 'plus' }, opts || {}));
+      }
+      if (state.currentUser.isBusinessPlus && state.currentUser.stripeBusinessSessionId) {
+        recheckStripeSubscription(u, state.currentUser.stripeBusinessSessionId, Object.assign({ kind: 'business' }, opts || {}));
+      }
+    }
+    function maybeForceRecheckAfterPortalVisit() {
+      if (!consumeStripePortalVisit()) return false;
+      recheckCurrentMembership({ force: true });
+      return true;
+    }
+    if (typeof document !== 'undefined' && !window._pixlyPortalFocusBound) {
+      window._pixlyPortalFocusBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (maybeForceRecheckAfterPortalVisit()) clearStripePortalVisit();
+      });
+    }
+    window.stripePeriodEndSeconds = stripePeriodEndSeconds;
+    window.formatStripePeriodEnd = formatStripePeriodEnd;
+    window.stripeSubscriptionShouldDowngrade = stripeSubscriptionShouldDowngrade;
+    window.stripeSubscriptionIsScheduledToEnd = stripeSubscriptionIsScheduledToEnd;
+    window.markStripePortalVisit = markStripePortalVisit;
+    window.applyStripeCancelAtPeriodEnd = applyStripeCancelAtPeriodEnd;
     window.recheckStripeSubscription = recheckStripeSubscription;
+    window.recheckCurrentMembership = recheckCurrentMembership;
+    window.openCancelMembershipConfirm = openCancelMembershipConfirm;
+    window.closeCancelMembershipConfirm = closeCancelMembershipConfirm;
+    window.confirmCancelMembership = confirmCancelMembership;
+    window.fallbackToStripeBillingPortal = fallbackToStripeBillingPortal;
+
+    function closeCancelMembershipConfirm() {
+      const m = document.getElementById('modal-cancel-membership');
+      if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
+      const btn = document.getElementById('btn-confirm-cancel-membership');
+      if (btn) btn.disabled = false;
+    }
+    function openCancelMembershipConfirm() {
+      const ids = currentMembershipIds();
+      if (!ids.sessionId && !ids.subscriptionId) {
+        if (typeof showToast === 'function') {
+          showToast("We don't have a billing reference for this account. Use the Stripe billing portal to stop future charges.");
+        }
+        return;
+      }
+      const kind = ids.kind;
+      const label = membershipLabel(kind);
+      const endSec = stripePeriodEndSeconds(null, state.currentUser);
+      const dateStr = formatStripePeriodEnd(endSec);
+      const copy = document.getElementById('cancel-membership-copy');
+      if (copy) {
+        copy.textContent = dateStr
+          ? ("You'll keep " + label + " until " + dateStr + ". This will not refund the current period. Future charges will stop.")
+          : ("You'll keep " + label + " until the end of your current paid period. This will not refund the current period. Future charges will stop.");
+      }
+      const m = document.getElementById('modal-cancel-membership');
+      if (m) { m.classList.remove('hidden'); m.style.display = 'flex'; }
+    }
+    async function confirmCancelMembership() {
+      const ids = currentMembershipIds();
+      const btn = document.getElementById('btn-confirm-cancel-membership');
+      if (!ids.sessionId && !ids.subscriptionId) {
+        closeCancelMembershipConfirm();
+        fallbackToStripeBillingPortal("We don't have a billing reference for this account. Use the Stripe billing portal to stop future charges.");
+        return;
+      }
+      if (btn) btn.disabled = true;
+      const u = normalizeUsername(state.currentUser && state.currentUser.username);
+      const payload = { username: u, kind: ids.kind, cancel_at_period_end: true };
+      if (ids.sessionId) payload.session_id = ids.sessionId;
+      if (ids.subscriptionId) payload.subscription_id = ids.subscriptionId;
+      let data = null;
+      let status = 0;
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + STRIPE_CANCEL_AT_PERIOD_END_PATH, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        status = res.status;
+        data = await res.json().catch(() => null);
+      } catch (e) {
+        data = null;
+      }
+      // Fail safe: the live worker's /cancel-subscription still DELETEs immediately.
+      // Only treat a response as success when this new route confirms period-end mode.
+      const accepted = !!(data && data.ok === true && data.cancel_at_period_end === true);
+      if (!accepted) {
+        if (btn) btn.disabled = false;
+        closeCancelMembershipConfirm();
+        fallbackToStripeBillingPortal("We couldn't schedule the cancel on Pixlynote yet. Use the Stripe billing portal to stop future charges. You'll keep " + membershipLabel(ids.kind) + " until the period ends.");
+        return;
+      }
+      const endSec = Number(data.current_period_end) || stripePeriodEndSeconds(data, state.currentUser);
+      applyStripeCancelAtPeriodEnd(u, ids.kind, endSec);
+      closeCancelMembershipConfirm();
+      const dateStr = formatStripePeriodEnd(endSec);
+      if (typeof showToast === 'function') {
+        showToast(dateStr
+          ? ('Future charges stopped. You keep ' + membershipLabel(ids.kind) + ' until ' + dateStr + '.')
+          : ('Future charges stopped. You keep ' + membershipLabel(ids.kind) + ' until the end of the paid period.'));
+      }
+      if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
+    }
 
     function applyStripeSessionVerification(username, sessionId, serverVerified = false) {
       if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return;
@@ -32348,10 +32598,38 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (buyBtn) buyBtn.classList.toggle('hidden', isActive || isBizAcct);
       if (bizBuyBtn) bizBuyBtn.classList.toggle('hidden', !isBizAcct || isBizPlus);
       if (cancelSection) cancelSection.classList.toggle('hidden', !(isActive || isBizPlus));
+      const ids = (typeof currentMembershipIds === 'function') ? currentMembershipIds() : { sessionId: '', subscriptionId: '', kind: isBizPlus ? 'business' : 'plus' };
+      const hasRef = !!(ids.sessionId || ids.subscriptionId);
+      const scheduled = !!(state.currentUser && state.currentUser.stripeCancelAtPeriodEnd);
+      const endSec = (typeof stripePeriodEndSeconds === 'function') ? stripePeriodEndSeconds(null, state.currentUser) : Number((state.currentUser && state.currentUser.stripeCurrentPeriodEnd) || 0);
+      const dateStr = (typeof formatStripePeriodEnd === 'function') ? formatStripePeriodEnd(endSec) : '';
+      const label = isBizPlus ? 'Business Plus' : 'Plus';
+      const cancelBtn = document.getElementById('btn-stripe-cancel-membership');
+      const endsOn = document.getElementById('sub-cancel-ends-on');
       if (cancelCopy) {
-        cancelCopy.textContent = isBizPlus
-          ? 'Your Business Plus subscription is currently active. Cancel anytime through the Stripe billing portal.'
-          : 'Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.';
+        if (!hasRef) {
+          cancelCopy.textContent = "We don't have a billing reference for this account, so we can't cancel from here. Use the Stripe billing portal to stop future charges. You'll keep " + label + " until the end of the period you already paid for; this is not a refund.";
+        } else if (scheduled) {
+          cancelCopy.textContent = dateStr
+            ? ('Future charges are stopped. You keep ' + label + ' until the end of the period you already paid for. This is not a refund.')
+            : ('Future charges are stopped. You keep ' + label + ' until the end of the period you already paid for. This is not a refund.');
+        } else {
+          cancelCopy.textContent = 'Your ' + (isBizPlus ? 'Business Plus' : 'Pixlynote Plus') + " subscription is currently active. Cancel anytime. You'll keep " + label + " until the end of the period you already paid for; this is not a refund.";
+        }
+      }
+      if (endsOn) {
+        if (scheduled && dateStr) {
+          endsOn.textContent = label + ' ends on ' + dateStr;
+          endsOn.classList.remove('hidden');
+        } else {
+          endsOn.textContent = '';
+          endsOn.classList.add('hidden');
+        }
+      }
+      if (cancelBtn) {
+        const hideCancel = !hasRef || scheduled;
+        cancelBtn.classList.toggle('hidden', hideCancel);
+        cancelBtn.disabled = hideCancel;
       }
       if (typeof updateBusinessPlusCheckoutGate === 'function') updateBusinessPlusCheckoutGate();
     }
@@ -32406,6 +32684,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       wireStripeBuyButton(bizBuyBtn, 'business');
       stampStripeBuyButton(buyBtn);
       stampStripeBuyButton(bizBuyBtn);
+      const forced = (typeof maybeForceRecheckAfterPortalVisit === 'function') && maybeForceRecheckAfterPortalVisit();
+      if (forced) { try { clearStripePortalVisit(); } catch (e) {} }
+      else if (typeof recheckCurrentMembership === 'function') recheckCurrentMembership({ force: false });
       updateSubscriptionModalUI();
       if (modal) {
         modal.classList.remove('hidden');
@@ -32491,6 +32772,21 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       });
     }
     window.switchPolicyTab = switchPolicyTab;
+
+    function bindCancelMembershipUi() {
+      if (window._pixlyCancelMembershipBound) return;
+      const confirmBtn = document.getElementById('btn-confirm-cancel-membership');
+      const dismissBtn = document.getElementById('btn-dismiss-cancel-membership');
+      const modal = document.getElementById('modal-cancel-membership');
+      if (!confirmBtn && !dismissBtn && !modal) return;
+      window._pixlyCancelMembershipBound = true;
+      if (confirmBtn) confirmBtn.addEventListener('click', (e) => { e.preventDefault(); if (typeof confirmCancelMembership === 'function') confirmCancelMembership(); });
+      if (dismissBtn) dismissBtn.addEventListener('click', (e) => { e.preventDefault(); if (typeof closeCancelMembershipConfirm === 'function') closeCancelMembershipConfirm(); });
+      if (modal) modal.addEventListener('click', (e) => { if (e.target === modal && typeof closeCancelMembershipConfirm === 'function') closeCancelMembershipConfirm(); });
+    }
+    window.bindCancelMembershipUi = bindCancelMembershipUi;
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindCancelMembershipUi);
+    else bindCancelMembershipUi();
 
 </script>
 
@@ -32601,16 +32897,26 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         <div id="sub-cancel-section" class="hidden w-full rounded-2xl border border-rose-200 bg-white p-4 shadow-2xs space-y-3 text-center">
           <div class="space-y-1">
             <h4 class="text-xs font-extrabold text-neutral-900">Manage Membership</h4>
-            <p id="sub-cancel-copy" class="text-[11px] text-neutral-500 leading-relaxed">Your Pixlynote Plus subscription is currently active. Cancel anytime through the Stripe billing portal.</p>
+            <p id="sub-cancel-copy" class="text-[11px] text-neutral-500 leading-relaxed">Your Pixlynote Plus subscription is currently active. Cancel anytime. You'll keep Plus until the end of the period you already paid for; this is not a refund.</p>
+            <p id="sub-cancel-ends-on" class="hidden text-xs font-bold text-rose-700 leading-relaxed"></p>
           </div>
-          <a
+          <button
+            type="button"
             id="btn-stripe-cancel-membership"
-            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
-            target="_blank"
-            rel="noopener noreferrer"
+            onclick="if (typeof openCancelMembershipConfirm === 'function') openCancelMembershipConfirm();"
             class="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white font-bold text-xs shadow-sm transition cursor-pointer"
           >
             Cancel Membership
+          </button>
+          <a
+            id="btn-stripe-billing-portal"
+            href="https://billing.stripe.com/p/login/test_8x29AT6WvgHZ5Dc7QggQE00"
+            target="_blank"
+            rel="noopener noreferrer"
+            onclick="if (typeof markStripePortalVisit === 'function') markStripePortalVisit();"
+            class="inline-flex items-center justify-center w-full py-2 px-4 rounded-xl bg-white hover:bg-neutral-50 text-neutral-700 font-semibold text-[11px] border border-neutral-200 shadow-sm transition cursor-pointer"
+          >
+            Manage billing in Stripe
           </a>
         </div>
 
@@ -33041,7 +33347,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Payments &amp; Subscriptions</h4>
-            <p>Paid memberships (Pixlynote Plus and Business Plus) are processed by Stripe. When you check out, Stripe handles card details. We receive payment status, a checkout session identifier, and the username we sent as a client reference so we can confirm your membership. We do not store full card numbers on Pixlynote.</p>
+            <p>Paid memberships (Pixlynote Plus and Business Plus) are processed by Stripe. When you check out, Stripe handles card details. We receive payment status, a checkout session identifier, and the username we sent as a client reference so we can confirm your membership. We do not store full card numbers on Pixlynote. You can cancel from Subscription in the app, or through the Stripe billing portal. Canceling stops future charges and is not a refund; you keep Plus or Business Plus until the end of the period you already paid for.</p>
           </div>
 
           <div class="space-y-2">
@@ -33086,7 +33392,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">Subscriptions &amp; Billing</h4>
-            <p>Pixlynote Plus and Business Plus ($29.99) are paid subscriptions billed through Stripe. Benefits apply while the subscription remains active. You can manage or cancel through the Stripe billing portal. Canceling stops future charges; access ends when the current period ends or when Pixlynote confirms the cancellation.</p>
+            <p>Pixlynote Plus and Business Plus ($29.99) are paid subscriptions billed through Stripe. Benefits apply while the subscription remains active. You can cancel from Subscription in the app, or manage billing through the Stripe billing portal. Canceling stops future charges and is not a refund. You keep Plus or Business Plus until the end of the period you already paid for; access is then removed when that date passes or when Pixlynote confirms the period has ended.</p>
           </div>
 
           <div class="space-y-2">
