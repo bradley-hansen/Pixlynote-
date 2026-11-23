@@ -416,10 +416,25 @@ async function loginAs(page, account) {
 
 async function hideToasts(page) {
   await page.evaluate(() => {
+    const toast = document.getElementById('toast');
+    if (toast) {
+      // #toast uses class "flex", and the app stylesheet has `.flex { display: flex !important; }`.
+      // Setting display:none on the container therefore loses, while hiding #toast-text (also
+      // matched by [id*="toast"]) would leave an empty ~40x20 black pill over the header.
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+      toast.style.setProperty('opacity', '0', 'important');
+      toast.style.setProperty('visibility', 'hidden', 'important');
+      toast.style.setProperty('pointer-events', 'none', 'important');
+      try { clearTimeout(window._toastTimeout); } catch (e) {}
+    }
     document.querySelectorAll('[class*="toast"], [id*="toast"]').forEach((el) => {
+      if (el.id === 'toast' || el.id === 'toast-text' || el.id === 'toast-action') return;
       if ((el.textContent || '').length < 120) el.style.display = 'none';
     });
     [...document.querySelectorAll('body *')].forEach((el) => {
+      if (el.id === 'toast' || el.id === 'toast-text' || el.id === 'toast-action') return;
+      if (toast && toast.contains(el)) return;
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && /Welcome back/i.test(n.textContent || ''));
       if (own && (el.textContent || '').trim().length < 80) el.style.display = 'none';
     });
