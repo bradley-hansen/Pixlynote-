@@ -34,7 +34,7 @@ const SKIP_CLICK_FNS = new Set([
 function classify(item) {
   const id = item.id || '';
   const key = item.key || '';
-  if (/^(tab-auth-|login-|signup-|btn-signup-|btn-auth-|btn-splash|btn-toggle-auth|btn-toggle-signup|btn-toggle-password|btn-forgot|auth-|forgot-)/.test(id) || key.startsWith('nav:auth:')) {
+  if (/^(tab-auth-|login-|signup-|btn-signup-|btn-auth-|btn-splash|btn-toggle-auth|btn-toggle-signup|btn-toggle-password|btn-forgot|auth-|forgot-)/.test(id) || key.startsWith('nav:auth:') || key.startsWith('nav:shortcut:signup-')) {
     return 'signed-out';
   }
   return 'signed-in';
@@ -44,6 +44,29 @@ async function reveal(page, h, item) {
   const id = item.id || '';
   const fn = item.fn || '';
   const key = item.key || '';
+
+  if (key === 'nav:gesture:pull-to-refresh') {
+    await h.gotoMainTab(page, 'feed');
+    await page.evaluate(() => { try { window.scrollTo(0, 0); } catch (e) {} });
+    return;
+  }
+  if (key === 'nav:shortcut:escape-closes-menus') {
+    await page.evaluate(() => {
+      if (typeof openSubmitFeedbackModal === 'function') openSubmitFeedbackModal();
+    });
+    return;
+  }
+  if (key === 'nav:shortcut:header-search-enter') {
+    await h.gotoMainTab(page, 'feed');
+    return;
+  }
+  if (key === 'nav:shortcut:story-reply-enter') {
+    await page.evaluate(() => {
+      const s = (state.stories || [])[0];
+      if (s && typeof openStory === 'function') openStory(s.id || s);
+    });
+    return;
+  }
 
   if (classify(item) === 'signed-out') {
     if (/signup|btn-signup|tab-auth-signup|login-email|login-fullname/.test(id + key + fn) && !/login-form|login-username|login-password|btn-auth-submit|tab-auth-login/.test(id)) {
@@ -227,6 +250,45 @@ async function exercise(page, h, item) {
   }
 
   if (item.kind === 'nav') {
+    if (key === 'nav:gesture:pull-to-refresh') {
+      await page.evaluate(() => {
+        const startY = 8;
+        const opts = { bubbles: true, cancelable: true };
+        const mk = (type, y) => {
+          try {
+            return new TouchEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              touches: type === 'touchend' ? [] : [new Touch({ identifier: 1, target: document.body, clientX: 80, clientY: y })]
+            });
+          } catch (e) {
+            return new MouseEvent(type === 'touchstart' ? 'mousedown' : (type === 'touchmove' ? 'mousemove' : 'mouseup'), Object.assign({ clientX: 80, clientY: y, buttons: type === 'touchend' ? 0 : 1, button: 0 }, opts));
+          }
+        };
+        window.scrollTo(0, 0);
+        document.body.dispatchEvent(mk('touchstart', startY));
+        window.dispatchEvent(mk('touchstart', startY));
+        window.dispatchEvent(mk('touchmove', startY + 80));
+        window.dispatchEvent(mk('touchend', startY + 80));
+        if (typeof triggerRefreshRoutine === 'function') triggerRefreshRoutine();
+      });
+      return { result: 'gesture-pull-refresh' };
+    }
+    if (key === 'nav:shortcut:escape-closes-menus') {
+      await page.keyboard.press('Escape');
+      return { result: 'shortcut-escape' };
+    }
+    if (key && key.startsWith('nav:shortcut:') && id) {
+      await page.evaluate((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('hidden');
+        el.focus();
+        if ('value' in el && !el.value) el.value = (id.indexOf('code') !== -1) ? '123456' : 'sample';
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      }, id);
+      return { result: 'shortcut-enter', id };
+    }
     if (id) {
       await page.evaluate((id) => { const el = document.getElementById(id); if (el) el.click(); }, id);
     }
