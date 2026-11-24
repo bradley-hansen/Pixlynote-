@@ -121,6 +121,33 @@ const writeJson = (f, obj) => { fs.writeFileSync(path.join(DIR, f), JSON.stringi
 const readJson = (f) => JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8'));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// Every document in every collection and subcollection (showMissing finds parents that only hold subcollections).
+async function collectionIds(parentPath) {
+  const ids = []; let pageToken = '';
+  do {
+    const r = await api(`${DOCS}${parentPath ? '/' + parentPath : ''}:listCollectionIds`, { method: 'POST', body: JSON.stringify({ pageSize: 300, pageToken: pageToken || undefined }) });
+    if (!r.ok) die('listCollectionIds ' + (parentPath || '/') + ' failed (' + r.status + ')');
+    ids.push(...(r.body.collectionIds || [])); pageToken = r.body.nextPageToken || '';
+  } while (pageToken);
+  return ids;
+}
+async function dumpAll(parentPath, out) {
+  for (const col of await collectionIds(parentPath)) {
+    const cp = parentPath ? parentPath + '/' + col : col; let pageToken = '';
+    do {
+      const r = await api(`${DOCS}/${cp}?pageSize=300&showMissing=true${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`);
+      if (!r.ok) die('list ' + cp + ' failed (' + r.status + ')');
+      for (const d of (r.body.documents || [])) {
+        const rp = relPath(d.name);
+        if (d.fields || d.createTime) out[rp] = { fields: d.fields || {}, createTime: d.createTime, updateTime: d.updateTime };
+        await dumpAll(rp, out);
+      }
+      pageToken = r.body.nextPageToken || '';
+    } while (pageToken);
+  }
+  return out;
+}
+
 async function backup() {
   fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
   const users = await listCollection('users');
@@ -138,9 +165,13 @@ async function backup() {
     next = r.body.nextPageToken || '';
   } while (next);
   snap.auth = authUsers;
+  snap.all = await dumpAll('', {});
+  const perColl = {}; for (const k of Object.keys(snap.all)) { const c = k.split('/').filter((_, i) => i % 2 === 0).join('/*/'); perColl[c] = (perColl[c] || 0) + 1; }
+  snap.allCounts = perColl;
   writeJson('backup.json', snap);
   const anonAuth = authUsers.filter((u) => !u.email && !(u.providerUserInfo || []).length).length;
   log(`backup: ${users.length} users, ${Object.keys(privates).length} private docs, ${snap.posts.length} posts, ${snap.accountCenters.length} account centers, ${snap.contactIndex.length} contact index, ${snap.uidIndex.length} uid index, ${authUsers.length} Auth users (${anonAuth} anonymous) -> ${path.join(DIR, 'backup.json')} (mode 600)`);
+  log('backup (every collection): ' + Object.entries(snap.allCounts).map(([k, v]) => k + '=' + v).join(', '));
 }
 
 function plan() {
