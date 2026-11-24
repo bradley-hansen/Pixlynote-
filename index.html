@@ -4314,23 +4314,11 @@
             } catch(e) {}
             // Saved posts / notes for every account (previously only @bradley_hansen's listener applied them)
             if (cleanU !== 'bradley_hansen') {
-              const recentlySaved = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-              if (!hasPendingWrites && !recentlySaved && !window.pendingLikesSync) {
-                let savedChanged = false;
-                if (Array.isArray(d.savedPostIds)) {
-                  state.savedPostIds = new Set();
-                  d.savedPostIds.forEach(id => { state.savedPostIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedPostIds.add(num); });
-                  savedChanged = true;
-                }
-                if (Array.isArray(d.savedNoteIds)) {
-                  state.savedNoteIds = new Set();
-                  d.savedNoteIds.forEach(id => { state.savedNoteIds.add(String(id)); const num = parseInt(id, 10); if (!isNaN(num)) state.savedNoteIds.add(num); });
-                  savedChanged = true;
-                }
-                if (savedChanged) {
-                  try { if (typeof saveAccountSaved === 'function') saveAccountSaved(cleanU); } catch(e) {}
-                  if (typeof renderSaved === 'function') renderSaved();
-                }
+              if (!hasPendingWrites && typeof window.applySavedFromRemote === 'function') {
+                window.applySavedFromRemote(
+                  Array.isArray(d.savedPostIds) ? d.savedPostIds : undefined,
+                  Array.isArray(d.savedNoteIds) ? d.savedNoteIds : undefined
+                );
               }
             }
             if (d.storyComments && typeof d.storyComments === 'object') {
@@ -4682,26 +4670,14 @@
 
                 // 3b. Saved Post IDs, Saved Note IDs & Deleted IDs from Cloud Firestore (replace so unsaves/deletes sync)
                 const recentlyMutatedLikes = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
-                if (!snap.metadata.hasPendingWrites && !recentlyMutatedLikes) {
-                  if (Array.isArray(data.savedPostIds)) {
-                    state.savedPostIds = new Set();
-                    data.savedPostIds.forEach(id => {
-                      state.savedPostIds.add(String(id));
-                      const num = parseInt(id, 10);
-                      if (!isNaN(num)) state.savedPostIds.add(num);
-                    });
-                    renderSaved();
-                    renderFeed();
-                  }
-                  if (Array.isArray(data.savedNoteIds)) {
-                    state.savedNoteIds = new Set();
-                    data.savedNoteIds.forEach(id => {
-                      state.savedNoteIds.add(String(id));
-                      const num = parseInt(id, 10);
-                      if (!isNaN(num)) state.savedNoteIds.add(num);
-                    });
-                    renderSaved();
-                    renderNotes();
+                if (!snap.metadata.hasPendingWrites) {
+                  if (typeof window.applySavedFromRemote === 'function') {
+                    window.applySavedFromRemote(
+                      Array.isArray(data.savedPostIds) ? data.savedPostIds : undefined,
+                      Array.isArray(data.savedNoteIds) ? data.savedNoteIds : undefined
+                    );
+                    if (Array.isArray(data.savedPostIds) && !recentlyMutatedLikes) renderFeed();
+                    if (Array.isArray(data.savedNoteIds) && !recentlyMutatedLikes && typeof renderNotes === 'function') renderNotes();
                   }
                   if (Array.isArray(data.deletedPostIds)) {
                     state.deletedPostIds = new Set(data.deletedPostIds.map(String));
@@ -8121,6 +8097,55 @@ function syncLikedStateToPosts() {
         openPostDetailModal(postId);
       }
     }
+
+    window.applySavedFromRemote = function(savedPostIdsArr, savedNoteIdsArr) {
+      const recentlySaved = (Date.now() - (window._lastLocalLikesWriteTs || 0)) < 3500;
+      if (recentlySaved) return false;
+      let savedChanged = false;
+      const mergeLocal = !!window.pendingLikesSync;
+      if (Array.isArray(savedPostIdsArr)) {
+        if (mergeLocal && state.savedPostIds && state.savedPostIds.size > 0) {
+          savedPostIdsArr.forEach(id => {
+            state.savedPostIds.add(String(id));
+            const num = parseInt(id, 10);
+            if (!isNaN(num)) state.savedPostIds.add(num);
+          });
+        } else {
+          state.savedPostIds = new Set();
+          savedPostIdsArr.forEach(id => {
+            state.savedPostIds.add(String(id));
+            const num = parseInt(id, 10);
+            if (!isNaN(num)) state.savedPostIds.add(num);
+          });
+        }
+        savedChanged = true;
+      }
+      if (Array.isArray(savedNoteIdsArr)) {
+        if (mergeLocal && state.savedNoteIds && state.savedNoteIds.size > 0) {
+          savedNoteIdsArr.forEach(id => {
+            state.savedNoteIds.add(String(id));
+            const num = parseInt(id, 10);
+            if (!isNaN(num)) state.savedNoteIds.add(num);
+          });
+        } else {
+          state.savedNoteIds = new Set();
+          savedNoteIdsArr.forEach(id => {
+            state.savedNoteIds.add(String(id));
+            const num = parseInt(id, 10);
+            if (!isNaN(num)) state.savedNoteIds.add(num);
+          });
+        }
+        savedChanged = true;
+      }
+      if (savedChanged) {
+        try {
+          const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+          if (typeof saveAccountSaved === 'function') saveAccountSaved(curU);
+        } catch (e) {}
+        if (typeof renderSaved === 'function') renderSaved();
+      }
+      return savedChanged;
+    };
 
     window.applyLikesFromRemote = function(likedIdsArr) {
       if (!Array.isArray(likedIdsArr)) return;
@@ -16623,6 +16648,7 @@ function syncLikedStateToPosts() {
       }
 
       // Persist state locally and to Cloud Firestore
+      window._lastLocalLikesWriteTs = Date.now();
       persistState();
       syncAllLikesToFirestore();
 
@@ -18213,7 +18239,11 @@ function syncLikedStateToPosts() {
       if (!cleanU) return false;
       if (cleanU === 'bradley_hansen' || cleanU === 'pixlynote' || cleanU === 'digitalassetpro') return true;
       if (typeof isAccountInAccountCenter === 'function' && isAccountInAccountCenter(cleanU)) return true;
-      if (window._remoteUserProfilesCache && window._remoteUserProfilesCache[cleanU]) return true;
+      // Do not treat _remoteUserProfilesCache as proof of a real account.
+      // loadExploreUserDirectory caches every users/* doc, including built-in
+      // creator usernames such as nordic_trails. Using that cache here made
+      // feed-visible built-in Saved/Liked posts vanish after the directory
+      // snapshot arrived.
       if (window._pixlyAccounts && window._pixlyAccounts[cleanU]) return true;
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
       if (state.isLoggedIn && curU && curU === cleanU) return true;
