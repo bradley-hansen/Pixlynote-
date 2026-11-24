@@ -12,6 +12,7 @@
 
   
   <script src="https://cdn.tailwindcss.com/3.4.17" defer></script>
+  <script src="assets/pixly-data-export.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Grand+Hotel&display=swap" rel="stylesheet">
@@ -3491,6 +3492,20 @@
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+
+        <button type="button" id="btn-ac-download-data" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </div>
+            <div class="text-left min-w-0">
+              <div class="text-xs font-bold text-neutral-900" id="ac-data-export-label">Download your data</div>
+              <div class="text-[10px] text-neutral-500 truncate">Download a ZIP of your Pixlynote data to this device</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-sky-600 transition flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <div id="ac-data-export-status" class="hidden text-[11px] font-medium px-3 py-2 rounded-xl leading-relaxed" role="status"></div>
 
         <div class="pt-2 border-t border-neutral-100">
           <button type="button" id="btn-ac-deactivate-account" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-rose-200 bg-rose-50/70 hover:bg-rose-50 hover:border-rose-300 transition cursor-pointer group">
@@ -26793,6 +26808,7 @@ function syncLikedStateToPosts() {
           setAccountCenterView((backBtn && backBtn.dataset.target) || 'main');
         });
         bind('btn-ac-open-your-account', 'click', () => setAccountCenterView('yourAccount'));
+        bind('btn-ac-download-data', 'click', () => { if (typeof requestAccountDataExport === 'function') requestAccountDataExport(); });
         try { window.state = state; } catch(e) {}
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
         bind('btn-ac-tab-drafts', 'click', () => { if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal(); if (typeof openDraftsPage === 'function') openDraftsPage(); });
@@ -29907,6 +29923,267 @@ function syncLikedStateToPosts() {
             createFileInput.click();
           });
         }
+
+        function setDataExportStatus(kind, message) {
+          const el = document.getElementById('ac-data-export-status');
+          if (!el) return;
+          el.textContent = message || '';
+          el.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200', 'bg-rose-50', 'text-rose-800', 'border-rose-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200');
+          if (!message) { el.classList.add('hidden'); return; }
+          if (kind === 'ok') el.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200');
+          else if (kind === 'wait' || kind === 'warn') el.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+          else el.classList.add('bg-rose-50', 'text-rose-800', 'border', 'border-rose-200');
+        }
+        function setDataExportBusy(busy) {
+          const btn = document.getElementById('btn-ac-download-data');
+          const label = document.getElementById('ac-data-export-label');
+          if (btn) {
+            btn.disabled = !!busy;
+            if (busy) {
+              btn.dataset.busy = '1';
+              btn.setAttribute('aria-busy', 'true');
+            } else {
+              delete btn.dataset.busy;
+              btn.removeAttribute('aria-busy');
+            }
+          }
+          if (label) label.textContent = busy ? 'Preparing export...' : 'Download your data';
+        }
+        function dataExportUsername() {
+          try {
+            if (typeof getActiveFirestoreUsername === 'function') {
+              const u = getActiveFirestoreUsername();
+              if (u) return u;
+            }
+          } catch (e) {}
+          const raw = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
+          return (typeof normalizeUsername === 'function')
+            ? normalizeUsername(raw)
+            : String(raw || '').toLowerCase().replace(/^@/, '').trim();
+        }
+        function isOwnExportAuthor(author, username) {
+          const a = (typeof normalizeUsername === 'function') ? normalizeUsername(author) : String(author || '').toLowerCase().replace(/^@/, '').trim();
+          const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '').trim();
+          return !!(a && u && a === u);
+        }
+        function uniqueById(list) {
+          const out = [];
+          const seen = new Set();
+          (Array.isArray(list) ? list : []).forEach((item) => {
+            if (!item || typeof item !== 'object') return;
+            const id = item.id != null ? String(item.id) : JSON.stringify(item);
+            if (seen.has(id)) return;
+            seen.add(id);
+            out.push(item);
+          });
+          return out;
+        }
+        function readLocalAccountRecord(username) {
+          try {
+            const raw = localStorage.getItem('pixly_account_' + String(username || '').toLowerCase());
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : null;
+          } catch (e) { return null; }
+        }
+        function idsFrom(value) {
+          if (!value) return [];
+          if (typeof Set !== 'undefined' && value instanceof Set) return Array.from(value).map(String);
+          if (Array.isArray(value)) return value.map(String);
+          return [];
+        }
+        async function firestoreGetDoc(pathParts) {
+          const fb = window.firebase;
+          if (!window.firebaseReady || !fb || !fb.db || !fb.doc || !fb.getDoc) return null;
+          try {
+            const snap = await fb.getDoc(fb.doc.apply(null, [fb.db].concat(pathParts)));
+            if (!snap || (typeof snap.exists === 'function' ? !snap.exists() : !snap.exists)) return null;
+            return typeof snap.data === 'function' ? snap.data() : (snap.data || null);
+          } catch (e) { return null; }
+        }
+        async function firestoreGetDocs(getter) {
+          const fb = window.firebase;
+          if (!window.firebaseReady || !fb || !fb.db) return [];
+          try {
+            const snap = await getter(fb);
+            if (!snap) return [];
+            const out = [];
+            if (typeof snap.forEach === 'function') {
+              snap.forEach((docSnap) => {
+                const data = typeof docSnap.data === 'function' ? docSnap.data() : (docSnap.data || {});
+                const rec = Object.assign({}, data || {});
+                if (rec.id == null && docSnap && docSnap.id != null) rec.id = docSnap.id;
+                out.push(rec);
+              });
+            }
+            return out;
+          } catch (e) { return []; }
+        }
+        async function collectSignedInUserExportRecords() {
+          const username = dataExportUsername();
+          if (!username) {
+            const err = new Error('not_signed_in');
+            throw err;
+          }
+          const localAccount = readLocalAccountRecord(username) || {};
+          const current = (state && state.currentUser) ? state.currentUser : {};
+          let cloudUser = await firestoreGetDoc(['users', username]);
+          if (!cloudUser || typeof cloudUser !== 'object') cloudUser = {};
+
+          const pullOwn = (list, authorKey) => (Array.isArray(list) ? list : []).filter((item) => item && isOwnExportAuthor(item[authorKey || 'author'] || item.username, username));
+
+          const statePosts = pullOwn((state && state.posts) || [], 'author');
+          const stateExplore = pullOwn((state && state.explorePosts) || [], 'author');
+          const customPosts = pullOwn(cloudUser.customPosts || current.customPosts || [], 'author');
+          let cloudPosts = [];
+          const fb = window.firebase;
+          if (window.firebaseReady && fb && fb.db && fb.getDocs && fb.collection && fb.query && fb.where) {
+            cloudPosts = await firestoreGetDocs((firebase) => firebase.getDocs(firebase.query(
+              firebase.collection(firebase.db, 'posts'),
+              firebase.where('author', '==', username)
+            )));
+          }
+          const posts = uniqueById(cloudPosts.concat(customPosts, statePosts, stateExplore));
+
+          const stateNotes = pullOwn((state && state.notes) || [], 'author');
+          const cloudNotes = pullOwn(cloudUser.notes || [], 'author');
+          const notes = uniqueById(cloudNotes.concat(stateNotes));
+
+          const stories = uniqueById(pullOwn((state && state.stories) || [], 'author'));
+
+          let drafts = [];
+          try {
+            if (typeof readDraftsFull === 'function') drafts = await readDraftsFull(username);
+            else if (typeof readDraftsMetaSync === 'function') drafts = readDraftsMetaSync(username);
+          } catch (e) { drafts = []; }
+          if (!Array.isArray(drafts)) drafts = [];
+
+          const highlights = Array.isArray(cloudUser.highlights)
+            ? cloudUser.highlights
+            : ((state && Array.isArray(state.highlights)) ? state.highlights : []);
+
+          const following = Array.isArray(cloudUser.following)
+            ? cloudUser.following
+            : ((state && Array.isArray(state.following)) ? state.following : []);
+          let followers = [];
+          if (window.firebaseReady && fb && fb.getDocs && fb.collection) {
+            followers = await firestoreGetDocs((firebase) => firebase.getDocs(firebase.collection(firebase.db, 'users', username, 'followers')));
+          }
+          if (!followers.length && state && Array.isArray(state.followers)) followers = state.followers.slice();
+
+          const likes = {
+            likedPostIds: idsFrom(cloudUser.likedPostIds || (state && state.likedPostIds)),
+            likedNoteIds: idsFrom(cloudUser.likedNoteIds || (state && state.likedNoteIds)),
+            likedStoryIds: idsFrom(cloudUser.likedStoryIds || (state && state.likedStoryIds)),
+            likedOrder: idsFrom(cloudUser.likedOrder || (state && state.likedOrder))
+          };
+          const saves = {
+            savedPostIds: idsFrom(cloudUser.savedPostIds || (state && state.savedPostIds)),
+            savedNoteIds: idsFrom(cloudUser.savedNoteIds || (state && state.savedNoteIds))
+          };
+
+          let profileHistory = null;
+          try {
+            if (typeof window._profileHistory === 'object' && window._profileHistory && window._profileHistory.user === username) {
+              profileHistory = window._profileHistory.fields || window._profileHistory;
+            }
+            if (!profileHistory) {
+              const raw = localStorage.getItem('pixly_profile_history_' + username);
+              if (raw) profileHistory = JSON.parse(raw);
+            }
+          } catch (e) { profileHistory = profileHistory || null; }
+          const cloudHistory = await firestoreGetDoc(['profileHistory', username]);
+          if (cloudHistory) profileHistory = cloudHistory;
+
+          const profile = Object.assign({}, localAccount, current, cloudUser, {
+            username: username,
+            fullName: current.fullName || cloudUser.fullName || localAccount.fullName || '',
+            email: current.email || cloudUser.email || localAccount.email || '',
+            phone: current.phone || cloudUser.phone || localAccount.phone || '',
+            accountType: current.accountType || cloudUser.accountType || localAccount.accountType || '',
+            bio: current.bio || cloudUser.bio || localAccount.bio || '',
+            link: current.link || cloudUser.link || localAccount.link || '',
+            avatar: current.avatar || current.photoURL || cloudUser.avatar || cloudUser.photoURL || localAccount.avatar || '',
+            photoURL: current.photoURL || current.avatar || cloudUser.photoURL || cloudUser.avatar || localAccount.photoURL || ''
+          });
+          // Keep arrays in their own export sections, not duplicated on the profile object.
+          ['notes', 'customPosts', 'highlights', 'following', 'likedPostIds', 'likedNoteIds', 'likedStoryIds', 'likedOrder', 'savedPostIds', 'savedNoteIds', 'deletedPostIds', 'deletedNoteIds', 'deletedReplyIds'].forEach((k) => {
+            if (k in profile) delete profile[k];
+          });
+
+          const metadata = {
+            accountType: profile.accountType || '',
+            lastUpdated: cloudUser.lastUpdated || current.lastUpdated || null,
+            deletedPostIds: idsFrom(cloudUser.deletedPostIds || (state && state.deletedPostIds)),
+            deletedNoteIds: idsFrom(cloudUser.deletedNoteIds || (state && state.deletedNoteIds)),
+            deletedReplyIds: idsFrom(cloudUser.deletedReplyIds || (state && state.deletedReplyIds))
+          };
+
+          return {
+            profile: profile,
+            posts: posts,
+            notes: notes,
+            stories: stories,
+            likes: likes,
+            saves: saves,
+            connections: { following: following, followers: followers },
+            drafts: drafts,
+            highlights: highlights,
+            profileHistory: profileHistory || {},
+            metadata: metadata
+          };
+        }
+        async function requestAccountDataExport() {
+          const api = window.PixlyDataExport;
+          if (!(state && state.isLoggedIn && state.currentUser && state.currentUser.username)) {
+            const msg = (api && api.signedOutMessage) ? api.signedOutMessage() : 'Sign in to download your data.';
+            setDataExportStatus('error', msg);
+            if (typeof showToast === 'function') showToast(msg);
+            return;
+          }
+          const btn = document.getElementById('btn-ac-download-data');
+          if (btn && (btn.disabled || btn.dataset.busy === '1')) return;
+          setDataExportBusy(true);
+          setDataExportStatus('wait', 'Preparing export...');
+          try {
+            if (!api) throw new Error('jszip_unavailable');
+            const JSZipCtor = await api.loadJSZip(window);
+            const records = await collectSignedInUserExportRecords();
+            const refs = api.collectMediaRefs(records);
+            const fetchImpl = (typeof window.__pixlyExportFetch === 'function')
+              ? window.__pixlyExportFetch
+              : (typeof fetch === 'function' ? fetch.bind(window) : null);
+            const media = await api.fetchMediaAllSettled(refs, fetchImpl);
+            const userData = api.buildUserDataPayload({
+              username: dataExportUsername(),
+              records: records,
+              files: media.files,
+              mediaErrors: media.errors,
+              metadata: records.metadata,
+              exportedAt: new Date().toISOString()
+            });
+            if (typeof window.__pixlyExportBeforeZip === 'function') {
+              await window.__pixlyExportBeforeZip({ userData: userData, media: media });
+            }
+            const blob = await api.buildZipBlob(JSZipCtor, {
+              userData: userData,
+              files: media.files,
+              mediaErrors: media.errors
+            });
+            api.triggerDownload(blob, api.EXPORT_FILENAME, window);
+            setDataExportStatus('ok', 'Your download started.');
+          } catch (err) {
+            const msg = (api && api.exportFailureMessage) ? api.exportFailureMessage(err) : 'Could not download your data. Please try again.';
+            setDataExportStatus('error', msg);
+            if (typeof showToast === 'function') showToast(msg);
+          } finally {
+            setDataExportBusy(false);
+          }
+        }
+        window.requestAccountDataExport = requestAccountDataExport;
+        window.collectSignedInUserExportRecords = collectSignedInUserExportRecords;
+        window.setDataExportStatus = setDataExportStatus;
+        window.setDataExportBusy = setDataExportBusy;
 
         // Typed emails: the Worker builds subject + HTML from fixed templates and only sends to the email on file
         // for the account (users/{username}.email). It no longer accepts arbitrary to/subject/html.

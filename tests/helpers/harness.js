@@ -11,6 +11,7 @@ const path = require('path');
 
 const REPO = path.resolve(__dirname, '../..');
 const TW_PATH = path.join(__dirname, '../vendor/tailwind-3.4.17.js');
+const JSZIP_PATH = path.join(__dirname, '../vendor/jszip-3.10.1.min.js');
 const VERIFY_CODE = '123456';
 
 const ACCOUNTS = {
@@ -174,6 +175,7 @@ function mockWorker(req) {
 
 async function attachRoutes(context, port, writeLog) {
   const tw = fs.readFileSync(TW_PATH);
+  const jszip = fs.readFileSync(JSZIP_PATH);
   await context.route('**/*', async (route) => {
     const req = route.request();
     const u = req.url();
@@ -190,6 +192,18 @@ async function attachRoutes(context, port, writeLog) {
         contentType: 'application/javascript',
         body: tw,
         headers: { 'Cache-Control': 'no-store' }
+      });
+    }
+    if (/cdnjs\.cloudflare\.com\/ajax\/libs\/jszip\/|cdn\.jsdelivr\.net\/npm\/jszip@/i.test(u)) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: jszip,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS'
+        }
       });
     }
     if (/brad-g-hansen\.workers\.dev|PIXLYNOTE_VERIFY|PIXLYNOTE_API/i.test(u) || /workers\.dev/.test(u)) {
