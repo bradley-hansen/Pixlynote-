@@ -23,7 +23,7 @@
 - Tests:
   - `tests/rules/` (28) and `tests/backfill/` (2) run in the emulators.
   - `tests/worker/` (6) uses the emulators and skips if the Worker file is missing.
-  - `tests/suites/48-db-lockdown.js` (10) covers the app.
+  - `tests/suites/50-db-lockdown.js` (10) covers the app.
   - `npm test` runs them all.
 
 ## Rollout (in order; each step needs Bradley's Go)
