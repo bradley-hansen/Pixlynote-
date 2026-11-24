@@ -4652,9 +4652,13 @@
       var PRIVATE_USER_FIELDS = ['email', 'phone', 'dms', 'lastDmUpdated', 'loginActivityLog', 'otherSessions',
         'sessionRevokedAt', 'stripeCustomerId', 'stripeSubscriptionId', 'stripeBusinessSubscriptionId',
         'verificationEmail', 'accountCenterAccounts', 'removedAccountCenterUsernames'];
+      var CONTENT_USER_FIELDS = ['notes', 'story', 'userStories', 'highlights', 'following'];
+      var PRIVILEGE_USER_FIELDS = ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus'];
       var AUTH_LOGIN_DOMAIN = 'users.pixlynote.app';
       var CONTACT_SALT = 'pixlynote-contact-v1|';
       window.PIXLY_PRIVATE_USER_FIELDS = PRIVATE_USER_FIELDS;
+      window.PIXLY_CONTENT_USER_FIELDS = CONTENT_USER_FIELDS;
+      window.PIXLY_PRIVILEGE_USER_FIELDS = PRIVILEGE_USER_FIELDS;
 
       function normU(u) { return String(u || '').trim().toLowerCase().replace(/^@/, ''); }
       function refPath(ref) { return (ref && typeof ref.path === 'string') ? ref.path : ''; }
@@ -4679,12 +4683,45 @@
         if (!n) return false;
         return n === activeName() || n === normU(window._pixlyAuthUsername) || selfAliases.has(n);
       }
+      function isAdminWriter() {
+        try {
+          if (activeName() === 'pixlynote') return true;
+          if (normU(window._pixlyAuthUsername) === 'pixlynote') return true;
+          var cu = window.state && window.state.currentUser;
+          if (cu && normU(cu.username) === 'pixlynote') return true;
+        } catch (e) {}
+        return false;
+      }
       function splitUserPayload(data) {
-        var pub = {}, priv = {}, hasPriv = false;
+        var pub = {}, priv = {}, content = {}, hasPriv = false, hasContent = false;
         Object.keys(data || {}).forEach(function (k) {
-          if (PRIVATE_USER_FIELDS.indexOf(k) !== -1) { priv[k] = data[k]; hasPriv = true; } else { pub[k] = data[k]; }
+          if (PRIVATE_USER_FIELDS.indexOf(k) !== -1) { priv[k] = data[k]; hasPriv = true; }
+          else if (CONTENT_USER_FIELDS.indexOf(k) !== -1) { content[k] = data[k]; hasContent = true; }
+          else { pub[k] = data[k]; }
         });
-        return { pub: pub, priv: priv, hasPriv: hasPriv };
+        return { pub: pub, priv: priv, content: content, hasPriv: hasPriv, hasContent: hasContent };
+      }
+      function contentRef(u) { return window.firebase && window.firebase.doc(window.firebase.db, 'users', u, 'content', 'profile'); }
+      function mergeContentSnap(snap, content, priv) {
+        if (!snap || typeof snap.exists !== 'function' || !snap.exists()) return snap;
+        var pubData = snap.data() || {};
+        var merged = Object.assign({}, pubData);
+        if (content && typeof content === 'object') {
+          CONTENT_USER_FIELDS.forEach(function (k) {
+            if (Object.prototype.hasOwnProperty.call(content, k)) merged[k] = content[k];
+          });
+        }
+        if (priv) {
+          var extra = Object.assign({}, priv);
+          if (pubData.isPrivate !== true) delete extra.customPosts;
+          merged = Object.assign(merged, extra);
+        }
+        return {
+          id: snap.id, ref: snap.ref, metadata: snap.metadata,
+          exists: function () { return true; },
+          data: function () { return Object.assign({}, merged); },
+          get: function (k) { return merged[k]; }
+        };
       }
       var privateCache = {};
       function rememberPrivate(u, d) {
@@ -4839,32 +4876,47 @@
         var rawSet = fb.setDoc, rawUpdate = fb.updateDoc, rawGet = fb.getDoc, rawSnap = fb.onSnapshot;
         fb.__raw = { setDoc: rawSet, updateDoc: rawUpdate, getDoc: rawGet, onSnapshot: rawSnap };
         function privRef(u) { return fb.doc(fb.db, 'users', u, 'private', 'account'); }
+        function contentDoc(u) { return fb.doc(fb.db, 'users', u, 'content', 'profile'); }
         function splitWrite(kind, ref, data, opts) {
           var u = userDocName(ref);
           var raw = kind === 'update' ? rawUpdate : rawSet;
           if (!u || !data || typeof data !== 'object' || Array.isArray(data)) return kind === 'update' ? raw(ref, data) : raw(ref, data, opts);
           var parts = splitUserPayload(data);
           var self = isSelf(u);
+          if (!isAdminWriter()) {
+            PRIVILEGE_USER_FIELDS.forEach(function (k) {
+              if (Object.prototype.hasOwnProperty.call(parts.pub, k)) delete parts.pub[k];
+            });
+          }
           // A private account's post mirror (customPosts) is owner-only too; approved connections use posts/*.
           if (self && Object.prototype.hasOwnProperty.call(parts.pub, 'customPosts') && selfIsPrivate(u)) {
             parts.priv.customPosts = parts.pub.customPosts;
             parts.pub.customPosts = [];
             parts.hasPriv = true;
           }
-          if (!parts.hasPriv && !Object.prototype.hasOwnProperty.call(data, 'contactPrefs')) {
-            return kind === 'update' ? raw(ref, data) : raw(ref, data, opts);
+          if (!parts.hasPriv && !parts.hasContent && !Object.prototype.hasOwnProperty.call(data, 'contactPrefs')) {
+            if (!Object.keys(parts.pub).length) return Promise.resolve();
+            return kind === 'update' ? raw(ref, parts.pub) : raw(ref, parts.pub, opts);
           }
           if (self) publicContactMirror(u, parts.priv, parts.pub);
           var hasPub = Object.keys(parts.pub).length > 0;
           var pubP = hasPub ? (kind === 'update' ? raw(ref, parts.pub) : raw(ref, parts.pub, opts)) : Promise.resolve();
-          if (!self || !parts.hasPriv) return pubP;
+          var contentP = Promise.resolve();
+          if (self && parts.hasContent) {
+            contentP = Promise.resolve(pubP).catch(function () {}).then(function () {
+              return rawSet(contentDoc(u), parts.content, { merge: true });
+            });
+          }
+          if (!self || !parts.hasPriv) {
+            return parts.hasContent ? Promise.all([pubP, contentP]).then(function () { return undefined; }) : pubP;
+          }
           // Public doc first: the rules check users/{u}.uid before allowing the private write.
           var privP = Promise.resolve(pubP).catch(function () {}).then(function () {
             return rawSet(privRef(u), parts.priv, { merge: true });
           });
           // Resolves after the contact index too, so a welcome email sent next finds the address on file.
           var indexP = privP.then(function () { return contactIndexForPrivateWrite(u, parts.priv, rawSet); }).catch(function () {});
-          return Promise.all([pubP, privP, indexP]).then(function () { return undefined; });
+          return Promise.all([pubP, privP, indexP, contentP]).then(function () { return undefined; });
         }
         fb.setDoc = function (ref, data, opts) { return splitWrite('set', ref, data, opts); };
         if (rawUpdate) fb.updateDoc = function (ref, data) { return splitWrite('update', ref, data); };
@@ -4872,44 +4924,62 @@
           fb.getDoc = async function (ref) {
             var snap = await rawGet(ref);
             var u = userDocName(ref);
-            if (!u || !isSelf(u) || !snap || !snap.exists || !snap.exists()) return snap;
-            var priv = null;
+            if (!u || !snap || !snap.exists || !snap.exists()) return snap;
+            var priv = null, content = null;
+            if (isSelf(u)) {
+              try {
+                var ps = await rawGet(privRef(u));
+                if (ps && ps.exists && ps.exists()) priv = ps.data() || null;
+              } catch (e) {}
+              if (priv) rememberPrivate(u, priv);
+            }
             try {
-              var ps = await rawGet(privRef(u));
-              if (ps && ps.exists && ps.exists()) priv = ps.data() || null;
-            } catch (e) {}
-            if (!priv) return snap;
-            rememberPrivate(u, priv);
-            return mergeSnap(snap, priv);
+              var cs = await rawGet(contentDoc(u));
+              if (cs && cs.exists && cs.exists()) content = cs.data() || null;
+            } catch (e) { content = null; }
+            if (!priv && !content) return snap;
+            return mergeContentSnap(snap, content, priv);
           };
         }
         if (rawSnap) {
           fb.onSnapshot = function (ref) {
             var args = Array.prototype.slice.call(arguments, 1);
             var u = userDocName(ref);
-            if (!u || !isSelf(u)) return rawSnap.apply(null, [ref].concat(args));
+            if (!u) return rawSnap.apply(null, [ref].concat(args));
             var idx = -1;
             for (var i = 0; i < args.length; i++) { if (typeof args[i] === 'function') { idx = i; break; } }
             var observer = (idx === -1 && args[0] && typeof args[0].next === 'function') ? args[0] : null;
             var next = observer ? observer.next.bind(observer) : (idx >= 0 ? args[idx] : null);
             if (!next) return rawSnap.apply(null, [ref].concat(args));
-            var lastPub = null, lastPriv = null;
-            function emit() { if (lastPub) next(lastPriv ? mergeSnap(lastPub, lastPriv) : lastPub); }
+            var lastPub = null, lastPriv = null, lastContent = null;
+            function emit() {
+              if (!lastPub) return;
+              next((lastPriv || lastContent) ? mergeContentSnap(lastPub, lastContent, lastPriv) : lastPub);
+            }
             function onPub(s) { lastPub = s; emit(); }
             var newArgs = args.slice();
             if (observer) newArgs[0] = Object.assign({}, observer, { next: onPub }); else newArgs[idx] = onPub;
             var unPub = rawSnap.apply(null, [ref].concat(newArgs));
-            var unPriv = null;
+            var unPriv = null, unContent = null;
+            if (isSelf(u)) {
+              try {
+                unPriv = rawSnap(privRef(u), function (ps) {
+                  lastPriv = (ps && ps.exists && ps.exists()) ? (ps.data() || null) : null;
+                  if (lastPriv) rememberPrivate(u, lastPriv);
+                  if (lastPriv) emit();
+                }, function () {});
+              } catch (e) {}
+            }
             try {
-              unPriv = rawSnap(privRef(u), function (ps) {
-                lastPriv = (ps && ps.exists && ps.exists()) ? (ps.data() || null) : null;
-                if (lastPriv) rememberPrivate(u, lastPriv);
-                if (lastPriv) emit();
-              }, function () {});
+              unContent = rawSnap(contentDoc(u), function (cs) {
+                lastContent = (cs && cs.exists && cs.exists()) ? (cs.data() || null) : null;
+                if (lastContent) emit();
+              }, function () { lastContent = null; });
             } catch (e) {}
             return function () {
               try { if (typeof unPub === 'function') unPub(); } catch (e) {}
               try { if (typeof unPriv === 'function') unPriv(); } catch (e) {}
+              try { if (typeof unContent === 'function') unContent(); } catch (e) {}
             };
           };
         }
@@ -5061,6 +5131,8 @@
       window.installPixlyDataGuard = installPixlyDataGuard;
       window.pixlyGuard = {
         PRIVATE_USER_FIELDS: PRIVATE_USER_FIELDS,
+        CONTENT_USER_FIELDS: CONTENT_USER_FIELDS,
+        PRIVILEGE_USER_FIELDS: PRIVILEGE_USER_FIELDS,
         splitUserPayload: splitUserPayload,
         isSelf: isSelf,
         addSelfAlias: addSelfAlias,
@@ -11457,6 +11529,30 @@ function syncLikedStateToPosts() {
           const p = fb.setDoc(fb.doc(fb.db, col, owner), { users: users, updatedAt: Date.now() }, { merge: true });
           if (p && typeof p.catch === 'function') p.catch(function () {});
         } catch (e) {}
+        // Close friends: write a per-member edge so a viewer can check only their own membership,
+        // without reading the full list.
+        if (kind === 'closeFriends' && typeof fb.deleteDoc === 'function') {
+          const prev = (_privacyLists._prevCloseFriends || []).slice();
+          _privacyLists._prevCloseFriends = users.slice();
+          const prevSet = {};
+          prev.forEach(function (u) { prevSet[u] = true; });
+          const nextSet = {};
+          users.forEach(function (u) { nextSet[u] = true; });
+          users.forEach(function (u) {
+            if (prevSet[u]) return;
+            try {
+              const w = fb.setDoc(fb.doc(fb.db, col, owner, 'members', u), { username: u, addedAt: Date.now() }, { merge: true });
+              if (w && typeof w.catch === 'function') w.catch(function () {});
+            } catch (e2) {}
+          });
+          prev.forEach(function (u) {
+            if (nextSet[u]) return;
+            try {
+              const d = fb.deleteDoc(fb.doc(fb.db, col, owner, 'members', u));
+              if (d && typeof d.catch === 'function') d.catch(function () {});
+            } catch (e3) {}
+          });
+        }
       }
     }
     function loadPrivacyLists() {
@@ -11483,6 +11579,7 @@ function syncLikedStateToPosts() {
               const data = snap && (snap.data ? snap.data() : snap);
               if (data && Array.isArray(data.users)) {
                 _privacyLists[kind] = uniqueNormUsers(data.users);
+                if (kind === 'closeFriends') _privacyLists._prevCloseFriends = _privacyLists[kind].slice();
                 writePrivacyLs(kind, owner, _privacyLists[kind]);
                 schedulePrivacyRerender();
               }
@@ -11561,12 +11658,14 @@ function syncLikedStateToPosts() {
         return;
       }
       try {
-        const p = fb.getDoc(fb.doc(fb.db, 'closeFriends', a));
+        // Only read our own membership edge — the full list is owner-only.
+        const p = me
+          ? fb.getDoc(fb.doc(fb.db, 'closeFriends', a, 'members', me))
+          : Promise.resolve({ exists: function () { return false; } });
         if (p && typeof p.then === 'function') {
           p.then(function (snap) {
-            const data = snap && (snap.data ? snap.data() : snap);
             const exists = snap && (typeof snap.exists === 'function' ? snap.exists() : (snap.exists !== false));
-            const users = (exists && data && Array.isArray(data.users)) ? uniqueNormUsers(data.users) : [];
+            const users = (exists && me) ? [me] : [];
             _peerCloseFriends[a] = { loaded: true, pending: false, users: users };
             schedulePrivacyRerender();
           }).catch(function () {
@@ -33277,6 +33376,27 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     // PIXLYNOTE_API_ENDPOINT (declared near the top of the script) is the Pixlynote Worker for email + Stripe checks.
     // Ask the Stripe Worker whether a Checkout Session is really paid. A session id sitting in localStorage
     // (pixly_pending_stripe_session) is not proof of payment: anyone can type one into DevTools.
+    async function syncSubscriptionWithWorker(payload) {
+      const base = (typeof PIXLYNOTE_API_ENDPOINT === 'string' && PIXLYNOTE_API_ENDPOINT) ? PIXLYNOTE_API_ENDPOINT : '';
+      if (!base) return { ok: false, error: 'no_endpoint' };
+      try {
+        const res = await fetch(base + '/sync-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload || {})
+        });
+        const data = await res.json().catch(function () { return {}; });
+        return { ok: !!(res.ok && data && data.ok === true), status: res.status, data: data };
+      } catch (e) {
+        return { ok: false, error: 'network' };
+      }
+    }
+    window.syncSubscriptionWithWorker = syncSubscriptionWithWorker;
+    function queueSubscriptionSync(payload) {
+      if (!payload || !payload.session_id) return;
+      syncSubscriptionWithWorker(payload).catch(function () {});
+    }
+    window.queueSubscriptionSync = queueSubscriptionSync;
     async function fetchStripeSessionStatus(sessionId) {
       const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/verify-stripe-session?session_id=' + encodeURIComponent(sessionId));
       if (!res.ok) return null;
@@ -33565,20 +33685,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         state.currentUser.subscriptionStatus = 'cancel_at_period_end';
       }
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
-      const write = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          const fields = { stripeCancelAtPeriodEnd: true, subscriptionStatus: 'cancel_at_period_end', plusCancelScheduledAt: Date.now() };
-          if (endSec) fields.stripeCurrentPeriodEnd = endSec;
-          setDoc(doc(db, 'users', cleanU), fields, { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-      if (!write()) {
-        const retryTimer = setInterval(() => { if (write()) clearInterval(retryTimer); }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
+      const capSid = (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU && (kind === 'business' ? state.currentUser.stripeBusinessSessionId : state.currentUser.stripeSessionId)) || '';
+      queueSubscriptionSync({ username: cleanU, session_id: capSid, action: 'cancel_at_period_end' });
     }
     function periodEndAlreadyPassed(user, nowMs) {
       const endSec = user && Number(user.stripeCurrentPeriodEnd);
@@ -33756,27 +33864,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (typeof renderFeed === 'function') renderFeed();
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
 
-      const writeVerificationToFirestore = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), Object.assign({
-            isVerified: true,
-            isPlus: true,
-            subscriptionStatus: 'active',
-            stripeSessionId: sessionId,
-            verifiedUpdatedAt: Date.now()
-          }, stripeIdFields), { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-
-      if (!writeVerificationToFirestore()) {
-        const retryTimer = setInterval(() => {
-          if (writeVerificationToFirestore()) clearInterval(retryTimer);
-        }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
+      queueSubscriptionSync({ username: cleanU, session_id: sessionId, action: 'activate' });
       persistCurrentUserSubscription();
       if (typeof showToast === 'function') {
         showToast('Pixlynote Plus activated! Blue badge enabled ✓');
@@ -33804,26 +33892,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (typeof renderFeed === 'function') renderFeed();
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
 
-      const writeCancellationToFirestore = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
-            isVerified: false,
-            isPlus: false,
-            subscriptionStatus: 'canceled',
-            canceledAt: Date.now()
-          }, { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-
-      if (!writeCancellationToFirestore()) {
-        const retryTimer = setInterval(() => {
-          if (writeCancellationToFirestore()) clearInterval(retryTimer);
-        }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
+      const cancelSid = (opts && opts.session_id) || (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU && state.currentUser.stripeSessionId) || '';
+      queueSubscriptionSync({ username: cleanU, session_id: cancelSid, action: 'cancel' });
       if (!silent && typeof showToast === 'function') {
         showToast('Pixlynote Plus membership canceled.');
       }
@@ -33845,22 +33915,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (typeof renderNotes === 'function') renderNotes();
       if (typeof renderFeed === 'function') renderFeed();
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
-      const writeBiz = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), Object.assign({
-            isBusinessPlus: true,
-            stripeBusinessSessionId: sessionId,
-            businessPlusUpdatedAt: Date.now()
-          }, stripeIdFields), { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-      if (!writeBiz()) {
-        const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
+      queueSubscriptionSync({ username: cleanU, session_id: sessionId, action: 'activate' });
       if (typeof showToast === 'function') showToast('Business Plus activated! Green badge enabled ✓');
     }
     window.applyBusinessPlusVerification = applyBusinessPlusVerification;
@@ -33878,21 +33933,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (typeof renderNotes === 'function') renderNotes();
       if (typeof renderFeed === 'function') renderFeed();
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
-      const writeBiz = () => {
-        if (window.firebaseReady && window.firebase && window.firebase.db) {
-          const { db, doc, setDoc } = window.firebase;
-          setDoc(doc(db, 'users', cleanU), {
-            isBusinessPlus: false,
-            businessPlusCanceledAt: Date.now()
-          }, { merge: true }).catch(() => {});
-          return true;
-        }
-        return false;
-      };
-      if (!writeBiz()) {
-        const retryTimer = setInterval(() => { if (writeBiz()) clearInterval(retryTimer); }, 400);
-        setTimeout(() => clearInterval(retryTimer), 12000);
-      }
+      const bizCancelSid = (opts && opts.session_id) || (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU && state.currentUser.stripeBusinessSessionId) || '';
+      queueSubscriptionSync({ username: cleanU, session_id: bizCancelSid, action: 'cancel' });
       if (!silent && typeof showToast === 'function') showToast('Business Plus membership canceled.');
     }
     window.applyBusinessPlusCancellation = applyBusinessPlusCancellation;

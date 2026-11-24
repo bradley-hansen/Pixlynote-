@@ -40,7 +40,7 @@ beforeEach(async () => {
   });
 });
 
-test('no-anon visitor: reads public profiles, posts, Explore page, notes, stories, contact index (taken checks)', async () => {
+test('no-anon visitor: reads public profiles, posts, Explore page, notes, stories, contact index (taken checks); close friends lists stay private', async () => {
   await assertSucceeds(getDoc(doc(nobody(), 'users/bradley_hansen')));
   await assertSucceeds(getDoc(doc(nobody(), 'users/private_pat')));
   await assertSucceeds(getDoc(doc(nobody(), 'posts/p_public')));
@@ -49,7 +49,7 @@ test('no-anon visitor: reads public profiles, posts, Explore page, notes, storie
   await assertSucceeds(getDocs(collection(nobody(), 'users/bradley_hansen/followers')));
   await assertSucceeds(getDoc(doc(nobody(), 'noteViews/n1')));
   await assertSucceeds(getDoc(doc(nobody(), 'contactIndex/k1')));
-  await assertSucceeds(getDoc(doc(nobody(), 'closeFriends/bradley_hansen')));
+  await assertFails(getDoc(doc(nobody(), 'closeFriends/bradley_hansen')));
   await assertSucceeds(getDoc(doc(nobody(), 'story_comments/bradley_hansen__s1')));
 });
 

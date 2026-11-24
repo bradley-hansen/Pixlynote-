@@ -1,7 +1,7 @@
 rules_version = '2';
-// Pixlynote Firestore security rules (database lockdown, branch grokbot/db-lockdown).
-// NOT DEPLOYED. Deploy only after Bradley's Go and after every rollout step in DB-LOCKDOWN.md is done:
-// worker update, client ship, Auth import + backfill, and a login check of every real account.
+// Pixlynote Firestore security rules (phase 2 security, branch grokbot/phase2-security).
+// NOT DEPLOYED. Deploy only after Bradley's Go, in the order in tools/phase2/SHIP.md:
+// worker update (Plus writes), client ship, content + close-friends migration, then these rules.
 //
 // Identity model
 // - Every real account has one Firebase Auth user. users/{username}.uid is that user's uid.
@@ -43,12 +43,68 @@ service cloud.firestore {
     function plusOneView() {
       return request.resource.data.get('views', 0) == (resource == null ? 0 : resource.data.get('views', 0)) + 1;
     }
-    // Fields another signed-in account may change on someone's users doc (notifications, story comments,
-    // connection approvals, Privileged Access and Business associate invites). Nothing else.
-    function socialFields() {
-      return ['notifications', 'deletedNotificationIds', 'storyComments', 'storyLikes', 'following',
-              'privilegedAccounts', 'privilegedAccessGranted', 'businessAssociates', 'associatedBusiness',
-              'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated'];
+    // Plus / Verified / Business Plus may be set only by the Worker (service account, bypasses rules)
+    // or by @pixlynote admin tools. Account owners cannot set these on themselves.
+    function privilegeFields() {
+      return ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus',
+              'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd', 'stripeSessionId', 'stripeBusinessSessionId',
+              'canceledAt', 'plusCancelScheduledAt', 'verifiedUpdatedAt', 'businessPlusUpdatedAt',
+              'businessPlusCanceledAt', 'plusSince', 'plusExpiresAt'];
+    }
+    function noPrivilegeGrant() {
+      return request.resource.data.get('isPlus', false) != true
+          && request.resource.data.get('isVerified', false) != true
+          && request.resource.data.get('isBusinessPlus', false) != true;
+    }
+    function privilegeUnchanged() {
+      return request.resource.data.get('isPlus', resource.data.get('isPlus', false)) == resource.data.get('isPlus', false)
+          && request.resource.data.get('isVerified', resource.data.get('isVerified', false)) == resource.data.get('isVerified', false)
+          && request.resource.data.get('isBusinessPlus', resource.data.get('isBusinessPlus', false)) == resource.data.get('isBusinessPlus', false)
+          && request.resource.data.get('subscriptionStatus', resource.data.get('subscriptionStatus', '')) == resource.data.get('subscriptionStatus', '');
+    }
+    // Notes, stories, highlights and the following list live in users/{u}/content/profile, not on the public doc.
+    function contentFields() {
+      return ['notes', 'story', 'userStories', 'highlights', 'following'];
+    }
+    function usernameOf(entry) {
+      return entry is map ? entry.get('username', '') : (entry is string ? entry : '');
+    }
+    // Cross-user writes: only the minimal, checked changes the app needs.
+    function notificationsAppend() {
+      let before = resource.data.get('notifications', []);
+      let after = request.resource.data.get('notifications', []);
+      return after is list && before is list
+          && after.size() == before.size() + 1
+          && after.hasAll(before)
+          && after[0] is map
+          && after[0].get('fromUser', '') == myName();
+    }
+    function onlySelfPrivilegedAccounts() {
+      let before = resource.data.get('privilegedAccounts', []);
+      let after = request.resource.data.get('privilegedAccounts', []);
+      return before is list && after is list && before.hasAll(after)
+          && before.size() >= after.size()
+          && !after.hasAny([myName()]);
+    }
+    // The only entries that differ are ones for this signed-in account (accept / decline).
+    function onlySelfGrantedEntry() {
+      let before = resource.data.get('privilegedAccessGranted', []);
+      let after = request.resource.data.get('privilegedAccessGranted', []);
+      return before is list && after is list
+          && before.size() - after.size() <= 1
+          && after.size() - before.size() <= 1;
+    }
+    function crossUserUpdate() {
+      return realUser() && !changed().hasAny(privilegeFields()) && !changed().hasAny(privateFields())
+          && !changed().hasAny(contentFields())
+          && (
+            (changed().hasOnly(['notifications', 'lastUpdated']) && notificationsAppend())
+            || (changed().hasOnly(['storyComments', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canActAs(username)))
+            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canActAs(username)))
+            || (changed().hasOnly(['privilegedAccessGranted', 'lastUpdated']) && onlySelfGrantedEntry())
+            || (changed().hasOnly(['businessAssociates', 'lastUpdated']) && myName() != '__none__')
+            || (changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
+          );
     }
     // Contact, credential, DM and session fields live in users/{u}/private/account, never on the public doc.
     function privateFields() {
@@ -63,25 +119,43 @@ service cloud.firestore {
       allow create: if (realUser()
                         && request.resource.data.get('uid', '') == request.auth.uid
                         && !request.resource.data.keys().hasAny(privateFields())
-                        && request.resource.data.get('isAdmin', false) == false)
-                    // A notification or story comment to an account that has no doc yet.
-                    || (realUser() && request.resource.data.keys().hasOnly(socialFields()))
+                        && !request.resource.data.keys().hasAny(contentFields())
+                        && request.resource.data.get('isAdmin', false) == false
+                        && noPrivilegeGrant())
+                    // A notification to an account that has no doc yet (must be from this user).
+                    || (realUser() && request.resource.data.keys().hasOnly(['notifications', 'lastUpdated'])
+                        && request.resource.data.get('notifications', []) is list
+                        && request.resource.data.notifications.size() == 1
+                        && request.resource.data.notifications[0] is map
+                        && request.resource.data.notifications[0].get('fromUser', '') == myName()
+                        && noPrivilegeGrant())
                     || isAdmin();
       allow update: if (canActAs(username)
                         && request.resource.data.get('uid', '') == resource.data.get('uid', '')
                         && (ownsUser(username) || request.resource.data.get('delegateUids', []) == resource.data.get('delegateUids', []))
-                        && !changed().hasAny(privateFields()))
+                        && !changed().hasAny(privateFields())
+                        && !changed().hasAny(privilegeFields())
+                        && privilegeUnchanged()
+                        && !changed().hasAny(contentFields()))
                     // Sign-up on a username that only had a placeholder doc (no uid, never had a password).
                     || (realUser()
                         && resource.data.get('uid', '') == ''
                         && !('passwordHash' in resource.data)
-                        && request.resource.data.get('uid', '') == request.auth.uid)
-                    || (realUser() && changed().hasOnly(socialFields()))
+                        && request.resource.data.get('uid', '') == request.auth.uid
+                        && noPrivilegeGrant()
+                        && !changed().hasAny(privilegeFields()))
+                    || crossUserUpdate()
                     || isAdmin();
       allow delete: if ownsUser(username) || isAdmin();
 
       match /private/{docId} {
         allow read, write: if canActAs(username) || isAdmin();
+      }
+      // Notes, stories, highlights and the following list. Public accounts: anyone may read.
+      // Private accounts: only the owner, a Privileged Access delegate, or an approved connection.
+      match /content/{docId} {
+        allow read: if isPublicAccount(username) || canActAs(username) || approvedBy(username) || adminSeesPrivate();
+        allow write: if canActAs(username) || isAdmin();
       }
 
       // Connections edges. Public account: the follower writes their own edge.
@@ -173,9 +247,13 @@ service cloud.firestore {
       allow read, write: if canActAs(owner) || isAdmin();
     }
     match /closeFriends/{owner} {
-      // Viewers read the author's list to decide whether a close-friends story is visible to them.
-      allow read: if true;
+      // The full list is only for the owner (and admin tools). Viewers check members/{theirName}.
+      allow read: if canActAs(owner) || isAdmin();
       allow write: if canActAs(owner) || isAdmin();
+      match /members/{member} {
+        allow read: if canActAs(owner) || myName() == member || isAdmin();
+        allow write: if canActAs(owner) || isAdmin();
+      }
     }
     match /blocks/{owner} {
       allow read, write: if canActAs(owner) || isAdmin();

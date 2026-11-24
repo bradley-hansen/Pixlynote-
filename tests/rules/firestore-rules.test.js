@@ -77,9 +77,9 @@ test('users: owner cannot change uid or put contact/credential fields on the pub
   await assertFails(updateDoc(doc(real(UID.brad), 'users/bradley_hansen'), { passwordHash: 'sha256:1' }));
   await assertFails(updateDoc(doc(real(UID.brad), 'users/bradley_hansen'), { dms: [] }));
 });
-test('users: another signed-in account may only touch social fields (notifications, following, story comments)', async () => {
-  await assertSucceeds(setDoc(doc(real(UID.alice), 'users/bradley_hansen'), { notifications: [{ id: 1 }], deletedNotificationIds: [] }, { merge: true }));
-  await assertSucceeds(setDoc(doc(real(UID.priv), 'users/alice'), { following: [{ username: 'private_pat' }] }, { merge: true }));
+test('users: another signed-in account may only append their own notification, not rewrite following or grant Plus', async () => {
+  await assertSucceeds(setDoc(doc(real(UID.alice), 'users/bradley_hansen'), { notifications: [{ id: 1, fromUser: 'alice' }] }, { merge: true }));
+  await assertFails(setDoc(doc(real(UID.priv), 'users/alice'), { following: [{ username: 'private_pat' }] }, { merge: true }));
   await assertFails(setDoc(doc(real(UID.alice), 'users/bradley_hansen'), { notifications: [], isPlus: true }, { merge: true }));
   await assertFails(setDoc(doc(anon(), 'users/bradley_hansen'), { notifications: [] }, { merge: true }));
 });
@@ -200,7 +200,7 @@ test("Bradley's decision: a private user's comments and likes on public posts st
 });
 test("Bradley's decision: DMs to a private account from a non-connection stay allowed (sender's own private copy)", async () => {
   await assertSucceeds(setDoc(doc(real(UID.mallory), 'users/mallory/private/account'), { dms: [{ with: 'private_pat', text: 'hello' }] }, { merge: true }));
-  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/private_pat'), { notifications: [{ type: 'dm', from: 'mallory' }] }));
+  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/private_pat'), { notifications: [{ type: 'dm', fromUser: 'mallory' }] }));
   await assertFails(getDoc(doc(real(UID.mallory), 'users/private_pat/private/account')));
 });
 // ---- connections ----
@@ -262,7 +262,8 @@ test('profileHistory, verificationRequests, blocks: owner or admin only', async 
   await assertFails(getDoc(doc(real(UID.mallory), 'verificationRequests/alice')));
   await assertSucceeds(getDocs(collection(real(UID.admin), 'verificationRequests')));
   await assertFails(getDoc(doc(real(UID.alice), 'blocks/bradley_hansen')));
-  await assertSucceeds(getDoc(doc(real(UID.alice), 'closeFriends/bradley_hansen')));
+  await assertFails(getDoc(doc(real(UID.alice), 'closeFriends/bradley_hansen')));
+  await assertSucceeds(getDoc(doc(real(UID.brad), 'closeFriends/bradley_hansen')));
   await assertFails(setDoc(doc(real(UID.alice), 'closeFriends/bradley_hansen'), { list: [] }));
 });
 test('noteViews and story comments keep working for visitors', async () => {
