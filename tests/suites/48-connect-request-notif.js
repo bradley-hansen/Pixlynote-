@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { ALL_ACCOUNT_KEYS } = require('../helpers/harness');
 
-const SHOT = '/workspace/pixlynote/connect-request-notif-repo/shots/connect-request-heart.png';
+const SHOT = path.join(__dirname, '../../shots/connect-request-heart.png');
 
 function reqDocs(n) {
   const now = Date.now();
