@@ -169,6 +169,9 @@ async function reveal(page, h, item) {
       if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
       else if (typeof openAccountCenter === 'function') openAccountCenter();
     });
+    if (/btn-ac-download-data|btn-ac-data-export-verify|ac-data-export-code/.test(id)) {
+      await page.evaluate(() => { if (typeof setAccountCenterView === 'function') setAccountCenterView('yourAccount'); });
+    }
     return;
   }
   if (/^menu-user|^btn-menu-|^btn-cf-|^menu-user-profile/.test(id) || /viewUserProfile/.test(fn)) {

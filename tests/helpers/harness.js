@@ -126,6 +126,21 @@ function mockWorker(req) {
   const u = req.url();
   const pathPart = u.replace(/^https?:\/\/[^/]+/, '');
   const code = String(json.code || json.token || '');
+  if (/\/data-export\/verify/i.test(pathPart)) {
+    return code === VERIFY_CODE
+      ? { ok: true, valid: true, grant: 'test-export-grant' }
+      : { valid: false, error: 'wrong_code' };
+  }
+  if (/\/data-export\/code/i.test(pathPart)) {
+    return { ok: true, sent: true, test: true, debug_code: VERIFY_CODE };
+  }
+  if (/\/data-export(?:\?|$)/i.test(pathPart) || /\/data-export$/.test(pathPart.split('?')[0])) {
+    let auth = '';
+    try { auth = (req.headers()['authorization'] || req.headers()['Authorization'] || ''); } catch (e) {}
+    const grant = json.grant || '';
+    if (!auth && !grant) return { error: 'unauthorized' };
+    return { ok: true, sent: true, test: true, filename: 'pixlynote-data-test.zip', files: ['README.txt', 'profile.json', 'posts.json'] };
+  }
   if (/\/email\/signup-verify|\/email\/reset-verify/i.test(pathPart)) {
     return { valid: code === VERIFY_CODE, debug_code: VERIFY_CODE };
   }

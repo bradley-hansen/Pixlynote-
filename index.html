@@ -3400,6 +3400,27 @@
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
+        <button type="button" id="btn-ac-download-data" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </div>
+            <div class="text-left min-w-0">
+              <div class="text-xs font-bold text-neutral-900">Download your data</div>
+              <div class="text-[10px] text-neutral-500 truncate">Email a ZIP of your data to the email on file</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-sky-600 transition flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <div id="ac-data-export-status" class="hidden text-[11px] font-medium px-3 py-2 rounded-xl leading-relaxed" role="status"></div>
+        <div id="ac-data-export-code-row" class="hidden space-y-2">
+          <p class="text-[11px] text-neutral-600 leading-relaxed px-1">We sent a confirmation code to the email on file. Enter it to email your ZIP there.</p>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="ac-data-export-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" class="flex-1 px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white" />
+            <button type="button" id="btn-ac-data-export-verify" class="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0">Confirm</button>
+          </div>
+        </div>
+
         <div class="pt-2 border-t border-neutral-100">
           <button type="button" id="btn-ac-deactivate-account" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-rose-200 bg-rose-50/70 hover:bg-rose-50 hover:border-rose-300 transition cursor-pointer group">
             <div class="flex items-center space-x-3">
@@ -26072,6 +26093,18 @@ function syncLikedStateToPosts() {
           setAccountCenterView((backBtn && backBtn.dataset.target) || 'main');
         });
         bind('btn-ac-open-your-account', 'click', () => setAccountCenterView('yourAccount'));
+        bind('btn-ac-download-data', 'click', () => { if (typeof requestAccountDataExport === 'function') requestAccountDataExport(); });
+        bind('btn-ac-data-export-verify', 'click', () => { if (typeof confirmAccountDataExportCode === 'function') confirmAccountDataExportCode(); });
+        const exportCodeInp = document.getElementById('ac-data-export-code');
+        if (exportCodeInp && !exportCodeInp._exportBound) {
+          exportCodeInp._exportBound = true;
+          exportCodeInp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && typeof confirmAccountDataExportCode === 'function') {
+              e.preventDefault();
+              confirmAccountDataExportCode();
+            }
+          });
+        }
         try { window.state = state; } catch(e) {}
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
         bind('btn-ac-tab-drafts', 'click', () => { if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal(); if (typeof openDraftsPage === 'function') openDraftsPage(); });
@@ -29181,6 +29214,207 @@ function syncLikedStateToPosts() {
             createFileInput.click();
           });
         }
+
+        function setDataExportStatus(kind, message) {
+          const el = document.getElementById('ac-data-export-status');
+          if (!el) return;
+          el.textContent = message || '';
+          el.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200', 'bg-rose-50', 'text-rose-800', 'border-rose-200', 'bg-amber-50', 'text-amber-800', 'border-amber-200');
+          if (!message) { el.classList.add('hidden'); return; }
+          if (kind === 'ok') el.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200');
+          else if (kind === 'wait') el.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+          else el.classList.add('bg-rose-50', 'text-rose-800', 'border', 'border-rose-200');
+        }
+        function setDataExportBusy(busy) {
+          const btn = document.getElementById('btn-ac-download-data');
+          const verify = document.getElementById('btn-ac-data-export-verify');
+          if (btn) {
+            if (busy) { btn.dataset.busy = '1'; btn.setAttribute('aria-busy', 'true'); }
+            else { delete btn.dataset.busy; btn.removeAttribute('aria-busy'); }
+          }
+          if (verify) verify.disabled = !!busy;
+        }
+        function showDataExportCodeRow(show) {
+          const row = document.getElementById('ac-data-export-code-row');
+          if (!row) return;
+          if (show) row.classList.remove('hidden');
+          else {
+            row.classList.add('hidden');
+            const inp = document.getElementById('ac-data-export-code');
+            if (inp) inp.value = '';
+          }
+        }
+        function dataExportErrorMessage(code) {
+          switch (code) {
+            case 'unauthorized':
+            case 'auth_unavailable':
+              return 'We could not verify it is you. Try signing in again, then tap Download your data.';
+            case 'anonymous_not_allowed':
+            case 'identity_unlinked':
+            case 'identity_mismatch':
+              return 'To protect your data, we need to confirm the email on file before sending the ZIP.';
+            case 'no_email_on_file':
+              return 'Add and verify an email in Edit Profile first. We can only send your data to the verified email on file.';
+            case 'rate_limited':
+              return 'You can request another copy after 24 hours.';
+            case 'account_deactivated':
+              return 'This account is deactivated, so we cannot email a data export.';
+            case 'grant_invalid':
+            case 'wrong_code':
+            case 'too_many_attempts':
+              return 'That confirmation code was not valid. Request Download your data again and enter the new code.';
+            case 'expired':
+              return 'That confirmation code expired. Request Download your data again.';
+            case 'send_failed':
+              return 'We could not send the email just now. Please try again later.';
+            case 'not_signed_in':
+              return 'Sign in to download your data.';
+            case 'invalid_recipient':
+              return 'Add and verify an email in Edit Profile first. We can only send your data to the verified email on file.';
+            default:
+              return 'We could not email your data just now. Please try again later.';
+          }
+        }
+        async function getFirebaseIdTokenForExport() {
+          try {
+            const auth = window.firebase && window.firebase.auth;
+            const user = auth && auth.currentUser;
+            if (user && typeof user.getIdToken === 'function') return await user.getIdToken();
+          } catch (e) {}
+          return '';
+        }
+        function collectDeviceDraftsForExport() {
+          try {
+            const u = (typeof getDraftsUsername === 'function') ? getDraftsUsername() : ((state.currentUser && state.currentUser.username) || '');
+            const meta = (typeof readDraftsMetaSync === 'function') ? readDraftsMetaSync(u) : [];
+            return Array.isArray(meta) ? meta : [];
+          } catch (e) { return []; }
+        }
+        async function postDataExport(path, payload, headers) {
+          if (window.__PIXLY_REGRESSION && typeof window.__pixlyDataExportMock === 'function') {
+            return window.__pixlyDataExportMock(path, payload || {}, headers || {});
+          }
+          const res = await fetch((typeof PIXLYNOTE_API_ENDPOINT === 'string' ? PIXLYNOTE_API_ENDPOINT : '') + path, {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+            body: JSON.stringify(payload || {})
+          });
+          const data = await res.json().catch(() => ({}));
+          return Object.assign({ status: res.status }, data);
+        }
+        function exportNeedsEmailConfirm(data) {
+          const err = data && data.error;
+          return err === 'identity_unlinked' || err === 'anonymous_not_allowed' || err === 'unauthorized' || err === 'identity_mismatch' || err === 'auth_unavailable';
+        }
+        async function startDataExportCodeFlow() {
+          const email = (state.currentUser && state.currentUser.email) ? String(state.currentUser.email).trim() : '';
+          if (!email) {
+            setDataExportStatus('error', dataExportErrorMessage('no_email_on_file'));
+            showDataExportCodeRow(false);
+            return;
+          }
+          setDataExportStatus('wait', 'Sending a confirmation code to the email on file…');
+          const data = await postDataExport('/data-export/code', { email: email });
+          if (data.error === 'rate_limited') {
+            setDataExportStatus('error', dataExportErrorMessage('rate_limited'));
+            return;
+          }
+          if (data.error === 'send_failed' || data.error === 'lookup_failed') {
+            setDataExportStatus('error', dataExportErrorMessage(data.error));
+            return;
+          }
+          if (data.error === 'invalid_recipient' || (data.ok && data.sent === false)) {
+            setDataExportStatus('error', dataExportErrorMessage('no_email_on_file'));
+            return;
+          }
+          if (!data.ok && data.error) {
+            setDataExportStatus('error', dataExportErrorMessage(data.error));
+            return;
+          }
+          showDataExportCodeRow(true);
+          setDataExportStatus('wait', 'We sent a confirmation code to the email on file. Enter it to email your ZIP there.');
+          const inp = document.getElementById('ac-data-export-code');
+          if (inp) try { inp.focus(); } catch (e) {}
+        }
+        async function requestAccountDataExport() {
+          if (!(state && state.isLoggedIn && state.currentUser && state.currentUser.username)) {
+            setDataExportStatus('error', dataExportErrorMessage('not_signed_in'));
+            return;
+          }
+          const btn = document.getElementById('btn-ac-download-data');
+          if (btn && btn.dataset.busy === '1') return;
+          setDataExportBusy(true);
+          showDataExportCodeRow(false);
+          setDataExportStatus('wait', 'Preparing your data…');
+          try {
+            const token = await getFirebaseIdTokenForExport();
+            const headers = token ? { Authorization: 'Bearer ' + token } : {};
+            const payload = { deviceDrafts: collectDeviceDraftsForExport() };
+            const data = await postDataExport('/data-export', payload, headers);
+            if (data.ok && data.sent) {
+              setDataExportStatus('ok', 'We emailed a ZIP of your data to the email on file. Check that inbox.');
+              return;
+            }
+            if (data.error === 'rate_limited') {
+              setDataExportStatus('error', dataExportErrorMessage('rate_limited'));
+              return;
+            }
+            if (data.error === 'no_email_on_file' || data.error === 'account_deactivated' || data.error === 'send_failed') {
+              setDataExportStatus('error', dataExportErrorMessage(data.error));
+              return;
+            }
+            if (exportNeedsEmailConfirm(data) || !token) {
+              await startDataExportCodeFlow();
+              return;
+            }
+            setDataExportStatus('error', dataExportErrorMessage(data.error || 'failed'));
+          } catch (e) {
+            setDataExportStatus('error', dataExportErrorMessage('send_failed'));
+          } finally {
+            setDataExportBusy(false);
+          }
+        }
+        async function confirmAccountDataExportCode() {
+          const inp = document.getElementById('ac-data-export-code');
+          const code = inp ? String(inp.value || '').trim() : '';
+          const email = (state.currentUser && state.currentUser.email) ? String(state.currentUser.email).trim() : '';
+          if (!/^\d{6}$/.test(code)) {
+            setDataExportStatus('error', 'Enter the 6-digit code we emailed to the address on file.');
+            return;
+          }
+          if (!email) {
+            setDataExportStatus('error', dataExportErrorMessage('no_email_on_file'));
+            return;
+          }
+          const btn = document.getElementById('btn-ac-download-data');
+          if (btn && btn.dataset.busy === '1') return;
+          setDataExportBusy(true);
+          setDataExportStatus('wait', 'Confirming the code and emailing your ZIP…');
+          try {
+            const verified = await postDataExport('/data-export/verify', { email: email, code: code });
+            if (!verified.valid || !verified.grant) {
+              setDataExportStatus('error', dataExportErrorMessage(verified.error || 'wrong_code'));
+              return;
+            }
+            const token = await getFirebaseIdTokenForExport();
+            const headers = { 'X-Pixlynote-Export-Grant': verified.grant };
+            if (token) headers.Authorization = 'Bearer ' + token;
+            const data = await postDataExport('/data-export', { grant: verified.grant, deviceDrafts: collectDeviceDraftsForExport() }, headers);
+            if (data.ok && data.sent) {
+              showDataExportCodeRow(false);
+              setDataExportStatus('ok', 'We emailed a ZIP of your data to the email on file. Check that inbox.');
+              return;
+            }
+            setDataExportStatus('error', dataExportErrorMessage(data.error || 'failed'));
+          } catch (e) {
+            setDataExportStatus('error', dataExportErrorMessage('send_failed'));
+          } finally {
+            setDataExportBusy(false);
+          }
+        }
+        window.requestAccountDataExport = requestAccountDataExport;
+        window.confirmAccountDataExportCode = confirmAccountDataExportCode;
+        window.setDataExportStatus = setDataExportStatus;
 
         // Typed emails: the Worker builds subject + HTML from fixed templates and only sends to the email on file
         // for the account (users/{username}.email). It no longer accepts arbitrary to/subject/html.
