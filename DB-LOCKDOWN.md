@@ -8,6 +8,7 @@
 - **Private fields:** email, phone, DMs, login activity, sessions, Stripe ids, the verification email and the Account Center lists move to `users/{u}/private/account`. That doc is readable by the owner, Privileged Access delegates and admin. The app merges it back into your own doc, so the screens don't change.
 - **"Already taken" checks and Worker email lookups:** these use `contactIndex/{sha256(normalized email or phone)}` = `{usernames}`. No email or phone is stored there.
 - **Contact buttons:** `publicEmail`/`publicPhone` are written only when Show email or Show phone is on.
+- **Explore paging:** if the rules deny the open query, it retries once with `where('authorPrivate','==',false)`. That query needs the composite index in `firestore.indexes.json`.
 - **Posts loading:** the app tries the old whole-collection listener first. If the rules deny it, it switches to the allowed queries: public posts, your own posts, and each followed private account you're approved for.
 - **Password:** a password change does a re-auth and then updates Firebase Auth. Privileged Access can't change the owner's password. For a reset, the Worker's `POST /auth/reset-password` sets the Auth password after the email code is verified. It needs a free Google service-account key, and without one it returns 503 and changes nothing.
 - **Rename and delete:** rename moves the private doc, contact index and uid index, and posts can only move to a name you own. Delete removes the posts, private doc, Account Center and uid index before the users doc.
@@ -21,7 +22,7 @@
   - `patch_worker.py` builds `worker.db-lockdown.js` from the live Worker source, which is outside this repo.
   - `screenshot.js`.
 - Tests:
-  - `tests/rules/` (28) and `tests/backfill/` (2) run in the emulators.
+  - `tests/rules/` (30) and `tests/backfill/` (2) run in the emulators.
   - `tests/worker/` (6) uses the emulators and skips if the Worker file is missing.
   - `tests/suites/50-db-lockdown.js` (10) covers the app.
   - `npm test` runs them all.
@@ -38,7 +39,7 @@
    2. **Canary:** import and migrate one test account only (e.g. grokbot_tester2), then log in to it on the site. This proves the SHA-256 import (`--rounds=1`, base64 raw digest) on real Auth; the emulator can't check imported hashes.
    3. Run `import-auth --apply`, then `migrate --apply`, then `verify`. `verify` must show 8/8 OK.
 5. **Log in once with each real account**, including @pixlynote. Check posts, Plus, likes, saves, connections, contact info, DMs, admin tools and Privileged Access.
-6. **Deploy `firestore.rules`.** To roll back, redeploy the open rules (one command, no data change).
+6. **Deploy `firestore.rules` and `firestore.indexes.json`** (one composite index for Explore's public-only paging: `authorPrivate` + `createdAt` desc, free). Deploy the index first and wait until it is built. To roll back, redeploy the open rules (one command, no data change).
 7. **`cleanup --apply`.** It strips the public email, phone, DMs and password hash, only for accounts that passed `verify`. Add `--delete-junk` to archive and then delete the stray anonymous-uid users doc and the `__dms` docs.
 8. **Later:** drop the Worker's legacy public-field fallback.
 
@@ -51,11 +52,11 @@
 - **Password reset before the key is added.** The Worker returns 503 and the app says reset is temporarily unavailable. The password is not changed.
 - **Cost.** Adds a small number of extra reads: your private doc and contact-index lookups. Auth email/password is free, the Worker stays on the free plan, and the emulators run locally.
 
-## Decisions for Bradley (recommended default first)
-1. **DMs to private accounts:** keep allowed (unchanged). DMs live only in each person's own private doc.
-2. **Comments a private user leaves on public posts:** stay visible (unchanged). They are part of the public post.
-3. **@pixlynote admin bypass in the rules:** yes. Admin tools need it: moderation, verification review, deletes, support. The app UI still hides private content for @pixlynote like for anyone else.
-4. **Pending requests when an account goes public:** leave them; they clear when the requester connects (current behavior). The alternative is to auto-delete them on the switch.
+## Bradley's decisions (implemented)
+1. **DMs to private accounts from non-connections: allowed.** DMs are only ever written to the sender's own private doc, plus a `notifications` entry on the recipient, which is a social field. Covered by a rules test.
+2. **A private user's activity on public posts and notes stays visible.** This covers comments on public posts and likes and replies, which live on the user's public doc. Covered by a rules test.
+3. **@pixlynote is a normal user for private accounts.** There is no admin bypass to read private posts or private connections lists. In `firestore.rules`, `adminSeesPrivate()` returns false, and the admin catch-all excludes `posts` and `users`. Every other admin tool keeps working: deleting posts and accounts by id, verification requests, uid index, Account Centers and support data. Covered by rules tests.
+4. **When a private account goes public, its pending connect requests are auto-approved.** Each request is approved the same way the Approve button does it: the requester's Connected list, the followers edge, request deletion and a `connect_approved` notification. Then one summary toast appears. Any approval that fails stays pending and is retried the next time the requests list loads while the account is public. Covered by app tests in suites 45 and 50.
 
 ## Known gaps (phase 2)
 - Owners can still set their own `isPlus`/`isVerified`. These should move to Worker-verified writes.

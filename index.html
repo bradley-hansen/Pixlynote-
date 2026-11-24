@@ -11925,6 +11925,11 @@ function syncLikedStateToPosts() {
       });
       list.sort(function (a, b) { return b.requestedAt - a.requestedAt; });
       window._incomingConnectRequests = { owner: o, list: list };
+      // Bradley's decision: a public account has no pending requests; any left over (from before the switch,
+      // or sent by an out-of-date client) are approved automatically.
+      if (list.length && !(state.currentUser && state.currentUser.isPrivate === true) && !window._privacyToggleBusy) {
+        setTimeout(function () { autoApprovePendingRequests(o); }, 0);
+      }
       paintPrivacyAccountUi();
       if (typeof renderConnectRequestsView === 'function') renderConnectRequestsView();
       try { if (typeof renderNotifications === 'function') renderNotifications(true); } catch (e) {}
@@ -11945,7 +11950,36 @@ function syncLikedStateToPosts() {
         }, function () {});
       } catch (e) {}
     }
-    async function approveConnectRequest(requester) {
+    // Going public approves every pending request (one quiet pass, one summary toast). Failures stay pending
+    // and are retried the next time the requests list loads.
+    async function autoApprovePendingRequests(owner) {
+      const me = privacyViewer();
+      if (!me || privacyNorm(owner) !== me || window._autoApproveBusy) return 0;
+      if (state.currentUser && state.currentUser.isPrivate === true) return 0;
+      const fb = privateFs();
+      if (!fb) return 0;
+      window._autoApproveBusy = true;
+      let names = getIncomingConnectRequests().map(function (x) { return x.username; });
+      try {
+        if (typeof fb.getDocs === 'function' && typeof fb.collection === 'function') {
+          const qs = await fb.getDocs(fb.collection(fb.db, 'users', me, 'connectRequests'));
+          qs.forEach(function (ds) { const v = (ds.data && ds.data()) || {}; const u = privacyNorm(v.username || ds.id); if (u && names.indexOf(u) === -1) names.push(u); });
+        }
+      } catch (e) {}
+      names = names.filter(function (u) { return u && u !== me && !(typeof isBlocked === 'function' && isBlocked(u)); });
+      let ok = 0;
+      try {
+        for (const u of names) {
+          if (privacyViewer() !== me || (state.currentUser && state.currentUser.isPrivate === true)) break;
+          if (await approveConnectRequest(u, { quiet: true })) ok++;
+        }
+      } finally { window._autoApproveBusy = false; }
+      if (ok) privacyToast(ok === 1 ? 'Approved 1 pending connect request' : 'Approved ' + ok + ' pending connect requests');
+      return ok;
+    }
+    window.autoApprovePendingRequests = autoApprovePendingRequests;
+    async function approveConnectRequest(requester, opts) {
+      const quiet = !!(opts && opts.quiet);
       const me = privacyViewer();
       const r = privacyNorm(requester);
       if (!me || !r || r === me) return false;
@@ -11983,7 +12017,7 @@ function syncLikedStateToPosts() {
         await fb.deleteDoc(fb.doc(fb.db, 'users', me, 'connectRequests', r));
       } catch (e) {
         console.warn('Approve request notice:', e);
-        privacyToast('Could not approve @' + r + '. Please try again.');
+        if (!quiet) privacyToast('Could not approve @' + r + '. Please try again.');
         return false;
       }
       const inc = window._incomingConnectRequests;
@@ -12005,7 +12039,7 @@ function syncLikedStateToPosts() {
       paintPrivacyAccountUi();
       renderConnectRequestsView();
       try { if (typeof renderNotifications === 'function') renderNotifications(true); } catch (e) {}
-      privacyToast('Approved @' + r);
+      if (!quiet) privacyToast('Approved @' + r);
       return true;
     }
     async function declineConnectRequest(requester) {
@@ -12077,6 +12111,7 @@ function syncLikedStateToPosts() {
       } catch (e) {}
       stampMyPostsPrivacy(me, want);
       resyncMyCustomPostsMirror(me);
+      if (!want) autoApprovePendingRequests(me);
       return want;
     }
     // Re-save my customPosts mirror after a privacy switch: a private account keeps it in the owner-only
@@ -15829,10 +15864,23 @@ function syncLikedStateToPosts() {
       if (!pg.hasMore) return;
       pg.loading = true; pg.used = true;
       try {
-        const parts = [fb.collection(fb.db, 'posts'), fb.orderBy('createdAt', 'desc')];
-        if (pg.cursor && fb.startAfter) parts.push(fb.startAfter(pg.cursor));
-        parts.push(fb.limit(EXPLORE_PAGE_SIZE));
-        const snap = await fb.getDocs(fb.query(...parts));
+        // Locked rules (database lockdown): Explore lists public posts only, so the query must say so.
+        const buildQuery = (publicOnly) => {
+          const parts = [fb.collection(fb.db, 'posts')];
+          if (publicOnly && fb.where) parts.push(fb.where('authorPrivate', '==', false));
+          parts.push(fb.orderBy('createdAt', 'desc'));
+          if (pg.cursor && fb.startAfter) parts.push(fb.startAfter(pg.cursor));
+          parts.push(fb.limit(EXPLORE_PAGE_SIZE));
+          return fb.query(...parts);
+        };
+        let snap;
+        try {
+          snap = await fb.getDocs(buildQuery(!!(window._postsScopedMode || window._explorePublicOnly)));
+        } catch (qe) {
+          if (!(qe && String(qe.code || qe.message || '').indexOf('permission-denied') !== -1) || window._explorePublicOnly) throw qe;
+          window._explorePublicOnly = true;
+          snap = await fb.getDocs(buildQuery(true));
+        }
         snap.forEach(ds => { const d = ds.data(); if (d && d.id !== undefined && d.id !== null) pg.posts.push(d); });
         if (snap.docs.length) pg.cursor = snap.docs[snap.docs.length - 1];
         pg.hasMore = snap.docs.length === EXPLORE_PAGE_SIZE;

@@ -541,21 +541,29 @@ module.exports = {
       }
     },
     {
-      name: 'Private accounts: Private to Public lets everyone view and connect directly; stale request cleaned up',
+      name: 'Private accounts: Private to Public lets everyone view and connect directly; pending requests are auto-approved',
       accounts: ['personal'],
       covers: [],
       async run({ page, a }) {
         const seed = baseSeed();
-        seed['users/pt_owner/connectRequests/pt_req'] = { username: 'pt_req', requestedAt: Date.now() };
+        seed['users/pt_owner/connectRequests/pt_req'] = { username: 'pt_req', fullName: 'PT Requester', requestedAt: Date.now() };
         await sandbox(page, seed, async () => {
           await page.evaluate(async () => { window.__asUser('pt_owner'); await setAccountPrivacy(false); });
-          await tick(page, 150);
-          const pub = await page.evaluate(() => ({ doc: window.__pfs.docs['users/pt_owner'].isPrivate, stamp: window.__pfs.docs['posts/ptpost1'].authorPrivate }));
+          await tick(page, 400);
+          const pub = await page.evaluate(() => ({
+            doc: window.__pfs.docs['users/pt_owner'].isPrivate,
+            stamp: window.__pfs.docs['posts/ptpost1'].authorPrivate,
+            req: !!window.__pfs.docs['users/pt_owner/connectRequests/pt_req'],
+            edge: !!window.__pfs.docs['users/pt_owner/followers/pt_req'],
+            reqFollowing: (window.__pfs.docs['users/pt_req'].following || []).some((f) => f.username === 'pt_owner' && f.isFollowing === true)
+          }));
           a.equal(pub.doc, false, 'owner public');
           a.equal(pub.stamp, false, 'post stamp cleared');
+          a.ok(!pub.req, 'pending request approved and removed');
+          a.ok(pub.edge, 'Connections edge written for the requester');
+          a.ok(pub.reqFollowing, "requester's Connected list now has the owner");
           await page.evaluate(() => {
-            window.__asUser('pt_req');
-            localStorage.setItem('pixly_conn_req_out_pt_req', JSON.stringify({ pt_owner: Date.now() }));
+            window.__asUser('pt_stranger');
             window.__injectContent();
             state.posts.forEach((p) => { if (p.author === 'pt_owner') p.authorPrivate = false; });
             viewUserProfile('pt_owner');
@@ -566,10 +574,9 @@ module.exports = {
           a.equal(s.followText, 'Connect', 'plain Connect');
           const r = await page.evaluate(() => { const x = applyLocalFollowToggle('pt_owner'); return { now: x && x.nowFollowing }; });
           await tick(page, 150);
-          const after = await page.evaluate(() => ({ req: !!window.__pfs.docs['users/pt_owner/connectRequests/pt_req'], edge: !!window.__pfs.docs['users/pt_owner/followers/pt_req'] }));
+          const after = await page.evaluate(() => ({ edge: !!window.__pfs.docs['users/pt_owner/followers/pt_stranger'] }));
           a.equal(r.now, true, 'direct connect on public account');
           a.ok(after.edge, 'edge written for public connect');
-          a.ok(!after.req, 'stale request removed');
         });
       }
     },

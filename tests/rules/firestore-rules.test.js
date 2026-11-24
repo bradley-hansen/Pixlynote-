@@ -127,13 +127,16 @@ test('posts: a public post is readable by everyone', async () => {
   await assertSucceeds(getDoc(doc(nobody(), 'posts/p_public')));
   await assertSucceeds(getDoc(doc(anon(), 'posts/p_public')));
 });
-test('posts: a private account post is readable by the owner, approved connections and admin only', async () => {
+test('posts: a private account post is readable by the owner and approved connections only (no admin bypass by default)', async () => {
   await assertFails(getDoc(doc(nobody(), 'posts/p_private')));
   await assertFails(getDoc(doc(anon(), 'posts/p_private')));
   await assertFails(getDoc(doc(real(UID.mallory), 'posts/p_private')));
   await assertSucceeds(getDoc(doc(real(UID.alice), 'posts/p_private')));
   await assertSucceeds(getDoc(doc(real(UID.priv), 'posts/p_private')));
-  await assertSucceeds(getDoc(doc(real(UID.admin), 'posts/p_private')));
+  await assertFails(getDoc(doc(real(UID.admin), 'posts/p_private')));
+  // Admin moderation still works: delete by id without reading.
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'posts/p_private2'), { id: 'p_private2', author: 'private_pat', authorPrivate: true }));
+  await assertSucceeds(deleteDoc(doc(real(UID.admin), 'posts/p_private2')));
 });
 test('posts: the feed query must be constrained (rules are not filters)', async () => {
   await assertFails(getDocs(collection(anon(), 'posts')));
@@ -144,7 +147,8 @@ test('posts: the feed query must be constrained (rules are not filters)', async 
   const conn = await assertSucceeds(getDocs(query(collection(real(UID.alice), 'posts'), where('author', '==', 'private_pat'))));
   assert.strictEqual(conn.size, 1);
   await assertSucceeds(getDocs(query(collection(real(UID.priv), 'posts'), where('author', '==', 'private_pat'))));
-  await assertSucceeds(getDocs(collection(real(UID.admin), 'posts')));
+  await assertFails(getDocs(collection(real(UID.admin), 'posts')));
+  await assertSucceeds(getDocs(query(collection(real(UID.admin), 'posts'), where('authorPrivate', '==', false))));
 });
 test('posts: an unknown author can never unlock a query (no exists() loophole)', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
@@ -186,6 +190,19 @@ test('posts: comments by anyone signed in on visible posts; views counted by vis
   await assertFails(updateDoc(doc(anon(), 'posts/p_public'), { comments: [] }));
 });
 
+test("Bradley's decision: a private user's comments and likes on public posts stay visible to everyone", async () => {
+  await assertSucceeds(updateDoc(doc(real(UID.priv), 'posts/p_public'), { comments: [{ id: 9, author: 'private_pat', text: 'hi' }] }));
+  const seen = await assertSucceeds(getDoc(doc(real(UID.mallory), 'posts/p_public')));
+  assert.strictEqual(seen.data().comments[0].author, 'private_pat');
+  await assertSucceeds(setDoc(doc(real(UID.priv), 'users/private_pat'), { likedPostIds: ['p_public'] }, { merge: true }));
+  const likes = await assertSucceeds(getDoc(doc(nobody(), 'users/private_pat')));
+  assert.deepStrictEqual(likes.data().likedPostIds, ['p_public']);
+});
+test("Bradley's decision: DMs to a private account from a non-connection stay allowed (sender's own private copy)", async () => {
+  await assertSucceeds(setDoc(doc(real(UID.mallory), 'users/mallory/private/account'), { dms: [{ with: 'private_pat', text: 'hello' }] }, { merge: true }));
+  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/private_pat'), { notifications: [{ type: 'dm', from: 'mallory' }] }));
+  await assertFails(getDoc(doc(real(UID.mallory), 'users/private_pat/private/account')));
+});
 // ---- connections ----
 test('followers: public account accepts your own edge; nobody can forge one', async () => {
   await assertSucceeds(setDoc(doc(real(UID.alice), 'users/bradley_hansen/followers/alice'), { username: 'alice', followedAt: 2 }));

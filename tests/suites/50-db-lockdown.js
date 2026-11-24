@@ -228,6 +228,89 @@ module.exports = {
       }
     },
     {
+      name: 'DB lockdown: Unit: Explore paging switches to public posts only when the rules deny the open query',
+      accounts: ['personal'],
+      async run({ page, a }) {
+        await withMock(page, {
+          'posts/ex_pub': { id: 'ex_pub', author: 'dbl_pub', authorPrivate: false, createdAt: 2 },
+          'posts/ex_priv': { id: 'ex_priv', author: 'dbl_priv', authorPrivate: true, createdAt: 1 }
+        }, async () => {
+          const r = await page.evaluate(async () => {
+            const fb = window.firebase; const raw = fb.getDocs; const asked = [];
+            fb.getDocs = async (q) => {
+              const w = (q.parts || []).find((p) => p.f === 'authorPrivate');
+              asked.push(w ? 'public' : 'all');
+              if (!w) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+              return raw(q);
+            };
+            const saved = Object.assign({}, window._explorePaged);
+            window._explorePublicOnly = false;
+            await fetchExplorePostsPage(true);
+            const out = { asked, ids: window._explorePaged.posts.map((p) => p.id), flag: window._explorePublicOnly };
+            Object.assign(window._explorePaged, saved, { posts: saved.posts });
+            window._explorePublicOnly = false;
+            return out;
+          });
+          a.equal(r.asked.join(','), 'all,public', 'open query first, then public-only');
+          a.equal(r.ids.join(','), 'ex_pub', 'only public posts listed');
+          a.ok(r.flag, 'remembers to ask for public posts only');
+        });
+      }
+    },
+    {
+      name: "DB lockdown: Bradley's decision: going Public auto-approves every pending connect request (fails safe)",
+      accounts: ['personal'],
+      async run({ page, a }) {
+        await withMock(page, {
+          'users/reg_personal': { username: 'reg_personal', isPrivate: true },
+          'users/dbl_r1': { username: 'dbl_r1', following: [] },
+          'users/dbl_r2': { username: 'dbl_r2', following: [] },
+          'users/reg_personal/connectRequests/dbl_r1': { username: 'dbl_r1', fullName: 'R1', requestedAt: 1 },
+          'users/reg_personal/connectRequests/dbl_r2': { username: 'dbl_r2', fullName: 'R2', requestedAt: 2 }
+        }, async () => {
+          const r = await page.evaluate(async () => {
+            state.isLoggedIn = true; state.currentUser.isPrivate = true; window._acctPrivacy = { reg_personal: true };
+            window._incomingConnectRequests = { owner: '', list: [] };
+            const toasts = []; const origToast = window.showToast;
+            window.showToast = (m) => { toasts.push(m); };
+            // Still private: nothing is approved by itself.
+            applyIncomingConnectRequests('reg_personal', [{ id: 'dbl_r1', username: 'dbl_r1' }]);
+            await new Promise((res) => setTimeout(res, 120));
+            const stillPending = !!window.__pfs.docs['users/reg_personal/connectRequests/dbl_r1'];
+            window._lastLocalPrivacyWriteTs = 0;
+            await setAccountPrivacy(false);
+            await new Promise((res) => setTimeout(res, 400));
+            const d = window.__pfs.docs;
+            const out = {
+              stillPending,
+              req1: !!d['users/reg_personal/connectRequests/dbl_r1'], req2: !!d['users/reg_personal/connectRequests/dbl_r2'],
+              edge1: !!d['users/reg_personal/followers/dbl_r1'], edge2: !!d['users/reg_personal/followers/dbl_r2'],
+              f1: (d['users/dbl_r1'].following || []).some((f) => f.username === 'reg_personal' && f.isFollowing),
+              summary: toasts.filter((t) => /Approved 2 pending/.test(t)).length,
+              perUserToasts: toasts.filter((t) => /^Approved @/.test(t)).length
+            };
+            // A write failure leaves the request pending (retried next time the list loads).
+            d['users/reg_personal/connectRequests/dbl_r3'] = { username: 'dbl_r3' };
+            d['users/dbl_r3'] = { username: 'dbl_r3' };
+            window.__pfs.failWrites = true;
+            await window.autoApprovePendingRequests('reg_personal');
+            window.__pfs.failWrites = false;
+            out.failedStaysPending = !!d['users/reg_personal/connectRequests/dbl_r3'];
+            window.showToast = origToast;
+            window._incomingConnectRequests = { owner: '', list: [] };
+            return out;
+          });
+          a.ok(r.stillPending, 'private account: requests wait for approval');
+          a.ok(!r.req1 && !r.req2, 'both pending requests approved on going public');
+          a.ok(r.edge1 && r.edge2, 'Connections edges written');
+          a.ok(r.f1, "requester's Connected list has the account");
+          a.equal(r.summary, 1, 'one summary toast');
+          a.equal(r.perUserToasts, 0, 'no toast per request');
+          a.ok(r.failedStaysPending, 'failed approval stays pending');
+        });
+      }
+    },
+    {
       name: 'DB lockdown: Unit: per-user Auth sign-in reports wrong password, network and account mismatch safely',
       accounts: ['personal'],
       async run({ page, a }) {
