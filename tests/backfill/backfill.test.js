@@ -57,6 +57,16 @@ test('dry runs change nothing', async () => {
   assert.strictEqual((await get('users/alice')).data.uid, undefined);
   assert.ok(!/@example\.test|sha256:|555/.test(out), 'no PII or hashes printed');
 });
+test('canary: --only migrates one account and leaves everyone else untouched', async () => {
+  assert.match(run('import-auth', '--apply', '--only', 'alice'), /1 to create/);
+  run('migrate', '--apply', '--only', 'alice');
+  assert.match(run('verify', '--only', 'alice'), /1\/1 accounts OK/);
+  assert.ok((await get('users/alice')).data.uid, 'alice migrated');
+  assert.strictEqual((await get('users/pat')).data.uid, undefined, 'pat untouched');
+  const raw = await fetch(`${DOCS}/posts/p2`, { headers: { Authorization: 'Bearer owner' } }).then((r) => r.json());
+  assert.ok(!('authorPrivate' in (raw.fields || {})), "pat's post not stamped yet");
+  assert.ok(!fs.existsSync(path.join(DIR, 'verify.json')), 'canary verify cannot unlock cleanup');
+});
 test('full rehearsal: import, migrate, verify, cleanup; every account still logs in and keeps its data', async () => {
   const plan = JSON.parse(fs.readFileSync(path.join(DIR, 'plan.json'), 'utf8'));
   assert.deepStrictEqual(Object.keys(plan.accounts).sort(), ['alice', 'pat']);
@@ -64,6 +74,7 @@ test('full rehearsal: import, migrate, verify, cleanup; every account still logs
   const auth = JSON.parse(fs.readFileSync(path.join(DIR, 'auth-import.json'), 'utf8'));
   assert.ok(auth.users.every((u) => u.email.endsWith('@users.pixlynote.app')), 'placeholder login emails only');
   const logs = [run('import-auth', '--apply'), run('migrate', '--apply'), run('verify')];
+  assert.match(logs[0], /1 already in Firebase Auth, 1 to create/);
   assert.match(logs[2], /2\/2 accounts OK/);
   // Same password as before: Auth stores the existing SHA-256 digest (base64 of the raw bytes, 1 round).
   // The Auth emulator cannot check imported hashes (it only stores them), so production does a canary

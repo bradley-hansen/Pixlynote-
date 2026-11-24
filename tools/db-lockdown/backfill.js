@@ -30,6 +30,9 @@ const EMU = flag('emulator');
 const APPLY = flag('apply');
 const PROJECT = opt('project', EMU ? 'demo-pixlynote-rules' : 'pixlynote');
 const DIR = opt('dir', '');
+// --only u1,u2 limits import-auth / migrate / verify to those accounts (canary).
+const ONLY = (opt('only', '') || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+const inScope = (u) => !ONLY.length || ONLY.includes(u);
 const FS_HOST = EMU ? 'http://' + (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085') : 'https://firestore.googleapis.com';
 const AUTH_HOST = EMU ? 'http://' + (process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099') + '/identitytoolkit.googleapis.com' : 'https://identitytoolkit.googleapis.com';
 const DOCS = `${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
@@ -126,8 +129,18 @@ async function backup() {
   const snap = { at: new Date().toISOString(), project: PROJECT, users, privates,
     posts: await listCollection('posts'), accountCenters: await listCollection('accountCenters'),
     contactIndex: await listCollection('contactIndex'), uidIndex: await listCollection('uidIndex') };
+  // Firebase Auth: every existing user (ids, providers, timestamps; hashes are kept only in the mode-600 file).
+  const authUsers = []; let next = '';
+  do {
+    const r = await api(`${AUTH_HOST}/v1/projects/${PROJECT}/accounts:batchGet?maxResults=1000${next ? '&nextPageToken=' + encodeURIComponent(next) : ''}`);
+    if (!r.ok) die('Auth export failed (' + r.status + ')');
+    (r.body.users || []).forEach((u) => authUsers.push(u));
+    next = r.body.nextPageToken || '';
+  } while (next);
+  snap.auth = authUsers;
   writeJson('backup.json', snap);
-  log(`backup: ${users.length} users, ${Object.keys(privates).length} private docs, ${snap.posts.length} posts, ${snap.accountCenters.length} account centers -> ${path.join(DIR, 'backup.json')} (mode 600)`);
+  const anonAuth = authUsers.filter((u) => !u.email && !(u.providerUserInfo || []).length).length;
+  log(`backup: ${users.length} users, ${Object.keys(privates).length} private docs, ${snap.posts.length} posts, ${snap.accountCenters.length} account centers, ${snap.contactIndex.length} contact index, ${snap.uidIndex.length} uid index, ${authUsers.length} Auth users (${anonAuth} anonymous) -> ${path.join(DIR, 'backup.json')} (mode 600)`);
 }
 
 function plan() {
@@ -159,11 +172,12 @@ async function importAuth() {
   const imp = readJson('auth-import.json');
   // Skip users that already exist (idempotent).
   const todo = [];
-  for (const u of imp.users) {
+  for (const u of imp.users.filter((x) => inScope(x.displayName))) {
     const r = await api(`${AUTH_HOST}/v1/projects/${PROJECT}/accounts:lookup`, { method: 'POST', body: JSON.stringify({ localId: [u.localId] }) });
     if (!(r.ok && r.body.users && r.body.users.length)) todo.push(u);
   }
-  log(`import-auth: ${imp.users.length - todo.length} already in Firebase Auth, ${todo.length} to create`);
+  const scoped = imp.users.filter((x) => inScope(x.displayName)).length;
+  log(`import-auth${ONLY.length ? ' (only ' + ONLY.join(',') + ')' : ''}: ${scoped - todo.length} already in Firebase Auth, ${todo.length} to create`);
   if (!APPLY || !todo.length) { if (!APPLY) log('  dry run: add --apply to create them'); return; }
   const r = await api(`${AUTH_HOST}/v1/projects/${PROJECT}/accounts:batchCreate`, { method: 'POST', body: JSON.stringify({ users: todo, hashAlgorithm: 'SHA256', rounds: 1 }) });
   if (!r.ok || (r.body.error && r.body.error.length)) die('Auth import failed (' + r.status + '): ' + JSON.stringify(r.body.error || r.body).slice(0, 300));
@@ -177,6 +191,7 @@ async function migrate() {
   const byId = Object.fromEntries(users.map((u) => [u.id, u]));
   const isPrivateAcct = (u) => !!(byId[u] && bv(byId[u].fields.isPrivate));
   for (const [u, a] of Object.entries(plan.accounts)) {
+    if (!inScope(u)) continue;
     const d = byId[u]; if (!d) { log(`  ${u}: users doc missing, skipped`); continue; }
     const f = d.fields;
     if (sv(f.uid) && sv(f.uid) !== a.uid) die(`${u} already has a different uid; stop and check`);
@@ -201,19 +216,19 @@ async function migrate() {
     if (Object.keys(pub).length) writes.push(mergeWrite(`users/${u}`, pub));
   }
   // Stub/persona docs that hold private fields: copy them to the private doc too (admin-only afterwards).
-  for (const d of users) {
+  for (const d of (ONLY.length ? [] : users)) {
     if (plan.accounts[d.id] || plan.junk.includes(d.id)) continue;
     const priv = {}; for (const k of PRIVATE_FIELDS) if (k in d.fields) priv[k] = d.fields[k];
     if (Object.keys(priv).length) { writes.push(mergeWrite(`users/${d.id}/private/account`, priv)); privDocs++; }
   }
   for (const p of await listCollection('posts')) {
     const author = normU(sv(p.fields.author) || sv(p.fields.username));
-    if (!author) continue;
+    if (!author || !inScope(author)) continue;
     const want = { authorPrivate: { booleanValue: isPrivateAcct(author) } };
     if (!sv(p.fields.author)) want.author = { stringValue: author };
     if (!('authorPrivate' in p.fields) || bv(p.fields.authorPrivate) !== isPrivateAcct(author) || want.author) { writes.push(mergeWrite(`posts/${p.id}`, want)); postsStamped++; }
   }
-  log(`migrate: ${Object.keys(plan.accounts).length} accounts, ${privDocs} private docs, ${indexEntries} contact index entries, ${postsStamped} posts to stamp, ${writes.length} writes`);
+  log(`migrate${ONLY.length ? ' (only ' + ONLY.join(',') + ')' : ''}: ${Object.keys(plan.accounts).filter(inScope).length} accounts, ${privDocs} private docs, ${indexEntries} contact index entries, ${postsStamped} posts to stamp, ${writes.length} writes`);
   if (!APPLY) { log('  dry run: add --apply to write'); return; }
   await commit(writes);
   log('  applied');
@@ -224,6 +239,7 @@ async function verify() {
   const before = Object.fromEntries(b.users.map((u) => [u.id, u.fields]));
   const problems = []; const ok = [];
   for (const [u, a] of Object.entries(plan.accounts)) {
+    if (!inScope(u)) continue;
     const cur = await getDoc(`users/${u}`);
     if (!cur) { problems.push(`${u}: users doc missing`); continue; }
     if (sv(cur.uid) !== a.uid || sv(cur.authEmail) !== a.authEmail) problems.push(`${u}: uid/authEmail not set`);
@@ -253,10 +269,10 @@ async function verify() {
   }
   const posts = await listCollection('posts');
   if (posts.length < b.posts.length) problems.push(`posts: ${b.posts.length} before, ${posts.length} now`);
-  const unstamped = posts.filter((p) => !('authorPrivate' in p.fields)).length;
+  const unstamped = posts.filter((p) => inScope(normU(sv(p.fields.author) || sv(p.fields.username))) && !('authorPrivate' in p.fields)).length;
   if (unstamped) problems.push(`posts: ${unstamped} without authorPrivate`);
-  writeJson('verify.json', { at: new Date().toISOString(), ok, problems });
-  log(`verify: ${ok.length}/${Object.keys(plan.accounts).length} accounts OK, ${posts.length} posts (${b.posts.length} in backup), ${problems.length} problem(s)`);
+  writeJson(ONLY.length ? 'verify-' + ONLY.join('_') + '.json' : 'verify.json', { at: new Date().toISOString(), ok, problems });
+  log(`verify${ONLY.length ? ' (only ' + ONLY.join(',') + ')' : ''}: ${ok.length}/${Object.keys(plan.accounts).filter(inScope).length} accounts OK, ${posts.length} posts (${b.posts.length} in backup), ${problems.length} problem(s)`);
   for (const p of problems) log('  - ' + p.replace(/@[^\s]+/g, '@…'));
   if (problems.length) process.exitCode = 2;
 }
