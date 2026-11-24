@@ -6,7 +6,7 @@ module.exports = {
   name: 'Likes and Saved',
   tests: [
     {
-      name: 'Liked and Saved show real Explore items, hide seed ids 1–6, and sort Saved newest first',
+      name: 'Liked and Saved show real Explore items and feed-visible built-in posts, hide real-account seeds, and sort Saved newest first',
       accounts: ALL_ACCOUNT_KEYS,
       covers: ['el:#saved-container', 'el:#likes-container', 'el:#saved-subtab-photos', 'el:#saved-subtab-notes', 'el:#likes-subtab-photos', 'el:#likes-subtab-notes', 'nav:profile:saved-photos', 'nav:profile:saved-notes', 'nav:profile:likes-photos', 'nav:profile:likes-notes', 'el:#saved-grid', 'el:#likes-grid', 'el:#saved-notes-list', 'el:#liked-notes-list', 'handler:toggleSavePost', 'handler:toggleSaveNote', 'window.toggleSavePost', 'window.toggleSaveNote', 'window.toggleLikeNote'],
       async run(ctx) {
@@ -79,7 +79,10 @@ module.exports = {
         const hasSeed = (arr) => (arr || []).some((id) => ['1', '2', '3', '4', '5', '6'].includes(String(id)));
         a.ok(result.likedPosts.includes('2123') || result.likesGrid.includes('2123'), 'Liked photos include Explore item 2123: ' + JSON.stringify(result.likedPosts.concat(result.likesGrid)));
         a.ok(result.savedPosts.includes('2144') || result.savedGrid.includes('2144'), 'Saved photos include Explore item 2144');
-        a.ok(!hasSeed(result.likesGrid) && !hasSeed(result.savedGrid) && !hasSeed(result.likedNotesList) && !hasSeed(result.savedNotesList), 'Seed ids 1–6 are hidden from the tab lists: ' + JSON.stringify(result));
+        a.ok(result.likesGrid.includes('1') || result.likedPosts.includes('1'), 'Liked photos include feed-visible seed post 1 (nordic_trails): ' + JSON.stringify(result.likesGrid));
+        a.ok(!hasSeed(result.likedNotesList), 'Seed notes by a real account stay hidden from Liked Notes: ' + JSON.stringify(result.likedNotesList));
+        a.ok(!hasSeed(result.savedNotesList), 'Seed notes by a real account stay hidden from Saved Notes: ' + JSON.stringify(result.savedNotesList));
+        a.ok(result.savedGrid.includes('2') || result.savedPosts.includes('2'), 'Saved photos include feed-visible seed post 2 (elena_eats): ' + JSON.stringify(result.savedGrid));
 
         // Newest first: 2144 was saved after 2123, 9102 after 9101
         const photoOrder = result.savedGrid.length ? result.savedGrid : result.savedPosts.slice().reverse();

@@ -8059,6 +8059,8 @@ function syncLikedStateToPosts() {
       const strId = String(postId);
       const target = getPostById(postId);
       if (!target) return;
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      state.explorePostsArchive.set(strId, target);
 
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
 
@@ -14271,12 +14273,10 @@ function syncLikedStateToPosts() {
           post = state.posts.find(p => p.id === numId);
         }
 
-        // Show anything the owner actually liked, including Explore items in the
-        // 201–212 / 2001–2999 / 8000–8999 ranges. Those IDs are persisted to the
-        // user doc; isFabricatedFeedItem is only meant to keep generated Explore
-        // filler out of a real account's own Posts/Feed, not to empty Likes.
-        // Still hide hardcoded seed demo posts (ids 1–6 / isSeed).
-        if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoContent === 'function' && isSeededDemoContent(post))) {
+        // Show anything the owner actually liked, including Explore items and
+        // feed-visible built-in posts (e.g. nordic_trails id 1). Hide only seed
+        // posts attributed to a real account, matching Saved.
+        if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(post))) {
           if (typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(post)) {
             // hide Close Friends posts the viewer cannot see
           } else {
@@ -16455,7 +16455,9 @@ function syncLikedStateToPosts() {
         state.savedPostIds.forEach(id => {
           let p = postMap.get(String(id));
           if (!p && typeof getPostById === 'function') p = getPostById(id);
-          if (p && typeof isSeededDemoContent === 'function' && isSeededDemoContent(p)) return;
+          // Hide only seed posts attributed to a real account, not feed-visible
+          // built-in posts (e.g. nordic_trails id 1) the owner can actually save.
+          if (p && typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(p)) return;
           if (p && typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(p)) return;
           if (p && !savedPosts.some(sp => String(sp.id) === String(p.id))) {
             savedPosts.push(p);
@@ -16504,7 +16506,7 @@ function syncLikedStateToPosts() {
         var savedNotes = [];
         state.savedNoteIds.forEach(id => {
           let n = noteMap.get(String(id)) || (typeof getNoteById === 'function' ? getNoteById(id) : null);
-          if (n && typeof isSeededDemoContent === 'function' && isSeededDemoContent(n)) return;
+          if (n && typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(n)) return;
           if (n && typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(n)) return;
           if (n && !savedNotes.some(sn => String(sn.id) === String(n.id))) {
             savedNotes.push(n);
@@ -16595,6 +16597,12 @@ function syncLikedStateToPosts() {
         state.savedPostIds.add(strId);
         if (!isNaN(numId)) state.savedPostIds.add(numId);
         const savedPost = getPostById(postId);
+        // Archive so Saved can still resolve the post if the feed/explore list later drops it.
+        if (savedPost) {
+          if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+          state.explorePostsArchive.set(strId, savedPost);
+          if (!isNaN(numId)) state.explorePostsArchive.set(String(numId), savedPost);
+        }
         const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
         if (savedPost && savedPost.author && normalizeUsername(savedPost.author) !== curU) {
           const curAv = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
@@ -25945,6 +25953,7 @@ function syncLikedStateToPosts() {
           try { renderProfile(); } catch (e) { console.error('renderProfile error:', e); }
           try { renderExplore(); } catch (e) { console.error('renderExplore error:', e); }
           try { renderLikes(); } catch (e) { console.error('renderLikes error:', e); }
+          try { renderSaved(); } catch (e) { console.error('renderSaved error:', e); }
           try { renderStories(); } catch (e) { console.error('renderStories error:', e); }
         }
         window.applyPullRefreshData = applyPullRefreshData;
