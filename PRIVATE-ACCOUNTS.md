@@ -19,5 +19,7 @@ This is enforced **in the app only**. The live Firestore rules are `allow read, 
 
 Each of these needs Bradley's Go, and so does deploying the rules.
 
+**Update (branch `grokbot/db-lockdown`):** server-side enforcement is now built: per-user Auth, `firestore.rules` (supersedes `firestore.rules.private-accounts`), matching queries, private fields moved out of `users/{u}`, and a tested backfill. See `DB-LOCKDOWN.md` for the rollout. Notes, stories, highlights and `following` still live on the public users doc (phase 2).
+
 ## Not changed
-DMs to a private account still work. Comments a private user left on public posts stay visible. @pixlynote has no bypass. Admin tools are untouched.
+DMs to a private account still work. Comments a private user left on public posts stay visible. @pixlynote has no bypass in the app UI (the locked rules give @pixlynote server access for admin tools; see DB-LOCKDOWN.md). Admin tools are untouched.

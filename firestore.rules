@@ -1,0 +1,191 @@
+rules_version = '2';
+// Pixlynote Firestore security rules (database lockdown, branch grokbot/db-lockdown).
+// NOT DEPLOYED. Deploy only after Bradley's Go and after every rollout step in DB-LOCKDOWN.md is done:
+// worker update, client ship, Auth import + backfill, and a login check of every real account.
+//
+// Identity model
+// - Every real account has one Firebase Auth user. users/{username}.uid is that user's uid.
+// - uidIndex/{uid} = { username } maps the signed-in user back to the account name (written by the owner).
+// - Signed-out visitors use anonymous Auth sessions: they can read public content and count views only.
+// - users/{u}.delegateUids lists the uids the owner granted Privileged Access (passwordless switch).
+// - @pixlynote is the admin account: its uid may read and fix anything (admin tools keep working).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function realUser() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+    function userPath(u) { return /databases/$(database)/documents/users/$(u); }
+    function uidIndexPath() { return /databases/$(database)/documents/uidIndex/$(request.auth.uid); }
+    function ownsUser(u) {
+      return realUser() && exists(userPath(u)) && get(userPath(u)).data.get('uid', '') == request.auth.uid;
+    }
+    function isDelegate(u) {
+      return realUser() && exists(userPath(u)) && request.auth.uid in get(userPath(u)).data.get('delegateUids', []);
+    }
+    function canActAs(u) { return ownsUser(u) || isDelegate(u); }
+    function isAdmin() { return ownsUser('pixlynote'); }
+    // The account name of the signed-in user ('__none__' when unknown).
+    function myName() {
+      return realUser() && exists(uidIndexPath()) ? get(uidIndexPath()).data.get('username', '__none__') : '__none__';
+    }
+    // Written positively on purpose: for a query whose author is unknown, exists() is false, so this is false.
+    function isPublicAccount(u) { return exists(userPath(u)) && get(userPath(u)).data.get('isPrivate', false) == false; }
+    // The signed-in user is an approved connection of `owner` (owner-created followers edge).
+    function approvedBy(owner) {
+      return realUser() && exists(/databases/$(database)/documents/users/$(owner)/followers/$(myName()));
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    // Fields another signed-in account may change on someone's users doc (notifications, story comments,
+    // connection approvals, Privileged Access and Business associate invites). Nothing else.
+    function socialFields() {
+      return ['notifications', 'deletedNotificationIds', 'storyComments', 'storyLikes', 'following',
+              'privilegedAccounts', 'privilegedAccessGranted', 'businessAssociates', 'associatedBusiness',
+              'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated'];
+    }
+    // Contact, credential, DM and session fields live in users/{u}/private/account, never on the public doc.
+    function privateFields() {
+      return ['email', 'phone', 'dms', 'lastDmUpdated', 'loginActivityLog', 'otherSessions', 'sessionRevokedAt',
+              'stripeCustomerId', 'stripeSubscriptionId', 'stripeBusinessSubscriptionId', 'verificationEmail',
+              'accountCenterAccounts', 'removedAccountCenterUsernames', 'passwordHash', 'password'];
+    }
+
+    match /users/{username} {
+      // Public header (name, avatar, bio, isPrivate, counts) so "This account is private" can render.
+      allow read: if true;
+      allow create: if (realUser()
+                        && request.resource.data.get('uid', '') == request.auth.uid
+                        && !request.resource.data.keys().hasAny(privateFields())
+                        && request.resource.data.get('isAdmin', false) == false)
+                    // A notification or story comment to an account that has no doc yet.
+                    || (realUser() && request.resource.data.keys().hasOnly(socialFields()))
+                    || isAdmin();
+      allow update: if (canActAs(username)
+                        && request.resource.data.get('uid', '') == resource.data.get('uid', '')
+                        && (ownsUser(username) || request.resource.data.get('delegateUids', []) == resource.data.get('delegateUids', []))
+                        && !changed().hasAny(privateFields()))
+                    // Sign-up on a username that only had a placeholder doc (no uid, never had a password).
+                    || (realUser()
+                        && resource.data.get('uid', '') == ''
+                        && !('passwordHash' in resource.data)
+                        && request.resource.data.get('uid', '') == request.auth.uid)
+                    || (realUser() && changed().hasOnly(socialFields()))
+                    || isAdmin();
+      allow delete: if ownsUser(username) || isAdmin();
+
+      match /private/{docId} {
+        allow read, write: if canActAs(username) || isAdmin();
+      }
+
+      // Connections edges. Public account: the follower writes their own edge.
+      // Private account: only the owner creates an edge (that is the approval).
+      match /followers/{follower} {
+        allow read: if isPublicAccount(username) || canActAs(username) || approvedBy(username)
+                    || myName() == follower || isAdmin();
+        allow create: if (realUser() && request.resource.data.username == follower
+                          && ((canActAs(follower) && isPublicAccount(username)) || canActAs(username)))
+                      || isAdmin();
+        allow update: if (realUser() && request.resource.data.username == follower
+                          && (canActAs(username) || canActAs(follower)))
+                      || isAdmin();
+        allow delete: if canActAs(username) || canActAs(follower) || isAdmin();
+      }
+
+      // Connect requests to a private account.
+      match /connectRequests/{requester} {
+        allow read: if canActAs(username) || canActAs(requester) || isAdmin();
+        allow create, update: if canActAs(requester) && requester != username
+          && request.resource.data.username == requester
+          && request.resource.data.keys().hasOnly(['username', 'fullName', 'avatar', 'requestedAt']);
+        allow delete: if canActAs(username) || canActAs(requester) || isAdmin();
+      }
+    }
+
+    match /posts/{postId} {
+      function readablePost(d) {
+        // No get() defaults here: a query that does not pin authorPrivate or author must not pass.
+        return d.authorPrivate == false
+          || isPublicAccount(d.author)
+          || canActAs(d.author)
+          || approvedBy(d.author)
+          || isAdmin();
+      }
+      // Rules are not filters: list queries must say where('authorPrivate', '==', false),
+      // or where('author', '==', X) for an account the viewer may see.
+      allow read: if readablePost(resource.data);
+      allow create: if realUser() && canActAs(request.resource.data.author)
+        && (isPublicAccount(request.resource.data.author) || request.resource.data.get('authorPrivate', false) == true);
+      allow update: if (canActAs(resource.data.author)
+                        && (request.resource.data.author == resource.data.author || canActAs(request.resource.data.author))
+                        && (isPublicAccount(resource.data.author) || request.resource.data.get('authorPrivate', false) == true))
+                    || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data))
+                    || (signedIn() && changed().hasOnly(['views']) && readablePost(resource.data))
+                    || isAdmin();
+      allow delete: if canActAs(resource.data.author) || isAdmin();
+    }
+
+    match /uidIndex/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if realUser() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['username', 'updatedAt'])
+        && ownsUser(request.resource.data.username);
+      allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+    }
+
+    // contactIndex/{sha256 of the normalized email or phone} = { usernames: [...] } for "already taken"
+    // checks and the Worker's recipient check. Single-document gets only; nobody can list it.
+    match /contactIndex/{key} {
+      function onlyChanges(name) {
+        let after = request.resource.data.get('usernames', []).toSet();
+        let before = (resource == null ? [] : resource.data.get('usernames', [])).toSet();
+        return after.difference(before).union(before.difference(after)).hasOnly([name]);
+      }
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update: if (realUser()
+                                && request.resource.data.keys().hasOnly(['usernames', 'by', 'updatedAt'])
+                                && request.resource.data.usernames is list
+                                && canActAs(request.resource.data.by)
+                                && onlyChanges(request.resource.data.by))
+                            || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /accountCenters/{owner} {
+      allow read: if canActAs(owner) || isAdmin();
+      allow create: if canActAs(owner) || isAdmin();
+      // Revoking Privileged Access may add yourself to someone's removedUsernames.
+      allow update: if canActAs(owner) || isAdmin() || (realUser() && changed().hasOnly(['removedUsernames']));
+      allow delete: if canActAs(owner) || isAdmin();
+    }
+    match /profileHistory/{owner} {
+      allow read, write: if canActAs(owner) || isAdmin();
+    }
+    match /verificationRequests/{owner} {
+      allow read, write: if canActAs(owner) || isAdmin();
+    }
+    match /closeFriends/{owner} {
+      // Viewers read the author's list to decide whether a close-friends story is visible to them.
+      allow read: if true;
+      allow write: if canActAs(owner) || isAdmin();
+    }
+    match /blocks/{owner} {
+      allow read, write: if canActAs(owner) || isAdmin();
+    }
+    match /mutes/{owner} {
+      allow read, write: if canActAs(owner) || isAdmin();
+    }
+    match /story_comments/{docId} {
+      allow read: if true;
+      allow create, update: if realUser();
+      allow delete: if isAdmin();
+    }
+    match /noteViews/{noteId} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['views']);
+      allow delete: if isAdmin();
+    }
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

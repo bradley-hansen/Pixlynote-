@@ -4640,6 +4640,456 @@
         }
         defineAccountSyncHelpers();
 
+    // ===== Database lockdown (branch grokbot/db-lockdown) =====
+    // 1) Private account fields (email, phone, DMs, sessions, Stripe customer ids) live in
+    //    users/{u}/private/account, readable only by the owner. Writes to users/{u} are split here, and
+    //    reads of your OWN users/{u} doc merge the private doc back in, so the rest of the app is unchanged.
+    // 2) contactIndex/{sha256} = { usernames } keeps "email/phone already taken" checks working without
+    //    publishing anyone's email or phone.
+    // 3) Per-user Firebase Auth helpers: every account gets its own Auth user (users/{u}.uid), and
+    //    uidIndex/{uid} maps it back to the username for the security rules.
+    (function definePixlyDataGuard() {
+      var PRIVATE_USER_FIELDS = ['email', 'phone', 'dms', 'lastDmUpdated', 'loginActivityLog', 'otherSessions',
+        'sessionRevokedAt', 'stripeCustomerId', 'stripeSubscriptionId', 'stripeBusinessSubscriptionId',
+        'verificationEmail', 'accountCenterAccounts', 'removedAccountCenterUsernames'];
+      var AUTH_LOGIN_DOMAIN = 'users.pixlynote.app';
+      var CONTACT_SALT = 'pixlynote-contact-v1|';
+      window.PIXLY_PRIVATE_USER_FIELDS = PRIVATE_USER_FIELDS;
+
+      function normU(u) { return String(u || '').trim().toLowerCase().replace(/^@/, ''); }
+      function refPath(ref) { return (ref && typeof ref.path === 'string') ? ref.path : ''; }
+      function userDocName(ref) {
+        if (!ref || ref.isCol || ref.type === 'collection' || ref.type === 'query') return '';
+        var m = /^users\/([^/]+)$/.exec(refPath(ref));
+        return m ? m[1] : '';
+      }
+      var selfAliases = new Set();
+      function addSelfAlias(u) { var n = normU(u); if (n) selfAliases.add(n); }
+      function removeSelfAlias(u) { selfAliases.delete(normU(u)); }
+      function activeName() {
+        try {
+          if (typeof getActiveFirestoreUsername === 'function') return getActiveFirestoreUsername();
+        } catch (e) {}
+        return normU(window.state && window.state.currentUser && window.state.currentUser.username);
+      }
+      // "Self" = the account you are using right now (or the one you just signed in to). Only self writes keep
+      // private fields; a write to someone else's doc never carries them.
+      function isSelf(u) {
+        var n = normU(u);
+        if (!n) return false;
+        return n === activeName() || n === normU(window._pixlyAuthUsername) || selfAliases.has(n);
+      }
+      function splitUserPayload(data) {
+        var pub = {}, priv = {}, hasPriv = false;
+        Object.keys(data || {}).forEach(function (k) {
+          if (PRIVATE_USER_FIELDS.indexOf(k) !== -1) { priv[k] = data[k]; hasPriv = true; } else { pub[k] = data[k]; }
+        });
+        return { pub: pub, priv: priv, hasPriv: hasPriv };
+      }
+      var privateCache = {};
+      function rememberPrivate(u, d) {
+        var n = normU(u);
+        if (!n || !d || typeof d !== 'object') return;
+        privateCache[n] = Object.assign({}, privateCache[n] || {}, d);
+      }
+      function selfIsPrivate(u) {
+        var n = normU(u);
+        var cu = window.state && window.state.currentUser;
+        if (cu && normU(cu.username) === n && cu.isPrivate === true) return true;
+        return !!(window._acctPrivacy && window._acctPrivacy[n] === true);
+      }
+      function mergeSnap(snap, priv) {
+        if (!snap || typeof snap.exists !== 'function' || !snap.exists() || !priv) return snap;
+        var pubData = snap.data() || {};
+        var extra = Object.assign({}, priv);
+        // The private post mirror only counts while the account is private; a public account uses the public one.
+        if (pubData.isPrivate !== true) delete extra.customPosts;
+        var merged = Object.assign({}, pubData, extra);
+        return {
+          id: snap.id, ref: snap.ref, metadata: snap.metadata,
+          exists: function () { return true; },
+          data: function () { return Object.assign({}, merged); },
+          get: function (k) { return merged[k]; }
+        };
+      }
+
+      // ---- contact index ----
+      function normalizeContact(kind, value) {
+        if (kind === 'email') {
+          var em = String(value || '').trim().toLowerCase();
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? em : '';
+        }
+        var d = String(value || '').replace(/\D/g, '');
+        if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+        return d.length === 10 ? d : '';
+      }
+      async function contactKey(kind, value) {
+        var norm = normalizeContact(kind, value);
+        if (!norm || !(window.crypto && window.crypto.subtle)) return '';
+        var buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(CONTACT_SALT + kind + '|' + norm));
+        return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }
+      var contactOwners = {};   // 'email:a@b.c' -> ['user1']
+      var contactPending = {};
+      function cachedContactOwners(kind, value) {
+        var norm = normalizeContact(kind, value);
+        if (!norm) return null;
+        var hit = contactOwners[kind + ':' + norm];
+        return hit === undefined ? null : hit;
+      }
+      async function lookupContactOwners(kind, value) {
+        var norm = normalizeContact(kind, value);
+        var fb = window.firebase;
+        if (!norm || !fb || !fb.getDoc || !fb.doc || !fb.db) return [];
+        var ck = kind + ':' + norm;
+        if (contactOwners[ck] !== undefined) return contactOwners[ck];
+        if (contactPending[ck]) return contactPending[ck];
+        contactPending[ck] = (async function () {
+          try {
+            var key = await contactKey(kind, norm);
+            if (!key) return [];
+            var snap = await fb.getDoc(fb.doc(fb.db, 'contactIndex', key));
+            var list = (snap && snap.exists && snap.exists() && Array.isArray((snap.data() || {}).usernames)) ? snap.data().usernames.map(normU).filter(Boolean) : [];
+            contactOwners[ck] = list;
+            return list;
+          } catch (e) {
+            return [];
+          } finally {
+            delete contactPending[ck];
+          }
+        })();
+        return contactPending[ck];
+      }
+      // Background lookup for the synchronous "already taken" checks; re-runs the open form's validation.
+      function prefetchContactOwners(kind, value) {
+        var norm = normalizeContact(kind, value);
+        if (!norm || contactOwners[kind + ':' + norm] !== undefined || contactPending[kind + ':' + norm]) return;
+        lookupContactOwners(kind, norm).then(function (list) {
+          if (!list || !list.length) return;
+          try { if (typeof window.updateSignUpValidationState === 'function') window.updateSignUpValidationState(); } catch (e) {}
+          try { if (typeof window.refreshEditProfileContactValidation === 'function') window.refreshEditProfileContactValidation(); } catch (e) {}
+        });
+      }
+      // Owner (other than `exclude`) of an email/phone according to the index, or null. Never blocks.
+      function contactIndexOwner(kind, value, exclude) {
+        var list = cachedContactOwners(kind, value);
+        if (list === null) { prefetchContactOwners(kind, value); return null; }
+        var ex = normU(exclude);
+        var other = list.filter(function (u) { return u && u !== ex; })[0];
+        return other ? { username: other, fullName: other, fromContactIndex: true } : null;
+      }
+      async function updateContactIndex(u, kind, oldVal, newVal, rawSet) {
+        var fb = window.firebase;
+        var setDoc = rawSet || (fb && fb.setDoc);
+        if (!fb || !setDoc || !fb.doc || !fb.db || !fb.arrayUnion || !fb.arrayRemove) return;
+        var n = normU(u);
+        var oldKey = oldVal ? await contactKey(kind, oldVal) : '';
+        var newKey = newVal ? await contactKey(kind, newVal) : '';
+        if (oldKey && oldKey !== newKey) {
+          await setDoc(fb.doc(fb.db, 'contactIndex', oldKey), { usernames: fb.arrayRemove(n), by: n, updatedAt: Date.now() }, { merge: true }).catch(function () {});
+          var on = normalizeContact(kind, oldVal);
+          if (on && Array.isArray(contactOwners[kind + ':' + on])) contactOwners[kind + ':' + on] = contactOwners[kind + ':' + on].filter(function (x) { return x !== n; });
+        }
+        if (newKey) {
+          await setDoc(fb.doc(fb.db, 'contactIndex', newKey), { usernames: fb.arrayUnion(n), by: n, updatedAt: Date.now() }, { merge: true }).catch(function () {});
+          var nn = normalizeContact(kind, newVal);
+          var cur = contactOwners[kind + ':' + nn] || [];
+          if (cur.indexOf(n) === -1) contactOwners[kind + ':' + nn] = cur.concat([n]);
+        }
+      }
+      function contactIndexForPrivateWrite(u, priv, rawSet) {
+        var n = normU(u);
+        var before = privateCache[n] || {};
+        var jobs = [];
+        ['email', 'phone'].forEach(function (kind) {
+          if (!Object.prototype.hasOwnProperty.call(priv, kind)) return;
+          var nv = typeof priv[kind] === 'string' ? priv[kind] : '';
+          var ov = typeof before[kind] === 'string' ? before[kind] : '';
+          if (normalizeContact(kind, nv) === normalizeContact(kind, ov) && before._indexed && before._indexed[kind]) return;
+          jobs.push(updateContactIndex(n, kind, ov, nv, rawSet));
+        });
+        var next = Object.assign({}, before);
+        ['email', 'phone'].forEach(function (kind) {
+          if (Object.prototype.hasOwnProperty.call(priv, kind)) {
+            next[kind] = priv[kind];
+            next._indexed = Object.assign({}, next._indexed || {});
+            next._indexed[kind] = true;
+          }
+        });
+        privateCache[n] = next;
+        return Promise.all(jobs);
+      }
+
+      // Public contact buttons: copy email/phone to publicEmail/publicPhone only when the owner turned them on.
+      function publicContactMirror(u, priv, pub) {
+        var touchesContact = Object.prototype.hasOwnProperty.call(priv, 'email') || Object.prototype.hasOwnProperty.call(priv, 'phone');
+        var touchesPrefs = Object.prototype.hasOwnProperty.call(pub, 'contactPrefs');
+        if (!touchesContact && !touchesPrefs) return;
+        var cu = (window.state && window.state.currentUser && normU(window.state.currentUser.username) === normU(u)) ? window.state.currentUser : {};
+        var prefs = pub.contactPrefs || cu.contactPrefs || {};
+        var cached = privateCache[normU(u)] || {};
+        var email = Object.prototype.hasOwnProperty.call(priv, 'email') ? priv.email : (cached.email !== undefined ? cached.email : cu.email);
+        var phone = Object.prototype.hasOwnProperty.call(priv, 'phone') ? priv.phone : (cached.phone !== undefined ? cached.phone : cu.phone);
+        pub.publicEmail = (prefs && prefs.showEmail === true && typeof email === 'string') ? email : '';
+        pub.publicPhone = (prefs && prefs.showPhone === true && typeof phone === 'string') ? phone : '';
+      }
+
+      function installPixlyDataGuard(fb) {
+        if (!fb || fb.__pixlyGuarded) return fb;
+        var rawSet = fb.setDoc, rawUpdate = fb.updateDoc, rawGet = fb.getDoc, rawSnap = fb.onSnapshot;
+        fb.__raw = { setDoc: rawSet, updateDoc: rawUpdate, getDoc: rawGet, onSnapshot: rawSnap };
+        function privRef(u) { return fb.doc(fb.db, 'users', u, 'private', 'account'); }
+        function splitWrite(kind, ref, data, opts) {
+          var u = userDocName(ref);
+          var raw = kind === 'update' ? rawUpdate : rawSet;
+          if (!u || !data || typeof data !== 'object' || Array.isArray(data)) return kind === 'update' ? raw(ref, data) : raw(ref, data, opts);
+          var parts = splitUserPayload(data);
+          var self = isSelf(u);
+          // A private account's post mirror (customPosts) is owner-only too; approved connections use posts/*.
+          if (self && Object.prototype.hasOwnProperty.call(parts.pub, 'customPosts') && selfIsPrivate(u)) {
+            parts.priv.customPosts = parts.pub.customPosts;
+            parts.pub.customPosts = [];
+            parts.hasPriv = true;
+          }
+          if (!parts.hasPriv && !Object.prototype.hasOwnProperty.call(data, 'contactPrefs')) {
+            return kind === 'update' ? raw(ref, data) : raw(ref, data, opts);
+          }
+          if (self) publicContactMirror(u, parts.priv, parts.pub);
+          var hasPub = Object.keys(parts.pub).length > 0;
+          var pubP = hasPub ? (kind === 'update' ? raw(ref, parts.pub) : raw(ref, parts.pub, opts)) : Promise.resolve();
+          if (!self || !parts.hasPriv) return pubP;
+          // Public doc first: the rules check users/{u}.uid before allowing the private write.
+          var privP = Promise.resolve(pubP).catch(function () {}).then(function () {
+            return rawSet(privRef(u), parts.priv, { merge: true });
+          });
+          // Resolves after the contact index too, so a welcome email sent next finds the address on file.
+          var indexP = privP.then(function () { return contactIndexForPrivateWrite(u, parts.priv, rawSet); }).catch(function () {});
+          return Promise.all([pubP, privP, indexP]).then(function () { return undefined; });
+        }
+        fb.setDoc = function (ref, data, opts) { return splitWrite('set', ref, data, opts); };
+        if (rawUpdate) fb.updateDoc = function (ref, data) { return splitWrite('update', ref, data); };
+        if (rawGet) {
+          fb.getDoc = async function (ref) {
+            var snap = await rawGet(ref);
+            var u = userDocName(ref);
+            if (!u || !isSelf(u) || !snap || !snap.exists || !snap.exists()) return snap;
+            var priv = null;
+            try {
+              var ps = await rawGet(privRef(u));
+              if (ps && ps.exists && ps.exists()) priv = ps.data() || null;
+            } catch (e) {}
+            if (!priv) return snap;
+            rememberPrivate(u, priv);
+            return mergeSnap(snap, priv);
+          };
+        }
+        if (rawSnap) {
+          fb.onSnapshot = function (ref) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            var u = userDocName(ref);
+            if (!u || !isSelf(u)) return rawSnap.apply(null, [ref].concat(args));
+            var idx = -1;
+            for (var i = 0; i < args.length; i++) { if (typeof args[i] === 'function') { idx = i; break; } }
+            var observer = (idx === -1 && args[0] && typeof args[0].next === 'function') ? args[0] : null;
+            var next = observer ? observer.next.bind(observer) : (idx >= 0 ? args[idx] : null);
+            if (!next) return rawSnap.apply(null, [ref].concat(args));
+            var lastPub = null, lastPriv = null;
+            function emit() { if (lastPub) next(lastPriv ? mergeSnap(lastPub, lastPriv) : lastPub); }
+            function onPub(s) { lastPub = s; emit(); }
+            var newArgs = args.slice();
+            if (observer) newArgs[0] = Object.assign({}, observer, { next: onPub }); else newArgs[idx] = onPub;
+            var unPub = rawSnap.apply(null, [ref].concat(newArgs));
+            var unPriv = null;
+            try {
+              unPriv = rawSnap(privRef(u), function (ps) {
+                lastPriv = (ps && ps.exists && ps.exists()) ? (ps.data() || null) : null;
+                if (lastPriv) rememberPrivate(u, lastPriv);
+                if (lastPriv) emit();
+              }, function () {});
+            } catch (e) {}
+            return function () {
+              try { if (typeof unPub === 'function') unPub(); } catch (e) {}
+              try { if (typeof unPriv === 'function') unPriv(); } catch (e) {}
+            };
+          };
+        }
+        fb.__pixlyGuarded = true;
+        return fb;
+      }
+
+      // ---- per-user Firebase Auth ----
+      function authSecret(pw) { return 'pixlynote_v1:' + String(pw || ''); }
+      function makeAuthEmail(username) {
+        var slug = normU(username).replace(/[^a-z0-9_.]/g, '').slice(0, 30) || 'user';
+        var bytes = new Uint8Array(6);
+        try { window.crypto.getRandomValues(bytes); } catch (e) { for (var i = 0; i < 6; i++) bytes[i] = Math.floor(Math.random() * 256); }
+        var rnd = Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+        return slug + '.' + rnd + '@' + AUTH_LOGIN_DOMAIN;
+      }
+      function accountUsesAuth(d) { return !!(d && typeof d.uid === 'string' && d.uid && typeof d.authEmail === 'string' && d.authEmail); }
+      function authReady() {
+        var fb = window.firebase;
+        return !!(window.firebaseReady && fb && fb.auth && fb.signInWithEmailAndPassword && fb.createUserWithEmailAndPassword);
+      }
+      function currentAuthUser() {
+        var fb = window.firebase;
+        return (fb && fb.auth && fb.auth.currentUser) || null;
+      }
+      var knownUids = {};
+      function rememberAuthDoc(u, d) {
+        if (d && d.uid) knownUids[normU(u)] = { uid: d.uid, authEmail: d.authEmail || '', delegateUids: Array.isArray(d.delegateUids) ? d.delegateUids.slice() : [] };
+      }
+      async function linkUidIndex(username) {
+        var fb = window.firebase;
+        var user = currentAuthUser();
+        if (!fb || !user || user.isAnonymous || !fb.doc || !fb.db) return false;
+        var set = (fb.__raw && fb.__raw.setDoc) || fb.setDoc;
+        try {
+          await set(fb.doc(fb.db, 'uidIndex', user.uid), { username: normU(username), updatedAt: Date.now() });
+          return true;
+        } catch (e) { return false; }
+      }
+      // New account: create its Firebase Auth user. Returns { uid, authEmail } or throws (sign-up stops).
+      async function createAuthAccount(username, pw) {
+        var fb = window.firebase;
+        if (!authReady()) throw Object.assign(new Error('auth-unavailable'), { code: 'auth/unavailable' });
+        var authEmail = makeAuthEmail(username);
+        var cred = await fb.createUserWithEmailAndPassword(fb.auth, authEmail, authSecret(pw));
+        window._pixlyAuthUsername = normU(username);
+        knownUids[normU(username)] = { uid: cred.user.uid, authEmail: authEmail, delegateUids: [] };
+        return { uid: cred.user.uid, authEmail: authEmail };
+      }
+      // Existing migrated account: the password is checked by Firebase Auth, never against a stored hash.
+      // Returns { ok, code }. code is 'wrong-password', 'network', 'unavailable' or 'mismatch' when !ok.
+      async function signInAccount(username, d, pw) {
+        var fb = window.firebase;
+        if (!accountUsesAuth(d)) return { ok: false, code: 'not-migrated' };
+        if (!authReady()) return { ok: false, code: 'unavailable' };
+        window._pixlyAuthLoginInProgress = true;
+        try {
+          var cred = await fb.signInWithEmailAndPassword(fb.auth, d.authEmail, authSecret(pw));
+          if (!cred || !cred.user || cred.user.uid !== d.uid) {
+            try { await fb.signOut(fb.auth); } catch (e) {}
+            return { ok: false, code: 'mismatch' };
+          }
+          window._pixlyAuthUsername = normU(username);
+          rememberAuthDoc(username, d);
+          linkUidIndex(username);
+          return { ok: true };
+        } catch (e) {
+          var c = String((e && e.code) || '');
+          if (/network|unavailable|too-many-requests|internal/i.test(c)) return { ok: false, code: c.indexOf('too-many') !== -1 ? 'too-many' : 'network' };
+          return { ok: false, code: 'wrong-password' };
+        } finally {
+          window._pixlyAuthLoginInProgress = false;
+        }
+      }
+      function authLoginErrorMessage(code, username) {
+        if (code === 'network' || code === 'unavailable') return 'Could not reach Pixlynote to check your password. Please try again.';
+        if (code === 'too-many') return 'Too many attempts. Please wait a minute and try again.';
+        return 'Incorrect username or password for @' + username;
+      }
+      // Account Center password change for a migrated account. { handled:false } for legacy accounts.
+      async function changeAuthPassword(username, curPw, newPw) {
+        var fb = window.firebase;
+        var n = normU(username);
+        var user = currentAuthUser();
+        var info = knownUids[n];
+        if (!info) return { handled: false };
+        if (!user || user.isAnonymous || user.uid !== info.uid) {
+          // Migrated account used through Privileged Access (or a stale session): only its own login may change it.
+          return { handled: true, ok: false, message: 'To change the password for @' + n + ', log in to @' + n + ' with its current password first.' };
+        }
+        if (!fb.updatePassword || !fb.reauthenticateWithCredential || !fb.EmailAuthProvider) {
+          return { handled: true, ok: false, message: 'Password update is unavailable right now. Please try again.' };
+        }
+        try {
+          var cred = fb.EmailAuthProvider.credential(info.authEmail || user.email, authSecret(curPw));
+          await fb.reauthenticateWithCredential(user, cred);
+        } catch (e) {
+          var c = String((e && e.code) || '');
+          return { handled: true, ok: false, message: /network/.test(c) ? 'No connection. Please try again.' : 'Current password is incorrect.' };
+        }
+        try {
+          await fb.updatePassword(user, authSecret(newPw));
+          return { handled: true, ok: true };
+        } catch (e) {
+          return { handled: true, ok: false, message: 'Password update failed. Please try again.' };
+        }
+      }
+      // Privileged Access: the owner lists the grantee's uid in users/{owner}.delegateUids (rules use it).
+      async function syncDelegateUid(ownerU, targetU, add) {
+        var fb = window.firebase;
+        if (!window.firebaseReady || !fb || !fb.getDoc || !fb.doc || !fb.arrayUnion || !fb.arrayRemove) return false;
+        try {
+          var snap = await fb.getDoc(fb.doc(fb.db, 'users', normU(targetU)));
+          var uid = snap && snap.exists && snap.exists() ? ((snap.data() || {}).uid || '') : '';
+          if (!uid) return false;
+          await fb.setDoc(fb.doc(fb.db, 'users', normU(ownerU)), { delegateUids: add ? fb.arrayUnion(uid) : fb.arrayRemove(uid) }, { merge: true });
+          return true;
+        } catch (e) { return false; }
+      }
+      // Cold start: a migrated account must have its own Auth session (or a Privileged Access grant).
+      // Anything else means the session is stale, so the app asks for a fresh login instead of failing writes.
+      async function checkSessionMatchesAccount() {
+        var fb = window.firebase;
+        if (!window.firebaseReady || !fb || !fb.auth || !fb.getDoc || window._pixlyAuthLoginInProgress) return 'skipped';
+        var st = window.state;
+        if (!st || !st.isLoggedIn || !st.currentUser || !st.currentUser.username) return 'signed-out';
+        var u = normU(st.currentUser.username);
+        var d = null;
+        try {
+          var raw = (fb.__raw && fb.__raw.getDoc) || fb.getDoc;
+          var snap = await raw(fb.doc(fb.db, 'users', u));
+          d = snap && snap.exists && snap.exists() ? (snap.data() || {}) : null;
+        } catch (e) { return 'offline'; }
+        if (!d || !accountUsesAuth(d)) return 'legacy';
+        rememberAuthDoc(u, d);
+        var user = currentAuthUser();
+        if (user && !user.isAnonymous && (user.uid === d.uid || (Array.isArray(d.delegateUids) && d.delegateUids.indexOf(user.uid) !== -1))) {
+          if (user.uid === d.uid) { window._pixlyAuthUsername = u; linkUidIndex(u); }
+          return 'ok';
+        }
+        if (normU(window.state && window.state.currentUser && window.state.currentUser.username) !== u) return 'changed';
+        var logoutFn = (typeof window.performLogout === 'function') ? window.performLogout : (typeof performLogout === 'function' ? performLogout : null);
+        if (logoutFn) logoutFn();
+        var toastFn = (typeof window.showToast === 'function') ? window.showToast : (typeof showToast === 'function' ? showToast : null);
+        if (toastFn) toastFn('For your security, please log in again.');
+        return 'logged-out';
+      }
+
+      window.installPixlyDataGuard = installPixlyDataGuard;
+      window.pixlyGuard = {
+        PRIVATE_USER_FIELDS: PRIVATE_USER_FIELDS,
+        splitUserPayload: splitUserPayload,
+        isSelf: isSelf,
+        addSelfAlias: addSelfAlias,
+        removeSelfAlias: removeSelfAlias,
+        userDocName: userDocName,
+        normalizeContact: normalizeContact,
+        contactKey: contactKey,
+        lookupContactOwners: lookupContactOwners,
+        contactIndexOwner: contactIndexOwner,
+        updateContactIndex: updateContactIndex,
+        rememberPrivate: rememberPrivate,
+        privateCache: privateCache,
+        _contactOwners: contactOwners,
+        authSecret: authSecret,
+        makeAuthEmail: makeAuthEmail,
+        accountUsesAuth: accountUsesAuth,
+        authReady: authReady,
+        createAuthAccount: createAuthAccount,
+        signInAccount: signInAccount,
+        authLoginErrorMessage: authLoginErrorMessage,
+        changeAuthPassword: changeAuthPassword,
+        linkUidIndex: linkUidIndex,
+        rememberAuthDoc: rememberAuthDoc,
+        knownUids: knownUids,
+        syncDelegateUid: syncDelegateUid,
+        checkSessionMatchesAccount: checkSessionMatchesAccount
+      };
+    })();
+
     setTimeout(async () => {
       try {
         const { initializeApp } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js");
@@ -4651,7 +5101,10 @@
           signOut, 
           onAuthStateChanged,
           RecaptchaVerifier,
-          signInWithPhoneNumber
+          signInWithPhoneNumber,
+          updatePassword,
+          reauthenticateWithCredential,
+          EmailAuthProvider
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js");
         
         const { 
@@ -4671,7 +5124,9 @@
           serverTimestamp,
           runTransaction,
           increment,
-          updateDoc
+          updateDoc,
+          arrayUnion,
+          arrayRemove
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js");
 
         const firebaseConfig = {
@@ -4696,9 +5151,13 @@
           onAuthStateChanged,
           RecaptchaVerifier,
           signInWithPhoneNumber,
+          updatePassword, reauthenticateWithCredential, EmailAuthProvider,
           collection, doc, setDoc, getDoc, getDocs,
-          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc
+          query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc,
+          arrayUnion, arrayRemove
         };
+        // Database lockdown: split private fields out of users/{u} writes and merge them back for your own reads.
+        if (typeof window.installPixlyDataGuard === 'function') window.installPixlyDataGuard(window.firebase);
         window.firebaseReady = true;
         try {
           const q = window._onFirebaseReadyQueue || [];
@@ -4728,20 +5187,40 @@
         // Function to listen and sync live user document from Firestore (Free Plan)
         window.attachPostsCollectionListener = function() {
           if (window._postsCollectionUnsub) return;
+          if (window._postsScopedMode && typeof window.attachScopedPostsListeners === 'function') {
+            window._postsCollectionUnsub = () => {};
+            window.attachScopedPostsListeners((cloudPosts) => {
+              if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(cloudPosts);
+              if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
+              if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
+            });
+            return;
+          }
+          const applyCloudPosts = (cloudPosts) => {
+            if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
+              window.applyCustomPostsFromRemote(cloudPosts);
+            }
+            if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
+            if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
+          };
           try {
+            // Open rules: one listener on the whole collection (unchanged behavior).
+            // Locked rules deny that query, so we switch to queries the rules can allow (see attachScopedPostsListeners).
             const qPosts = query(collection(db, 'posts'));
-            window._postsCollectionUnsub = onSnapshot(qPosts, (querySnap) => {
+            const unsubAll = onSnapshot(qPosts, (querySnap) => {
               const cloudPosts = [];
               querySnap.forEach((pDoc) => {
                 const pData = pDoc.data();
                 if (pData && pData.id) cloudPosts.push(pData);
               });
-              if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
-                window.applyCustomPostsFromRemote(cloudPosts);
+              applyCloudPosts(cloudPosts);
+            }, (err) => {
+              console.log("Posts collection query notice:", err);
+              if (err && String(err.code || err.message || '').indexOf('permission-denied') !== -1 && typeof window.attachScopedPostsListeners === 'function') {
+                window.attachScopedPostsListeners(applyCloudPosts);
               }
-              if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
-              if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
-            }, (err) => console.log("Posts collection query notice:", err));
+            });
+            window._postsCollectionUnsub = () => { try { unsubAll(); } catch(e) {} };
           } catch(e) {}
         };
         window.hydrateOwnPostsFromCollection = async function(username) {
@@ -4771,7 +5250,7 @@
           firestoreListenerAttached = true;
 
           const userDocRef = doc(db, 'users', 'bradley_hansen');
-          window._bradleyUserDocUnsub = onSnapshot(userDocRef, (snap) => {
+          window._bradleyUserDocUnsub = window.firebase.onSnapshot(userDocRef, (snap) => {
             if (snap.exists()) {
               const data = snap.data();
               if (data) {
@@ -5045,12 +5524,19 @@
 
         // On cold start, ensure anonymous Firebase session if not already authenticated (no hardcoded email/password attempts)
         try {
+          // Wait for a persisted per-user Auth session first; otherwise the anonymous sign-in below replaces it.
+          if (typeof auth.authStateReady === 'function') { await auth.authStateReady(); }
           if (!auth.currentUser) {
             await signInAnonymously(auth);
           }
         } catch(e) {
           console.warn("Auth fallback notice:", e);
         }
+        try {
+          if (window.pixlyGuard && typeof window.pixlyGuard.checkSessionMatchesAccount === 'function') {
+            window.pixlyGuard.checkSessionMatchesAccount().catch(() => {});
+          }
+        } catch(e) {}
 
         // Listen for Auth changes and attach live listeners only for the active logged-in user
         onAuthStateChanged(auth, async (user) => {
@@ -8006,9 +8492,7 @@ function syncLikedStateToPosts() {
         if (stillActive !== syncTarget) return;
         payload.username = syncTarget;
         await setDoc(doc(db, 'users', syncTarget), payload, { merge: true });
-        if (syncTarget === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
-          await setDoc(doc(db, 'users', uid), payload, { merge: true });
-        }
+        // Database lockdown: no more copies to users/{auth uid} (that public doc leaked private data).
         window.pendingLikesSync = false;
         console.log("Successfully synced lightweight profile & likes to Firestore users/" + syncTarget);
       } catch (err) {
@@ -11142,6 +11626,76 @@ function syncLikedStateToPosts() {
       if (!n || !d || typeof d !== 'object') return;
       window._acctPrivacy[n] = d.isPrivate === true;
     }
+    // --- Posts under locked Firestore rules (rules are not filters) ---
+    // Public posts: where('authorPrivate', '==', false). Your own posts: where('author', '==', me).
+    // A private account you are approved for: where('author', '==', thatAccount). Results are merged by id.
+    const SCOPED_POSTS_MAX_PRIVATE = 30;
+    function scopedPostsPlan(me, following, privacyMap) {
+      const plan = [{ key: 'public', field: 'authorPrivate', value: false }];
+      const m = privacyNorm(me);
+      if (m) plan.push({ key: 'mine', field: 'author', value: m });
+      const seen = new Set([m]);
+      (Array.isArray(following) ? following : []).forEach(function (f) {
+        const u = privacyNorm(f && f.username);
+        if (!u || seen.has(u) || !(f && f.isFollowing !== false)) return;
+        seen.add(u);
+        if (privacyMap && privacyMap[u] === true && plan.length < SCOPED_POSTS_MAX_PRIVATE + 2) {
+          plan.push({ key: 'conn:' + u, field: 'author', value: u });
+        }
+      });
+      return plan;
+    }
+    window.scopedPostsPlan = scopedPostsPlan;
+    async function learnFollowedPrivacy(following) {
+      const fb = window.firebase;
+      if (!fb || !fb.getDoc || !fb.doc) return;
+      const todo = (Array.isArray(following) ? following : [])
+        .map(function (f) { return privacyNorm(f && f.username); })
+        .filter(function (u) { return u && !Object.prototype.hasOwnProperty.call(window._acctPrivacy, u); })
+        .slice(0, SCOPED_POSTS_MAX_PRIVATE);
+      await Promise.all(todo.map(async function (u) {
+        try {
+          const snap = await fb.getDoc(fb.doc(fb.db, 'users', u));
+          if (snap && snap.exists && snap.exists()) notePrivacyFromDoc(u, snap.data() || {});
+        } catch (e) {}
+      }));
+    }
+    async function attachScopedPostsListeners(applyCloudPosts) {
+      const fb = window.firebase;
+      if (!fb || !fb.onSnapshot || !fb.query || !fb.where || !fb.collection) return false;
+      window._postsScopedMode = true;
+      let cancelled = false;
+      window._postsCollectionUnsub = function () { cancelled = true; };
+      const me = (state && state.isLoggedIn && state.currentUser) ? state.currentUser.username : '';
+      try { await learnFollowedPrivacy(state && state.following); } catch (e) {}
+      if (cancelled) return false;
+      const plan = scopedPostsPlan(me, state && state.following, window._acctPrivacy);
+      const results = {};
+      const unsubs = [];
+      const emit = function () {
+        const byId = new Map();
+        Object.keys(results).forEach(function (k) { (results[k] || []).forEach(function (p) { if (p && p.id != null) byId.set(String(p.id), p); }); });
+        if (typeof applyCloudPosts === 'function') applyCloudPosts(Array.from(byId.values()));
+      };
+      plan.forEach(function (step) {
+        try {
+          const q = fb.query(fb.collection(fb.db, 'posts'), fb.where(step.field, '==', step.value));
+          unsubs.push(fb.onSnapshot(q, function (snap) {
+            const list = [];
+            snap.forEach(function (d) { const v = d.data(); if (v && v.id) list.push(v); });
+            results[step.key] = list;
+            emit();
+          }, function (err) {
+            // Not approved (or the request was revoked): that author's posts just stay hidden.
+            results[step.key] = [];
+          }));
+        } catch (e) {}
+      });
+      window._postsScopedPlan = plan.map(function (p) { return p.key; });
+      window._postsCollectionUnsub = function () { unsubs.forEach(function (u) { try { u(); } catch (e) {} }); };
+      return true;
+    }
+    window.attachScopedPostsListeners = attachScopedPostsListeners;
     function isAccountPrivate(u) {
       const n = privacyNorm(u);
       if (!n) return false;
@@ -11522,8 +12076,19 @@ function syncLikedStateToPosts() {
         }
       } catch (e) {}
       stampMyPostsPrivacy(me, want);
+      resyncMyCustomPostsMirror(me);
       return want;
     }
+    // Re-save my customPosts mirror after a privacy switch: a private account keeps it in the owner-only
+    // private doc (the data guard moves it there); a public account keeps it on the public profile doc.
+    function resyncMyCustomPostsMirror(me) {
+      const fb = privateFs();
+      if (!fb || !fb.setDoc || !fb.doc) return false;
+      const mine = (state.posts || []).filter(function (p) { return p && privacyNorm(p.author) === me; });
+      try { fb.setDoc(fb.doc(fb.db, 'users', me), { customPosts: mine }, { merge: true }).catch(function () {}); } catch (e) { return false; }
+      return true;
+    }
+    window.resyncMyCustomPostsMirror = resyncMyCustomPostsMirror;
     function applyOwnPrivacyFromDoc(cleanU, d, hasPendingWrites) {
       const u = privacyNorm(cleanU);
       if (!u || !d || privacyViewer() !== u) return;
@@ -17584,9 +18149,6 @@ function syncLikedStateToPosts() {
               lastUpdated: Date.now()
             };
             setDoc(doc(db, 'users', normStoryU), payload, { merge: true }).catch(() => {});
-            if (normStoryU === 'bradley_hansen' && uid && uid !== 'bradley_hansen') {
-              setDoc(doc(db, 'users', uid), payload, { merge: true }).catch(() => {});
-            }
           } catch(e) {}
         }
 
@@ -19349,6 +19911,8 @@ function syncLikedStateToPosts() {
       try {
         const taken = await getDoc(doc(db, 'users', newU));
         if (taken.exists()) { showToast(`@${newU} is already taken`); return false; }
+        // Database lockdown: the new name is "me" too, so private fields (email, phone, DMs) move with the account.
+        if (window.pixlyGuard) window.pixlyGuard.addSelfAlias(newU);
         const oldSnap = await getDoc(doc(db, 'users', oldU));
         const data = oldSnap.exists() ? (oldSnap.data() || {}) : {};
         await setDoc(doc(db, 'users', newU), { ...data, username: newU, renamedFrom: oldU, lastUpdated: Date.now() });
@@ -19376,7 +19940,18 @@ function syncLikedStateToPosts() {
         } catch(e) { console.warn('Rename: posts move notice', e); }
         // Before users/{old} goes away, so owner-only rules on profileHistory/{old} still let us delete it.
         await moveProfileHistoryOnRename(oldU, newU);
+        if (window.pixlyGuard) {
+          // Old name out of the contact index, old private doc removed, uid now maps to the new name.
+          for (const kind of ['email', 'phone']) {
+            if (typeof data[kind] === 'string' && data[kind]) await window.pixlyGuard.updateContactIndex(oldU, kind, data[kind], '').catch(() => {});
+          }
+          await deleteDoc(doc(db, 'users', oldU, 'private', 'account')).catch(() => {});
+        }
         await deleteDoc(doc(db, 'users', oldU)).catch(() => {});
+        if (window.pixlyGuard && data.uid) {
+          window._pixlyAuthUsername = newU;
+          await window.pixlyGuard.linkUidIndex(newU);
+        }
       } catch(e) {
         console.warn('Rename failed:', e);
         showToast('Could not change your username. Please try again.');
@@ -19485,7 +20060,9 @@ function syncLikedStateToPosts() {
       vc.isPrivate = d && d.isPrivate === true;
       if (typeof updateCreatorFollowButton === 'function') updateCreatorFollowButton(vc);
       // Contact buttons come ONLY from this profile's own users/{u} doc (never the viewer's or Bradley's record).
-      vc._contact = { user: u, email: typeof d.email === 'string' ? d.email : '', phone: typeof d.phone === 'string' ? d.phone : '', prefs: normalizeContactPrefs(d.contactPrefs) };
+      // publicEmail/publicPhone are only set while the owner shows them; d.email/d.phone are legacy (pre-lockdown) docs.
+      const pickContact = (pubV, legacyV) => (typeof pubV === 'string' && pubV) ? pubV : (typeof legacyV === 'string' ? legacyV : '');
+      vc._contact = { user: u, email: pickContact(d.publicEmail, d.email), phone: pickContact(d.publicPhone, d.phone), prefs: normalizeContactPrefs(d.contactPrefs) };
       renderViewedContactButtons();
       if (typeof d.fullName === 'string' && d.fullName.trim()) { vc.fullName = d.fullName; }
       if (typeof d.dbaName === 'string') vc.dbaName = d.dbaName;
@@ -22317,6 +22894,11 @@ function syncLikedStateToPosts() {
           return acc;
         }
       }
+      // Phones are no longer on public profile docs: also ask contactIndex (cached; looks up in the background).
+      if (window.pixlyGuard && typeof window.pixlyGuard.contactIndexOwner === 'function') {
+        const viaIndex = window.pixlyGuard.contactIndexOwner('phone', targetDigits, excl);
+        if (viaIndex) return viaIndex;
+      }
       return null;
     }
     window.findPhoneOwner = findPhoneOwner;
@@ -22338,6 +22920,11 @@ function syncLikedStateToPosts() {
         if (acc.email && String(acc.email).trim().toLowerCase() === targetEmail) {
           return acc;
         }
+      }
+      // Emails are no longer on public profile docs: also ask contactIndex (cached; looks up in the background).
+      if (window.pixlyGuard && typeof window.pixlyGuard.contactIndexOwner === 'function') {
+        const viaIndex = window.pixlyGuard.contactIndexOwner('email', targetEmail, excl);
+        if (viaIndex) return viaIndex;
       }
       return null;
     }
@@ -25217,12 +25804,6 @@ function syncLikedStateToPosts() {
             dms: cleanDms,
             lastDmUpdated: Date.now()
           }, { merge: true }).catch((err) => console.warn('Firestore DM save notice:', err));
-          if (uid && uid !== curU) {
-            setDoc(doc(db, 'users', uid), {
-              dms: cleanDms,
-              lastDmUpdated: Date.now()
-            }, { merge: true }).catch(() => {});
-          }
         } catch(e) {}
       }
     }
@@ -25621,19 +26202,41 @@ function syncLikedStateToPosts() {
 
       if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.deleteDoc && window.firebase.doc) {
         const { db, doc, deleteDoc, collection, getDocs, setDoc } = window.firebase;
-        deleteDoc(doc(db, 'users', normU)).catch(() => {});
-        deleteDoc(doc(db, 'accountCenters', normU)).catch(() => {});
-        // Remove from posts collection & active user's accountCenter
-        if (typeof getDocs === 'function' && typeof collection === 'function') {
-          getDocs(collection(db, 'posts')).then(snap => {
-            snap.forEach(pDoc => {
-              const pd = pDoc.data();
-              if (pd && isTargetUser(pd.author || pd.username)) {
-                deleteDoc(doc(db, 'posts', pDoc.id)).catch(() => {});
-              }
-            });
-          }).catch(() => {});
-        }
+        // Database lockdown: the rules check users/{u}.uid, so delete the account's posts, private doc and
+        // Account Center first and the users doc last. @pixlynote (admin) may delete any account's data.
+        (async () => {
+          let delUid = '';
+          let delPriv = null;
+          try {
+            const us = await window.firebase.getDoc(doc(db, 'users', normU));
+            delUid = (us && us.exists()) ? ((us.data() || {}).uid || '') : '';
+            const ps = await window.firebase.getDoc(doc(db, 'users', normU, 'private', 'account'));
+            delPriv = (ps && ps.exists()) ? (ps.data() || null) : null;
+          } catch (e) {}
+          if (typeof getDocs === 'function' && typeof collection === 'function') {
+            try {
+              const q = (window.firebase.query && window.firebase.where)
+                ? window.firebase.query(collection(db, 'posts'), window.firebase.where('author', '==', normU))
+                : collection(db, 'posts');
+              const snap = await getDocs(q);
+              const ops = [];
+              snap.forEach(pDoc => {
+                const pd = pDoc.data();
+                if (pd && isTargetUser(pd.author || pd.username)) ops.push(deleteDoc(doc(db, 'posts', pDoc.id)).catch(() => {}));
+              });
+              await Promise.all(ops);
+            } catch (e) {}
+          }
+          if (delPriv && window.pixlyGuard) {
+            for (const kind of ['email', 'phone']) {
+              if (typeof delPriv[kind] === 'string' && delPriv[kind]) await window.pixlyGuard.updateContactIndex(normU, kind, delPriv[kind], '').catch(() => {});
+            }
+          }
+          await deleteDoc(doc(db, 'users', normU, 'private', 'account')).catch(() => {});
+          await deleteDoc(doc(db, 'accountCenters', normU)).catch(() => {});
+          if (delUid) await deleteDoc(doc(db, 'uidIndex', delUid)).catch(() => {});
+          await deleteDoc(doc(db, 'users', normU)).catch(() => {});
+        })();
         const ownerU = (typeof getAccountCenterOwner === 'function') ? getAccountCenterOwner() : '';
         if (ownerU && ownerU !== 'guest' && ownerU !== normU && typeof setDoc === 'function') {
           const acRef = doc(db, 'accountCenters', ownerU);
@@ -26446,6 +27049,7 @@ function syncLikedStateToPosts() {
 
     function performLogout() {
       window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1;
+      window._pixlyAuthUsername = '';
       if (typeof closeSwitchPasswordModal === 'function') closeSwitchPasswordModal();
       if (typeof closeAccountSwitcher === 'function') closeAccountSwitcher();
       if (typeof window.closeAllFirestoreListeners === 'function') {
@@ -27231,7 +27835,17 @@ function syncLikedStateToPosts() {
             }
             const activeUser = (state && state.currentUser && state.currentUser.username) ? state.currentUser.username.toLowerCase() : '';
             const storedPw = activeUser ? getActiveAccountPassword(activeUser) : null;
-            if (storedPw && !(await verifyPassword(curPw, storedPw))) {
+            // Database lockdown: a migrated account changes its password in Firebase Auth (checked there).
+            let authPwChange = { handled: false };
+            if (activeUser && window.pixlyGuard && typeof window.pixlyGuard.changeAuthPassword === 'function') {
+              authPwChange = await window.pixlyGuard.changeAuthPassword(activeUser, curPw, newPw);
+              if (authPwChange.handled && !authPwChange.ok) {
+                st.classList.add('bg-rose-50', 'text-rose-700');
+                st.textContent = authPwChange.message || 'Password update failed. Please try again.';
+                return;
+              }
+            }
+            if (!authPwChange.handled && storedPw && !(await verifyPassword(curPw, storedPw))) {
               st.classList.add('bg-rose-50', 'text-rose-700');
               st.textContent = 'Current password is incorrect.';
               return;
@@ -27264,7 +27878,7 @@ function syncLikedStateToPosts() {
                   delete window._pixlyAccounts[activeUser].password;
                 }
               } catch(err) {}
-              if (window.firebaseReady && window.firebase && window.firebase.db) {
+              if (window.firebaseReady && window.firebase && window.firebase.db && !authPwChange.handled) {
                 const { db, doc, setDoc } = window.firebase;
                 setDoc(doc(db, 'users', activeUser), { passwordHash: newPwHash, password: null, lastUpdated: pwUpdatedAt }, { merge: true }).catch(() => {});
               }
@@ -27960,6 +28574,7 @@ function syncLikedStateToPosts() {
         }
         window.isSignupEmailTaken = isSignupEmailTaken;
         window.isSignupPhoneTaken = isSignupPhoneTaken;
+        if (typeof updateSignUpValidationState === 'function') window.updateSignUpValidationState = updateSignUpValidationState;
 
         function styleSignupSendButton(btn, enabled) {
           if (!btn) return;
@@ -29356,6 +29971,20 @@ function syncLikedStateToPosts() {
           const fullName = n;
           const accountType = isBiz ? 'business' : 'personal';
 
+          // Database lockdown: every new account gets its own Firebase Auth user before anything is saved.
+          // If that fails, nothing is created and the person can simply try again (fails safe).
+          let authInfo = null;
+          if (window.pixlyGuard && window.pixlyGuard.authReady()) {
+            try {
+              authInfo = await window.pixlyGuard.createAuthAccount(u.toLowerCase(), pw);
+            } catch (e) {
+              const code = String((e && e.code) || '');
+              showToast(/network/.test(code) ? 'No connection. Please try again.' : 'Could not create your account right now. Please try again.');
+              return;
+            }
+          }
+          if (window.pixlyGuard) window.pixlyGuard.addSelfAlias(u.toLowerCase());
+
           // Clean account record with empty/null for optional fields left blank
           const newAccount = {
             username: u,
@@ -29451,7 +30080,6 @@ function syncLikedStateToPosts() {
                   accountType: accountType,
                   avatar: newAccount.avatar || '',
                   photoURL: newAccount.avatar || '',
-                  passwordHash: pwHash,
                   isVerified: false,
                   isPlus: false,
                   subscriptionStatus: 'inactive',
@@ -29462,7 +30090,16 @@ function syncLikedStateToPosts() {
                   createdAt: Date.now(),
                   lastUpdated: Date.now()
                 };
+                if (authInfo) {
+                  // Firebase Auth holds the password; no password hash is stored in Firestore.
+                  signupDoc.uid = authInfo.uid;
+                  signupDoc.authEmail = authInfo.authEmail;
+                } else {
+                  // Legacy path (Firebase Auth not loaded): same as before the lockdown.
+                  signupDoc.passwordHash = pwHash;
+                }
                 setDoc(doc(db, 'users', u.toLowerCase()), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(signupDoc) : signupDoc), { merge: true }).then(() => {
+                  if (authInfo && window.pixlyGuard) window.pixlyGuard.linkUidIndex(u.toLowerCase());
                   if (em && typeof window.sendPixlynoteEmail === 'function') {
                     window.sendPixlynoteEmail('welcome', { to: em, username: u.toLowerCase() }).catch(() => {});
                   }
@@ -29589,11 +30226,28 @@ function syncLikedStateToPosts() {
           // PASSWORD VERIFICATION LOGIC:
           let expectedPassword = null;
           let isPasswordValid = false;
+          // Database lockdown: an account with its own Firebase Auth user (users/{u}.uid) is checked by Firebase
+          // Auth only. Accounts not migrated yet keep the old check until the Auth import runs.
+          let loginViaAuth = false;
+          let authFailCode = '';
+          const fillFromMergedDoc = async (name) => {
+            try {
+              const fbx = window.firebase;
+              const s2 = await fbx.getDoc(fbx.doc(fbx.db, 'users', normalizeUsername(name)));
+              if (!s2 || !s2.exists()) return;
+              const merged = s2.data() || {};
+              if (!matchedAccount) { matchedAccount = merged; return; }
+              ['email', 'phone'].forEach((k) => {
+                if ((matchedAccount[k] === undefined || matchedAccount[k] === '') && typeof merged[k] === 'string') matchedAccount[k] = merged[k];
+              });
+            } catch (e) {}
+          };
 
           if (isBradley) {
             // Personal account @bradley_hansen:
             // Verify against the latest saved password (supports hashed & legacy formats) and sync with Firestore.
             let savedBradPw = getActiveAccountPassword('bradley_hansen') || (matchedAccount && (matchedAccount.passwordHash || matchedAccount.password)) || null;
+            let bradRemoteDoc = null;
             let localPwTs = 0;
             try { localPwTs = Number(localStorage.getItem('pixly_pw_updated_at_bradley_hansen') || 0); } catch(e) {}
             if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
@@ -29602,6 +30256,7 @@ function syncLikedStateToPosts() {
                 const snap = await getDoc(doc(db, 'users', 'bradley_hansen'));
                 if (snap.exists()) {
                   const remoteDocData = snap.data() || null;
+                  bradRemoteDoc = remoteDocData;
                   const remotePw = remoteDocData && (remoteDocData.passwordHash || remoteDocData.password);
                   const remoteTs = Number((remoteDocData && remoteDocData.lastUpdated) || 0);
                   if (remotePw && (!savedBradPw || remoteTs >= localPwTs)) {
@@ -29611,7 +30266,11 @@ function syncLikedStateToPosts() {
                 }
               } catch(e) {}
             }
-            if (savedBradPw) {
+            if (bradRemoteDoc && window.pixlyGuard && window.pixlyGuard.accountUsesAuth(bradRemoteDoc)) {
+              const ar = await window.pixlyGuard.signInAccount('bradley_hansen', bradRemoteDoc, pw);
+              isPasswordValid = ar.ok; authFailCode = ar.code || ''; loginViaAuth = ar.ok;
+              if (ar.ok) await fillFromMergedDoc('bradley_hansen');
+            } else if (savedBradPw) {
               isPasswordValid = await verifyPassword(pw, savedBradPw);
             } else {
               isPasswordValid = false;
@@ -29635,7 +30294,11 @@ function syncLikedStateToPosts() {
                 }
               } catch(e) {}
             }
-            if (storedPw) {
+            if (remoteDocData && window.pixlyGuard && window.pixlyGuard.accountUsesAuth(remoteDocData)) {
+              const ar = await window.pixlyGuard.signInAccount(lookupU, remoteDocData, pw);
+              isPasswordValid = ar.ok; authFailCode = ar.code || ''; loginViaAuth = ar.ok;
+              if (ar.ok) await fillFromMergedDoc(lookupU);
+            } else if (storedPw) {
               isPasswordValid = await verifyPassword(pw, storedPw);
             } else {
               isPasswordValid = false;
@@ -29643,7 +30306,7 @@ function syncLikedStateToPosts() {
           }
 
           if (!isPasswordValid) {
-            showToast('Incorrect username or password for @' + u);
+            showToast((authFailCode && window.pixlyGuard) ? window.pixlyGuard.authLoginErrorMessage(authFailCode, u) : ('Incorrect username or password for @' + u));
             if (pwInp) {
               pwInp.value = '';
               pwInp.focus();
@@ -29723,7 +30386,10 @@ function syncLikedStateToPosts() {
 
           if (window.firebaseReady && window.firebase && window.firebase.db) {
             const { db, doc, setDoc } = window.firebase;
-            setDoc(doc(db, 'users', normalizeUsername(targetUsername)), { passwordHash: pwHash, phone: targetPhone, lastUpdated: Date.now() }, { merge: true }).catch(() => {});
+            // A migrated account's password lives in Firebase Auth only; never write a hash for it.
+            const loginWrite = loginViaAuth ? { lastUpdated: Date.now() } : { passwordHash: pwHash, lastUpdated: Date.now() };
+            if (targetPhone) loginWrite.phone = targetPhone;
+            setDoc(doc(db, 'users', normalizeUsername(targetUsername)), loginWrite, { merge: true }).catch(() => {});
           }
         }
         const getLoginEl = (id) => {
@@ -30475,6 +31141,35 @@ function syncLikedStateToPosts() {
             }
 
             const targetUser = (pendingReset.username || '').toLowerCase();
+            // Database lockdown: a migrated account's password is in Firebase Auth. The Worker sets it after the
+            // verified code (and sends the confirmation email). If that fails, nothing changes (fails safe).
+            let resetViaAuth = false;
+            if (targetUser && window.firebaseReady && window.firebase && window.firebase.getDoc && window.pixlyGuard) {
+              let resetDoc = null;
+              try {
+                const rs = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'users', targetUser));
+                resetDoc = (rs && rs.exists()) ? (rs.data() || null) : null;
+              } catch (e) {}
+              if (resetDoc && window.pixlyGuard.accountUsesAuth(resetDoc)) {
+                try {
+                  const rr = await fetch(PIXLYNOTE_API_ENDPOINT + '/auth/reset-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: pendingReset.email, username: targetUser, newPassword: newPw })
+                  });
+                  const rj = await rr.json().catch(() => ({}));
+                  if (!rr.ok || rj.ok !== true) {
+                    setForgotStatus(forgotStatus2, rj.error === 'auth_admin_unavailable'
+                      ? 'Password reset is temporarily unavailable. Please contact Pixlynote support.'
+                      : 'Could not reset your password. Please request a new code and try again.', true);
+                    return;
+                  }
+                  resetViaAuth = true;
+                } catch (e) {
+                  setForgotStatus(forgotStatus2, 'Could not reach Pixlynote. Please try again.', true);
+                  return;
+                }
+              }
+            }
             const newPwHash = await hashPassword(newPw);
             const pwResetAt = Date.now();
             try {
@@ -30507,14 +31202,14 @@ function syncLikedStateToPosts() {
               sessionStorage.removeItem('pixly_pending_reset');
             } catch(err) {}
 
-            if (window.firebaseReady && window.firebase && window.firebase.db && targetUser) {
+            if (window.firebaseReady && window.firebase && window.firebase.db && targetUser && !resetViaAuth) {
               const { db, doc, setDoc } = window.firebase;
               setDoc(doc(db, 'users', targetUser), { passwordHash: newPwHash, password: null, lastUpdated: pwResetAt }, { merge: true }).catch(() => {});
             }
             if (targetUser) {
               recordLoginActivityEvent('password_reset', 'Reset via email verification (previous password invalidated)', targetUser);
             }
-            if (pendingReset.email && targetUser && typeof sendPixlynoteEmail === 'function') {
+            if (pendingReset.email && targetUser && !resetViaAuth && typeof sendPixlynoteEmail === 'function') {
               sendPixlynoteEmail('password_reset', { to: pendingReset.email, username: targetUser }).catch(() => {});
             }
 
@@ -33644,6 +34339,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
       list.unshift({ username: targetU, status: 'pending', grantedAt: Date.now() });
       savePrivilegedGrantedList(curU, list);
+      // Database lockdown: the security rules let @targetU act for this account only while its uid is listed here.
+      if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateUid === 'function') window.pixlyGuard.syncDelegateUid(curU, targetU, true);
 
       if (typeof addNotificationForUser === 'function') {
         await addNotificationForUser(targetU, {
@@ -33672,6 +34369,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (!curU || !targetU) return;
       const updated = getPrivilegedGrantedList(curU).filter(g => normalizeUsername(g.username) !== targetU);
       savePrivilegedGrantedList(curU, updated);
+      if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateUid === 'function') window.pixlyGuard.syncDelegateUid(curU, targetU, false);
 
       // Remove curU from targetU's privilegedAccounts and accountCenters/<targetU>
       if (window.firebaseReady && window.firebase && window.firebase.db) {
@@ -33685,8 +34383,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               await setDoc(doc(db, 'users', targetU), { privilegedAccounts: nextPriv }, { merge: true }).catch(() => {});
             }
           }
-          const acSnap = await getDoc(doc(db, 'accountCenters', targetU));
-          if (acSnap.exists()) {
+          let acSnap = null;
+          try { acSnap = await getDoc(doc(db, 'accountCenters', targetU)); } catch (acErr) {
+            // Locked rules: another account's Account Center is private. Just mark this account as removed there.
+            if (window.firebase.arrayUnion) await setDoc(doc(db, 'accountCenters', targetU), { removedUsernames: window.firebase.arrayUnion(curU) }, { merge: true }).catch(() => {});
+          }
+          if (acSnap && acSnap.exists()) {
             const acd = acSnap.data() || {};
             const nextAccs = (Array.isArray(acd.accounts) ? acd.accounts : []).filter(a => normalizeUsername(a && a.username) !== curU);
             const removed = Array.isArray(acd.removedUsernames) ? [...acd.removedUsernames] : [];
@@ -33847,21 +34549,34 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
       const targetU = normalizeUsername(acc.username);
       let storedPw = (typeof getActiveAccountPassword === 'function' ? getActiveAccountPassword(targetU) : null) || acc.passwordHash || acc.password || null;
+      let targetDoc = null;
       if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
         try {
           const { db, doc, getDoc } = window.firebase;
           const snap = await getDoc(doc(db, 'users', targetU));
           if (snap.exists()) {
             const d = snap.data() || {};
+            targetDoc = d;
             if (d.passwordHash || d.password) storedPw = d.passwordHash || d.password;
           }
         } catch(e) {}
       }
 
-      const ok = storedPw ? await verifyPassword(pw, storedPw) : false;
+      // Database lockdown: a migrated account switches its Firebase Auth session too (password checked by Auth).
+      let ok = false;
+      let switchFailCode = '';
+      if (targetDoc && window.pixlyGuard && window.pixlyGuard.accountUsesAuth(targetDoc)) {
+        const ar = await window.pixlyGuard.signInAccount(targetU, targetDoc, pw);
+        ok = ar.ok; switchFailCode = ar.code || '';
+      } else {
+        ok = storedPw ? await verifyPassword(pw, storedPw) : false;
+      }
       if (_pendingSwitchAccountObj !== acc) return;
       if (!ok) {
-        if (errEl) { errEl.textContent = 'Incorrect password for @' + acc.username; errEl.classList.remove('hidden'); }
+        const switchMsg = (switchFailCode && switchFailCode !== 'wrong-password' && window.pixlyGuard)
+          ? window.pixlyGuard.authLoginErrorMessage(switchFailCode, acc.username)
+          : 'Incorrect password for @' + acc.username;
+        if (errEl) { errEl.textContent = switchMsg; errEl.classList.remove('hidden'); }
         if (inp) { inp.value = ''; inp.focus(); }
         return;
       }
