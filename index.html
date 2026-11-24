@@ -8060,6 +8060,8 @@ function syncLikedStateToPosts() {
       const strId = String(postId);
       const target = getPostById(postId);
       if (!target) return;
+      if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+      state.explorePostsArchive.set(strId, target);
 
       const curU = (state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen').toLowerCase().replace(/^@/, '');
 
@@ -14272,12 +14274,10 @@ function syncLikedStateToPosts() {
           post = state.posts.find(p => p.id === numId);
         }
 
-        // Show anything the owner actually liked, including Explore items in the
-        // 201–212 / 2001–2999 / 8000–8999 ranges. Those IDs are persisted to the
-        // user doc; isFabricatedFeedItem is only meant to keep generated Explore
-        // filler out of a real account's own Posts/Feed, not to empty Likes.
-        // Still hide hardcoded seed demo posts (ids 1–6 / isSeed).
-        if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoContent === 'function' && isSeededDemoContent(post))) {
+        // Show anything the owner actually liked, including Explore items and
+        // feed-visible built-in posts (e.g. nordic_trails id 1). Hide only seed
+        // posts attributed to a real account, matching Saved.
+        if (post && !seenIds.has(String(post.id)) && !(typeof isSeededDemoForRealAccount === 'function' && isSeededDemoForRealAccount(post))) {
           if (typeof canSeeAudienceContent === 'function' && !canSeeAudienceContent(post)) {
             // hide Close Friends posts the viewer cannot see
           } else {
