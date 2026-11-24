@@ -445,6 +445,48 @@ module.exports = {
           await reloadSignedOut(page, h);
         }
       }
+    },
+    {
+      name: 'DB lockdown: Unit: no anonymous Auth sign-in (it is off in Firebase); signed-out view counts still flush',
+      accounts: ['signed-out'],
+      async run({ page, h, a }) {
+        try {
+          await setup(page, { ['users/' + MIG]: { username: MIG, uid: MIG_UID, authEmail: MIG_AUTH } });
+          await page.evaluate(() => {
+            window.__anonCalls = 0;
+            window.__anonOrig = window.firebase.signInAnonymously;
+            window.firebase.signInAnonymously = async () => { window.__anonCalls += 1; throw Object.assign(new Error('admin only'), { code: 'auth/admin-restricted-operation' }); };
+          });
+          await h.openLoginForm(page);
+          await page.fill('#login-username', MIG);
+          await page.fill('#login-password', 'wrong-password');
+          await page.click('#btn-auth-submit');
+          await tick(page, 900);
+          await page.evaluate(() => { if (typeof window.performLogout === 'function') window.performLogout(); });
+          await tick(page, 300);
+          const src = await page.evaluate(() => fetch(location.href.split('#')[0]).then((r) => r.text()));
+          const calls = (src.match(/signInAnonymously\((auth|window\.firebase\.auth)\)/g) || []).length;
+          const guards = (src.match(/PIXLY_USE_ANON_AUTH === true/g) || []).length;
+          const coldStartGuarded = /!auth\.currentUser && window\.PIXLY_USE_ANON_AUTH === true\) \{\s*await signInAnonymously\(auth\)/.test(src);
+          a.equal(await page.evaluate(() => window.__anonCalls), 0, 'login attempt and logout never call signInAnonymously');
+          a.ok(coldStartGuarded, 'cold-start anonymous sign-in only behind PIXLY_USE_ANON_AUTH');
+          a.ok(calls >= 1 && guards >= calls, 'every signInAnonymously call has a PIXLY_USE_ANON_AUTH guard (' + calls + ' calls, ' + guards + ' guards)');
+          // Signed-out view counts: one +1 per post, written with no Auth session.
+          const v = await page.evaluate(async () => {
+            window.__pfs.docs['posts/dbl_v1'] = { id: 'dbl_v1', author: 'someone', authorPrivate: false, views: 2 };
+            const queued = window.queuePostView('dbl_v1');
+            const fl = await window.flushPostViewIncrements();
+            return { queued, fl, views: window.__pfs.docs['posts/dbl_v1'].views, authUser: !!(window.firebase.auth && window.firebase.auth.currentUser) };
+          });
+          a.ok(!v.authUser, 'still no Auth session while signed out');
+          if (v.queued) { a.equal(v.fl && v.fl.wrote, 1, 'one view write while signed out'); }
+        } finally {
+          await page.evaluate(() => { window.firebase.signInAnonymously = window.__anonOrig; }).catch(() => {});
+          await page.evaluate(uninstallPixlyMockFirestore).catch(() => {});
+          await reloadSignedOut(page, h);
+        }
+      }
     }
+
   ]
 };

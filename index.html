@@ -5526,7 +5526,9 @@
         try {
           // Wait for a persisted per-user Auth session first; otherwise the anonymous sign-in below replaces it.
           if (typeof auth.authStateReady === 'function') { await auth.authStateReady(); }
-          if (!auth.currentUser) {
+          // Anonymous sign-in is off in Firebase and nothing needs it: signed-out visitors read public data and
+          // count views without any Auth session. Set window.PIXLY_USE_ANON_AUTH = true only if it is turned on again.
+          if (!auth.currentUser && window.PIXLY_USE_ANON_AUTH === true) {
             await signInAnonymously(auth);
           }
         } catch(e) {
@@ -27106,7 +27108,7 @@ function syncLikedStateToPosts() {
       if (window.firebase && window.firebase.signOut && window.firebase.auth) {
         try {
           window.firebase.signOut(window.firebase.auth)
-            .then(() => (window.firebase.signInAnonymously && !window.firebase.auth.currentUser) ? window.firebase.signInAnonymously(window.firebase.auth) : null)
+            .then(() => (window.PIXLY_USE_ANON_AUTH === true && window.firebase.signInAnonymously && !window.firebase.auth.currentUser) ? window.firebase.signInAnonymously(window.firebase.auth) : null)
             .catch(() => {});
         } catch(e) {}
       }
@@ -30267,7 +30269,7 @@ function syncLikedStateToPosts() {
           }
 
           // Ensure Firebase Auth session is active (fixes permission errors after same-page logout & re-login)
-          if (window.firebase && window.firebase.auth && !window.firebase.auth.currentUser && window.firebase.signInAnonymously) {
+          if (window.PIXLY_USE_ANON_AUTH === true && window.firebase && window.firebase.auth && !window.firebase.auth.currentUser && window.firebase.signInAnonymously) {
             try { await window.firebase.signInAnonymously(window.firebase.auth); } catch(e) {}
           }
 

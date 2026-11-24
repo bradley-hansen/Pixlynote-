@@ -6,7 +6,8 @@ rules_version = '2';
 // Identity model
 // - Every real account has one Firebase Auth user. users/{username}.uid is that user's uid.
 // - uidIndex/{uid} = { username } maps the signed-in user back to the account name (written by the owner).
-// - Signed-out visitors use anonymous Auth sessions: they can read public content and count views only.
+// - Signed-out visitors have NO Auth session (Anonymous sign-in is off in Firebase): they can read public content
+//   and raise a public post's or note's view count by exactly one. Nothing else.
 // - users/{u}.delegateUids lists the uids the owner granted Privileged Access (passwordless switch).
 // - @pixlynote is the admin account: its uid may read and fix anything (admin tools keep working).
 service cloud.firestore {
@@ -38,6 +39,10 @@ service cloud.firestore {
       return realUser() && exists(/databases/$(database)/documents/users/$(owner)/followers/$(myName()));
     }
     function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    // A view counter that goes up by exactly one (anyone, signed in or not).
+    function plusOneView() {
+      return request.resource.data.get('views', 0) == (resource == null ? 0 : resource.data.get('views', 0)) + 1;
+    }
     // Fields another signed-in account may change on someone's users doc (notifications, story comments,
     // connection approvals, Privileged Access and Business associate invites). Nothing else.
     function socialFields() {
@@ -121,7 +126,7 @@ service cloud.firestore {
                         && (request.resource.data.author == resource.data.author || canActAs(request.resource.data.author))
                         && (isPublicAccount(resource.data.author) || request.resource.data.get('authorPrivate', false) == true))
                     || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data))
-                    || (signedIn() && changed().hasOnly(['views']) && readablePost(resource.data))
+                    || (changed().hasOnly(['views']) && plusOneView() && readablePost(resource.data))
                     || isAdmin();
       allow delete: if canActAs(resource.data.author) || isAdmin();
     }
@@ -185,7 +190,7 @@ service cloud.firestore {
     }
     match /noteViews/{noteId} {
       allow read: if true;
-      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['views']);
+      allow create, update: if request.resource.data.keys().hasOnly(['views']) && plusOneView();
       allow delete: if isAdmin();
     }
     match /{collection}/{document=**} {

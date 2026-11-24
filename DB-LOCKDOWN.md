@@ -59,6 +59,7 @@
 4. **When a private account goes public, its pending connect requests are auto-approved.** Each request is approved the same way the Approve button does it: the requester's Connected list, the followers edge, request deletion and a `connect_approved` notification. Then one summary toast appears. Any approval that fails stays pending and is retried the next time the requests list loads while the account is public. Covered by app tests in suites 45 and 50.
 
 ## Known gaps (phase 2)
+- Anonymous sign-in is off in Firebase and the app no longer calls it (flag `PIXLY_USE_ANON_AUTH`). Signed-out visitors have no Auth session: they read public data and may only add +1 to a public post or note view count.
 - Owners can still set their own `isPlus`/`isVerified`. These should move to Worker-verified writes.
 - Notes, stories, highlights and `following` stay on the public users doc. Private accounts hide them in the app only.
 - Signed-in users can still rewrite other accounts' social fields (notifications, following, story comments), as well as comments on posts they can see.
