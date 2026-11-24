@@ -79,7 +79,9 @@ module.exports = {
         const hasSeed = (arr) => (arr || []).some((id) => ['1', '2', '3', '4', '5', '6'].includes(String(id)));
         a.ok(result.likedPosts.includes('2123') || result.likesGrid.includes('2123'), 'Liked photos include Explore item 2123: ' + JSON.stringify(result.likedPosts.concat(result.likesGrid)));
         a.ok(result.savedPosts.includes('2144') || result.savedGrid.includes('2144'), 'Saved photos include Explore item 2144');
-        a.ok(!hasSeed(result.likesGrid) && !hasSeed(result.savedGrid) && !hasSeed(result.likedNotesList) && !hasSeed(result.savedNotesList), 'Seed ids 1–6 are hidden from the tab lists: ' + JSON.stringify(result));
+        a.ok(!hasSeed(result.likesGrid) && !hasSeed(result.likedNotesList), 'Seed ids 1–6 stay hidden from Likes tab lists: ' + JSON.stringify({ likesGrid: result.likesGrid, likedNotesList: result.likedNotesList }));
+        a.ok(!hasSeed(result.savedNotesList), 'Seed notes by a real account stay hidden from Saved Notes: ' + JSON.stringify(result.savedNotesList));
+        a.ok(result.savedGrid.includes('2') || result.savedPosts.includes('2'), 'Saved photos include feed-visible seed post 2 (elena_eats): ' + JSON.stringify(result.savedGrid));
 
         // Newest first: 2144 was saved after 2123, 9102 after 9101
         const photoOrder = result.savedGrid.length ? result.savedGrid : result.savedPosts.slice().reverse();
