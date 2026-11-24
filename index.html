@@ -30101,6 +30101,7 @@ function syncLikedStateToPosts() {
             email: current.email || cloudUser.email || localAccount.email || '',
             phone: current.phone || cloudUser.phone || localAccount.phone || '',
             accountType: current.accountType || cloudUser.accountType || localAccount.accountType || '',
+            isPrivate: (current.isPrivate === true) || (cloudUser.isPrivate === true) || (localAccount.isPrivate === true),
             bio: current.bio || cloudUser.bio || localAccount.bio || '',
             link: current.link || cloudUser.link || localAccount.link || '',
             avatar: current.avatar || current.photoURL || cloudUser.avatar || cloudUser.photoURL || localAccount.avatar || '',
