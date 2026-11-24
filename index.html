@@ -24012,6 +24012,86 @@ function syncLikedStateToPosts() {
       });
     }
 
+    function connectRequestNotifSeenKey(me) {
+      return 'pixly_conn_req_notif_seen_' + (me || '');
+    }
+    function connectRequestListSignature(list) {
+      return (Array.isArray(list) ? list : []).map(function (r) {
+        return String((r && r.username) || '') + ':' + String((r && r.requestedAt) || 0);
+      }).join('|');
+    }
+    function formatConnectRequestNotifText(list) {
+      if (!list || !list.length) return '';
+      if (list.length === 1) return '@' + list[0].username + ' wants to connect';
+      return list.length + ' connect requests';
+    }
+    function isConnectRequestNotifUnread(list) {
+      const me = (typeof privacyViewer === 'function') ? privacyViewer() : '';
+      if (!me || !list || !list.length) return false;
+      try {
+        const seen = localStorage.getItem(connectRequestNotifSeenKey(me)) || '';
+        return seen !== connectRequestListSignature(list);
+      } catch (e) { return true; }
+    }
+    function markConnectRequestNotifSeen(list) {
+      const me = (typeof privacyViewer === 'function') ? privacyViewer() : '';
+      if (!me) return;
+      const rows = list || ((typeof getIncomingConnectRequests === 'function') ? getIncomingConnectRequests() : []);
+      try { localStorage.setItem(connectRequestNotifSeenKey(me), connectRequestListSignature(rows)); } catch (e) {}
+    }
+    function buildConnectRequestNotification(list) {
+      const rows = Array.isArray(list) ? list : [];
+      if (!rows.length) return null;
+      const newest = rows[0];
+      const users = rows.map(function (r) { return r.username; });
+      const avatars = {};
+      rows.forEach(function (r) { if (r && r.username) avatars[r.username] = r.avatar || ''; });
+      return {
+        id: 'connect-requests',
+        type: 'connect_requests',
+        fromUser: rows.length === 1 ? (newest.username || '') : '',
+        fromAvatar: (newest && newest.avatar) || '',
+        users: users,
+        avatars: avatars,
+        text: formatConnectRequestNotifText(rows),
+        time: 'Just now',
+        timestamp: Number(newest && newest.requestedAt) || Date.now(),
+        read: !isConnectRequestNotifUnread(rows),
+        _synthetic: true
+      };
+    }
+    function notificationsForDisplay(src) {
+      const list = [];
+      const incoming = (typeof getIncomingConnectRequests === 'function') ? getIncomingConnectRequests() : [];
+      const cr = buildConnectRequestNotification(incoming);
+      if (cr) list.push(cr);
+      (Array.isArray(src) ? src : []).forEach(function (n) {
+        if (!n) return;
+        if (n.type === 'connect_request') return;
+        list.push(n);
+      });
+      return list;
+    }
+    function openConnectRequestsFromNotification() {
+      if (typeof markConnectRequestNotifSeen === 'function') markConnectRequestNotifSeen();
+      if (typeof toggleNotificationsDropdown === 'function') toggleNotificationsDropdown(false);
+      else {
+        const dd = document.getElementById('notifications-dropdown');
+        const backdrop = document.getElementById('notifications-backdrop');
+        if (dd) { dd.classList.add('hidden'); dd.style.display = 'none'; }
+        if (backdrop) { backdrop.classList.add('hidden'); backdrop.style.display = 'none'; }
+      }
+      if (typeof openAccountCenterModal === 'function') openAccountCenterModal();
+      if (typeof setAccountCenterView === 'function') setAccountCenterView('connectRequests');
+    }
+    window.connectRequestListSignature = connectRequestListSignature;
+    window.formatConnectRequestNotifText = formatConnectRequestNotifText;
+    window.buildConnectRequestNotification = buildConnectRequestNotification;
+    window.notificationsForDisplay = notificationsForDisplay;
+    window.markConnectRequestNotifSeen = markConnectRequestNotifSeen;
+    window.openConnectRequestsFromNotification = openConnectRequestsFromNotification;
+    window.isConnectRequestNotifUnread = isConnectRequestNotifUnread;
+
     // --- Render Notifications ---
     // ===== Notifications: grouped likes + Highlights / All =====
     const NOTIF_LIKE_FAMILIES = {
@@ -24042,7 +24122,7 @@ function syncLikedStateToPosts() {
       if ((t === 'privileged_access_invite' || t === 'business_associate_invite') && n.status !== 'accepted' && n.status !== 'declined') return 0;
       if (t === 'password_updated' || t === 'business_verification') return 0;
       if (t === 'mention' || t === 'comment_post' || t === 'comment_note' || t === 'reply_comment' || t === 'story_reply') return 1;
-      if (t === 'connect_request') return 0;
+      if (t === 'connect_request' || t === 'connect_requests') return 0;
       if (t === 'follow' || t === 'follow_back' || t === 'connect_approved') return 2;
       if (NOTIF_LIKE_FAMILIES[t]) return 3;
       return 3;
@@ -24143,14 +24223,21 @@ function syncLikedStateToPosts() {
       }
       const notifMode = getNotificationMode();
       paintNotificationModeTabs(notifMode);
-      const nextHash = notifMode + '|' + JSON.stringify(state.notifications);
+      const displayNotifs = notificationsForDisplay(state.notifications);
+      const incomingForHash = (typeof getIncomingConnectRequests === 'function') ? getIncomingConnectRequests() : [];
+      let crSeenHash = '';
+      try {
+        const meSeen = (typeof privacyViewer === 'function') ? privacyViewer() : '';
+        crSeenHash = meSeen ? (localStorage.getItem(connectRequestNotifSeenKey(meSeen)) || '') : '';
+      } catch (e) {}
+      const nextHash = notifMode + '|' + JSON.stringify(state.notifications) + '|cr:' + connectRequestListSignature(incomingForHash) + '|seen:' + crSeenHash;
       if (!force && window._lastRenderedNotifHash === nextHash && list.children.length > 0) {
         return;
       }
       window._lastRenderedNotifHash = nextHash;
 
       // Check unread count and update heart badge / subtle shading
-      const unreadCount = state.notifications.filter(n => !n.read).length;
+      const unreadCount = displayNotifs.filter(n => !n.read).length;
       const heartShade = document.getElementById('notif-heart-shade');
       if (badge) {
         if (unreadCount > 0) {
@@ -24164,7 +24251,7 @@ function syncLikedStateToPosts() {
         }
       }
 
-      if (state.notifications.length === 0) {
+      if (displayNotifs.length === 0) {
         list.innerHTML = `
           <div class="p-6 text-center text-neutral-400">
             <div class="text-2xl mb-1">🔔</div>
@@ -24175,12 +24262,14 @@ function syncLikedStateToPosts() {
         return;
       }
 
-      const notifGroups = buildNotificationDisplayGroups(state.notifications, notifMode);
+      const notifGroups = buildNotificationDisplayGroups(displayNotifs, notifMode);
       list.innerHTML = notifGroups.map((g) => {
         const idx = g.rep;
-        const n = state.notifications[idx];
-        const isGroup = g.isGroup;
-        const u = n.fromUser || n.user || 'creator';
+        const n = displayNotifs[idx];
+        const isConnReq = n && n.type === 'connect_requests';
+        const crUsers = isConnReq ? (n.users || []) : [];
+        const isGroup = isConnReq ? crUsers.length > 1 : g.isGroup;
+        const u = isConnReq ? (crUsers[0] || n.fromUser || '') : (n.fromUser || n.user || 'creator');
         const av = resolveLiveAvatar(u, n.fromAvatar);
         const isStoryNotif = (n.type === 'story_like' || n.type === 'story_reply') && n.storyId !== undefined && n.storyId !== null;
         const ownStories = isStoryNotif ? (Array.isArray(state.userStories) ? state.userStories : []) : [];
@@ -24191,14 +24280,19 @@ function syncLikedStateToPosts() {
           ? (storyActive ? (ownStories.length > 1 ? `Story ${storyIdx + 1} of ${ownStories.length}` : 'Your story') : 'Expired story')
           : '';
         return `
-          <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${isGroup ? 'notif-group' : ''} ${g.unread ? 'bg-violet-50/40' : ''}" data-idx="${idx}" data-members="${g.members.join(',')}" data-tier="${g.tier}">
+          <div class="p-3 flex items-center justify-between hover:bg-neutral-50 transition cursor-pointer notif-item ${isGroup ? 'notif-group' : ''} ${isConnReq ? 'notif-connect-requests' : ''} ${g.unread ? 'bg-violet-50/40' : ''}" data-idx="${idx}" data-members="${g.members.join(',')}" data-tier="${g.tier}" data-type="${escapeHtml(n.type || '')}">
             <div class="flex items-center space-x-2.5 min-w-0 pr-2">
-              ${isGroup ? notifStackedAvatarsHtml(g.users, g.avatars) : `
+              ${isGroup ? notifStackedAvatarsHtml(isConnReq ? crUsers : g.users, isConnReq ? (n.avatars || {}) : g.avatars) : `
               <div class="w-8 h-8 rounded-full overflow-hidden bg-neutral-200 border border-neutral-100 flex-shrink-0">
                 <img src="${av}" alt="${u}" class="w-full h-full object-cover" onerror="this.src=COMMUNITY_IMAGES[0]">
               </div>`}
               <div class="text-xs min-w-0 space-y-0.5">
-                ${isGroup ? `
+                ${isConnReq ? `
+                <div class="leading-snug notif-connect-requests-text">
+                  ${crUsers.length === 1
+                    ? '<span class="font-bold text-neutral-900">@' + escapeHtml(crUsers[0]) + '</span><span class="text-neutral-600"> wants to connect</span>'
+                    : '<span class="font-bold text-neutral-900">' + crUsers.length + ' connect requests</span>'}
+                </div>` : isGroup ? `
                 <div class="leading-snug notif-group-text">
                   ${(() => {
                     const shown = g.users.slice(0, 3);
@@ -24305,23 +24399,32 @@ function syncLikedStateToPosts() {
       list.querySelectorAll('.notif-item').forEach(item => {
         item.addEventListener('click', () => {
           const idx = parseInt(item.dataset.idx, 10);
-          const notif = state.notifications[idx];
+          const notif = displayNotifs[idx];
           if (!notif) return;
 
           // A grouped row marks every like in the group read.
           String(item.dataset.members || '').split(',').forEach(m => {
             const mi = parseInt(m, 10);
-            if (!isNaN(mi) && state.notifications[mi]) state.notifications[mi].read = true;
+            if (!isNaN(mi) && displayNotifs[mi] && !displayNotifs[mi]._synthetic) displayNotifs[mi].read = true;
           });
-          notif.read = true;
-          saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
-          renderNotifications();
+          if (!notif._synthetic) notif.read = true;
+          if (notif.type !== 'connect_requests' && notif.type !== 'connect_request') {
+            saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
+            renderNotifications();
+          }
 
           // Close dropdown
           const dd = document.getElementById('notifications-dropdown');
           if (dd) {
             dd.classList.add('hidden');
             dd.style.display = 'none';
+          }
+
+          if (notif.type === 'connect_requests' || notif.type === 'connect_request') {
+            if (typeof markConnectRequestNotifSeen === 'function') markConnectRequestNotifSeen();
+            renderNotifications();
+            if (typeof openConnectRequestsFromNotification === 'function') openConnectRequestsFromNotification();
+            return;
           }
 
           // Open target content
@@ -24347,8 +24450,9 @@ function syncLikedStateToPosts() {
     }
 
     function markAllNotificationsRead() {
-      if (!state.notifications) return;
+      if (!state.notifications) state.notifications = [];
       state.notifications.forEach(n => { n.read = true; });
+      if (typeof markConnectRequestNotifSeen === 'function') markConnectRequestNotifSeen();
       saveAccountNotifications(state.currentUser ? state.currentUser.username : 'bradley_hansen', true);
       renderNotifications();
       showToast('All notifications marked as read');
