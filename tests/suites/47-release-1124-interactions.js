@@ -18,7 +18,10 @@ async function openYourAccount(page, h) {
     if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
     else if (typeof openAccountCenterModal === 'function') openAccountCenterModal();
   });
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => { if (typeof setAccountCenterView === 'function') setAccountCenterView('yourAccount'); });
+  try { await page.click('#btn-ac-open-your-account', { timeout: 1000 }); } catch (e) {}
+  await page.waitForTimeout(80);
 }
 
 async function openPrivacySafety(page, h) {
@@ -121,10 +124,12 @@ module.exports = {
       async run({ page, a }) {
         const r = await page.evaluate((tinyPng) => {
           const me = (state.currentUser && state.currentUser.username) || '';
+          const listOf = (v) => Array.isArray(v) ? v.slice() : [];
           const snap = {
-            posts: (state.posts || []).slice(),
-            explore: (state.explorePosts || []).slice(),
-            archive: (state.explorePostsArchive || []).slice(),
+            posts: listOf(state.posts),
+            explore: listOf(state.explorePosts),
+            archive: listOf(state.explorePostsArchive),
+            hadArchive: Array.isArray(state.explorePostsArchive),
             saved: Array.from(state.savedPostIds || []),
             liked: Array.from(state.likedPostIds || []),
             privacy: Object.assign({}, window._acctPrivacy || {}),
@@ -203,7 +208,7 @@ module.exports = {
           // Restore
           state.posts = snap.posts;
           state.explorePosts = snap.explore;
-          state.explorePostsArchive = snap.archive;
+          if (snap.hadArchive) state.explorePostsArchive = snap.archive;
           if (state.savedPostIds && typeof state.savedPostIds.clear === 'function') {
             state.savedPostIds.clear();
             snap.saved.forEach((id) => state.savedPostIds.add(id));
