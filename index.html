@@ -2344,6 +2344,7 @@
           </div>
           <p class="text-[10px] text-neutral-400 mt-1">This email or phone is registered for account access & recovery.</p>
           <p id="edit-profile-email-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+          <p id="edit-profile-email-status" class="hidden text-[10px] mt-1 font-medium"></p>
           <div id="edit-profile-email-verify-panel" class="hidden mt-2 space-y-2">
             <p id="edit-profile-email-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
             <div id="edit-profile-email-code-wrap" class="hidden space-y-2">
@@ -2372,6 +2373,7 @@
           </div>
           <p class="text-[10px] text-neutral-400 mt-1" id="edit-profile-phone-hint">Enter your phone number so you can log in with phone or email next time. Either phone or email is required.</p>
           <p id="edit-profile-phone-error" class="hidden text-[10px] text-rose-500 mt-1 font-medium"></p>
+          <p id="edit-profile-phone-status" class="hidden text-[10px] mt-1 font-medium"></p>
           <div id="edit-profile-phone-verify-panel" class="hidden mt-2 space-y-2">
             <p id="edit-profile-phone-verify-status" class="hidden text-[11px] font-medium rounded-lg px-3 py-2"></p>
             <div id="edit-profile-phone-code-wrap" class="hidden space-y-2">
@@ -4148,7 +4150,15 @@
             if (typeof window.applyRemoteVerificationFields === 'function') window.applyRemoteVerificationFields(d);
             const recentlyMutatedProfile = (Date.now() - (window._lastLocalProfileWriteTs || 0)) < 3500;
             try { window._activeUserDocCache = { username: cleanU, data: d, at: Date.now() }; } catch (e) {}
-            if (!hasPendingWrites && !recentlyMutatedProfile) {
+            const editingProfile = (typeof isEditProfileModalOpen === 'function')
+              ? isEditProfileModalOpen()
+              : (function () {
+                  const editModal = document.getElementById('modal-edit-profile');
+                  return !!(editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none');
+                })();
+            // While Edit Profile is open, the form is the source of truth. Do not merge remote
+            // profile fields into state or localStorage (that fight causes field flicker).
+            if (!hasPendingWrites && !recentlyMutatedProfile && !editingProfile) {
               let profileChanged = false;
               if (typeof mergeStoredProfileFields === 'function') {
                 profileChanged = !!mergeStoredProfileFields(state.currentUser, d, { replace: true, protectContact: true });
@@ -4221,7 +4231,10 @@
                   });
                   if (typeof STORED_PROFILE_FIELDS !== 'undefined') {
                     STORED_PROFILE_FIELDS.forEach(function (k) {
-                      if (d[k] === undefined) delete updatedRec[k];
+                      if (d[k] !== undefined) return;
+                      const localVal = state.currentUser && state.currentUser[k];
+                      if (typeof isBlankProfileField === 'function' ? !isBlankProfileField(localVal) : !!(localVal != null && String(localVal).trim())) return;
+                      delete updatedRec[k];
                     });
                   }
                   accts[cleanU] = updatedRec;
@@ -4251,31 +4264,13 @@
                 if (typeof renderFeed === 'function') renderFeed();
                 if (typeof renderNotes === 'function') renderNotes();
                 try {
-                  const editModal = document.getElementById('modal-edit-profile');
-                  if (editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none') {
-                    const bioInp = document.getElementById('edit-profile-bio');
-                    const nameInp = document.getElementById('edit-profile-name');
-                    const emailInp = document.getElementById('edit-profile-email');
-                    const phoneInp = document.getElementById('edit-profile-phone');
-                    const linkInp = document.getElementById('edit-profile-link');
-                    const ev = state.editProfileVerify || {};
-                    const sameEmail = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-                    const digits = (a) => String(a || '').replace(/\D/g, '');
-                    if (bioInp && document.activeElement !== bioInp) bioInp.value = state.currentUser.bio || '';
-                    if (nameInp && document.activeElement !== nameInp) {
-                      const editing = window._editingAccountType || (state.currentUser && state.currentUser.accountType) || 'personal';
-                      nameInp.value = (typeof window.getEditProfileSavedName === 'function')
-                        ? window.getEditProfileSavedName(editing)
-                        : (state.currentUser.fullName || '');
-                    }
-                    if (emailInp && document.activeElement !== emailInp) {
-                      if (!ev.savedEmail || sameEmail(emailInp.value, ev.savedEmail)) emailInp.value = state.currentUser.email || '';
-                    }
-                    if (phoneInp && document.activeElement !== phoneInp) {
-                      if (!ev.savedPhone || digits(phoneInp.value) === digits(ev.savedPhone)) phoneInp.value = state.currentUser.phone || '';
-                    }
-                    if (linkInp && document.activeElement !== linkInp) linkInp.value = state.currentUser.link || '';
-                    if (typeof fillEditProfileBusinessFields === 'function') fillEditProfileBusinessFields(state.currentUser, { skipActive: true });
+                  // While Edit Profile is open the form is the source of truth.
+                  // Live listener/re-render updates must not overwrite any field the user is editing.
+                  if (typeof isEditProfileModalOpen === 'function' ? isEditProfileModalOpen() : (function () {
+                    const editModal = document.getElementById('modal-edit-profile');
+                    return !!(editModal && !editModal.classList.contains('hidden') && editModal.style.display !== 'none');
+                  })()) {
+                    // leave the open form alone
                   }
                 } catch(e) {}
               }
@@ -5399,6 +5394,10 @@
       STORED_PROFILE_FIELDS.forEach(function (k) {
         if (source[k] === undefined) {
           if (replace) {
+            // Same-user hydration must not drop a known profile field just because the remote doc omitted it.
+            if (opts && opts.protectContact && typeof isBlankProfileField === 'function' && !isBlankProfileField(target[k])) {
+              return;
+            }
             if (Object.prototype.hasOwnProperty.call(target, k)) {
               delete target[k];
               changed = true;
@@ -5411,9 +5410,9 @@
         }
         if (k === 'fullName' && !String(source[k] || '').trim()) return;
         if (k === 'accountType' && source[k] !== 'personal' && source[k] !== 'business') return;
-        // Same-user hydration must not let a blank remote phone/email wipe a local value.
+        // Same-user hydration must not let a blank remote field wipe a local value.
         // Login/account-switch uses replace without protectContact so a different account can be empty.
-        if (opts && opts.protectContact && (k === 'phone' || k === 'email') && typeof isBlankProfileField === 'function' && isBlankProfileField(source[k]) && !isBlankProfileField(target[k])) {
+        if (opts && opts.protectContact && typeof isBlankProfileField === 'function' && isBlankProfileField(source[k]) && !isBlankProfileField(target[k])) {
           return;
         }
         if (target[k] !== source[k]) {
@@ -15361,7 +15360,9 @@ function syncLikedStateToPosts() {
           // Merge only; a cache entry can be partial (tests and mid-hydration).
           // Account-switch isolation is handled by resetProfileStateForAccountSwitch
           // plus replace-mode apply of that account's own stored doc.
-          mergeStoredProfileFields(state.currentUser, cache.data);
+          // Same-user cache must not let a blank or partial snapshot wipe saved fields
+          // when reopening Edit Profile after a refresh or live listener update.
+          mergeStoredProfileFields(state.currentUser, cache.data, { protectContact: true });
         } else if (cache && cacheU && cacheU !== curU) {
           window._activeUserDocCache = null;
         }
@@ -21572,10 +21573,13 @@ function syncLikedStateToPosts() {
           });
         });
         window._cloudUserDirectoryCache = list;
+        window._cloudUserDirectoryError = null;
         if (typeof updateSignUpValidationState === 'function' && state && state.authViewMode === 'signup') {
           updateSignUpValidationState();
         }
-      }).catch(() => {}).finally(() => {
+      }).catch((err) => {
+        window._cloudUserDirectoryError = err || true;
+      }).finally(() => {
         window._cloudUserDirectoryPromise = null;
       });
       return window._cloudUserDirectoryPromise;
@@ -27211,6 +27215,63 @@ function syncLikedStateToPosts() {
           el.textContent = msg;
           el.classList.add(kind === 'available' ? 'text-emerald-600' : 'text-rose-500');
         }
+        function isEditProfileModalOpen() {
+          const modal = document.getElementById('modal-edit-profile');
+          return !!(modal && !modal.classList.contains('hidden') && modal.style.display !== 'none');
+        }
+        function setEditContactStatus(kind, msg, statusKind) {
+          const el = document.getElementById(kind === 'phone' ? 'edit-profile-phone-status' : 'edit-profile-email-status');
+          if (!el) return;
+          el.classList.remove('text-rose-500', 'text-emerald-600', 'hidden');
+          if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+          el.textContent = msg;
+          el.classList.add(statusKind === 'available' ? 'text-emerald-600' : 'text-rose-500');
+        }
+        function revealEditContactCodeUi(kind, statusMsg) {
+          const panel = document.getElementById('edit-profile-' + kind + '-verify-panel');
+          const wrap = document.getElementById('edit-profile-' + kind + '-code-wrap');
+          const status = document.getElementById('edit-profile-' + kind + '-verify-status');
+          if (panel) { panel.classList.remove('hidden'); panel.style.display = ''; }
+          if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
+          if (statusMsg) setEditVerifyStatus(status, statusMsg, false);
+          const inp = document.getElementById('edit-profile-' + kind + '-code');
+          if (inp) { inp.value = ''; try { inp.focus(); } catch (e) {} }
+        }
+        function showEditContactSendError(kind, msg) {
+          const message = msg || 'Could not send the verification code.';
+          setEditInlineError(document.getElementById(kind === 'phone' ? 'edit-profile-phone-error' : 'edit-profile-email-error'), message);
+          const panel = document.getElementById('edit-profile-' + kind + '-verify-panel');
+          const status = document.getElementById('edit-profile-' + kind + '-verify-status');
+          if (panel) { panel.classList.remove('hidden'); panel.style.display = ''; }
+          setEditVerifyStatus(status, message, true);
+        }
+        function ensureCloudUserDirectoryForContactCheck() {
+          if (typeof preloadCloudUserDirectoryForSignUp !== 'function') {
+            return Promise.resolve({ ok: true });
+          }
+          const pending = preloadCloudUserDirectoryForSignUp();
+          if (pending && typeof pending.then === 'function') {
+            return pending.then(function () {
+              return { ok: !window._cloudUserDirectoryError };
+            }).catch(function () {
+              return { ok: false };
+            });
+          }
+          return Promise.resolve({ ok: !window._cloudUserDirectoryError });
+        }
+        function scheduleEditContactCheck() {
+          const v = state.editProfileVerify || (state.editProfileVerify = {});
+          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+          const seq = (v.contactCheckSeq = (v.contactCheckSeq || 0) + 1);
+          clearTimeout(window._editContactTimer);
+          window._editContactTimer = setTimeout(function () {
+            Promise.resolve(ensureCloudUserDirectoryForContactCheck()).then(function (res) {
+              if (!state.editProfileVerify || seq !== state.editProfileVerify.contactCheckSeq) return;
+              state.editProfileVerify.contactCheckFailed = !!(res && res.ok === false);
+              if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
+            });
+          }, 400);
+        }
         function revealEditSendButton(btn, visible, enabled) {
           if (!btn) return;
           const wasHidden = btn.classList.contains('hidden');
@@ -27643,11 +27704,13 @@ function syncLikedStateToPosts() {
             v.emailVerified = false;
             v.emailCodeSent = false;
             v.email = '';
+            setEditInlineError(document.getElementById('edit-profile-email-error'), '');
           }
           if (v.phone && !sameEditPhone(v.phone, phoneRaw)) {
             v.phoneVerified = false;
             v.phoneCodeSent = false;
             v.phone = '';
+            setEditInlineError(document.getElementById('edit-profile-phone-error'), '');
           }
 
           v.emailTaken = false;
@@ -27667,32 +27730,71 @@ function syncLikedStateToPosts() {
 
           const emailErr = document.getElementById('edit-profile-email-error');
           const phoneErr = document.getElementById('edit-profile-phone-error');
-          setEditInlineError(emailErr, (emailChanged && v.emailTaken) ? editProfileEmailConflictMessage() : '');
-          setEditInlineError(phoneErr, (phoneChanged && v.phoneTaken) ? editProfilePhoneConflictMessage() : '');
+
+          if (!emailChanged || !email) {
+            setEditContactStatus('email', '');
+          } else if (v.contactCheckFailed) {
+            setEditContactStatus('email', 'Could not check if this email is available. Try again.', 'error');
+          } else if (v.emailTaken) {
+            setEditContactStatus('email', 'This email is already taken', 'taken');
+          } else if (editEmailLooksValid(email) && !editProfileEmailVerified()) {
+            setEditContactStatus('email', 'Available', 'available');
+          } else {
+            setEditContactStatus('email', '');
+          }
+          if (!phoneChanged || !phoneRaw) {
+            setEditContactStatus('phone', '');
+          } else if (v.contactCheckFailed) {
+            setEditContactStatus('phone', 'Could not check if this number is available. Try again.', 'error');
+          } else if (v.phoneTaken) {
+            setEditContactStatus('phone', 'This number is already taken', 'taken');
+          } else if (editProfilePhoneValue() && !editProfilePhoneVerified()) {
+            setEditContactStatus('phone', 'Available', 'available');
+          } else {
+            setEditContactStatus('phone', '');
+          }
 
           const emailPanel = document.getElementById('edit-profile-email-verify-panel');
           const emailCodeWrap = document.getElementById('edit-profile-email-code-wrap');
+          const emailStatusEl = document.getElementById('edit-profile-email-verify-status');
           const emailShowCode = !!(emailChanged && email && v.emailCodeSent && !v.emailTaken && !editProfileEmailVerified());
           const emailSendBtn = document.getElementById('btn-edit-send-email-code');
           // Show Send code on the field row as soon as the email differs from the saved value.
           const emailSendVisible = !!(emailChanged && email && !editProfileEmailVerified() && !emailShowCode);
-          const emailCanSend = !!(emailSendVisible && editEmailLooksValid(email) && !v.emailTaken);
+          const emailCanSend = !!(emailSendVisible && editEmailLooksValid(email) && !v.emailTaken && !v.contactCheckFailed);
           revealEditSendButton(emailSendBtn, emailSendVisible, emailCanSend);
-          if (emailCodeWrap) emailCodeWrap.classList.toggle('hidden', !emailShowCode);
-          if (emailPanel) emailPanel.classList.toggle('hidden', !emailShowCode && !(editProfileEmailVerified() && emailChanged));
+          if (emailCodeWrap) {
+            emailCodeWrap.classList.toggle('hidden', !emailShowCode);
+            emailCodeWrap.style.display = emailShowCode ? '' : 'none';
+          }
+          const emailHasStatus = !!(emailStatusEl && !emailStatusEl.classList.contains('hidden') && String(emailStatusEl.textContent || '').trim());
+          if (emailPanel) {
+            const showEmailPanel = !!(emailShowCode || (editProfileEmailVerified() && emailChanged) || (emailHasStatus && emailChanged));
+            emailPanel.classList.toggle('hidden', !showEmailPanel);
+            emailPanel.style.display = showEmailPanel ? '' : 'none';
+          }
           if (editProfileEmailVerified()) {
             setEditVerifyStatus(document.getElementById('edit-profile-email-verify-status'), 'Email verified.', false);
           }
 
           const phonePanel = document.getElementById('edit-profile-phone-verify-panel');
           const phoneCodeWrap = document.getElementById('edit-profile-phone-code-wrap');
+          const phoneStatusEl = document.getElementById('edit-profile-phone-verify-status');
           const phoneShowCode = !!(phoneChanged && phoneRaw && v.phoneCodeSent && !v.phoneTaken && !editProfilePhoneVerified());
           const phoneSendBtn = document.getElementById('btn-edit-send-phone-code');
           const phoneSendVisible = !!(phoneChanged && phoneRaw && !editProfilePhoneVerified() && !phoneShowCode);
-          const phoneCanSend = !!(phoneSendVisible && editProfilePhoneValue() && !v.phoneTaken);
+          const phoneCanSend = !!(phoneSendVisible && editProfilePhoneValue() && !v.phoneTaken && !v.contactCheckFailed);
           revealEditSendButton(phoneSendBtn, phoneSendVisible, phoneCanSend);
-          if (phoneCodeWrap) phoneCodeWrap.classList.toggle('hidden', !phoneShowCode);
-          if (phonePanel) phonePanel.classList.toggle('hidden', !phoneShowCode && !(editProfilePhoneVerified() && phoneChanged));
+          if (phoneCodeWrap) {
+            phoneCodeWrap.classList.toggle('hidden', !phoneShowCode);
+            phoneCodeWrap.style.display = phoneShowCode ? '' : 'none';
+          }
+          const phoneHasStatus = !!(phoneStatusEl && !phoneStatusEl.classList.contains('hidden') && String(phoneStatusEl.textContent || '').trim());
+          if (phonePanel) {
+            const showPhonePanel = !!(phoneShowCode || (editProfilePhoneVerified() && phoneChanged) || (phoneHasStatus && phoneChanged));
+            phonePanel.classList.toggle('hidden', !showPhonePanel);
+            phonePanel.style.display = showPhonePanel ? '' : 'none';
+          }
           if (editProfilePhoneVerified()) {
             setEditVerifyStatus(document.getElementById('edit-profile-phone-verify-status'), 'Phone verified.', false);
           }
@@ -27700,41 +27802,58 @@ function syncLikedStateToPosts() {
           styleEditSaveButton(editProfileCanSave());
         }
         window.syncEditProfileVerifyUi = syncEditProfileVerifyUi;
+        window.isEditProfileModalOpen = isEditProfileModalOpen;
+        window.setEditContactStatus = setEditContactStatus;
+        window.scheduleEditContactCheck = scheduleEditContactCheck;
+        window.revealEditContactCodeUi = revealEditContactCodeUi;
+        window.showEditContactSendError = showEditContactSendError;
+
 
         async function sendEditEmailCode() {
-          const status = document.getElementById('edit-profile-email-verify-status');
           const email = editProfileEmailValue();
           const btn = document.getElementById('btn-edit-send-email-code');
           const resend = document.getElementById('btn-edit-resend-email-code');
           syncEditProfileVerifyUi();
           const v = state.editProfileVerify || {};
-          if (!editEmailLooksValid(email) || v.emailTaken || !editProfileEmailChanged() || editProfileEmailVerified()) return;
+          if (!editEmailLooksValid(email)) {
+            showEditContactSendError('email', 'Enter a valid email address first.');
+            return;
+          }
+          if (v.contactCheckFailed) {
+            showEditContactSendError('email', 'Could not check if this email is available. Try again.');
+            return;
+          }
+          if (v.emailTaken) {
+            setEditContactStatus('email', 'This email is already taken', 'taken');
+            return;
+          }
+          if (!editProfileEmailChanged() || editProfileEmailVerified()) return;
           if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
           if (resend) resend.disabled = true;
           try {
             const r = await postSignupVerify('/email', { type: 'signup_code', to: email });
-            if (!r.ok || r.data.error) {
+            if (!r.ok || !r.data || r.data.error) {
               const err = (r.data && r.data.error) || '';
               if (err === 'email_taken' || err === 'contact_taken') {
                 v.emailTaken = true;
-                setEditInlineError(document.getElementById('edit-profile-email-error'), editProfileEmailConflictMessage());
-                styleSignupSendButton(btn, false);
+                setEditContactStatus('email', 'This email is already taken', 'taken');
+                if (typeof styleSignupSendButton === 'function') styleSignupSendButton(btn, false);
               }
-              const msg = (typeof signupVerifyErrorMessage === 'function')
-                ? signupVerifyErrorMessage(err, 'email')
-                : ((r.data && r.data.message) || 'Could not send the verification code.');
-              setEditVerifyStatus(status, err === 'email_taken' ? editProfileEmailConflictMessage() : msg, true);
+              const msg = (err === 'email_taken' || err === 'contact_taken')
+                ? 'This email is already taken'
+                : (err === 'rate_limited'
+                  ? 'Too many codes sent. Please try again later.'
+                  : ((r.data && r.data.message) || 'Could not send the verification code.'));
+              showEditContactSendError('email', msg);
               return;
             }
             state.editProfileVerify = Object.assign({}, v, {
               email: email, emailVerified: false, emailCodeSent: true, emailTaken: false
             });
-            setEditVerifyStatus(status, 'We sent a 6-digit code to ' + email + '.', false);
-            const inp = document.getElementById('edit-profile-email-code');
-            if (inp) { inp.value = ''; inp.focus(); }
+            revealEditContactCodeUi('email', 'We sent a 6-digit code to ' + email + '. Enter it to continue.');
             syncEditProfileVerifyUi();
           } catch (e) {
-            setEditVerifyStatus(status, 'Could not send the verification code.', true);
+            showEditContactSendError('email', 'Could not send the verification code.');
           } finally {
             if (btn) btn.textContent = 'Send code';
             if (resend) resend.disabled = false;
@@ -27746,15 +27865,26 @@ function syncLikedStateToPosts() {
           const email = editProfileEmailValue();
           const code = ((document.getElementById('edit-profile-email-code') || {}).value || '').trim();
           const btn = document.getElementById('btn-edit-verify-email-code');
+          const showPanel = function () {
+            const panel = document.getElementById('edit-profile-email-verify-panel');
+            const wrap = document.getElementById('edit-profile-email-code-wrap');
+            if (panel) { panel.classList.remove('hidden'); panel.style.display = ''; }
+            if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
+          };
           if (!editEmailLooksValid(email) || !/^\d{6}$/.test(code)) {
             setEditVerifyStatus(status, 'Enter the 6-digit email code.', true);
+            showPanel();
             return;
           }
           if (btn) btn.disabled = true;
           try {
             const r = await postSignupVerify('/email/signup-verify', { to: email, code: code });
-            if (!r.ok || r.data.error || r.data.verified === false) {
-              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage((r.data && r.data.error) || '', 'email') : 'Could not verify that email code. Please try again.', true);
+            // Match sign-up: only a payload with valid === true counts as verified.
+            if (!r.data || r.data.valid !== true) {
+              const err = (r.data && r.data.error) || (r.data && r.data.valid === false ? 'wrong_code' : '');
+              const msg = (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'email') : 'Could not verify that email code. Please try again.';
+              setEditVerifyStatus(status, msg, true);
+              showPanel();
               return;
             }
             state.editProfileVerify = Object.assign({}, state.editProfileVerify || {}, {
@@ -27763,48 +27893,59 @@ function syncLikedStateToPosts() {
             syncEditProfileVerifyUi();
           } catch (e) {
             setEditVerifyStatus(status, 'Could not verify that email code. Please try again.', true);
+            showPanel();
           } finally {
             if (btn) btn.disabled = false;
           }
         }
         async function sendEditPhoneCode() {
-          const status = document.getElementById('edit-profile-phone-verify-status');
           const raw = editProfilePhoneRaw();
           const phone = editProfilePhoneValue();
           const btn = document.getElementById('btn-edit-send-phone-code');
           const resend = document.getElementById('btn-edit-resend-phone-code');
           syncEditProfileVerifyUi();
           const v = state.editProfileVerify || {};
-          if (v.phoneTaken || !editProfilePhoneChanged() || editProfilePhoneVerified()) return;
+          if (v.contactCheckFailed) {
+            showEditContactSendError('phone', 'Could not check if this number is available. Try again.');
+            return;
+          }
+          if (v.phoneTaken) {
+            setEditContactStatus('phone', 'This number is already taken', 'taken');
+            return;
+          }
+          if (!editProfilePhoneChanged() || editProfilePhoneVerified()) return;
           if (!phone) {
-            setEditVerifyStatus(status, 'Enter a complete 10-digit US phone number first.', true);
+            showEditContactSendError('phone', 'Enter a complete 10-digit US phone number first.');
             return;
           }
           if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
           if (resend) resend.disabled = true;
           try {
             const r = await postSignupVerify('/sms/send', { phone: phone });
-            if (!r.ok || r.data.error) {
+            if (!r.ok || !r.data || r.data.error) {
               const err = (r.data && r.data.error) || '';
               if (err === 'phone_taken' || err === 'contact_taken') {
                 v.phoneTaken = true;
-                setEditInlineError(document.getElementById('edit-profile-phone-error'), editProfilePhoneConflictMessage());
-                styleSignupSendButton(btn, false);
+                setEditContactStatus('phone', 'This number is already taken', 'taken');
+                if (typeof styleSignupSendButton === 'function') styleSignupSendButton(btn, false);
               }
-              setEditVerifyStatus(status, (err === 'phone_taken' || err === 'contact_taken')
-                ? editProfilePhoneConflictMessage()
-                : ((typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'phone') : 'Could not send the verification code.'), true);
+              const msg = (err === 'phone_taken' || err === 'contact_taken')
+                ? 'This number is already taken'
+                : (err === 'rate_limited'
+                  ? 'Too many codes sent. Please try again later.'
+                  : ((typeof signupVerifyErrorMessage === 'function' && err)
+                    ? signupVerifyErrorMessage(err, 'phone')
+                    : ((r.data && r.data.message) || 'Could not send the verification code.')));
+              showEditContactSendError('phone', msg);
               return;
             }
             state.editProfileVerify = Object.assign({}, v, {
               phone: raw, phoneVerified: false, phoneCodeSent: true, phoneTaken: false
             });
-            setEditVerifyStatus(status, 'We sent a 6-digit code to your phone.', false);
-            const inp = document.getElementById('edit-profile-phone-code');
-            if (inp) { inp.value = ''; inp.focus(); }
+            revealEditContactCodeUi('phone', 'We sent a 6-digit code to your phone. Enter it to continue.');
             syncEditProfileVerifyUi();
           } catch (e) {
-            setEditVerifyStatus(status, 'Could not send the verification code.', true);
+            showEditContactSendError('phone', 'Could not send the verification code.');
           } finally {
             if (btn) btn.textContent = 'Send code';
             if (resend) resend.disabled = false;
@@ -27817,15 +27958,26 @@ function syncLikedStateToPosts() {
           const phone = editProfilePhoneValue();
           const code = ((document.getElementById('edit-profile-phone-code') || {}).value || '').trim();
           const btn = document.getElementById('btn-edit-verify-phone-code');
+          const showPanel = function () {
+            const panel = document.getElementById('edit-profile-phone-verify-panel');
+            const wrap = document.getElementById('edit-profile-phone-code-wrap');
+            if (panel) { panel.classList.remove('hidden'); panel.style.display = ''; }
+            if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
+          };
           if (!phone || !/^\d{6}$/.test(code)) {
             setEditVerifyStatus(status, 'Enter the 6-digit phone code.', true);
+            showPanel();
             return;
           }
           if (btn) btn.disabled = true;
           try {
             const r = await postSignupVerify('/sms/check', { phone: phone, code: code });
-            if (!r.ok || r.data.error || r.data.verified === false) {
-              setEditVerifyStatus(status, (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage((r.data && r.data.error) || '', 'phone') : 'Could not verify that phone code. Please try again.', true);
+            // Match sign-up: only a payload with valid === true counts as verified.
+            if (!r.data || r.data.valid !== true) {
+              const err = (r.data && r.data.error) || (r.data && r.data.valid === false ? 'wrong_code' : '');
+              const msg = (typeof signupVerifyErrorMessage === 'function') ? signupVerifyErrorMessage(err, 'phone') : 'Could not verify that phone code. Please try again.';
+              setEditVerifyStatus(status, msg, true);
+              showPanel();
               return;
             }
             state.editProfileVerify = Object.assign({}, state.editProfileVerify || {}, {
@@ -27834,10 +27986,16 @@ function syncLikedStateToPosts() {
             syncEditProfileVerifyUi();
           } catch (e) {
             setEditVerifyStatus(status, 'Could not verify that phone code. Please try again.', true);
+            showPanel();
           } finally {
             if (btn) btn.disabled = false;
           }
         }
+
+        window.sendEditEmailCode = sendEditEmailCode;
+        window.sendEditPhoneCode = sendEditPhoneCode;
+        window.verifyEditEmailCode = verifyEditEmailCode;
+        window.verifyEditPhoneCode = verifyEditPhoneCode;
 
         async function checkEditUsernameTaken(seq) {
           const selfU = editProfileSelfUsername();
@@ -27894,7 +28052,7 @@ function syncLikedStateToPosts() {
           const fieldHandler = (e) => {
             const t = e && e.target;
             if (!t || !t.id) return;
-            if (t.id === 'edit-profile-email' || t.id === 'edit-profile-phone') syncEditProfileVerifyUi();
+            if (t.id === 'edit-profile-email' || t.id === 'edit-profile-phone') scheduleEditContactCheck();
             if (t.id === 'edit-profile-username') scheduleEditUsernameCheck();
             if (t.id === 'edit-profile-name') {
               const typ = window._editingAccountType || 'personal';

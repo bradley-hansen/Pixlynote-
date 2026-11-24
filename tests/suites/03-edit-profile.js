@@ -34,6 +34,330 @@ function assertSameStoredFields(a, before, after, label) {
   a.equal(after.writeCount, before.writeCount, label + ' did not write a profile document');
 }
 
+function isVisiblyShown(entry) {
+  return !!(entry && entry.exists && !entry.hidden);
+}
+
+async function readContactUi(page, kind) {
+  return page.evaluate((kind) => {
+    const vis = (el) => {
+      if (!el) return { exists: false, hidden: true, text: '' };
+      const cs = getComputedStyle(el);
+      let hidden = el.classList.contains('hidden') || cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0;
+      let node = el.parentElement;
+      while (node && node !== document.body) {
+        const pcs = getComputedStyle(node);
+        if (node.classList.contains('hidden') || pcs.display === 'none' || pcs.visibility === 'hidden') hidden = true;
+        node = node.parentElement;
+      }
+      const text = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')
+        ? String(el.value || '')
+        : String(el.textContent || '').trim();
+      return { exists: true, hidden, display: cs.display, text };
+    };
+    const sendId = kind === 'phone' ? 'btn-edit-send-phone-code' : 'btn-edit-send-email-code';
+    const send = document.getElementById(sendId);
+    const scs = send ? getComputedStyle(send) : null;
+    return {
+      send: send ? {
+        exists: true,
+        hidden: send.classList.contains('hidden') || !!(scs && scs.display === 'none'),
+        disabled: !!send.disabled,
+        text: String(send.textContent || '').trim()
+      } : { exists: false, hidden: true, disabled: true, text: '' },
+      status: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-status' : 'edit-profile-email-status')),
+      error: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-error' : 'edit-profile-email-error')),
+      panel: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-verify-panel' : 'edit-profile-email-verify-panel')),
+      wrap: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-code-wrap' : 'edit-profile-email-code-wrap')),
+      input: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-code' : 'edit-profile-email-code')),
+      verifyStatus: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone-verify-status' : 'edit-profile-email-verify-status')),
+      field: vis(document.getElementById(kind === 'phone' ? 'edit-profile-phone' : 'edit-profile-email')),
+      saved: (state.currentUser && state.currentUser[kind === 'phone' ? 'phone' : 'email']) || ''
+    };
+  }, kind);
+}
+
+function codeEntryVisible(ui) {
+  return isVisiblyShown(ui.panel) && isVisiblyShown(ui.wrap) && isVisiblyShown(ui.input);
+}
+
+async function installVerifyCallLog(page) {
+  await page.evaluate(() => {
+    if (window.__editVerifyLogInstalled) return;
+    window.__editVerifyLogInstalled = true;
+    window.__editVerifyCalls = [];
+    const origFetch = window.fetch.bind(window);
+    window.__origFetchForEditVerify = origFetch;
+    window.fetch = async function (url, opts) {
+      const u = String(url || '');
+      if (/\/email(?:\/|\?|$)|\/sms\//.test(u)) {
+        let payload = null;
+        try { payload = opts && opts.body ? JSON.parse(opts.body) : null; } catch (e) {}
+        window.__editVerifyCalls.push({ url: u, payload });
+      }
+      return origFetch(url, opts);
+    };
+  });
+}
+
+async function readVerifyCalls(page) {
+  return page.evaluate(() => (window.__editVerifyCalls || []).slice());
+}
+
+async function setVerifySendFailure(page, fail) {
+  await page.evaluate((fail) => {
+    const orig = window.__origFetchForEditVerify || window.fetch.bind(window);
+    if (!window.__origFetchForEditVerify) window.__origFetchForEditVerify = orig;
+    if (!fail) {
+      window.fetch = orig;
+      return;
+    }
+    window.fetch = async function (url, opts) {
+      const u = String(url || '');
+      const isSend = (/\/sms\/send/.test(u) || (/\/email(?:\/|\?|$)/.test(u) && !/signup-verify|reset-verify/.test(u)));
+      if (isSend) {
+        return new Response(JSON.stringify({ error: 'sms_unavailable', message: 'Could not send the verification code.' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return orig(url, opts);
+    };
+  }, fail);
+}
+
+
+async function editSaveBlockers(page) {
+  return page.evaluate(() => {
+    const nameVal = ((document.getElementById('edit-profile-name') || {}).value || '').trim();
+    const email = (typeof editProfileEmailValue === 'function') ? editProfileEmailValue() : '';
+    const phoneRaw = (typeof editProfilePhoneRaw === 'function') ? editProfilePhoneRaw() : '';
+    const v = (state && state.editProfileVerify) || {};
+    const reasons = [];
+    if (!nameVal) reasons.push('missing-name');
+    if (!email && !phoneRaw) reasons.push('missing-contact');
+    if (email && typeof editProfileEmailChanged === 'function' && editProfileEmailChanged() && typeof editEmailLooksValid === 'function' && !editEmailLooksValid(email)) reasons.push('invalid-email');
+    if (email && typeof editProfileEmailChanged === 'function' && editProfileEmailChanged() && typeof editProfileEmailVerified === 'function' && !editProfileEmailVerified()) reasons.push('email-unverified');
+    if (phoneRaw && typeof editProfilePhoneChanged === 'function' && editProfilePhoneChanged() && typeof editProfilePhoneValue === 'function' && !editProfilePhoneValue()) reasons.push('invalid-phone');
+    if (phoneRaw && typeof editProfilePhoneChanged === 'function' && editProfilePhoneChanged() && typeof editProfilePhoneVerified === 'function' && !editProfilePhoneVerified()) reasons.push('phone-unverified');
+    if (v.usernameTaken) reasons.push('username-taken');
+    if (v.emailTaken && typeof editProfileEmailChanged === 'function' && editProfileEmailChanged()) reasons.push('email-taken');
+    if (v.phoneTaken && typeof editProfilePhoneChanged === 'function' && editProfilePhoneChanged()) reasons.push('phone-taken');
+    return {
+      can: (typeof editProfileCanSave === 'function') ? editProfileCanSave() : null,
+      reasons,
+      nameVal,
+      email,
+      phoneRaw,
+      emailChanged: (typeof editProfileEmailChanged === 'function') ? editProfileEmailChanged() : null,
+      phoneChanged: (typeof editProfilePhoneChanged === 'function') ? editProfilePhoneChanged() : null,
+      emailVerified: (typeof editProfileEmailVerified === 'function') ? editProfileEmailVerified() : null,
+      phoneVerified: (typeof editProfilePhoneVerified === 'function') ? editProfilePhoneVerified() : null,
+      verify: JSON.parse(JSON.stringify(v))
+    };
+  });
+}
+
+async function typeContactField(page, selector) {
+  await page.evaluate((selector) => {
+    const el = document.getElementById(selector.replace(/^#/, '')) || document.querySelector(selector);
+    if (!el) return;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, selector);
+}
+
+
+const TINY_AVATAR_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+function last10Digits(v) {
+  return String(v || '').replace(/\D/g, '').slice(-10);
+}
+
+async function readAllEditFields(page) {
+  return page.evaluate(() => {
+    const val = (id) => {
+      const el = document.getElementById(id);
+      return el ? String(el.value || '') : '';
+    };
+    const u = (state && state.currentUser) || {};
+    const preview = document.getElementById('edit-profile-avatar-preview');
+    const modal = document.getElementById('edit-profile-modal');
+    const modalOpen = typeof isEditProfileModalOpen === 'function'
+      ? isEditProfileModalOpen()
+      : !!(modal && !modal.classList.contains('hidden'));
+    return {
+      modalOpen,
+      name: modalOpen ? val('edit-profile-name') : String(u.fullName || ''),
+      username: modalOpen ? val('edit-profile-username') : String(u.username || ''),
+      email: modalOpen ? val('edit-profile-email') : String(u.email || ''),
+      phone: modalOpen ? val('edit-profile-phone') : String(u.phone || ''),
+      bio: modalOpen ? val('edit-profile-bio') : String(u.bio || ''),
+      link: modalOpen ? val('edit-profile-link') : String(u.link || ''),
+      accountType: modalOpen ? String(window._editingAccountType || u.accountType || '') : String(u.accountType || ''),
+      avatar: (preview && preview.src) || u.avatar || '',
+      state: {
+        name: String(u.fullName || ''),
+        username: String(u.username || ''),
+        email: String(u.email || ''),
+        phone: String(u.phone || ''),
+        bio: String(u.bio || ''),
+        link: String(u.link || ''),
+        accountType: String(u.accountType || ''),
+        avatar: String(u.avatar || ''),
+        isPlus: u.isPlus === true,
+        isBusinessPlus: u.isBusinessPlus === true,
+        governmentVerified: u.governmentVerified === true,
+        organizationVerified: u.organizationVerified === true,
+        postCount: (state.posts || []).length,
+        followingCount: (state.following || []).length
+      }
+    };
+  });
+}
+
+function assertEveryField(a, got, expected, label) {
+  a.equal(String(got.name || '').trim(), expected.fullName, label + ' keeps name: ' + JSON.stringify(got));
+  a.equal(String(got.username || '').toLowerCase(), expected.username, label + ' keeps username');
+  a.equal(String(got.email || '').toLowerCase(), expected.email.toLowerCase(), label + ' keeps email');
+  a.equal(last10Digits(got.phone), last10Digits(expected.phone), label + ' keeps phone: ' + got.phone);
+  a.equal(String(got.bio || ''), expected.bio, label + ' keeps bio');
+  a.ok(String(got.link || '').includes(expected.linkPart), label + ' keeps website: ' + got.link);
+  a.equal(String(got.accountType || ''), expected.accountType, label + ' keeps account category');
+  a.ok(String(got.avatar || '').indexOf('data:image') === 0 && String(got.avatar).length > 40, label + ' keeps photo: ' + String(got.avatar).slice(0, 48));
+  if (got.state) {
+    a.equal(String(got.state.name || '').trim(), expected.fullName, label + ' stores name on the user');
+    a.equal(String(got.state.username || '').toLowerCase(), expected.username, label + ' stores username on the user');
+    a.equal(String(got.state.email || '').toLowerCase(), expected.email.toLowerCase(), label + ' stores email on the user');
+    a.equal(last10Digits(got.state.phone), last10Digits(expected.phone), label + ' stores phone on the user: ' + got.state.phone);
+    a.equal(String(got.state.bio || ''), expected.bio, label + ' stores bio on the user');
+    a.ok(String(got.state.link || '').includes(expected.linkPart), label + ' stores website on the user: ' + got.state.link);
+    a.equal(String(got.state.accountType || ''), expected.accountType, label + ' stores account category on the user');
+    a.ok(String(got.state.avatar || '').indexOf('data:image') === 0 && String(got.state.avatar).length > 40, label + ' stores photo on the user');
+  }
+}
+
+function assertProtectedUnchanged(a, before, after, label) {
+  a.equal(after.isPlus, before.isPlus, label + ' does not blank Plus');
+  a.equal(after.isBusinessPlus, before.isBusinessPlus, label + ' does not blank Business Plus');
+  a.equal(after.governmentVerified, before.governmentVerified, label + ' does not blank government verification');
+  a.equal(after.organizationVerified, before.organizationVerified, label + ' does not blank organization verification');
+  a.ok(after.postCount >= before.postCount, label + ' does not drop posts: ' + after.postCount + ' < ' + before.postCount);
+  a.ok(after.followingCount >= before.followingCount, label + ' does not drop following: ' + after.followingCount + ' < ' + before.followingCount);
+}
+
+async function stubLocalUsernameRename(page) {
+  await page.evaluate(() => {
+    const apply = async function (oldU, newU) {
+      const oldKey = String(oldU || '').toLowerCase();
+      const newKey = String(newU || '').toLowerCase();
+      if (!oldKey || !newKey || oldKey === newKey) return true;
+      const u = state && state.currentUser;
+      if (u) u.username = newKey;
+      try {
+        const recRaw = localStorage.getItem('pixly_account_' + oldKey) || localStorage.getItem('pixlynote_user_' + oldKey);
+        const rec = recRaw ? JSON.parse(recRaw) : ((u && typeof u === 'object') ? Object.assign({}, u) : {});
+        rec.username = newKey;
+        localStorage.setItem('pixly_account_' + newKey, JSON.stringify(rec));
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        accts[newKey] = Object.assign({}, accts[oldKey] || rec, { username: newKey });
+        localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+        localStorage.setItem('pixly_active_username', newKey);
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+        keys.forEach((k) => {
+          if (!k || k.indexOf(oldKey) === -1) return;
+          const moved = k.split(oldKey).join(newKey);
+          if (moved !== k && localStorage.getItem(moved) == null) {
+            localStorage.setItem(moved, localStorage.getItem(k));
+          }
+        });
+      } catch (e) {}
+      return true;
+    };
+    try { renameAccountUsername = apply; } catch (e) {}
+    window.renameAccountUsername = apply;
+  });
+}
+
+async function verifyAndAcceptContact(page, a, kind, value) {
+  const field = kind === 'phone' ? '#edit-profile-phone' : '#edit-profile-email';
+  const send = kind === 'phone' ? '#btn-edit-send-phone-code' : '#btn-edit-send-email-code';
+  const code = kind === 'phone' ? '#edit-profile-phone-code' : '#edit-profile-email-code';
+  const verify = kind === 'phone' ? '#btn-edit-verify-phone-code' : '#btn-edit-verify-email-code';
+  await page.fill(field, value);
+  await typeContactField(page, field);
+  await page.waitForFunction((kind) => {
+    const statusId = kind === 'phone' ? 'edit-profile-phone-status' : 'edit-profile-email-status';
+    const sendId = kind === 'phone' ? 'btn-edit-send-phone-code' : 'btn-edit-send-email-code';
+    const status = document.getElementById(statusId);
+    const btn = document.getElementById(sendId);
+    const text = status ? String(status.textContent || '') : '';
+    return /available/i.test(text) && !!(btn && !btn.disabled && !btn.classList.contains('hidden'));
+  }, kind, { timeout: 4000 });
+  const ready = await readContactUi(page, kind);
+  a.ok(/available/i.test(ready.status.text), 'Available is shown for the new ' + kind + ' before Send code: ' + JSON.stringify(ready));
+  a.ok(!ready.send.hidden && !ready.send.disabled, 'Send code is enabled for the new ' + kind);
+  await page.click(send);
+  await page.waitForTimeout(250);
+  const afterSend = await readContactUi(page, kind);
+  a.ok(codeEntryVisible(afterSend), 'A code-entry box appears for ' + kind + ' after Send code: ' + JSON.stringify(afterSend));
+  await page.fill(code, VERIFY_CODE);
+  await page.click(verify);
+  await page.waitForTimeout(200);
+  const verified = await readContactUi(page, kind);
+  const okRe = kind === 'phone' ? /Phone verified/i : /Email verified/i;
+  a.ok(okRe.test(verified.verifyStatus.text), 'The correct ' + kind + ' code verifies: ' + verified.verifyStatus.text);
+}
+
+async function hardReloadKeepSession(page, h) {
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof performLogin === 'function' && window.state, null, { timeout: 45000 });
+  await h.installAppStubs(page);
+}
+
+async function resetSharedAccountPage(page, h, account) {
+  await page.evaluate(() => {
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      keys.forEach((k) => { if (k) localStorage.removeItem(k); });
+    } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+    try { window._activeUserDocCache = null; } catch (e) {}
+    try { window._pendingSubscriptionCancelOnSave = null; } catch (e) {}
+    try { window._offerSubscriptionAfterSave = null; } catch (e) {}
+    try { window._cloudUserDirectoryError = null; } catch (e) {}
+  });
+  const port = Number(new URL(page.url()).port) || Number(process.env.REGRESSION_PORT || 8091);
+  await h.loadApp(page, { port: port });
+  await h.installAppStubs(page);
+  await h.loginAs(page, account);
+}
+
+async function pullToRefreshProfile(page) {
+  return page.evaluate(async () => {
+    const u = (state && state.currentUser) || {};
+    const name = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username || '') : String(u.username || '').toLowerCase();
+    if (typeof applyActiveUserDocData === 'function') {
+      applyActiveUserDocData(name, {
+        username: name,
+        fullName: '',
+        email: '',
+        phone: '',
+        bio: '',
+        link: '',
+        avatar: '',
+        accountType: u.accountType
+      }, false);
+    }
+    if (typeof applyPullRefreshData === 'function') await applyPullRefreshData();
+    else if (typeof triggerRefreshRoutine === 'function') triggerRefreshRoutine();
+    return true;
+  });
+}
+
+
 
 module.exports = {
   name: 'Edit Profile',
@@ -86,40 +410,66 @@ module.exports = {
       }
     },
     {
-      name: 'Edit Profile: a taken email or phone blocks Send code',
+      name: 'Edit Profile: a taken email or phone is flagged live while typing and blocks Send code',
       accounts: ALL_ACCOUNT_KEYS,
-      covers: ['el:#edit-profile-email-error', 'el:#edit-profile-phone-error'],
+      covers: ['el:#edit-profile-email-error', 'el:#edit-profile-phone-error', 'el:#edit-profile-email-status', 'el:#edit-profile-phone-status'],
       async run(ctx) {
         const { page, h, a, account } = ctx;
         await h.openEditProfile(page);
         // Taken email (built-in), unless this account is bradley which we are not.
         await page.fill('#edit-profile-email', 'bradley.g.hansen@hotmail.com');
-        await page.evaluate(() => {
-          document.getElementById('edit-profile-email')?.dispatchEvent(new Event('input', { bubbles: true }));
-          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
-        });
+        await typeContactField(page, '#edit-profile-email');
         await page.waitForTimeout(150);
-        const emailState = await page.evaluate(() => {
-          const b = document.getElementById('btn-edit-send-email-code');
-          const err = (document.getElementById('edit-profile-email-error') || {}).textContent || '';
-          return { disabled: !!(b && (b.disabled || b.classList.contains('cursor-not-allowed'))), err, hidden: !b || b.classList.contains('hidden') };
-        });
-        a.ok(/already used by another account/i.test(emailState.err) && /use your phone instead/i.test(emailState.err), 'Taken email shows the email conflict message: ' + JSON.stringify(emailState));
-        a.ok(emailState.disabled || /already used by another account/i.test(emailState.err), 'Taken email blocks Send code: ' + JSON.stringify(emailState));
+        const emailState = await readContactUi(page, 'email');
+        a.ok(/already taken/i.test(emailState.status.text), 'Taken email shows already taken while typing: ' + JSON.stringify(emailState));
+        a.ok(emailState.send.disabled, 'Send code is blocked for a taken email: ' + JSON.stringify(emailState.send));
+
+        const freeEmail = 'free.' + account.username + '@example.test';
+        await page.fill('#edit-profile-email', freeEmail);
+        await typeContactField(page, '#edit-profile-email');
+        await page.waitForTimeout(150);
+        const freeState = await readContactUi(page, 'email');
+        a.ok(/available/i.test(freeState.status.text), 'A free email shows available while typing: ' + JSON.stringify(freeState));
+        a.ok(!freeState.send.disabled && !freeState.send.hidden, 'Send code is enabled for an available email: ' + JSON.stringify(freeState.send));
 
         await page.fill('#edit-profile-phone', '6092896702');
-        await page.evaluate(() => {
-          document.getElementById('edit-profile-phone')?.dispatchEvent(new Event('input', { bubbles: true }));
-          if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi();
-        });
+        await typeContactField(page, '#edit-profile-phone');
         await page.waitForTimeout(150);
-        const phoneState = await page.evaluate(() => {
-          const b = document.getElementById('btn-edit-send-phone-code');
-          const err = (document.getElementById('edit-profile-phone-error') || {}).textContent || '';
-          return { disabled: !!(b && (b.disabled || b.classList.contains('cursor-not-allowed'))), err };
-        });
-        a.ok(/already used by another account/i.test(phoneState.err) && /use your email instead/i.test(phoneState.err), 'Taken phone shows the phone conflict message: ' + JSON.stringify(phoneState));
-        a.ok(phoneState.disabled || /already used by another account/i.test(phoneState.err), 'Taken phone blocks Send code: ' + JSON.stringify(phoneState));
+        const phoneState = await readContactUi(page, 'phone');
+        a.ok(/already taken/i.test(phoneState.status.text), 'Taken phone shows already taken while typing: ' + JSON.stringify(phoneState));
+        a.ok(phoneState.send.disabled, 'Send code is blocked for a taken phone: ' + JSON.stringify(phoneState.send));
+
+        await page.fill('#edit-profile-phone', '2025550147');
+        await typeContactField(page, '#edit-profile-phone');
+        await page.waitForTimeout(150);
+        const freePhone = await readContactUi(page, 'phone');
+        a.ok(/available/i.test(freePhone.status.text), 'A free phone shows available while typing: ' + JSON.stringify(freePhone));
+        a.ok(!freePhone.send.disabled && !freePhone.send.hidden, 'Send code is enabled for an available phone: ' + JSON.stringify(freePhone.send));
+      }
+    },
+    {
+      name: 'Edit Profile: phone is flagged live while typing, shows available, and blocks Send code when taken',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#edit-profile-phone', 'el:#edit-profile-phone-status', 'el:#btn-edit-send-phone-code', 'handler:scheduleEditContactCheck', 'handler:syncEditProfileVerifyUi'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        // Live, debounced — same behavior as email: status updates as the field is modified, before Send code.
+        await page.fill('#edit-profile-phone', '6092896702');
+        await typeContactField(page, '#edit-profile-phone');
+        await page.waitForTimeout(450);
+        const taken = await readContactUi(page, 'phone');
+        a.ok(/already taken/i.test(taken.status.text), 'A taken phone shows already taken inline while typing, before Send code: ' + JSON.stringify(taken));
+        a.ok(isVisiblyShown(taken.status), 'The taken status is visible under the phone field');
+        a.ok(taken.send.disabled, 'Send code is blocked for a taken phone: ' + JSON.stringify(taken.send));
+
+        await page.fill('#edit-profile-phone', '2025550166');
+        await typeContactField(page, '#edit-profile-phone');
+        await page.waitForTimeout(450);
+        const available = await readContactUi(page, 'phone');
+        a.ok(/available/i.test(available.status.text), 'A free phone shows available inline while typing, before Send code: ' + JSON.stringify(available));
+        a.ok(isVisiblyShown(available.status), 'The available status is visible under the phone field');
+        a.ok(!available.send.disabled && !available.send.hidden, 'Send code is enabled for an available phone: ' + JSON.stringify(available.send));
       }
     },
     {
@@ -510,11 +860,8 @@ module.exports = {
 
         await page.click('#btn-edit-send-email-code');
         await page.waitForTimeout(200);
-        const codeVisible = await page.evaluate(() => {
-          const wrap = document.getElementById('edit-profile-email-code-wrap');
-          return !!(wrap && !wrap.classList.contains('hidden'));
-        });
-        a.ok(codeVisible, 'The email code field appears after Send code');
+        const codeUi = await readContactUi(page, 'email');
+        a.ok(codeEntryVisible(codeUi), 'The email code field is actually visible after Send code: ' + JSON.stringify(codeUi));
         await page.fill('#edit-profile-email-code', VERIFY_CODE);
         await page.click('#btn-edit-verify-email-code');
         await page.waitForTimeout(200);
@@ -1350,6 +1697,559 @@ module.exports = {
         await page.evaluate(() => {
           if (typeof closeEditProfileModal === 'function') closeEditProfileModal();
         });
+      }
+    }
+    ,
+    {
+      name: 'Edit Profile: Unit: blank or missing remote contact fields cannot wipe a stored phone or email',
+      accounts: ['personal'],
+      covers: ['handler:mergeStoredProfileFields', 'handler:applyActiveUserDocData'],
+      async run(ctx) {
+        const { page, a } = ctx;
+        const unit = await page.evaluate(() => {
+          const kept = { phone: '+1 (202) 555-0187', email: 'keep@example.test', bio: 'local', fullName: 'Local Name', link: 'https://keep.example.test' };
+          const afterMissing = Object.assign({}, kept);
+          mergeStoredProfileFields(afterMissing, { bio: 'remote-bio' }, { replace: true, protectContact: true });
+          const afterBlank = Object.assign({}, kept);
+          mergeStoredProfileFields(afterBlank, { phone: '', email: '', bio: '', link: '', fullName: '' }, { replace: true, protectContact: true });
+          const afterRemoteBio = Object.assign({}, kept);
+          mergeStoredProfileFields(afterRemoteBio, { bio: 'blanked' }, { replace: true, protectContact: true });
+          return {
+            missingPhone: afterMissing.phone,
+            missingEmail: afterMissing.email,
+            missingBio: afterMissing.bio,
+            blankPhone: afterBlank.phone,
+            blankEmail: afterBlank.email,
+            blankBio: afterBlank.bio,
+            blankLink: afterBlank.link,
+            blankName: afterBlank.fullName,
+            updatedBio: afterRemoteBio.bio
+          };
+        });
+        a.equal(unit.missingPhone, '+1 (202) 555-0187', 'replace+protectContact keeps phone when the remote doc omits it: ' + JSON.stringify(unit));
+        a.equal(unit.missingEmail, 'keep@example.test', 'replace+protectContact keeps email when the remote doc omits it');
+        a.equal(unit.missingBio, 'remote-bio', 'A non-blank remote bio still updates from the remote doc');
+        a.equal(unit.blankPhone, '+1 (202) 555-0187', 'protectContact keeps phone when the remote value is blank');
+        a.equal(unit.blankEmail, 'keep@example.test', 'protectContact keeps email when the remote value is blank');
+        a.equal(unit.blankBio, 'local', 'protectContact keeps bio when the remote value is blank');
+        a.equal(unit.blankLink, 'https://keep.example.test', 'protectContact keeps website when the remote value is blank');
+        a.equal(unit.blankName, 'Local Name', 'protectContact keeps name when the remote value is blank');
+        a.equal(unit.updatedBio, 'blanked', 'A non-blank remote bio still replaces the local bio');
+      }
+    },
+    {
+      name: 'Edit Profile: live listener updates do not flicker or overwrite open form fields',
+      accounts: ['personal', 'business'],
+      covers: ['handler:applyActiveUserDocData', 'handler:openEditProfileModal', 'el:#edit-profile-email', 'el:#edit-profile-phone', 'el:#edit-profile-bio', 'el:#edit-profile-name', 'el:#edit-profile-link'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.loginAs(page, account);
+        await h.openEditProfile(page);
+        const typed = {
+          email: 'typed.while.open@example.test',
+          phone: '2025550133',
+          bio: 'Typed bio must not flicker',
+          name: 'Typed Name',
+          link: 'https://typed.example.test'
+        };
+        await page.fill('#edit-profile-email', typed.email);
+        await page.fill('#edit-profile-phone', typed.phone);
+        await page.fill('#edit-profile-bio', typed.bio);
+        await page.fill('#edit-profile-name', typed.name);
+        await page.fill('#edit-profile-link', typed.link);
+        await typeContactField(page, '#edit-profile-email');
+        await typeContactField(page, '#edit-profile-phone');
+        await page.evaluate(() => {
+          document.getElementById('edit-profile-bio')?.dispatchEvent(new Event('input', { bubbles: true }));
+          document.getElementById('edit-profile-name')?.dispatchEvent(new Event('input', { bubbles: true }));
+          document.getElementById('edit-profile-link')?.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        const readForm = () => page.evaluate(() => {
+          const val = (id) => ((document.getElementById(id) || {}).value || '');
+          return {
+            email: val('edit-profile-email'),
+            phone: val('edit-profile-phone'),
+            bio: val('edit-profile-bio'),
+            name: val('edit-profile-name'),
+            link: val('edit-profile-link'),
+            dba: val('edit-profile-dba-name'),
+            industry: val('edit-profile-business-industry'),
+            hours: val('edit-profile-business-hours'),
+            support: val('edit-profile-support-email')
+          };
+        });
+        const before = await readForm();
+        const after = await page.evaluate((snapshot) => {
+          const cleanU = (typeof normalizeUsername === 'function')
+            ? normalizeUsername(state.currentUser && state.currentUser.username)
+            : String((state.currentUser && state.currentUser.username) || '').toLowerCase();
+          const apply = (doc) => {
+            if (typeof applyActiveUserDocData === 'function') applyActiveUserDocData(cleanU, doc, false);
+          };
+          const localEmail = state.currentUser && state.currentUser.email;
+          const localPhone = state.currentUser && state.currentUser.phone;
+          apply({ username: cleanU, phone: '', email: '', bio: 'remote-bio', fullName: 'Remote Name', link: 'https://remote.example', dbaName: 'Remote DBA', businessHours: 'remote hours', businessSupportEmail: 'remote@example.test' });
+          apply({ username: cleanU });
+          apply({ username: cleanU, phone: localPhone || snapshot.phone, email: localEmail || snapshot.email, bio: snapshot.bio, fullName: snapshot.name, link: snapshot.link });
+          apply({ username: cleanU, phone: '', email: '' });
+          const val = (id) => ((document.getElementById(id) || {}).value || '');
+          return {
+            email: val('edit-profile-email'),
+            phone: val('edit-profile-phone'),
+            bio: val('edit-profile-bio'),
+            name: val('edit-profile-name'),
+            link: val('edit-profile-link'),
+            dba: val('edit-profile-dba-name'),
+            industry: val('edit-profile-business-industry'),
+            hours: val('edit-profile-business-hours'),
+            support: val('edit-profile-support-email')
+          };
+        }, before);
+        a.equal(after.email, before.email, 'Typed email is not overwritten by a live listener: ' + JSON.stringify({ before, after }));
+        a.equal(after.phone, before.phone, 'Typed phone is not overwritten by a live listener: ' + JSON.stringify({ before, after }));
+        a.equal(String(after.phone || '').replace(/\D/g, '').slice(-10), '2025550133', 'The typed phone digits stay in the field after remote updates');
+        a.equal(after.bio, before.bio, 'Typed bio is not overwritten by a live listener');
+        a.equal(after.name, before.name, 'Typed name is not overwritten by a live listener');
+        a.equal(after.link, before.link, 'Typed website is not overwritten by a live listener');
+        a.equal(after.dba, before.dba, 'Business DBA does not flicker from a live listener');
+        a.equal(after.industry, before.industry, 'Business industry does not flicker from a live listener');
+        a.equal(after.hours, before.hours, 'Business hours do not flicker from a live listener');
+        a.equal(after.support, before.support, 'Support email does not flicker from a live listener');
+        // Restore the signed-in account so later tests on this shared page do not inherit the simulated remote doc.
+        await page.evaluate((account) => {
+          const u = state && state.currentUser;
+          if (u) {
+            delete u.dbaName;
+            delete u.businessIndustry;
+            delete u.businessHours;
+            delete u.businessSupportEmail;
+            u.fullName = account.fullName;
+            u.email = account.email;
+            u.phone = account.phone;
+          }
+          try {
+            const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+            const rec = accts[account.username];
+            if (rec) {
+              delete rec.dbaName;
+              rec.fullName = account.fullName;
+              rec.email = account.email;
+              rec.phone = account.phone;
+              accts[account.username] = rec;
+              localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+              localStorage.setItem('pixly_account_' + account.username, JSON.stringify(rec));
+            }
+          } catch (e) {}
+        }, account);
+        await h.loginAs(page, account);
+      }
+    },
+    {
+      name: 'Edit Profile: email Send code, wrong code, then correct code verifies and only then saves',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#btn-edit-send-email-code', 'el:#edit-profile-email-code', 'el:#btn-edit-verify-email-code', 'handler:sendEditEmailCode', 'handler:verifyEditEmailCode'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.loginAs(page, account);
+        await h.openEditProfile(page);
+        await installVerifyCallLog(page);
+        const newEmail = 'sequence.' + account.username + '@example.test';
+        const beforeEmail = await page.evaluate(() => (state.currentUser && state.currentUser.email) || '');
+        await page.fill('#edit-profile-email', newEmail);
+        await typeContactField(page, '#edit-profile-email');
+        await page.waitForTimeout(150);
+        const ready = await readContactUi(page, 'email');
+        a.ok(/available/i.test(ready.status.text), 'Available is shown before Send code: ' + JSON.stringify(ready));
+        a.ok(!ready.send.hidden && !ready.send.disabled, 'Send code is enabled before sending');
+        await page.click('#btn-edit-send-email-code');
+        await page.waitForTimeout(250);
+        const calls = await readVerifyCalls(page);
+        const sendCall = calls.find((c) => /\/email(?:\/|\?|$)/.test(c.url) && !/signup-verify|reset-verify/.test(c.url));
+        a.ok(sendCall, 'Send code POSTs the email verification endpoint: ' + JSON.stringify(calls));
+        a.equal(sendCall && sendCall.payload && sendCall.payload.to, newEmail, 'The send payload uses the typed email');
+        const afterSend = await readContactUi(page, 'email');
+        a.ok(codeEntryVisible(afterSend), 'A code-entry box appears after the email code is sent: ' + JSON.stringify(afterSend));
+        a.ok(/sent a 6-digit code/i.test(afterSend.verifyStatus.text), 'The form confirms the email code was sent: ' + afterSend.verifyStatus.text);
+        a.equal(afterSend.saved, beforeEmail, 'The email is not saved just because a code was sent');
+
+        await page.fill('#edit-profile-email-code', '000000');
+        await page.click('#btn-edit-verify-email-code');
+        await page.waitForTimeout(200);
+        const wrong = await readContactUi(page, 'email');
+        a.ok(/incorrect 6-digit code/i.test(wrong.verifyStatus.text), 'A wrong email code shows an error: ' + JSON.stringify(wrong));
+        a.ok(codeEntryVisible(wrong), 'The code box stays visible after a wrong email code');
+        a.equal(wrong.saved, beforeEmail, 'A wrong email code does not save the new email');
+        const canAfterWrong = await page.evaluate(() => (typeof editProfileCanSave === 'function') ? editProfileCanSave() : false);
+        a.ok(!canAfterWrong, 'Save stays disabled after a wrong email code');
+
+        await page.fill('#edit-profile-email-code', VERIFY_CODE);
+        await page.click('#btn-edit-verify-email-code');
+        await page.waitForTimeout(200);
+        const verified = await readContactUi(page, 'email');
+        a.ok(/Email verified/i.test(verified.verifyStatus.text), 'The correct email code verifies: ' + verified.verifyStatus.text);
+        a.equal(verified.saved, beforeEmail, 'The verified email is not saved until Save is pressed');
+        await page.evaluate(() => { if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi(); });
+        const canAfter = await editSaveBlockers(page);
+        a.ok(canAfter.can, 'Save is enabled after the email code is accepted: ' + JSON.stringify(canAfter));
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        const saved = await page.evaluate(() => (state.currentUser && state.currentUser.email) || '');
+        a.equal(saved, newEmail, 'The new email is saved only after the correct code is accepted');
+      }
+    },
+    {
+      name: 'Edit Profile: phone Send code actually texts, wrong code fails, correct code verifies, then Save stores it',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: ['el:#btn-edit-send-phone-code', 'el:#edit-profile-phone-code', 'el:#btn-edit-verify-phone-code', 'handler:sendEditPhoneCode', 'handler:verifyEditPhoneCode'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.loginAs(page, account);
+        await h.openEditProfile(page);
+        await installVerifyCallLog(page);
+        const newPhone = '2025550183';
+        const beforePhone = await page.evaluate(() => (state.currentUser && state.currentUser.phone) || '');
+        await page.fill('#edit-profile-phone', newPhone);
+        await typeContactField(page, '#edit-profile-phone');
+        await page.waitForTimeout(150);
+        const ready = await readContactUi(page, 'phone');
+        a.ok(/available/i.test(ready.status.text), 'Available is shown for a free phone before Send code: ' + JSON.stringify(ready));
+        await page.click('#btn-edit-send-phone-code');
+        await page.waitForTimeout(250);
+        const calls = await readVerifyCalls(page);
+        const sendCall = calls.find((c) => /\/sms\/send/.test(c.url));
+        a.ok(sendCall, 'Send code POSTs the SMS send endpoint: ' + JSON.stringify(calls));
+        a.ok(sendCall && sendCall.payload && /2025550183/.test(String(sendCall.payload.phone || '')), 'The SMS payload uses the typed phone: ' + JSON.stringify(sendCall));
+        const afterSend = await readContactUi(page, 'phone');
+        a.ok(codeEntryVisible(afterSend), 'A code-entry box appears after the SMS is sent: ' + JSON.stringify(afterSend));
+        a.ok(/sent a 6-digit code/i.test(afterSend.verifyStatus.text), 'The form confirms the phone code was sent');
+        a.equal(afterSend.saved, beforePhone, 'The phone is not saved just because an SMS was sent');
+
+        await page.fill('#edit-profile-phone-code', '000000');
+        await page.click('#btn-edit-verify-phone-code');
+        await page.waitForTimeout(200);
+        const wrong = await readContactUi(page, 'phone');
+        a.ok(/incorrect 6-digit code/i.test(wrong.verifyStatus.text), 'A wrong phone code shows an error: ' + JSON.stringify(wrong));
+        a.ok(codeEntryVisible(wrong), 'The code box stays visible after a wrong phone code');
+        a.equal(wrong.saved, beforePhone, 'A wrong phone code does not save the new number');
+
+        await page.fill('#edit-profile-phone-code', VERIFY_CODE);
+        await page.click('#btn-edit-verify-phone-code');
+        await page.waitForTimeout(200);
+        const verified = await readContactUi(page, 'phone');
+        a.ok(/Phone verified/i.test(verified.verifyStatus.text), 'The correct phone code verifies: ' + verified.verifyStatus.text);
+        a.equal(verified.saved, beforePhone, 'The verified phone is not saved until Save is pressed');
+        await page.evaluate(() => { if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi(); });
+        const canAfter = await editSaveBlockers(page);
+        a.ok(canAfter.can, 'Save is enabled after the phone code is accepted: ' + JSON.stringify(canAfter));
+        const validated = await page.evaluate(() => {
+          const r = (typeof validateEditProfileForm === 'function') ? validateEditProfileForm() : { ok: false };
+          return { ok: !!r.ok, errors: r.errors || [], phone: r.values && r.values.phone };
+        });
+        a.ok(validated.ok, 'The verified phone change passes validation: ' + JSON.stringify(validated));
+        await page.evaluate(() => {
+          const form = document.getElementById('edit-profile-form');
+          if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+          else document.getElementById('btn-save-edit-profile')?.click();
+        });
+        await page.waitForTimeout(250);
+        const saved = await page.evaluate(() => (state.currentUser && state.currentUser.phone) || '');
+        const savedDigits = String(saved).replace(/\D/g, '').slice(-10);
+        a.equal(savedDigits, '2025550183', 'The new phone is saved only after the correct code is accepted: ' + saved);
+      }
+    },
+    {
+      name: 'Edit Profile: a failed Send code shows a visible error and does not render the code box or save',
+      accounts: ['personal'],
+      covers: ['handler:sendEditEmailCode', 'handler:sendEditPhoneCode', 'el:#edit-profile-email-code', 'el:#edit-profile-phone-code'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.loginAs(page, account);
+        await h.openEditProfile(page);
+        await installVerifyCallLog(page);
+        await setVerifySendFailure(page, true);
+        const before = await page.evaluate(() => ({
+          email: (state.currentUser && state.currentUser.email) || '',
+          phone: (state.currentUser && state.currentUser.phone) || ''
+        }));
+
+        await page.fill('#edit-profile-email', 'fail.' + account.username + '@example.test');
+        await typeContactField(page, '#edit-profile-email');
+        await page.waitForTimeout(120);
+        await page.click('#btn-edit-send-email-code');
+        await page.waitForTimeout(250);
+        const emailUi = await readContactUi(page, 'email');
+        const emailErrText = emailUi.error.text + ' ' + emailUi.verifyStatus.text;
+        a.ok(/could not send the verification code/i.test(emailErrText), 'A failed email send shows a visible error: ' + JSON.stringify(emailUi));
+        a.ok(!codeEntryVisible(emailUi), 'The email code box does not appear when sending fails: ' + JSON.stringify(emailUi));
+        a.equal(emailUi.saved, before.email, 'A failed email send does not save the new email');
+
+        await page.fill('#edit-profile-phone', '2025550194');
+        await typeContactField(page, '#edit-profile-phone');
+        await page.waitForTimeout(120);
+        await page.click('#btn-edit-send-phone-code');
+        await page.waitForTimeout(250);
+        const phoneUi = await readContactUi(page, 'phone');
+        const phoneErrText = phoneUi.error.text + ' ' + phoneUi.verifyStatus.text;
+        a.ok(/could not send the verification code|sms|isn.t available/i.test(phoneErrText), 'A failed phone send shows a visible error: ' + JSON.stringify(phoneUi));
+        a.ok(!codeEntryVisible(phoneUi), 'The phone code box does not appear when sending fails: ' + JSON.stringify(phoneUi));
+        a.equal(phoneUi.saved, before.phone, 'A failed phone send does not save the new number');
+        await setVerifySendFailure(page, false);
+      }
+    },
+    {
+      name: 'Edit Profile: a failed uniqueness check shows a visible error and blocks Send code',
+      accounts: ['personal'],
+      covers: ['el:#edit-profile-email-status', 'el:#btn-edit-send-email-code', 'handler:scheduleEditContactCheck'],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        await h.openEditProfile(page);
+        await page.evaluate(() => {
+          if (!window.__origPreloadCloudUserDirectoryForSignUp) {
+            window.__origPreloadCloudUserDirectoryForSignUp = window.preloadCloudUserDirectoryForSignUp;
+          }
+          window._cloudUserDirectoryError = new Error('directory failed');
+          window.preloadCloudUserDirectoryForSignUp = function () {
+            window._cloudUserDirectoryError = new Error('directory failed');
+            return Promise.reject(window._cloudUserDirectoryError);
+          };
+        });
+        try {
+          await page.fill('#edit-profile-email', 'checkfail.' + account.username + '@example.test');
+          await typeContactField(page, '#edit-profile-email');
+          await page.waitForTimeout(550);
+          const ui = await readContactUi(page, 'email');
+          a.ok(/could not check if this email is available/i.test(ui.status.text), 'A failed email uniqueness check shows a visible error: ' + JSON.stringify(ui));
+          a.ok(ui.send.disabled, 'Send code is blocked when the uniqueness check fails: ' + JSON.stringify(ui.send));
+        } finally {
+          await page.evaluate(() => {
+            if (window.__origPreloadCloudUserDirectoryForSignUp) {
+              window.preloadCloudUserDirectoryForSignUp = window.__origPreloadCloudUserDirectoryForSignUp;
+            }
+            window._cloudUserDirectoryError = null;
+          });
+        }
+      }
+    }
+    ,
+    {
+      name: 'Edit Profile: every field can be edited and saved for every account type and survives reload and pull-to-refresh',
+      accounts: ALL_ACCOUNT_KEYS,
+      covers: [
+        'el:#edit-profile-name', 'el:#edit-profile-username', 'el:#edit-profile-email', 'el:#edit-profile-phone',
+        'el:#edit-profile-bio', 'el:#edit-profile-link', 'el:#edit-profile-avatar-file', 'el:#edit-profile-avatar-preview',
+        'el:#btn-edit-account-personal', 'el:#btn-edit-account-business',
+        'handler:openEditProfileModal', 'handler:sendEditEmailCode', 'handler:verifyEditEmailCode',
+        'handler:sendEditPhoneCode', 'handler:verifyEditPhoneCode', 'handler:setEditProfileAccountCategory',
+        'handler:applyActiveUserDocData', 'handler:triggerRefreshRoutine', 'handler:persistState'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        const isPixly = account.username === 'pixlynote';
+        const startType = account.accountType === 'business' || isPixly ? 'business' : 'personal';
+        const targetType = isPixly ? 'business' : (startType === 'business' ? 'personal' : 'business');
+        const phones = { reg_personal: '2025550321', reg_business: '2025550322', reg_empty: '2025550323', pixlynote: '2025550324' };
+        const expected = {
+          fullName: isPixly ? 'Pixlynote' : ('All Fields ' + account.username),
+          username: isPixly ? 'pixlynote' : ('allfields_' + account.username),
+          email: 'allfields.' + account.username + '@example.test',
+          phone: phones[account.username] || '2025550320',
+          bio: isPixly ? 'The official Pixlynote account — all-fields check' : ('All-fields bio for ' + account.username),
+          linkPart: 'example.test/all-fields-' + account.username,
+          accountType: targetType
+        };
+        const website = 'https://example.test/all-fields-' + account.username;
+
+        await h.loginAs(page, account);
+        await page.evaluate(() => {
+          window._cloudUserDirectoryError = null;
+          window._activeUserDocCache = null;
+          window._pendingSubscriptionCancelOnSave = null;
+          window._offerSubscriptionAfterSave = null;
+          if (window.__origPreloadCloudUserDirectoryForSignUp) {
+            window.preloadCloudUserDirectoryForSignUp = window.__origPreloadCloudUserDirectoryForSignUp;
+          }
+        });
+        await h.openEditProfile(page);
+        const beforeProtected = (await readAllEditFields(page)).state;
+
+        try {
+          if (!isPixly) {
+            const catBtn = targetType === 'business' ? '#btn-edit-account-business' : '#btn-edit-account-personal';
+            await page.click(catBtn);
+            await page.waitForTimeout(80);
+            await page.evaluate(() => {
+              const m = document.getElementById('modal-account-type-switch');
+              if (m && !m.classList.contains('hidden') && typeof confirmAccountTypeSwitch === 'function') confirmAccountTypeSwitch();
+            });
+            await page.waitForTimeout(80);
+          }
+
+          await page.fill('#edit-profile-name', expected.fullName);
+          if (targetType === 'business') {
+            const dba = await page.$('#edit-profile-dba-name');
+            if (dba) await page.fill('#edit-profile-dba-name', expected.fullName + ' DBA');
+          }
+
+          if (!isPixly) {
+            await page.fill('#edit-profile-username', expected.username);
+            await typeContactField(page, '#edit-profile-username');
+            await page.waitForTimeout(500);
+            const unameStatus = await page.evaluate(() => {
+              const el = document.getElementById('edit-profile-username-status') || document.getElementById('edit-profile-username-error');
+              return el ? String(el.textContent || '').trim() : '';
+            });
+            a.ok(!/taken/i.test(unameStatus), 'The new username is not flagged as taken: ' + unameStatus);
+          }
+
+          await verifyAndAcceptContact(page, a, 'email', expected.email);
+          await verifyAndAcceptContact(page, a, 'phone', expected.phone);
+
+          await page.fill('#edit-profile-bio', expected.bio);
+          await page.fill('#edit-profile-link', website);
+
+          await page.evaluate((src) => {
+            if (state.currentUser) state.currentUser.avatar = src;
+            const prev = document.getElementById('edit-profile-avatar-preview');
+            if (prev) prev.src = src;
+            const pAv = document.getElementById('profile-page-avatar');
+            if (pAv) pAv.src = src;
+          }, TINY_AVATAR_PNG);
+          try {
+            const buf = Buffer.from(TINY_AVATAR_PNG.split(',')[1], 'base64');
+            await page.setInputFiles('#edit-profile-avatar-file', { name: 'all-fields-avatar.png', mimeType: 'image/png', buffer: buf });
+            await page.waitForFunction(() => {
+              const u = (state && state.currentUser && state.currentUser.avatar) || '';
+              const prev = document.getElementById('edit-profile-avatar-preview');
+              return String(u).indexOf('data:image') === 0 || !!(prev && String(prev.src || '').indexOf('data:image') === 0);
+            }, null, { timeout: 4000 });
+          } catch (e) {
+            await page.evaluate((src) => {
+              if (state.currentUser) state.currentUser.avatar = src;
+              const prev = document.getElementById('edit-profile-avatar-preview');
+              if (prev) prev.src = src;
+            }, TINY_AVATAR_PNG);
+          }
+
+          const typedBeforeSave = await readAllEditFields(page);
+          a.equal(String(typedBeforeSave.name || '').trim(), expected.fullName, 'Name is in the form before Save');
+          a.equal(String(typedBeforeSave.username || '').toLowerCase(), expected.username, 'Username is in the form before Save');
+          a.equal(String(typedBeforeSave.email || '').toLowerCase(), expected.email.toLowerCase(), 'Email is in the form before Save');
+          a.equal(last10Digits(typedBeforeSave.phone), last10Digits(expected.phone), 'Phone is in the form before Save');
+          a.equal(String(typedBeforeSave.bio || ''), expected.bio, 'Bio is in the form before Save');
+          a.ok(String(typedBeforeSave.link || '').includes(expected.linkPart), 'Website is in the form before Save');
+          a.equal(String(typedBeforeSave.accountType || ''), expected.accountType, 'Account category is selected before Save');
+
+          if (!isPixly) await stubLocalUsernameRename(page);
+          await page.evaluate(() => { if (typeof syncEditProfileVerifyUi === 'function') syncEditProfileVerifyUi(); });
+          const canSave = await editSaveBlockers(page);
+          a.ok(canSave.can, 'Save is enabled after every field is filled and verified: ' + JSON.stringify(canSave));
+          await submitEditProfile(page);
+          await page.waitForTimeout(isPixly ? 400 : 700);
+
+          const afterSave = await readAllEditFields(page);
+          if (afterSave.modalOpen) {
+            assertEveryField(a, afterSave, expected, 'After Save (open form)');
+          } else {
+            assertEveryField(a, {
+              name: afterSave.state.name,
+              username: afterSave.state.username,
+              email: afterSave.state.email,
+              phone: afterSave.state.phone,
+              bio: afterSave.state.bio,
+              link: afterSave.state.link,
+              accountType: afterSave.state.accountType,
+              avatar: afterSave.state.avatar,
+              state: afterSave.state
+            }, expected, 'After Save');
+          }
+          assertProtectedUnchanged(a, beforeProtected, afterSave.state, 'After Save');
+
+          await h.closeOverlays(page);
+          await hardReloadKeepSession(page, h);
+          const afterReloadState = await readAllEditFields(page);
+          a.ok(afterReloadState.state.username, 'Session stays signed in after hard reload');
+          assertEveryField(a, {
+            name: afterReloadState.state.name,
+            username: afterReloadState.state.username,
+            email: afterReloadState.state.email,
+            phone: afterReloadState.state.phone,
+            bio: afterReloadState.state.bio,
+            link: afterReloadState.state.link,
+            accountType: afterReloadState.state.accountType,
+            avatar: afterReloadState.state.avatar,
+            state: afterReloadState.state
+          }, expected, 'After hard reload');
+          assertProtectedUnchanged(a, beforeProtected, afterReloadState.state, 'After hard reload');
+
+          await h.openEditProfile(page);
+          const afterReloadForm = await readAllEditFields(page);
+          assertEveryField(a, afterReloadForm, expected, 'Edit Profile form after hard reload');
+          const flickerA = afterReloadForm;
+          await page.waitForTimeout(250);
+          const flickerB = await readAllEditFields(page);
+          a.equal(flickerB.name, flickerA.name, 'Name does not flicker after reload');
+          a.equal(flickerB.email, flickerA.email, 'Email does not flicker after reload');
+          a.equal(flickerB.phone, flickerA.phone, 'Phone does not flicker after reload');
+          a.equal(flickerB.bio, flickerA.bio, 'Bio does not flicker after reload');
+          a.equal(flickerB.link, flickerA.link, 'Website does not flicker after reload');
+          a.equal(flickerB.username, flickerA.username, 'Username does not flicker after reload');
+          a.equal(flickerB.accountType, flickerA.accountType, 'Account category does not flicker after reload');
+
+          await page.evaluate(() => {
+            const u = (state && state.currentUser) || {};
+            const name = (typeof normalizeUsername === 'function') ? normalizeUsername(u.username || '') : String(u.username || '').toLowerCase();
+            if (typeof applyActiveUserDocData === 'function') {
+              applyActiveUserDocData(name, {
+                username: name,
+                fullName: '',
+                email: '',
+                phone: '',
+                bio: '',
+                link: '',
+                avatar: '',
+                accountType: u.accountType
+              }, false);
+            }
+          });
+          const afterLive = await readAllEditFields(page);
+          assertEveryField(a, afterLive, expected, 'Open form is not blanked by a live remote update');
+
+          await h.closeOverlays(page);
+          await pullToRefreshProfile(page);
+          await page.waitForTimeout(200);
+          const afterPtrState = await readAllEditFields(page);
+          assertEveryField(a, {
+            name: afterPtrState.state.name,
+            username: afterPtrState.state.username,
+            email: afterPtrState.state.email,
+            phone: afterPtrState.state.phone,
+            bio: afterPtrState.state.bio,
+            link: afterPtrState.state.link,
+            accountType: afterPtrState.state.accountType,
+            avatar: afterPtrState.state.avatar,
+            state: afterPtrState.state
+          }, expected, 'After pull-to-refresh');
+          assertProtectedUnchanged(a, beforeProtected, afterPtrState.state, 'After pull-to-refresh');
+
+          await h.openEditProfile(page);
+          const afterPtrForm = await readAllEditFields(page);
+          assertEveryField(a, afterPtrForm, expected, 'Edit Profile form after pull-to-refresh');
+          await page.waitForTimeout(250);
+          const afterPtrFlicker = await readAllEditFields(page);
+          a.equal(afterPtrFlicker.name, afterPtrForm.name, 'Name does not flicker after pull-to-refresh');
+          a.equal(afterPtrFlicker.email, afterPtrForm.email, 'Email does not flicker after pull-to-refresh');
+          a.equal(afterPtrFlicker.phone, afterPtrForm.phone, 'Phone does not flicker after pull-to-refresh');
+          a.equal(afterPtrFlicker.bio, afterPtrForm.bio, 'Bio does not flicker after pull-to-refresh');
+          a.equal(afterPtrFlicker.link, afterPtrForm.link, 'Website does not flicker after pull-to-refresh');
+        } finally {
+          try { await resetSharedAccountPage(page, h, account); } catch (e) {
+            try { await h.loginAs(page, account); } catch (e2) {}
+          }
+        }
       }
     }
 
