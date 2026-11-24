@@ -465,7 +465,7 @@ module.exports = {
       }
     },
     {
-      name: 'Private accounts: request approve also works from the notification',
+      name: 'Private accounts: request notification opens the Connect requests list so you can approve',
       accounts: ['personal'],
       covers: [],
       async run({ page, a }) {
@@ -479,17 +479,40 @@ module.exports = {
           });
           await tick(page, 120);
           await page.evaluate(() => renderNotifications(true));
-          const btns = await page.evaluate(() => document.querySelectorAll('#notifications-list .notif-connreq-approve').length);
-          a.equal(btns, 1, 'Approve shown on the request notification');
-          await page.evaluate(() => document.querySelector('#notifications-list .notif-connreq-approve').click());
+          const info = await page.evaluate(() => {
+            const row = document.querySelector('#notifications-list .notif-connect-requests');
+            return {
+              rows: document.querySelectorAll('#notifications-list .notif-connect-requests').length,
+              text: (row && row.innerText) || '',
+              approveOnNotif: document.querySelectorAll('#notifications-list .notif-connreq-approve').length
+            };
+          });
+          a.equal(info.rows, 1, 'one shortcut notification');
+          a.ok(/@pt_req wants to connect/.test(info.text), 'copy names the requester: ' + info.text);
+          a.equal(info.approveOnNotif, 0, 'Approve stays on the Connect requests list, not the heart row');
+          await page.evaluate(() => document.querySelector('#notifications-list .notif-connect-requests').click());
+          await tick(page, 150);
+          const opened = await page.evaluate(() => {
+            const cr = document.getElementById('ac-view-connect-requests');
+            const ac = document.getElementById('modal-account-center');
+            return {
+              open: !!(ac && !ac.classList.contains('hidden') && cr && !cr.classList.contains('hidden')),
+              title: (document.getElementById('ac-header-title') || {}).textContent || '',
+              approve: document.querySelectorAll('#ac-connect-requests-list .btn-approve-connect-request').length
+            };
+          });
+          a.ok(opened.open, 'tapping the notification opens Connect requests');
+          a.equal(opened.title, 'Connect requests', 'list title unchanged');
+          a.equal(opened.approve, 1, 'Approve is on the existing list');
+          await page.evaluate(() => document.querySelector('#ac-connect-requests-list .btn-approve-connect-request').click());
           await tick(page, 200);
           const r = await page.evaluate(() => ({
             edge: !!window.__pfs.docs['users/pt_owner/followers/pt_req'],
             req: !!window.__pfs.docs['users/pt_owner/connectRequests/pt_req'],
-            btns: document.querySelectorAll('#notifications-list .notif-connreq-approve').length
+            rows: document.querySelectorAll('#notifications-list .notif-connect-requests').length
           }));
-          a.ok(r.edge && !r.req, 'approved from notification');
-          a.equal(r.btns, 0, 'buttons gone after approve');
+          a.ok(r.edge && !r.req, 'approved from the list opened by the notification');
+          a.equal(r.rows, 0, 'notification gone after approve');
         });
       }
     },
