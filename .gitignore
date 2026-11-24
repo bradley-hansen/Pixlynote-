@@ -6,3 +6,9 @@ playwright-report/
 firestore-debug.log
 firebase-debug.log
 ui-debug.log
+
+# never commit service-account keys
+*-sa.json
+*.sa.json
+secrets/
+.secrets/
