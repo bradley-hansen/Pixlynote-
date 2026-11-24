@@ -34,7 +34,7 @@ const SKIP_CLICK_FNS = new Set([
 function classify(item) {
   const id = item.id || '';
   const key = item.key || '';
-  if (/^(tab-auth-|login-|signup-|btn-signup-|btn-auth-|btn-splash|btn-toggle-auth|btn-toggle-signup|btn-toggle-password|btn-forgot|auth-|forgot-)/.test(id) || key.startsWith('nav:auth:') || key.startsWith('nav:shortcut:signup-')) {
+  if (/^(tab-auth-|login-|signup-|btn-signup-|btn-auth-|btn-splash|splash-business-link|btn-toggle-auth|btn-toggle-signup|btn-toggle-password|btn-forgot|auth-|forgot-)/.test(id) || key.startsWith('nav:auth:') || key.startsWith('nav:shortcut:signup-') || key === 'href:https://digitalassetpro.io') {
     return 'signed-out';
   }
   return 'signed-in';
