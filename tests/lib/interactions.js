@@ -169,7 +169,7 @@ async function reveal(page, h, item) {
       if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
       else if (typeof openAccountCenter === 'function') openAccountCenter();
     });
-    if (/btn-ac-download-data|btn-ac-data-export-verify|ac-data-export-code/.test(id)) {
+    if (/btn-ac-download-data/.test(id)) {
       await page.evaluate(() => { if (typeof setAccountCenterView === 'function') setAccountCenterView('yourAccount'); });
     }
     return;

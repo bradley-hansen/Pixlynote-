@@ -11,6 +11,7 @@ const path = require('path');
 
 const REPO = path.resolve(__dirname, '../..');
 const TW_PATH = path.join(__dirname, '../vendor/tailwind-3.4.17.js');
+const JSZIP_PATH = path.join(__dirname, '../vendor/jszip-3.10.1.min.js');
 const VERIFY_CODE = '123456';
 
 const ACCOUNTS = {
@@ -126,21 +127,6 @@ function mockWorker(req) {
   const u = req.url();
   const pathPart = u.replace(/^https?:\/\/[^/]+/, '');
   const code = String(json.code || json.token || '');
-  if (/\/data-export\/verify/i.test(pathPart)) {
-    return code === VERIFY_CODE
-      ? { ok: true, valid: true, grant: 'test-export-grant' }
-      : { valid: false, error: 'wrong_code' };
-  }
-  if (/\/data-export\/code/i.test(pathPart)) {
-    return { ok: true, sent: true, test: true, debug_code: VERIFY_CODE };
-  }
-  if (/\/data-export(?:\?|$)/i.test(pathPart) || /\/data-export$/.test(pathPart.split('?')[0])) {
-    let auth = '';
-    try { auth = (req.headers()['authorization'] || req.headers()['Authorization'] || ''); } catch (e) {}
-    const grant = json.grant || '';
-    if (!auth && !grant) return { error: 'unauthorized' };
-    return { ok: true, sent: true, test: true, filename: 'pixlynote-data-test.zip', files: ['README.txt', 'profile.json', 'posts.json'] };
-  }
   if (/\/email\/signup-verify|\/email\/reset-verify/i.test(pathPart)) {
     return { valid: code === VERIFY_CODE, debug_code: VERIFY_CODE };
   }
@@ -189,6 +175,7 @@ function mockWorker(req) {
 
 async function attachRoutes(context, port, writeLog) {
   const tw = fs.readFileSync(TW_PATH);
+  const jszip = fs.readFileSync(JSZIP_PATH);
   await context.route('**/*', async (route) => {
     const req = route.request();
     const u = req.url();
@@ -205,6 +192,18 @@ async function attachRoutes(context, port, writeLog) {
         contentType: 'application/javascript',
         body: tw,
         headers: { 'Cache-Control': 'no-store' }
+      });
+    }
+    if (/cdnjs\.cloudflare\.com\/ajax\/libs\/jszip\/|cdn\.jsdelivr\.net\/npm\/jszip@/i.test(u)) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: jszip,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS'
+        }
       });
     }
     if (/brad-g-hansen\.workers\.dev|PIXLYNOTE_VERIFY|PIXLYNOTE_API/i.test(u) || /workers\.dev/.test(u)) {
