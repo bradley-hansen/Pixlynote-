@@ -1,0 +1,100 @@
+rules_version = '2';
+// Pixlynote: proposed Firestore rules for PUBLIC / PRIVATE accounts. NOT DEPLOYED.
+// Prepared 2026-11-24 on branch grokbot/private-accounts. Builds on proposed-firestore.rules (2026-11-16).
+//
+// These rules only work AFTER all of the following ship (each needs Bradley's Go):
+//   1. Per-user Firebase Auth (branch grokbot/firebase-auth-2026-11-16): users/{u}.uid == request.auth.uid.
+//      Today every visitor is an anonymous session, so the server cannot tell who is asking.
+//   2. Backfill posts/*.authorPrivate = false on every existing post (one Firestore write per post).
+//   3. Client queries that match the rules (rules are not filters): Explore/feed read
+//      where('authorPrivate', '==', false) plus where('author', 'in', [approved private authors]).
+//   4. Private profile content moved out of the public users/{u} doc (notes, userStories, highlights,
+//      following, commentsMap, email/phone) into users/{u}/content/* and users/{u}/private/* so a private
+//      account's header can stay public while its content is gated. Until then users/{u} stays world-readable.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function realUser() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+    function isAdmin() { return realUser() && request.auth.token.admin == true; }
+    function userPath(name) { return /databases/$(database)/documents/users/$(name); }
+    function isUserOf(name) { return realUser() && exists(userPath(name)) && get(userPath(name)).data.uid == request.auth.uid; }
+    function isPrivateAccount(name) { return exists(userPath(name)) && get(userPath(name)).data.get('isPrivate', false) == true; }
+    // The caller is signed in as `viewer` and is an approved connection of `owner`.
+    function isApprovedBy(owner, viewer) {
+      return isUserOf(viewer) && exists(/databases/$(database)/documents/users/$(owner)/followers/$(viewer));
+    }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    match /users/{username} {
+      // Header (name, avatar, bio, isPrivate) stays readable so "This account is private" can render.
+      allow read: if true;
+      allow create: if realUser() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.get('isPlus', false) == false
+        && request.resource.data.get('isVerified', false) == false;
+      // Only the owner may flip isPrivate (boolean only: public XOR private).
+      allow update: if (isUserOf(username)
+                        && request.resource.data.uid == resource.data.uid
+                        && (!('isPrivate' in request.resource.data) || request.resource.data.isPrivate is bool)
+                        && !changed().hasAny(['isPlus', 'isVerified', 'subscriptionStatus', 'stripeSessionId']))
+        || (realUser() && !changed().hasAny(['isPrivate', 'uid'])
+            && changed().hasOnly(['notifications', 'deletedNotificationIds', 'notes', 'storyComments', 'storyLikes', 'privilegedAccounts', 'lastUpdated', 'following']))
+        || isAdmin();
+      allow delete: if isUserOf(username) || isAdmin();
+
+      // Connections edges. On a PRIVATE account only the owner creates an edge (that is the approval);
+      // on a public account the follower creates their own edge, as today.
+      match /followers/{followerUsername} {
+        allow read: if !isPrivateAccount(username) || isUserOf(username) || isApprovedBy(username, followerUsername) || isAdmin();
+        allow create: if realUser() && request.resource.data.username == followerUsername
+          && ((isUserOf(followerUsername) && !isPrivateAccount(username)) || isUserOf(username));
+        allow update: if false;
+        allow delete: if isUserOf(followerUsername) || isUserOf(username) || isAdmin();
+      }
+
+      // Connect requests: requester writes/cancels their own; owner reads, approves (deletes) or declines.
+      match /connectRequests/{requester} {
+        allow read: if isUserOf(username) || isUserOf(requester) || isAdmin();
+        allow create: if isUserOf(requester) && requester != username
+          && request.resource.data.username == requester
+          && request.resource.data.keys().hasOnly(['username', 'fullName', 'avatar', 'requestedAt']);
+        allow update: if false;
+        allow delete: if isUserOf(username) || isUserOf(requester) || isAdmin();
+      }
+
+      // Phase 4: gated profile content for private accounts (notes, stories, highlights, lists).
+      match /content/{docId} {
+        allow read: if !isPrivateAccount(username) || isUserOf(username) || (realUser() && exists(/databases/$(database)/documents/users/$(username)/followers/$(request.auth.token.get('username', '__none__')))) || isAdmin();
+        allow write: if isUserOf(username) || isAdmin();
+      }
+      match /private/{docId} {
+        allow read, write: if isUserOf(username);
+      }
+    }
+
+    match /posts/{postId} {
+      // A private author's post is readable by the author, approved connections, and admins only.
+      allow read: if resource.data.get('authorPrivate', false) == false
+        || (realUser() && resource.data.authorId == request.auth.uid)
+        || (realUser() && exists(/databases/$(database)/documents/users/$(resource.data.author)/followers/$(request.auth.token.get('username', '__none__'))))
+        || isAdmin();
+      allow create: if realUser() && request.resource.data.authorId == request.auth.uid
+        && isUserOf(request.resource.data.author)
+        && request.resource.data.get('authorPrivate', false) == isPrivateAccount(request.resource.data.author);
+      allow update: if (realUser() && resource.data.authorId == request.auth.uid && request.resource.data.authorId == resource.data.authorId)
+        || (realUser() && changed().hasOnly(['comments', 'likes', 'likedBy', 'views'])
+            && (resource.data.get('authorPrivate', false) == false
+                || exists(/databases/$(database)/documents/users/$(resource.data.author)/followers/$(request.auth.token.get('username', '__none__')))))
+        || isAdmin();
+      allow delete: if (realUser() && resource.data.authorId == request.auth.uid) || isAdmin();
+    }
+
+    match /accountCenters/{owner} { allow read, write: if isUserOf(owner) || isAdmin(); }
+    match /profileHistory/{owner} { allow read, write: if isUserOf(owner) || isAdmin(); }
+    match /story_comments/{docId} {
+      allow read: if true;
+      allow create, update: if realUser();
+      allow delete: if isAdmin();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
