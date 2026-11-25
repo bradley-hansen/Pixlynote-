@@ -5669,6 +5669,10 @@
             if (typeof window.attachMyFollowersListener === 'function') {
               window.attachMyFollowersListener(state.currentUser.username);
             }
+            if (typeof loadExploreUserDirectory === 'function' && !window._exploreUserDir) {
+              window._exploreUserDirLastFail = 0;
+              loadExploreUserDirectory().catch(() => {});
+            }
           }
         });
 
@@ -16313,7 +16317,19 @@ function syncLikedStateToPosts() {
       if (!force && dir && (now - dir.at) < EXPLORE_DIR_TTL_MS) return Promise.resolve(dir);
       if (window._exploreUserDirPromise) return window._exploreUserDirPromise;
       if (!force && window._exploreUserDirLastFail && (now - window._exploreUserDirLastFail) < EXPLORE_DIR_RETRY_MS) return Promise.resolve(dir || null);
-      if (!(window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDocs && window.firebase.collection)) return Promise.resolve(dir || null);
+      // Cold start always paints the story bar (and may ask for this directory) before the delayed
+      // Firebase CDN import finishes. Return right away so callers such as pull-to-refresh are not
+      // blocked, and load again once Firebase is actually ready.
+      if (!(window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDocs && window.firebase.collection)) {
+        if (!window.firebaseReady && !window._exploreUserDirWaitingForFirebase && typeof whenFirebaseReady === 'function') {
+          window._exploreUserDirWaitingForFirebase = true;
+          whenFirebaseReady(function () {
+            window._exploreUserDirWaitingForFirebase = null;
+            loadExploreUserDirectory(force).catch(function () {});
+          });
+        }
+        return Promise.resolve(dir || null);
+      }
       const { db, collection, getDocs } = window.firebase;
       window._exploreUserDirPromise = getDocs(collection(db, 'users')).then(snap => {
         const users = new Map();
@@ -22373,7 +22389,11 @@ function syncLikedStateToPosts() {
     // Directory needed for deactivated filtering; loads once (cached) and re-renders whatever is showing.
     function ensureConnectionsDirectory() {
       if (window._exploreUserDir || typeof loadExploreUserDirectory !== 'function') return;
-      loadExploreUserDirectory().then(dir => { if (dir) refreshConnectionsUi(); }).catch(() => {});
+      loadExploreUserDirectory().then(dir => {
+        if (!dir) return;
+        refreshConnectionsUi();
+        if (typeof renderStories === 'function') renderStories();
+      }).catch(() => {});
     }
     window.ensureConnectionsDirectory = ensureConnectionsDirectory;
     function refreshConnectionsUi() {

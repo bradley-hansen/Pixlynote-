@@ -336,6 +336,77 @@ module.exports = {
           await page.evaluate(uninstallPixlyMockFirestore).catch(() => {});
         }
       }
+    },
+    {
+      name: 'Story bar fill: first paint before Firebase is ready still fills the bar once the user directory arrives',
+      accounts: ['personal'],
+      covers: ['el:#stories-container', 'handler:loadExploreUserDirectory', 'handler:ensureConnectionsDirectory', 'handler:whenFirebaseReady'],
+      async run({ page, h, a, account }) {
+        await mobile(page, h);
+        const now = Date.now();
+        const story = (u) => ({ id: u + '-s1', image: TINY_IMG, caption: u, timestamp: now - 120000, audience: 'everyone' });
+        const seed = {};
+        const names = ['maya_hikes', 'seoul_bites', 'cali_coastline', 'hallstatt_lake', 'user_8wz2f', 'quiet_one', 'quiet_two', 'quiet_three'];
+        names.forEach((u) => {
+          seed['users/' + u] = {
+            username: u, fullName: u, avatar: TINY_IMG, isPrivate: false, deactivated: false,
+            userStories: (u === 'maya_hikes' || u === 'seoul_bites') ? [story(u)] : [],
+            lastUpdated: now - 60000
+          };
+        });
+        try {
+          await page.evaluate(installPixlyMockFirestore, seed);
+          const first = await page.evaluate(() => {
+            if (!window.__sbfSnap) window.__sbfSnap = {
+              dir: window._exploreUserDir, following: state.following, stories: state.stories,
+              content: window._storyFillContent, count: window._storyFillHydrateCount, seed: window._storyFillSeed
+            };
+            window._storyFillSeed = 'first-load';
+            window._storyFillContent = {};
+            window._storyFillHydrateCount = 0;
+            state.following = [];
+            window._exploreUserDir = null;
+            window._exploreUserDirPromise = null;
+            window._exploreUserDirLastFail = 0;
+            window._exploreUserDirWaitingForFirebase = null;
+            // Same order as a real cold start: the story bar paints while the Firebase CDN import is still in flight.
+            window.firebaseReady = false;
+            renderStories();
+            return Array.from(document.querySelectorAll('#stories-container .story-trigger')).map((el) => ({
+              user: (el.getAttribute('data-story-user') || '').replace(/^@/, '').toLowerCase(),
+              kind: el.getAttribute('data-story-kind')
+            }));
+          });
+          a.ok(first.length === 1 && first[0].kind === 'own', 'first paint is only the owner bubble, as on a phone before Firebase is ready: ' + JSON.stringify(first));
+
+          // Firebase finishes loading. Do not call renderStories here — the bar has to fill on its own.
+          await page.evaluate(() => {
+            const rawGetDocs = window.firebase.getDocs;
+            window.firebase.getDocs = async (q) => {
+              await new Promise((r) => setTimeout(r, 80));
+              return rawGetDocs(q);
+            };
+            window.firebaseReady = true;
+            const q = window._onFirebaseReadyQueue || [];
+            window._onFirebaseReadyQueue = [];
+            q.forEach((fn) => { try { fn(); } catch (e) {} });
+          });
+          await page.waitForFunction(() => {
+            const n = document.querySelectorAll('#stories-container .story-trigger').length;
+            return n >= (window.STORY_BAR_MIN_BUBBLES || 8);
+          }, null, { timeout: 5000 });
+          const bar = await page.evaluate(readBar);
+          const namesOnBar = bar.map((x) => x.user);
+          a.equal(bar.length, 8, 'bar fills to the minimum once the late directory arrives: ' + JSON.stringify(bar));
+          a.equal(bar[0].kind, 'own', 'own bubble stays first');
+          a.ok(namesOnBar.includes('maya_hikes') && namesOnBar.includes('seoul_bites'), 'live public stories appear: ' + JSON.stringify(namesOnBar));
+          a.ok(bar.some((x) => x.kind === 'fill'), 'no-story filler is used to complete the bar');
+          a.equal(bar.filter((x) => x.kind !== 'own' && x.user === account.username).length, 0, 'viewer is not used as filler: ' + JSON.stringify(bar));
+        } finally {
+          await page.evaluate(teardownBar);
+          await page.evaluate(uninstallPixlyMockFirestore).catch(() => {});
+        }
+      }
     }
   ]
 };
