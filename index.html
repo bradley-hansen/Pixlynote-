@@ -1181,6 +1181,11 @@
           </div>
         </div>
 
+        <div id="feed-source-tabs" class="flex items-baseline justify-start gap-5 px-1" role="tablist" aria-label="Feed">
+          <button type="button" id="btn-feed-tab-foryou" role="tab" aria-selected="true" aria-controls="posts-stream" onclick="setFeedTab('foryou')" class="bg-transparent border-0 shadow-none p-0 m-0 cursor-pointer leading-none">ForYou</button>
+          <button type="button" id="btn-feed-tab-connected" role="tab" aria-selected="false" aria-controls="posts-stream" onclick="setFeedTab('connected')" class="bg-transparent border-0 shadow-none p-0 m-0 cursor-pointer leading-none">Connected</button>
+        </div>
+
         <!-- Feed Posts Feed Container -->
         <div id="posts-stream" class="space-y-5">
           <!-- Dynamic post cards rendered here -->
@@ -14006,6 +14011,84 @@ function syncLikedStateToPosts() {
     window.isPostAuthorCurrentUser = isPostAuthorCurrentUser;
 
 
+
+    // Home feed tabs: ForYou is today's newsfeed; Connected is only posts from people you're connected to
+    // (the same active-connection list the story bar uses). The chosen tab is kept for this session.
+    function feedTabStorageKey() {
+      const u = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      return 'pixly_feed_tab_' + (u || 'guest');
+    }
+    function getFeedTab() {
+      if (state && (state.feedTab === 'connected' || state.feedTab === 'foryou')) return state.feedTab;
+      try {
+        const t = sessionStorage.getItem(feedTabStorageKey());
+        if (t === 'connected' || t === 'foryou') {
+          if (state) state.feedTab = t;
+          return t;
+        }
+      } catch (e) {}
+      return 'foryou';
+    }
+    function getConnectedFeedAuthorSet() {
+      const me = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      const entries = (typeof getActiveConnectedEntries === 'function')
+        ? getActiveConnectedEntries(state.following || [], me)
+        : (state.following || []).filter((f) => f && f.username && f.isFollowing !== false);
+      const set = new Set();
+      entries.forEach((f) => {
+        const n = (typeof normalizeUsername === 'function') ? normalizeUsername(f.username) : String(f.username || '').toLowerCase().replace(/^@/, '');
+        if (n && n !== me) set.add(n);
+      });
+      return set;
+    }
+    function paintFeedTabs() {
+      const tab = getFeedTab();
+      const fy = document.getElementById('btn-feed-tab-foryou');
+      const cn = document.getElementById('btn-feed-tab-connected');
+      const styleTab = (el, on) => {
+        if (!el) return;
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+        el.style.fontSize = on ? '26px' : '18px';
+        el.style.fontWeight = on ? '700' : '400';
+        el.style.color = on ? '#171717' : '#a3a3a3';
+        el.style.background = 'transparent';
+        el.style.textDecoration = 'none';
+        el.style.boxShadow = 'none';
+        el.style.border = '0';
+        el.style.padding = '0';
+      };
+      styleTab(fy, tab === 'foryou');
+      styleTab(cn, tab === 'connected');
+    }
+    function setFeedTab(tab) {
+      const next = tab === 'connected' ? 'connected' : 'foryou';
+      if (state) state.feedTab = next;
+      try { sessionStorage.setItem(feedTabStorageKey(), next); } catch (e) {}
+      paintFeedTabs();
+      if (typeof renderFeed === 'function') renderFeed();
+    }
+    function buildConnectedEmptyHtml() {
+      const me = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : '';
+      const n = (typeof getActiveConnectedEntries === 'function')
+        ? getActiveConnectedEntries(state.following || [], me).length
+        : 0;
+      const msg = n === 0
+        ? "You're not connected with anyone yet. When you are, their posts will show up here."
+        : 'No posts from your connections yet.';
+      return '<div id="feed-connected-empty" class="bg-white border border-neutral-200/90 rounded-2xl p-6 text-center shadow-xs">' +
+        '<p class="text-sm text-neutral-600 leading-relaxed">' + msg + '</p></div>';
+    }
+    window.getFeedTab = getFeedTab;
+    window.setFeedTab = setFeedTab;
+    window.paintFeedTabs = paintFeedTabs;
+    window.getConnectedFeedAuthorSet = getConnectedFeedAuthorSet;
+
     function renderFeed() {
       const stream = document.getElementById('posts-stream');
       if (!stream) return;
@@ -14061,6 +14144,16 @@ function syncLikedStateToPosts() {
           ranked.forEach(r => feedPosts.push(r.p));
         }
       } catch (e) {}
+
+      const feedTab = (typeof getFeedTab === 'function') ? getFeedTab() : 'foryou';
+      if (feedTab === 'connected') {
+        const connectedSet = (typeof getConnectedFeedAuthorSet === 'function') ? getConnectedFeedAuthorSet() : new Set();
+        const norm = (a) => (typeof normalizeUsername === 'function') ? normalizeUsername(a || '') : String(a || '').toLowerCase().replace(/^@/, '');
+        for (let i = feedPosts.length - 1; i >= 0; i--) {
+          if (!connectedSet.has(norm(feedPosts[i] && feedPosts[i].author))) feedPosts.splice(i, 1);
+        }
+      }
+      if (typeof paintFeedTabs === 'function') paintFeedTabs();
 
       // Helper to generate Suggested Creators cards
       function getSuggestedCreators() {
@@ -14150,6 +14243,11 @@ function syncLikedStateToPosts() {
 
       // If no feed posts exist, render the full empty state card
       if (feedPosts.length === 0) {
+        if (feedTab === 'connected') {
+          stream.innerHTML = buildConnectedEmptyHtml();
+          if (typeof observePostViewTargets === 'function') observePostViewTargets();
+          return;
+        }
         stream.innerHTML = buildSuggestedCreatorsHtml(true);
         attachFeedCardEventListeners();
         if (typeof observePostViewTargets === 'function') observePostViewTargets();
@@ -27228,6 +27326,7 @@ function syncLikedStateToPosts() {
         window._pixlyDeletedUsernames = new Set();
       }
       state.isLoggedIn = true;
+      try { state.feedTab = null; } catch (e) {}
       try {
         localStorage.setItem('pixly_is_logged_in', '1');
         localStorage.setItem('pixly_active_username', cleanUsername.toLowerCase());
