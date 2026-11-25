@@ -5298,7 +5298,7 @@
           if (window._postsScopedMode && typeof window.attachScopedPostsListeners === 'function') {
             window._postsCollectionUnsub = () => {};
             window.attachScopedPostsListeners((cloudPosts) => {
-              if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(cloudPosts);
+              if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') window.applyCustomPostsFromRemote(cloudPosts, { fromPostDocs: true });
               if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
               if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
             });
@@ -5306,7 +5306,7 @@
           }
           const applyCloudPosts = (cloudPosts) => {
             if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
-              window.applyCustomPostsFromRemote(cloudPosts);
+              window.applyCustomPostsFromRemote(cloudPosts, { fromPostDocs: true });
             }
             if (typeof window.recordExploreCloudPosts === 'function') window.recordExploreCloudPosts(cloudPosts);
             if (typeof renderProfile === 'function' && state && state.isLoggedIn) renderProfile();
@@ -5347,7 +5347,7 @@
               if (pData && pData.id) cloudPosts.push(pData);
             });
             if (cloudPosts.length > 0 && typeof window.applyCustomPostsFromRemote === 'function') {
-              window.applyCustomPostsFromRemote(cloudPosts);
+              window.applyCustomPostsFromRemote(cloudPosts, { fromPostDocs: true });
               if (typeof renderProfile === 'function') renderProfile();
             }
           } catch (e) {}
@@ -7923,6 +7923,200 @@ function syncLikedStateToPosts() {
           n.isLiked = state.likedNoteIds && (state.likedNoteIds.has(strId) || state.likedNoteIds.has(numId));
         });
       }
+      refreshAllLikeCounts();
+    }
+
+    // ===== Like engine: one like per person =====
+    // A like is a member of a set of likers. The count is always computed from that set:
+    //   count = seed base (built-in demo content only) + other people who liked it + my own like.
+    // Nothing adds or subtracts 1 from a stored counter, so rapid taps, two tabs, reloads and account
+    // switches can never double-count or push the count below zero.
+    // Where the set lives:
+    //   posts / notes  -> each person's own users/{me}.likedPostIds / likedNoteIds (only they can write it),
+    //                     plus posts/{id}.likedBy (arrayUnion / arrayRemove) when the post has a cloud doc
+    //   stories        -> users/{owner}.storyLikes[storyId] (arrayUnion / arrayRemove) + users/{me}.likedStoryIds
+    //   comments, replies -> the likedBy array on the comment (counted as a set of unique names)
+    function likeMe() {
+      return normalizeUsername((state && state.currentUser && state.currentUser.username) || '');
+    }
+    function likeUniqueNames(arr) {
+      const out = [];
+      const seen = new Set();
+      (Array.isArray(arr) ? arr : []).forEach(u => {
+        const n = normalizeUsername(u);
+        if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+      });
+      return out;
+    }
+    function likedByCount(arr) { return likeUniqueNames(arr).length; }
+    function likedByHas(arr, user) {
+      const me = normalizeUsername(user);
+      return !!me && likeUniqueNames(arr).indexOf(me) !== -1;
+    }
+    window.likedByCount = likedByCount;
+    window.likedByHas = likedByHas;
+    // Seed content (built-in demo posts and notes) carries a fixed starting count. Real content has none.
+    window._seedLikeBases = window._seedLikeBases || new Map();
+    function setLikeBase(item, n) {
+      if (!item || typeof item !== 'object') return item;
+      try { Object.defineProperty(item, '_likeBase', { value: Math.max(0, Number(n) || 0), writable: true, enumerable: false, configurable: true }); } catch (e) {}
+      return item;
+    }
+    window.setLikeBase = setLikeBase;
+    function likeBaseOf(item, kind) {
+      if (!item) return 0;
+      if (typeof item._likeBase === 'number') return Math.max(0, item._likeBase);
+      if (typeof item.baseLikes === 'number') return Math.max(0, item.baseLikes);
+      if (item.isSeed === true) {
+        const b = window._seedLikeBases.get((kind || 'post') + ':' + String(item.id));
+        if (typeof b === 'number') return b;
+      }
+      return 0;
+    }
+    // Called once, right after the built-in demo content is defined and before any like is applied to it.
+    function captureSeedLikeBases() {
+      [['post', state.posts], ['post', state.explorePosts], ['note', state.notes], ['note', state.exploreNotes]].forEach(pair => {
+        (Array.isArray(pair[1]) ? pair[1] : []).forEach(it => {
+          if (!it || typeof it._likeBase === 'number') return;
+          setLikeBase(it, it.likes);
+          if (it.isSeed === true) window._seedLikeBases.set(pair[0] + ':' + String(it.id), Math.max(0, Number(it.likes) || 0));
+        });
+      });
+    }
+    window.captureSeedLikeBases = captureSeedLikeBases;
+    function likeOthersSet(kind, item) {
+      const me = likeMe();
+      const out = new Set();
+      const add = u => { const n = normalizeUsername(u); if (n && n !== me) out.add(n); };
+      if (item && Array.isArray(item.likedBy)) item.likedBy.forEach(add);
+      const dir = window._exploreUserDir;
+      if (dir && item && item.id !== undefined && item.id !== null) {
+        const m = kind === 'note' ? dir.likesByNote : dir.likesByPost;
+        const set = m && typeof m.get === 'function' ? m.get(String(item.id)) : null;
+        if (set && typeof set.forEach === 'function') set.forEach(add);
+      }
+      return out;
+    }
+    function likeIsMine(kind, item) {
+      if (!item) return false;
+      const sid = String(item.id);
+      const num = typeof item.id === 'number' ? item.id : parseInt(item.id, 10);
+      const set = kind === 'note' ? state.likedNoteIds : state.likedPostIds;
+      return !!(set && (set.has(sid) || (!isNaN(num) && set.has(num))));
+    }
+    function likeCountFor(kind, item) {
+      if (!item) return 0;
+      return likeBaseOf(item, kind) + likeOthersSet(kind, item).size + (likeIsMine(kind, item) ? 1 : 0);
+    }
+    function recountLike(kind, item) {
+      if (!item) return 0;
+      const n = likeCountFor(kind, item);
+      item.likes = n;
+      return n;
+    }
+    function postLikeCount(p) { return recountLike('post', p); }
+    function noteLikeCount(n) { return recountLike('note', n); }
+    window.likeCountFor = likeCountFor;
+    window.postLikeCount = postLikeCount;
+    window.noteLikeCount = noteLikeCount;
+    // Keep an item's own likedBy list in step with my like (no duplicates, ever).
+    function likeSyncLocalLikedBy(item, liked) {
+      if (!item) return;
+      const me = likeMe();
+      if (!me) return;
+      const list = likeUniqueNames(item.likedBy).filter(u => u !== me);
+      if (liked) list.push(me);
+      item.likedBy = list;
+    }
+    function refreshAllLikeCounts() {
+      let changed = false;
+      const seen = new Set();
+      const run = (kind, item) => {
+        if (!item || seen.has(item)) return;
+        seen.add(item);
+        const before = item.likes;
+        recountLike(kind, item);
+        if (before !== item.likes) changed = true;
+      };
+      (state.posts || []).forEach(p => run('post', p));
+      (state.explorePosts || []).forEach(p => run('post', p));
+      if (state.explorePostsArchive && typeof state.explorePostsArchive.forEach === 'function') state.explorePostsArchive.forEach(p => run('post', p));
+      (state.notes || []).forEach(n => run('note', n));
+      (state.exploreNotes || []).forEach(n => run('note', n));
+      if (state.exploreNotesArchive && typeof state.exploreNotesArchive.forEach === 'function') state.exploreNotesArchive.forEach(n => run('note', n));
+      return changed;
+    }
+    window.refreshAllLikeCounts = refreshAllLikeCounts;
+
+    // --- Like writes: atomic arrayUnion / arrayRemove, one at a time per item, last tap wins ---
+    window._likeIntents = window._likeIntents || new Map();
+    window._likeWritesInFlight = 0;
+    function likeWritesReady() {
+      return !!(window.firebaseReady && window.firebase && window.firebase.db && state && state.isLoggedIn);
+    }
+    function queueLikeWrite(kind, id, liked, meta) {
+      const who = likeMe();
+      if (!who || id === undefined || id === null) return;
+      const key = who + '|' + kind + '|' + String(id);
+      let it = window._likeIntents.get(key);
+      if (!it) {
+        it = { key, kind, id: String(id), who, liked: !!liked, dirty: true, running: false, meta: meta || {} };
+        window._likeIntents.set(key, it);
+      } else {
+        it.liked = !!liked;
+        it.dirty = true;
+        if (meta) it.meta = meta;
+      }
+      runLikeIntent(it);
+    }
+    async function writeLikeOnce(it, liked) {
+      const fb = window.firebase;
+      const { db, doc, setDoc, updateDoc, arrayUnion, arrayRemove } = fb;
+      const op = liked ? arrayUnion : arrayRemove;
+      const meta = it.meta || {};
+      if (it.kind === 'post') {
+        await setDoc(doc(db, 'users', it.who), { likedPostIds: op(it.id), lastUpdated: Date.now() }, { merge: true });
+        if (meta.cloud && updateDoc) {
+          try { await updateDoc(doc(db, 'posts', it.id), { likedBy: op(it.who) }); } catch (e) { /* no cloud doc, or rules not updated yet: the per-user set still counts */ }
+        }
+      } else if (it.kind === 'note') {
+        await setDoc(doc(db, 'users', it.who), { likedNoteIds: op(it.id), lastUpdated: Date.now() }, { merge: true });
+      } else if (it.kind === 'story') {
+        await setDoc(doc(db, 'users', it.who), { likedStoryIds: op(meta.storyKey || it.id), lastUpdated: Date.now() }, { merge: true });
+        if (meta.owner && meta.storyId && normalizeUsername(meta.owner) !== it.who) {
+          await setDoc(doc(db, 'users', normalizeUsername(meta.owner)), { storyLikes: { [String(meta.storyId)]: op(it.who) } }, { merge: true });
+        }
+      }
+    }
+    async function runLikeIntent(it) {
+      if (it.running) return;
+      if (!likeWritesReady()) { window.pendingLikesSync = true; return; }
+      it.running = true;
+      window._likeWritesInFlight++;
+      try {
+        while (it.dirty) {
+          it.dirty = false;
+          try { await writeLikeOnce(it, it.liked); } catch (e) { console.warn('Like write notice:', e); }
+        }
+      } finally {
+        it.running = false;
+        window._likeWritesInFlight = Math.max(0, window._likeWritesInFlight - 1);
+        if (!it.dirty) window._likeIntents.delete(it.key);
+      }
+    }
+    function flushLikeIntents() {
+      window._likeIntents.forEach(it => { if (!it.running) runLikeIntent(it); });
+    }
+    window.queueLikeWrite = queueLikeWrite;
+    window.flushLikeIntents = flushLikeIntents;
+    // When cloud likes arrive after an offline or early tap: apply my queued taps on top of the cloud set.
+    function applyQueuedLikeIntents(kind, idSet, orderList) {
+      const me = likeMe();
+      window._likeIntents.forEach(it => {
+        if (it.kind !== kind || it.who !== me) return;
+        if (it.liked) { idSet.add(it.id); } else { idSet.delete(it.id); const n = Number(it.id); if (!isNaN(n)) idSet.delete(n); }
+      });
+      return orderList;
     }
 
     // --- Bulletproof Cloud & Multi-Tier Like Persistence Controller ---
@@ -8565,6 +8759,7 @@ function syncLikedStateToPosts() {
         window.pendingLikesSync = true;
         return;
       }
+      if (typeof flushLikeIntents === 'function') flushLikeIntents();
       if (!window._likesHydratedFromCloud) {
         window.pendingLikesSync = true;
         return;
@@ -8573,24 +8768,21 @@ function syncLikedStateToPosts() {
         const { db, doc, setDoc } = window.firebase;
         const activeU = getActiveFirestoreUsername();
         if (!activeU) return;
-        const likedArray = Array.from(state.likedOrder || state.likedPostIds || []);
-        const likedNotesArr = Array.from(new Set(Array.from(state.likedNoteOrder || state.likedNoteIds || []).map(String)));
         const uid = (window.firebase.auth && window.firebase.auth.currentUser) ? window.firebase.auth.currentUser.uid : null;
         
         // Lightweight user document: likes, saves, deletes, notes, and avatar only.
         // Do not write email, phone, website, bio, or other Edit Profile fields here —
         // a later likes sync must never overwrite a completed profile save.
         const syncTarget = activeU;
+        // Likes (posts, notes, stories) are NOT written here: a whole-array overwrite from a stale tab could
+        // bring back a like that was removed elsewhere. Likes go through queueLikeWrite (arrayUnion / arrayRemove).
         const payload = {
-          likedPostIds: likedArray,
           savedPostIds: Array.from(new Set(Array.from(state.savedPostIds || []).map(String))),
           savedNoteIds: Array.from(new Set(Array.from(state.savedNoteIds || []).map(String))),
           deletedPostIds: Array.from(new Set(Array.from(state.deletedPostIds || []).map(String))),
           deletedNoteIds: Array.from(new Set(Array.from(state.deletedNoteIds || []).map(String))),
           deletedReplyIds: Array.from(new Set(Array.from(state.deletedReplyIds || []).map(String))),
           notes: state.notes || [],
-          likedNoteIds: likedNotesArr,
-          likedStoryIds: Array.from(new Set(Array.from(state.likedStoryIds || []).map(String))),
           highlights: state.highlights || [],
           username: state.currentUser.username,
           photoURL: state.currentUser.avatar,
@@ -8649,7 +8841,7 @@ function syncLikedStateToPosts() {
             image: post.image,
             caption: post.caption,
             tags: post.tags,
-            likes: post.likes,
+            // No `likes` counter is stored: the count is computed from the set of likers (likedBy / each person's likedPostIds).
             isLiked: false,
             comments: Array.isArray(post.comments) ? post.comments : [],
             timestamp: post.timestamp,
@@ -8676,7 +8868,7 @@ function syncLikedStateToPosts() {
       syncAllLikesToFirestore();
     }
 
-    window.applyCustomPostsFromRemote = function(customPostsArr) {
+    window.applyCustomPostsFromRemote = function(customPostsArr, opts) {
       if (!Array.isArray(customPostsArr) || customPostsArr.length === 0) return;
       let changed = false;
       const delRepSet = state.deletedReplyIds || new Set();
@@ -8731,6 +8923,15 @@ function syncLikedStateToPosts() {
             changed = true;
           }
           if (cp.edited) existing.edited = true;
+          // posts/{id}.likedBy is the public set of likers. Only the posts collection is trusted for it (the
+          // users/{u}.customPosts mirror can be older), and the list is always collapsed to unique names.
+          if (opts && opts.fromPostDocs && Array.isArray(cp.likedBy) && typeof likeUniqueNames === 'function') {
+            const remoteLikers = likeUniqueNames(cp.likedBy);
+            if (JSON.stringify(remoteLikers) !== JSON.stringify(likeUniqueNames(existing.likedBy))) {
+              existing.likedBy = remoteLikers;
+              changed = true;
+            }
+          }
           if (cp.views != null && !isNaN(Number(cp.views))) {
             const remoteViews = Math.max(0, Math.floor(Number(cp.views)));
             const localViews = Math.max(0, Math.floor(Number(existing.views) || 0));
@@ -8798,9 +8999,10 @@ function syncLikedStateToPosts() {
         state.likedOrder = state.likedOrder.filter(id => id !== strId);
       }
 
-      // Explicitly update target post object likes count
+      // The count is computed from the set of likers (never +1 / -1 on a stored counter)
       target.isLiked = newLiked;
-      target.likes = Math.max(0, (target.likes || 0) + (newLiked ? 1 : -1));
+      likeSyncLocalLikedBy(target, newLiked);
+      recountLike('post', target);
 
       // SEND NOTIFICATION TO THE POST AUTHOR (WHEN LIKED BY ANOTHER ACCOUNT)
       const postAuthor = normalizeUsername(target.author);
@@ -8831,7 +9033,7 @@ function syncLikedStateToPosts() {
       saveAccountLikes(curU);
       syncLikedStateToPosts();
       persistState();
-      syncAllLikesToFirestore();
+      queueLikeWrite('post', strId, newLiked, { cloud: !(target.isSeed === true || typeof target._likeBase === 'number' || typeof target.baseLikes === 'number') });
 
       renderFeed();
       if (state.explorePosts) renderExplore();
@@ -8893,13 +9095,19 @@ function syncLikedStateToPosts() {
 
     window.applyLikesFromRemote = function(likedIdsArr) {
       if (!Array.isArray(likedIdsArr)) return;
-      const remoteIds = likedIdsArr.map(String).filter(Boolean);
+      // My own like writes are still on their way: the next snapshot (their echo) carries the final state.
+      if (window._likeWritesInFlight > 0 && !window.pendingLikesSync) return;
+      const remoteIds = Array.from(new Set(likedIdsArr.map(String).filter(Boolean)));
       if (window.pendingLikesSync && state.likedPostIds && state.likedPostIds.size > 0) {
-        // Flush offline/pre-init local likes together with remote likes
+        // Offline/pre-init local likes merge with the cloud set; my queued taps win; then they are written atomically
+        const before = new Set(Array.from(state.likedPostIds).map(String));
         remoteIds.forEach(id => state.likedPostIds.add(id));
-        state.likedOrder = Array.from(new Set([...Array.from(state.likedOrder || state.likedPostIds), ...remoteIds]));
+        applyQueuedLikeIntents('post', state.likedPostIds);
+        state.likedOrder = Array.from(new Set([...Array.from(state.likedOrder || state.likedPostIds), ...remoteIds].map(String))).filter(id => state.likedPostIds.has(id));
         window.pendingLikesSync = false;
-        syncAllLikesToFirestore();
+        const remoteSet = new Set(remoteIds);
+        before.forEach(id => { if (state.likedPostIds.has(id) && !remoteSet.has(id)) queueLikeWrite('post', id, true, { cloud: false }); });
+        flushLikeIntents();
       } else {
         // Authoritative sync from Firestore so unliked items stay unliked and stale IDs don't reappear
         state.likedPostIds = new Set(remoteIds);
@@ -8921,15 +9129,20 @@ function syncLikedStateToPosts() {
 
     window.applyNoteLikesFromRemote = function(likedNoteIdsArr) {
       if (!Array.isArray(likedNoteIdsArr)) return;
-      const remoteNoteIds = likedNoteIdsArr.map(String).filter(Boolean);
+      if (window._likeWritesInFlight > 0 && !window.pendingLikesSync) return;
+      const remoteNoteIds = Array.from(new Set(likedNoteIdsArr.map(String).filter(Boolean)));
       remoteNoteIds.forEach(nid => {
         if (typeof getNoteById === 'function') getNoteById(nid);
       });
       if (window.pendingLikesSync && state.likedNoteIds && state.likedNoteIds.size > 0) {
+        const beforeNotes = new Set(Array.from(state.likedNoteIds).map(String));
         remoteNoteIds.forEach(id => state.likedNoteIds.add(id));
-        state.likedNoteOrder = Array.from(new Set([...Array.from(state.likedNoteOrder || state.likedNoteIds).map(String), ...remoteNoteIds]));
+        applyQueuedLikeIntents('note', state.likedNoteIds);
+        state.likedNoteOrder = Array.from(new Set([...Array.from(state.likedNoteOrder || state.likedNoteIds).map(String), ...remoteNoteIds])).filter(id => state.likedNoteIds.has(id));
         window.pendingLikesSync = false;
-        syncAllLikesToFirestore();
+        const remoteNoteSet = new Set(remoteNoteIds);
+        beforeNotes.forEach(id => { if (state.likedNoteIds.has(id) && !remoteNoteSet.has(id)) queueLikeWrite('note', id, true); });
+        flushLikeIntents();
       } else {
         state.likedNoteIds = new Set(remoteNoteIds);
         state.likedNoteOrder = Array.from(new Set(remoteNoteIds));
@@ -9684,6 +9897,7 @@ function syncLikedStateToPosts() {
             timestamp: "JUST NOW",
             comments: []
           };
+          setLikeBase(found, item.baseLikes);
           if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
           state.explorePostsArchive.set(strId, found);
         }
@@ -10254,6 +10468,7 @@ function syncLikedStateToPosts() {
         }
       ]
     };
+    captureSeedLikeBases();
 
     // --- Helper Utilities ---
     function showToast(msg) {
@@ -14026,7 +14241,7 @@ function syncLikedStateToPosts() {
               <!-- Likes + views -->
               <div class="flex items-center justify-between gap-3">
                 <div class="font-bold text-xs text-neutral-900 cursor-pointer" onclick="openPostDetailModal(${post.id})">
-                  ${(post.likes || 0).toLocaleString()} likes
+                  ${postLikeCount(post).toLocaleString()} likes
                 </div>
                 ${postViewsCountHtml(post)}
               </div>
@@ -14592,7 +14807,7 @@ function syncLikedStateToPosts() {
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                  <span>${(post.likes || 0).toLocaleString()}</span>
+                  <span>${postLikeCount(post).toLocaleString()}</span>
                 </div>
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -14720,6 +14935,7 @@ function syncLikedStateToPosts() {
             replies: item.replies || 0,
             comments: []
           };
+          setLikeBase(reconstructed, item.likes || 0);
           if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
           state.exploreNotesArchive.set(strId, reconstructed);
           return reconstructed;
@@ -14789,15 +15005,10 @@ function syncLikedStateToPosts() {
 
       // Format likes state (check both state.likedNoteIds and note.likedBy)
       const _curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
-      const _likedByMatch = _curU && Array.isArray(note.likedBy) && note.likedBy.map(normalizeUsername).includes(_curU);
-      if (_likedByMatch) {
-        if (!state.likedNoteIds) state.likedNoteIds = new Set();
-        state.likedNoteIds.add(String(note.id));
-        const _numId = parseInt(note.id, 10);
-        if (!isNaN(_numId)) state.likedNoteIds.add(_numId);
-      }
-      const isLiked = _likedByMatch || (state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false);
-      if (likesCountEl) likesCountEl.textContent = note.likes || 0;
+      // My own like set (users/{me}.likedNoteIds) is the truth for "did I like it"; a stale likedBy list on the
+      // note never turns a like back on.
+      const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(note.id) || state.likedNoteIds.has(String(note.id))) : false;
+      if (likesCountEl) likesCountEl.textContent = noteLikeCount(note);
       if (likeIconEl) {
         likeIconEl.setAttribute('class', isLiked ? "w-4 h-4 fill-rose-500 text-rose-500 transition duration-200" : "w-4 h-4 text-neutral-700 transition duration-200");
         likeIconEl.setAttribute('fill', isLiked ? 'currentColor' : 'none');
@@ -14844,7 +15055,8 @@ function syncLikedStateToPosts() {
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
       const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
-      if (!Array.isArray(target.likedBy)) target.likedBy = [];
+      // likedBy is a set of people: collapse any duplicates first, then add or remove exactly me.
+      target.likedBy = likeUniqueNames(target.likedBy);
       const idx = target.likedBy.indexOf(curU);
       const targetAuthor = normalizeUsername(target.user);
 
@@ -14865,7 +15077,7 @@ function syncLikedStateToPosts() {
           });
         }
       } else {
-        target.likedBy.splice(idx, 1);
+        target.likedBy = target.likedBy.filter(u => u !== curU);
       }
       renderNoteModalComments(note);
       persistState();
@@ -14933,12 +15145,12 @@ function syncLikedStateToPosts() {
         const visibleComments = (typeof isCommentVisibleToViewer === 'function') ? comments.filter(isCommentVisibleToViewer) : comments;
         listEl.innerHTML = visibleComments.map(c => {
           const userAvatar = c.userAvatar || (getCreatorInfo(c.user).avatar) || COMMUNITY_IMAGES[0];
-          const isLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
-          const likesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
+          const isLiked = likedByHas(c.likedBy, curU);
+          const likesCount = likedByCount(c.likedBy);
           const repliesHtml = (c.replies || []).map(r => {
             const rAvatar = r.userAvatar || (getCreatorInfo(r.user).avatar) || COMMUNITY_IMAGES[0];
-            const rLiked = Array.isArray(r.likedBy) && r.likedBy.includes(curU);
-            const rLikesCount = Array.isArray(r.likedBy) ? r.likedBy.length : 0;
+            const rLiked = likedByHas(r.likedBy, curU);
+            const rLikesCount = likedByCount(r.likedBy);
             return `
               <div class="mt-2 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
                 <div class="flex items-start space-x-2 min-w-0">
@@ -15092,7 +15304,8 @@ function syncLikedStateToPosts() {
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
       const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
-      if (!Array.isArray(target.likedBy)) target.likedBy = [];
+      // likedBy is a set of people: collapse any duplicates first, then add or remove exactly me.
+      target.likedBy = likeUniqueNames(target.likedBy);
       const idx = target.likedBy.indexOf(curU);
       const targetAuthor = normalizeUsername(target.user);
 
@@ -15114,7 +15327,7 @@ function syncLikedStateToPosts() {
           });
         }
       } else {
-        target.likedBy.splice(idx, 1);
+        target.likedBy = target.likedBy.filter(u => u !== curU);
       }
       openPostDetailModal(post.id);
       persistState();
@@ -15131,40 +15344,13 @@ function syncLikedStateToPosts() {
     }
     window.startReplyToPostComment = startReplyToPostComment;
 
+    // Kept for older callers. It used to rewrite the note author's notes array with likes + 1 / - 1, which could
+    // double-count and is blocked by the database rules anyway (notes live in users/{author}/content/profile).
+    // A note like is now one entry in the liker's own likedNoteIds, written by queueLikeWrite().
     async function syncNoteLikeToAuthorDoc(note, likerUsername, isNowLiked) {
-      if (!note || !note.author || !window.firebaseReady || !window.firebase || !window.firebase.getDoc) return;
-      const noteAuthor = normalizeUsername(note.author);
-      const likerU = normalizeUsername(likerUsername);
-      if (!noteAuthor) return;
-      try {
-        const { db, doc, getDoc, setDoc } = window.firebase;
-        const ref = doc(db, 'users', noteAuthor);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) return;
-        const d = snap.data();
-        if (!d || !Array.isArray(d.notes)) return;
-        let changed = false;
-        const updatedNotes = d.notes.map(n => {
-          if (n && String(n.id) === String(note.id)) {
-            changed = true;
-            const likedBy = Array.isArray(n.likedBy) ? n.likedBy.map(normalizeUsername) : [];
-            if (isNowLiked) {
-              if (likerU && !likedBy.includes(likerU)) likedBy.push(likerU);
-              n.likes = Math.max((n.likes || 0) + 1, likedBy.length);
-            } else {
-              const idx = likedBy.indexOf(likerU);
-              if (idx !== -1) likedBy.splice(idx, 1);
-              n.likes = Math.max(0, (n.likes || 1) - 1);
-            }
-            n.likedBy = likedBy;
-            note.likes = n.likes;
-          }
-          return n;
-        });
-        if (changed) {
-          await setDoc(ref, { notes: updatedNotes, lastUpdated: Date.now() }, { merge: true });
-        }
-      } catch(e) {}
+      if (!note) return;
+      likeSyncLocalLikedBy(note, !!isNowLiked && normalizeUsername(likerUsername) === likeMe());
+      recountLike('note', note);
     }
     window.syncNoteLikeToAuthorDoc = syncNoteLikeToAuthorDoc;
 
@@ -15185,8 +15371,9 @@ function syncLikedStateToPosts() {
       if (currentlyLiked) {
         state.likedNoteIds.delete(numId);
         state.likedNoteIds.delete(strId);
-        note.likes = Math.max(0, (note.likes || 1) - 1);
         note.isLiked = false;
+        likeSyncLocalLikedBy(note, false);
+        recountLike('note', note);
         state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
         showToast('Unliked note');
         if (noteAuthor && noteAuthor !== curU) {
@@ -15195,8 +15382,9 @@ function syncLikedStateToPosts() {
       } else {
         state.likedNoteIds.add(numId);
         state.likedNoteIds.add(strId);
-        note.likes = (note.likes || 0) + 1;
         note.isLiked = true;
+        likeSyncLocalLikedBy(note, true);
+        recountLike('note', note);
         if (!state.likedNoteOrder.includes(strId)) {
           state.likedNoteOrder.unshift(strId);
         }
@@ -15220,8 +15408,7 @@ function syncLikedStateToPosts() {
       if (!state.exploreNotesArchive) state.exploreNotesArchive = new Map();
       state.exploreNotesArchive.set(strId, note);
       saveAccountLikes(curU);
-      if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
-      syncNoteLikeToAuthorDoc(note, curU, !currentlyLiked);
+      queueLikeWrite('note', strId, !currentlyLiked);
 
       openNoteDetailModal(note.id);
       renderNotes();
@@ -15309,7 +15496,7 @@ function syncLikedStateToPosts() {
                   ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('note', n.id) : ''}
                   <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer p-1 -ml-1 rounded-lg hover:bg-neutral-100" title="${isLiked ? 'Unlike note' : 'Like note'}">
                     <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${n.likes || 0}</span>
+                    <span class="font-semibold">${noteLikeCount(n)}</span>
                   </button>
                   <button type="button" onclick="event.stopPropagation(); openNoteDetailModal('${n.id}');" class="flex items-center space-x-1 text-neutral-400 hover:text-sky-600 transition cursor-pointer p-1 rounded-lg hover:bg-neutral-100" title="Comments">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -15789,15 +15976,21 @@ function syncLikedStateToPosts() {
       if (currentlyLiked) {
         state.likedNoteIds.delete(numId);
         state.likedNoteIds.delete(strId);
-        note.likes = Math.max(0, (note.likes || 1) - 1);
         note.isLiked = false;
+        likeSyncLocalLikedBy(note, false);
+        recountLike('note', note);
         state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
         showToast('Unliked note');
+        const _unlikeAuthor = normalizeUsername(note.author);
+        if (_unlikeAuthor && _unlikeAuthor !== normalizeUsername((state.currentUser && state.currentUser.username) || '')) {
+          removeNotificationForUser(_unlikeAuthor, 'like_note', normalizeUsername((state.currentUser && state.currentUser.username) || ''), note.id);
+        }
       } else {
         state.likedNoteIds.add(numId);
         state.likedNoteIds.add(strId);
-        note.likes = (note.likes || 0) + 1;
         note.isLiked = true;
+        likeSyncLocalLikedBy(note, true);
+        recountLike('note', note);
         if (!state.likedNoteOrder.includes(strId)) {
           state.likedNoteOrder.unshift(strId);
         }
@@ -15825,8 +16018,7 @@ function syncLikedStateToPosts() {
         });
       }
       if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
-      if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
-      if (typeof syncNoteLikeToAuthorDoc === 'function') syncNoteLikeToAuthorDoc(note, curU, !currentlyLiked);
+      queueLikeWrite('note', strId, !currentlyLiked);
 
       renderNotes();
       if (typeof window._refreshCreatorNotesUI === 'function') window._refreshCreatorNotesUI();
@@ -15915,7 +16107,7 @@ function syncLikedStateToPosts() {
             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-3 text-white font-bold text-xs">
               <div class="flex items-center space-x-1">
                 <svg class="w-4 h-4 fill-rose-500 text-rose-500" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                <span>${post.likes}</span>
+                <span>${postLikeCount(post)}</span>
               </div>
             </div>
             <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
@@ -15997,7 +16189,7 @@ function syncLikedStateToPosts() {
               <div class="flex flex-col items-end space-y-1 ml-2 flex-shrink-0">
                 <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="text-rose-500 hover:text-neutral-400 flex items-center space-x-1 font-semibold cursor-pointer p-1" title="Unlike note">
                   <span>❤️</span>
-                  <span>${n.likes || 1}</span>
+                  <span>${noteLikeCount(n)}</span>
                 </button>
                 ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(n) : ''}
               </div>
@@ -16186,6 +16378,8 @@ function syncLikedStateToPosts() {
         const fresh = { at: Date.now(), users, notes: noteList, likesByPost, likesByNote };
         window._exploreUserDir = fresh;
         window._exploreUserDirLastFail = 0;
+        // The set of likers just got more complete: recount, and redraw the feed only if a number moved.
+        try { if (refreshAllLikeCounts() && typeof renderFeed === 'function' && !(window._likeWritesInFlight > 0)) renderFeed(); } catch (e) {}
         scheduleExploreRender();
         if (typeof renderStories === 'function') renderStories();
         return fresh;
@@ -16282,12 +16476,12 @@ function syncLikedStateToPosts() {
             p = { ...cp, comments: Array.isArray(cp.comments) ? cp.comments : [], tags: Array.isArray(cp.tags) ? cp.tags : [] };
             state.explorePostsArchive.set(sid, p);
           } else {
-            ['caption', 'image', 'location', 'authorName', 'authorAvatar'].forEach(k => { if (cp[k] !== undefined) p[k] = cp[k]; });
+            ['caption', 'image', 'location', 'authorName', 'authorAvatar', 'likedBy'].forEach(k => { if (cp[k] !== undefined) p[k] = cp[k]; });
             if (Array.isArray(cp.comments)) p.comments = cp.comments;
           }
         }
         p.isLiked = !!(state.likedPostIds && state.likedPostIds.has(sid));
-        if (window._exploreUserDir) p.likes = exploreRealLikeCount('post', sid);
+        p.likes = likeCountFor('post', p);
         const niPen = (typeof notInterestedPenalty === 'function') ? notInterestedPenalty(p) : 0;
         out.push({ item: p, score: exploreScore(p, p.likes, now) / (1 + niPen), t: exploreTimeMs(p) });
       });
@@ -16313,12 +16507,12 @@ function syncLikedStateToPosts() {
           obj = { ...n, comments: Array.isArray(n.comments) ? n.comments : [] };
           state.exploreNotesArchive.set(sid, obj);
         } else {
-          ['text', 'authorName', 'authorAvatar', 'time', 'edited'].forEach(k => { if (n[k] !== undefined) obj[k] = n[k]; });
+          ['text', 'authorName', 'authorAvatar', 'time', 'edited', 'likedBy'].forEach(k => { if (n[k] !== undefined) obj[k] = n[k]; });
           if (Array.isArray(n.comments) && n.comments.length >= (obj.comments || []).length) obj.comments = n.comments;
         }
         obj.author = n.author;
         obj.isLiked = !!(state.likedNoteIds && (state.likedNoteIds.has(sid) || state.likedNoteIds.has(Number(sid))));
-        obj.likes = exploreRealLikeCount('note', sid);
+        obj.likes = likeCountFor('note', obj);
         out.push({ item: obj, score: exploreScore(obj, obj.likes, now), t: exploreTimeMs(obj) });
       });
       out.sort((a, b) => (b.score - a.score) || (b.t - a.t));
@@ -16463,7 +16657,7 @@ function syncLikedStateToPosts() {
                 <span class="flex items-center space-x-2">
                   <span class="flex items-center space-x-1 ${isLiked ? 'text-rose-400 font-bold' : 'text-white/90'} drop-shadow-sm">
                     <span>${isLiked ? '❤️' : '🤍'}</span>
-                    <span class="explore-like-count">${Number(post.likes) || 0}</span>
+                    <span class="explore-like-count">${postLikeCount(post)}</span>
                   </span>
                   ${postViewsCountHtml(post, { compact: true, light: true })}
                 </span>
@@ -16500,7 +16694,7 @@ function syncLikedStateToPosts() {
                   ${typeof pixaiContentBtnHtml === 'function' ? pixaiContentBtnHtml('note', idA) : ''}
                   <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${idJs}', this);" class="flex items-center space-x-1.5 btn-like-explore-note ${heartFill} transition cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="${isNoteLiked ? 'Unlike note' : 'Like note'}">
                     <svg class="w-4 h-4 ${isNoteLiked ? 'fill-current' : 'none'}" fill="${isNoteLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    <span class="font-semibold">${Number(note.likes) || 0}</span>
+                    <span class="font-semibold">${noteLikeCount(note)}</span>
                   </button>
                   <button type="button" class="flex items-center space-x-1 hover:text-sky-600 transition btn-reply-explore-note cursor-pointer p-1 rounded-lg hover:bg-neutral-200/50" data-note-id="${idA}" title="Comment">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
@@ -16772,7 +16966,7 @@ function syncLikedStateToPosts() {
           if (typeof viewUserProfile === 'function') viewUserProfile(post.author);
         };
       }
-      document.getElementById('modal-likes-count').textContent = `${post.likes.toLocaleString()} likes`;
+      document.getElementById('modal-likes-count').textContent = `${postLikeCount(post).toLocaleString()} likes`;
       if (modal) modal.setAttribute('data-post-id', String(postId));
       const pixaiSlot = document.getElementById('modal-pixai-slot');
       if (pixaiSlot) {
@@ -16872,11 +17066,11 @@ function syncLikedStateToPosts() {
         <!-- Comments (excluding Spam) -->
         ${(post.comments || []).filter(c => !c.isSpam).map(c => {
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
-          const cLiked = Array.isArray(c.likedBy) && c.likedBy.includes(curU);
-          const cLikesCount = Array.isArray(c.likedBy) ? c.likedBy.length : 0;
+          const cLiked = likedByHas(c.likedBy, curU);
+          const cLikesCount = likedByCount(c.likedBy);
           const repliesHtml = (c.replies || []).map(r => {
-            const rLiked = Array.isArray(r.likedBy) && r.likedBy.includes(curU);
-            const rLikesCount = Array.isArray(r.likedBy) ? r.likedBy.length : 0;
+            const rLiked = likedByHas(r.likedBy, curU);
+            const rLikesCount = likedByCount(r.likedBy);
             return `
               <div class="mt-1.5 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
                 <div class="text-[11px] min-w-0">
@@ -17840,7 +18034,7 @@ function syncLikedStateToPosts() {
         const uniqueId = 2000 + (cycle * 20) + (idx + 1);
         const img = COMMUNITY_IMAGES[item.imageIndex % COMMUNITY_IMAGES.length] || COMMUNITY_IMAGES[0];
         const isLiked = state.likedPostIds ? (state.likedPostIds.has(String(uniqueId)) || state.likedPostIds.has(uniqueId)) : false;
-        return {
+        return setLikeBase({
           id: uniqueId,
           author: item.author,
           authorName: item.authorName,
@@ -17853,7 +18047,7 @@ function syncLikedStateToPosts() {
           isLiked: isLiked,
           timestamp: "JUST NOW",
           comments: []
-        };
+        }, item.baseLikes);
       });
 
       // Keep archive of all explore posts so liked/saved/replied references never break
@@ -17863,11 +18057,11 @@ function syncLikedStateToPosts() {
 
       const chosenNoteBatch = freshNoteBatches[cycle % freshNoteBatches.length];
       window._exploreNoteBatches = freshNoteBatches;
-      state.exploreNotes = chosenNoteBatch.map((item, idx) => ({
+      state.exploreNotes = chosenNoteBatch.map((item, idx) => setLikeBase({
         ...item,
         id: 1000 + (cycle * 20) + (idx + 1),
         comments: Array.isArray(item.comments) ? item.comments : []
-      }));
+      }, item.likes));
 
       syncLikedStateToPosts();
       archiveAllNotes();
@@ -18107,7 +18301,7 @@ function syncLikedStateToPosts() {
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-3 text-white text-xs font-bold pointer-events-none">
                 <span class="flex items-center space-x-1">
                   <span>❤️</span>
-                  <span>${p.likes || 0}</span>
+                  <span>${postLikeCount(p)}</span>
                 </span>
               </div>
               <button type="button" onclick="event.stopPropagation(); window.toggleSavePost('${p.id}');" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-amber-400 text-neutral-900 shadow-md flex items-center justify-center z-10 cursor-pointer transition hover:scale-110 active:scale-95" title="Remove from Saved">
@@ -19982,6 +20176,7 @@ function syncLikedStateToPosts() {
               { id: 9000 + i, user: "bradley_hansen", text: "Incredible perspective and composition!" }
             ]
           };
+          setLikeBase(syntheticPost, syntheticPost.likes);
           posts.push(syntheticPost);
           if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
           state.explorePostsArchive.set(String(syntheticPost.id), syntheticPost);
@@ -21738,7 +21933,7 @@ function syncLikedStateToPosts() {
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                  <span>${(post.likes || 0).toLocaleString()}</span>
+                  <span>${postLikeCount(post).toLocaleString()}</span>
                 </div>
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -21938,7 +22133,7 @@ function syncLikedStateToPosts() {
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 text-white font-bold text-xs sm:text-sm">
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                  <span>${post.likes.toLocaleString()}</span>
+                  <span>${postLikeCount(post).toLocaleString()}</span>
                 </div>
                 <div class="flex items-center space-x-1">
                   <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -21991,12 +22186,7 @@ function syncLikedStateToPosts() {
         } else {
           if (emptyNotesEl) emptyNotesEl.classList.add('hidden');
           notesListEl.innerHTML = creatorNotes.map(n => {
-            const likedByMatch = activeCurU && Array.isArray(n.likedBy) && n.likedBy.map(normalizeUsername).includes(activeCurU);
-            if (likedByMatch) {
-              if (!state.likedNoteIds) state.likedNoteIds = new Set();
-              state.likedNoteIds.add(String(n.id));
-            }
-            const isLiked = likedByMatch || (state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false);
+            const isLiked = state.likedNoteIds ? (state.likedNoteIds.has(n.id) || state.likedNoteIds.has(String(n.id))) : false;
             if (typeof isContentVisibleToViewer === 'function' && !isContentVisibleToViewer(n)) return '';
             return `
             <div class="bg-white border border-neutral-200 rounded-xl p-3.5 transition space-y-2 shadow-2xs cursor-pointer hover:border-neutral-300 user-profile-note-card" data-note-id="${n.id}" onclick="openNoteDetailModal('${n.id}')">
@@ -22012,7 +22202,7 @@ function syncLikedStateToPosts() {
               <div class="flex items-center space-x-3 pt-1 border-t border-neutral-100 text-xs">
                 <button type="button" onclick="event.stopPropagation(); window.toggleLikeNote('${n.id}', this);" class="flex items-center space-x-1 ${isLiked ? 'text-rose-500' : 'text-neutral-400 hover:text-rose-500'} transition cursor-pointer">
                   <svg class="w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''}" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                  <span class="font-semibold">${n.likes || 0}</span>
+                  <span class="font-semibold">${noteLikeCount(n)}</span>
                 </button>
                 ${(typeof noteViewsCountHtml === 'function') ? noteViewsCountHtml(n) : ''}
               </div>
@@ -32446,29 +32636,19 @@ function syncLikedStateToPosts() {
           window._lastLocalLikesWriteTs = Date.now();
           const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
           if (typeof saveAccountLikes === 'function') saveAccountLikes(curU);
-          if (typeof syncAllLikesToFirestore === 'function') syncAllLikesToFirestore();
 
-          // Also persist story like directly on story owner's Firestore document: users/<targetU>.storyLikes.<storyId>
-          if (window.firebaseReady && window.firebase && window.firebase.db && targetU) {
-            try {
-              const { db, doc, getDoc, setDoc } = window.firebase;
-              const userRef = doc(db, 'users', targetU);
-              const snap = await getDoc(userRef);
-              const existingLikesMap = (snap.exists() && snap.data() && snap.data().storyLikes) ? snap.data().storyLikes : {};
-              const remoteLikers = Array.isArray(existingLikesMap[storyIdStr]) ? existingLikesMap[storyIdStr].map(u => normalizeUsername(u)) : [];
-              const likerSet = new Set(remoteLikers);
-              if (nowLiked) likerSet.add(curU);
-              else likerSet.delete(curU);
-              const mergedLikers = Array.from(likerSet);
-              window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
-              window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
-              window._remoteUserProfilesCache[targetU].storyLikes = window._remoteUserProfilesCache[targetU].storyLikes || {};
-              window._remoteUserProfilesCache[targetU].storyLikes[storyIdStr] = mergedLikers;
-              await setDoc(userRef, {
-                storyLikes: { [storyIdStr]: mergedLikers }
-              }, { merge: true });
-            } catch(e) {}
+          // The story's likers are a set on the owner's doc: users/<owner>.storyLikes[<storyId>]. Keep my local copy in
+          // step (no duplicates), then write one atomic arrayUnion / arrayRemove. Rapid taps are written one at a time
+          // and the last tap wins, so the stored set always matches what is on screen.
+          if (targetU) {
+            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            window._remoteUserProfilesCache[targetU] = window._remoteUserProfilesCache[targetU] || {};
+            window._remoteUserProfilesCache[targetU].storyLikes = window._remoteUserProfilesCache[targetU].storyLikes || {};
+            const localLikers = likeUniqueNames(window._remoteUserProfilesCache[targetU].storyLikes[storyIdStr]).filter(u => u !== curU);
+            if (nowLiked) localLikers.push(curU);
+            window._remoteUserProfilesCache[targetU].storyLikes[storyIdStr] = localLikers;
           }
+          queueLikeWrite('story', skey, nowLiked, { storyKey: skey, owner: targetU, storyId: storyIdStr });
 
           if (nowLiked) {
             const rawAv = (state.currentUser && state.currentUser.avatar) || currentUserFallbackAvatar();

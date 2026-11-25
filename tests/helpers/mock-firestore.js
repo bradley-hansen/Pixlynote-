@@ -54,13 +54,49 @@ function installPixlyMockFirestore(seed) {
       try { l.cb(l.target.isCol || l.target.isQuery ? runQuery(l.target) : snapOf(l.target.path)); } catch (e) {}
     });
   };
+  // arrayUnion / arrayRemove are real sentinels: they resolve against the stored array (any nesting depth).
+  const isOp = (v) => v && typeof v === 'object' && (v.__op === 'union' || v.__op === 'remove') && Array.isArray(v.vals);
+  const sameVal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const resolveOps = (incoming, existing) => {
+    if (isOp(incoming)) {
+      const base = Array.isArray(existing) ? existing.slice() : [];
+      if (incoming.__op === 'union') {
+        incoming.vals.forEach((v) => { if (!base.some((x) => sameVal(x, v))) base.push(v); });
+        return base;
+      }
+      return base.filter((x) => !incoming.vals.some((v) => sameVal(x, v)));
+    }
+    if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+      const out = {};
+      const ex = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+      Object.keys(incoming).forEach((k) => { out[k] = resolveOps(incoming[k], ex[k]); });
+      return out;
+    }
+    return incoming;
+  };
+  // For the write log only: the old mock logged arrayUnion as its plain values and arrayRemove as [].
+  const plainForLog = (v) => {
+    if (isOp(v)) return v.__op === 'union' ? v.vals.slice() : [];
+    if (v && typeof v === 'object' && !Array.isArray(v)) { const o = {}; Object.keys(v).forEach((k) => { o[k] = plainForLog(v[k]); }); return o; }
+    return v;
+  };
+  const mergeDeep = (cur, add) => {
+    const out = Object.assign({}, cur);
+    Object.keys(add).forEach((k) => {
+      const a = add[k];
+      if (a && typeof a === 'object' && !Array.isArray(a) && cur[k] && typeof cur[k] === 'object' && !Array.isArray(cur[k])) out[k] = mergeDeep(cur[k], a);
+      else out[k] = a;
+    });
+    return out;
+  };
   const write = (r, data, opts, kind) => {
     if (store.failWrites) throw new Error('mock write failure');
     const cur = store.docs[r.path];
+    const resolved = data === null || data === undefined ? data : resolveOps(clone(data), cur || {});
     if (kind === 'delete') delete store.docs[r.path];
-    else if (opts && opts.merge && cur) store.docs[r.path] = Object.assign({}, cur, clone(data));
-    else store.docs[r.path] = clone(data);
-    store.writes.push({ kind, path: r.path, data: clone(data) });
+    else if (opts && opts.merge && cur) store.docs[r.path] = mergeDeep(cur, resolved);
+    else store.docs[r.path] = resolved;
+    store.writes.push({ kind, path: r.path, data: plainForLog(clone(data)) });
   };
   const api = {
     db: { __mock: true },
@@ -68,8 +104,8 @@ function installPixlyMockFirestore(seed) {
     orderBy: noop, limit: noop, startAfter: noop,
     serverTimestamp: () => Date.now(),
     increment: (n) => n,
-    arrayUnion: (...a) => a,
-    arrayRemove: () => [],
+    arrayUnion: (...a) => ({ __op: 'union', vals: a }),
+    arrayRemove: (...a) => ({ __op: 'remove', vals: a }),
     getDoc: async (r) => snapOf(r.path),
     getDocFromServer: async (r) => snapOf(r.path),
     getDocs: async (q) => runQuery(q),

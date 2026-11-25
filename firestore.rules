@@ -79,6 +79,40 @@ service cloud.firestore {
           && after[0] is map
           && after[0].get('fromUser', '') == myName();
     }
+    // ---- Likes: one like per person ----
+    // posts/{id}.likedBy may change by exactly one entry per write, and that entry is the signed-in account's own
+    // name: add yourself once, or remove yourself. Nobody can add a second copy of themselves, add or remove another
+    // person, or replace the list.
+    function likeAdds(before, after, me) {
+      return before is list && after is list && me != '__none__'
+          && after.size() == before.size() + 1
+          && after.hasAll(before)
+          && !before.hasAny([me])
+          && after[after.size() - 1] == me;
+    }
+    function likeRemoves(before, after, me) {
+      return before is list && after is list && me != '__none__'
+          && before.size() == after.size() + 1
+          && before.hasAll(after)
+          && before.hasAny([me])
+          && !after.hasAny([me]);
+    }
+    function likeListStep(before, after) {
+      return after == before || likeAdds(before, after, myName()) || likeRemoves(before, after, myName());
+    }
+    // posts/{id}.likedBy: arrayUnion(me) / arrayRemove(me) and nothing else in the same write.
+    function postLikedByStep() {
+      return changed().hasOnly(['likedBy'])
+          && likeListStep(resource.data.get('likedBy', []), request.resource.data.get('likedBy', []));
+    }
+    // users/{owner}.storyLikes: one write may touch at most ONE story's list (no wiping or rewriting many at once).
+    // Firestore rules cannot read a map key out of a diff, so the "only my own name changes" check that posts get
+    // (postLikedByStep) cannot be applied to story lists in this data shape. See tests/rules/like-once.test.js.
+    function storyLikesStep() {
+      let before = resource.data.get('storyLikes', {});
+      let after = request.resource.data.get('storyLikes', {});
+      return after is map && before is map && after.diff(before).affectedKeys().size() <= 1;
+    }
     function onlySelfPrivilegedAccounts() {
       let before = resource.data.get('privilegedAccounts', []);
       let after = request.resource.data.get('privilegedAccounts', []);
@@ -94,13 +128,15 @@ service cloud.firestore {
           && before.size() - after.size() <= 1
           && after.size() - before.size() <= 1;
     }
-    function crossUserUpdate() {
+    // `username` is passed in: a function declared at this level cannot see the {username} of the match below it.
+    // (Before this fix the storyComments and storyLikes branches always errored and were denied.)
+    function crossUserUpdate(username) {
       return realUser() && !changed().hasAny(privilegeFields()) && !changed().hasAny(privateFields())
           && !changed().hasAny(contentFields())
           && (
             (changed().hasOnly(['notifications', 'lastUpdated']) && notificationsAppend())
             || (changed().hasOnly(['storyComments', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canActAs(username)))
-            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canActAs(username)))
+            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canActAs(username)) && storyLikesStep())
             || (changed().hasOnly(['privilegedAccessGranted', 'lastUpdated']) && onlySelfGrantedEntry())
             || (changed().hasOnly(['businessAssociates', 'lastUpdated']) && myName() != '__none__')
             || (changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
@@ -144,7 +180,7 @@ service cloud.firestore {
                         && request.resource.data.get('uid', '') == request.auth.uid
                         && noPrivilegeGrant()
                         && !changed().hasAny(privilegeFields()))
-                    || crossUserUpdate()
+                    || crossUserUpdate(username)
                     || isAdmin();
       allow delete: if ownsUser(username) || isAdmin();
 
@@ -201,6 +237,7 @@ service cloud.firestore {
                         && (isPublicAccount(resource.data.author) || request.resource.data.get('authorPrivate', false) == true))
                     || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data))
                     || (changed().hasOnly(['views']) && plusOneView() && readablePost(resource.data))
+                    || (realUser() && postLikedByStep() && readablePost(resource.data))
                     || isAdmin();
       allow delete: if canActAs(resource.data.author) || isAdmin();
     }
