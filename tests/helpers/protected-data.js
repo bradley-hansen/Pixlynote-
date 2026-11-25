@@ -54,7 +54,8 @@ function snapshotScript() {
       postCommentCount: ((post && post.comments) || []).length,
       noteText: (note && (note.text || note.body)) || '',
       noteCommentCount: ((note && note.comments) || []).length,
-      storyCount: (state.stories || []).length,
+      // Story bar discovery bubbles (other public users / no-story filler) come and go with the directory; they are not the user's data.
+      storyCount: (state.stories || []).filter((st) => !(st && (st.isDiscoverStory || st.isDiscoverFill))).length,
       storedPhone: (function () {
         try {
           const raw = localStorage.getItem('pixly_account_' + String(u.username || '').toLowerCase());
