@@ -11279,9 +11279,12 @@ function syncLikedStateToPosts() {
       arch_digest: { id: 5, username: "arch_digest", avatar: PRESET_IMAGES[4].path, image: PRESET_IMAGES[4].path, time: "7h ago" },
       wander_tropics: { id: 6, username: "wander_tropics", avatar: PRESET_IMAGES[5].path, image: PRESET_IMAGES[5].path, time: "11h ago" }
     };
-    function collectActiveStoriesForUser(username) {
+    // opts.remoteOnly (story bar discovery): use only what the cloud returned for that account. Never the
+    // device's saved copy of another account and never the built-in demo stories.
+    function collectActiveStoriesForUser(username, opts) {
       const u = normalizeUsername(username || '');
       if (!u) return [];
+      const remoteOnly = !!(opts && opts.remoteOnly);
       const now = Date.now();
       const cacheDoc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
       const dirRec = window._exploreUserDir && window._exploreUserDir.users && window._exploreUserDir.users.get(u);
@@ -11294,6 +11297,9 @@ function syncLikedStateToPosts() {
         raw = [cacheDoc.story];
       } else if (dirRec && dirRec.story && dirRec.story.image) {
         raw = [dirRec.story];
+      } else if (remoteOnly) {
+        const hyd = window._storyFillContent && window._storyFillContent[u];
+        if (hyd && Array.isArray(hyd.stories)) raw = hyd.stories;
       } else {
         try {
           const ls = JSON.parse(localStorage.getItem('pixly_user_stories_' + u) || 'null');
@@ -11301,7 +11307,7 @@ function syncLikedStateToPosts() {
           else if (ls && ls.image) raw = [ls];
         } catch(e) {}
       }
-      if ((!raw || !raw.length) && SEED_STORIES_BY_USER[u]) {
+      if (!remoteOnly && (!raw || !raw.length) && SEED_STORIES_BY_USER[u]) {
         raw = [Object.assign({}, SEED_STORIES_BY_USER[u], { timestamp: now - 1800000 })];
       }
       return (Array.isArray(raw) ? raw : []).filter(s => {
@@ -11389,6 +11395,157 @@ function syncLikedStateToPosts() {
     window.feedStoryRingState = feedStoryRingState;
     window.sortFeedStoriesByViewed = sortFeedStoriesByViewed;
 
+    // --- Always-full story bar ---
+    // Order, left to right: your own bubble, connections with unviewed live stories, other public users with
+    // unviewed live stories, viewed stories (both groups), then no-story filler (opens their profile).
+    // Discovery only runs while the bar has fewer than STORY_BAR_MIN_BUBBLES bubbles (your own counts), so as your
+    // connections post more stories the random users drop off on their own. Live stories are preferred; no-story
+    // filler is used only when there still are not enough. Never included: you, your connections (they only
+    // appear when they have a live story), blocked or muted people, deactivated accounts, private accounts.
+    var STORY_BAR_MIN_BUBBLES = 8;
+    var STORY_FILL_HYDRATE_MAX = 10;            // content reads per bar render
+    var STORY_FILL_HYDRATE_SESSION_MAX = 30;    // content reads per page load
+    var STORY_FILL_HYDRATE_TTL_MS = 10 * 60 * 1000;
+    window._storyFillSeed = window._storyFillSeed || (Math.random().toString(36).slice(2) + Date.now().toString(36));
+    window._storyFillContent = window._storyFillContent || {};
+    function storyFillRank(u) {
+      // Stable "random" order for this page load (FNV-1a over seed|username) so the bar does not reshuffle on every render.
+      const str = window._storyFillSeed + '|' + u;
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+      return h >>> 0;
+    }
+    function storyFillCandidates(connectedSet, me) {
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      if (!dir || typeof dir.forEach !== 'function') return [];
+      const out = [];
+      dir.forEach((rec, key) => {
+        if (!rec) return;
+        const u = normalizeUsername(rec.username || key || '');
+        if (!u || u === me || u === 'guest' || u === 'pixai' || connectedSet.has(u)) return;
+        if (rec.deactivated === true) return;
+        if (typeof isConnectionDeactivated === 'function' && isConnectionDeactivated(u)) return;
+        if (typeof isAccountPrivate === 'function' && isAccountPrivate(u)) return;
+        if (typeof isAuthorHiddenFromFeed === 'function' && isAuthorHiddenFromFeed(u)) return;      // blocked, muted, deactivated
+        if (typeof shouldHideAuthorEverywhere === 'function' && shouldHideAuthorEverywhere(u)) return;
+        if (typeof isSeedDemoUsername === 'function' && isSeedDemoUsername(u)) return;
+        out.push(u);
+      });
+      out.sort((x, y) => (storyFillRank(x) - storyFillRank(y)) || (x < y ? -1 : 1));
+      return out;
+    }
+    function storyFillAvatar(u) {
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      const rec = dir && dir.get ? dir.get(u) : null;
+      const cache = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+      return (rec && rec.avatar) || (cache && (cache.avatar || cache.photoURL)) || NEUTRAL_BLANK_AVATAR;
+    }
+    // Public accounts keep stories in users/{u}/content/profile once the phase 2 move is applied, so the users list
+    // alone may not show them. Read a few recently-active candidates (bounded). A failed or blocked read is not an
+    // error: that account just stays a no-story filler.
+    async function hydrateStoryFillCandidates(usernames) {
+      const fb = window.firebase;
+      if (!fb || !window.firebaseReady || !fb.db || typeof fb.getDoc !== 'function' || typeof fb.doc !== 'function') return false;
+      const now = Date.now();
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      const used = window._storyFillHydrateCount || 0;
+      const room = Math.min(STORY_FILL_HYDRATE_MAX, STORY_FILL_HYDRATE_SESSION_MAX - used);
+      if (room <= 0 || window._storyFillHydrating) return false;
+      const todo = [];
+      for (const u of usernames) {
+        if (todo.length >= room) break;
+        const rec = dir && dir.get ? dir.get(u) : null;
+        if (!rec) continue;
+        if (Array.isArray(rec.userStories) && rec.userStories.length) continue;
+        const prev = window._storyFillContent[u];
+        if (prev && (now - prev.at) < STORY_FILL_HYDRATE_TTL_MS) continue;
+        // A new story always bumps lastUpdated on the public doc, so only recently active accounts can have one.
+        if (!(Number(rec.lastUpdated) > now - STORY_TTL_MS)) continue;
+        todo.push(u);
+      }
+      if (!todo.length) return false;
+      window._storyFillHydrating = true;
+      window._storyFillHydrateCount = used + todo.length;
+      try {
+        await Promise.all(todo.map(async (u) => {
+          let stories = [];
+          try {
+            const snap = await fb.getDoc(fb.doc(fb.db, 'users', u, 'content', 'profile'));
+            const d = (snap && typeof snap.exists === 'function' && snap.exists()) ? (snap.data() || {}) : {};
+            const list = Array.isArray(d.userStories) ? d.userStories : (d.story && d.story.image ? [d.story] : []);
+            stories = list.filter(st => st && st.image && !st.isEmptyPlaceholder);
+          } catch (e) { stories = []; }
+          window._storyFillContent[u] = { at: Date.now(), stories };
+        }));
+      } finally {
+        window._storyFillHydrating = false;
+      }
+      return true;
+    }
+    function buildDiscoverStoryEntries(connectedSet, me, need) {
+      if (!(need > 0)) return [];
+      const cands = storyFillCandidates(connectedSet, me);
+      const live = [];
+      const quiet = [];
+      cands.forEach(u => {
+        if (live.length >= need && quiet.length >= need) return;
+        const slides = collectActiveStoriesForUser(u, { remoteOnly: true });
+        if (slides.length) { if (live.length < need) live.push({ u, slides }); }
+        else if (quiet.length < need) quiet.push(u);
+      });
+      const out = [];
+      live.slice(0, need).forEach(x => {
+        const latest = x.slides[x.slides.length - 1];
+        const entry = Object.assign({}, latest, {
+          id: latest.id || ('story_' + x.u),
+          username: x.u,
+          author: x.u,
+          avatar: storyFillAvatar(x.u),
+          userStories: x.slides,
+          hasActiveStory: true,
+          isConnectedPlaceholder: false,
+          isDiscoverStory: true
+        });
+        delete entry.isUser;
+        delete entry.isEmptyPlaceholder;
+        out.push(entry);
+      });
+      quiet.slice(0, Math.max(0, need - out.length)).forEach(u => {
+        out.push({
+          id: 'fill_' + u,
+          username: u,
+          author: u,
+          avatar: storyFillAvatar(u),
+          hasActiveStory: false,
+          isConnectedPlaceholder: true,   // tapping opens the profile (see openStoryViewer)
+          isDiscoverFill: true
+        });
+      });
+      if (live.length < need && !window._storyFillHydrating) {
+        // Maybe stories we could not see yet: look at a few more accounts, then redraw once.
+        hydrateStoryFillCandidates(cands).then(changed => {
+          if (changed && typeof renderStories === 'function') renderStories();
+        }).catch(() => {});
+      }
+      return out;
+    }
+    function storyBarDiscoverEntries(connectedEntries) {
+      const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      if (!me || me === 'guest') return [];
+      const need = STORY_BAR_MIN_BUBBLES - 1 - connectedEntries.length;   // 1 = your own bubble
+      if (need <= 0) return [];
+      const connectedSet = new Set();
+      (state.following || []).forEach(f => { if (f && f.username && f.isFollowing !== false) connectedSet.add(normalizeUsername(f.username)); });
+      try {
+        return buildDiscoverStoryEntries(connectedSet, me, need);
+      } catch (e) { console.warn('Story bar fill notice:', e); return []; }
+    }
+    window.storyFillCandidates = storyFillCandidates;
+    window.buildDiscoverStoryEntries = buildDiscoverStoryEntries;
+    window.storyBarDiscoverEntries = storyBarDiscoverEntries;
+    window.hydrateStoryFillCandidates = hydrateStoryFillCandidates;
+    window.STORY_BAR_MIN_BUBBLES = STORY_BAR_MIN_BUBBLES;
+
     function renderStories() {
       pruneExpiredUserStories(true);
       const ownEntry = (Array.isArray(state.stories) && state.stories.find(st => isPinnedFeedStory(st))) || {
@@ -11402,7 +11559,8 @@ function syncLikedStateToPosts() {
         isEmptyPlaceholder: true
       };
       if (state.isLoggedIn && state.currentUser && state.currentUser.username && normalizeUsername(state.currentUser.username) !== 'guest') {
-        state.stories = [ownEntry].concat(buildConnectedStoryEntries());
+        const connectedEntries = buildConnectedStoryEntries();
+        state.stories = [ownEntry].concat(connectedEntries, storyBarDiscoverEntries(connectedEntries));
         if (typeof ensureConnectionsDirectory === 'function') ensureConnectionsDirectory();
       }
       sortFeedStoriesByViewed();
@@ -11414,7 +11572,7 @@ function syncLikedStateToPosts() {
         const ringState = feedStoryRingState(story);
         const ringClass = ringState === 'unviewed' ? 'story-gradient' : (ringState === 'viewed' ? 'story-ring-viewed' : 'bg-neutral-200');
         return `
-        <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}" data-story-user="${escapeHtml(story.author || story.username || '')}">
+        <div class="flex flex-col items-center space-y-1.5 flex-shrink-0 cursor-pointer story-trigger" data-story-idx="${idx}" data-story-user="${escapeHtml(story.author || story.username || '')}" data-story-kind="${story.isDiscoverFill ? 'fill' : (story.isDiscoverStory ? 'discover' : (isPinnedFeedStory(story) ? 'own' : 'connected'))}">
           <div class="relative w-16 h-16 rounded-full p-0.5 ${ringClass} flex items-center justify-center hover:scale-105 transition shadow-xs" data-story-ring="${ringState}">
             <div class="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white">
               <img src="${story.avatar}" alt="${story.username}" class="w-full h-full object-cover" onerror="this.src=NEUTRAL_BLANK_AVATAR">

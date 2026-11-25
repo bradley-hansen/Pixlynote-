@@ -7,6 +7,7 @@ The app stores session and draft state in `localStorage` and syncs accounts, pos
 ## Features
 
 - **Feed, Explore, and Stories** — Photo posts, vibe notes, and 24-hour stories, with likes, saves, comments, replies, and share.
+- **Story bar** — Your story is always first, then connections with unviewed live stories, then other public users with unviewed live stories, then viewed stories, then no-story filler (tap to open their profile). The bar is filled to `STORY_BAR_MIN_BUBBLES` (8, your own bubble counts); as connections post more stories the random users drop off. Private accounts, blocked/muted people, deactivated accounts and you are never used as filler, and connections only appear when they have a live story.
 - **Close Friends** — Limit a post, note, or story to Close Friends. A star badge marks that audience on the feed, post detail, and story viewer. Other people only see that content if they are on the author's Close Friends list.
 - **Profile** — Personal and business accounts, Edit Profile, Posts / Notes / Replies / Saved / Likes tabs, and a visitor view that matches the owner's public profile.
 - **Direct messages** — New Chat lists Pixai (AI assistant), Pixlynote Support, and real connections. Search finds real accounts by username or name. Seed demo creators are not used as a real account's following list.

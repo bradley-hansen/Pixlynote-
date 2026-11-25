@@ -386,8 +386,11 @@ module.exports = {
         const names = bar.map((x) => x.userAttr);
         a.ok(names.includes('conn_story_user'), 'Connected user with an active story appears in the story bar: ' + JSON.stringify(names));
         a.ok(!names.includes('conn_quiet_user'), 'Connected user with no active story is absent from the story bar: ' + JSON.stringify(names));
-        a.ok(!names.includes('unconnected_stranger') && !names.includes('elena_eats'),
-          'Unconnected demo/stranger users do not appear in the story bar: ' + JSON.stringify(names));
+        a.ok(!names.includes('elena_eats'), 'Seed demo users do not appear in the story bar: ' + JSON.stringify(names));
+        a.ok(names.includes('unconnected_stranger'),
+          'A public non-connected user with a live story now fills the bar (always-full story bar): ' + JSON.stringify(names));
+        a.ok(names.indexOf('unconnected_stranger') > names.indexOf('conn_story_user'),
+          'Non-connected live story comes after the unviewed connection: ' + JSON.stringify(names));
         a.ok(names.includes('conn_viewed_user'), 'Connected user whose story has been viewed still appears: ' + JSON.stringify(names));
         const unviewedIdx = names.indexOf('conn_story_user');
         const viewedIdx = names.indexOf('conn_viewed_user');
