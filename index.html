@@ -446,6 +446,27 @@
     #modal-cancel-membership.hidden { display: none !important; }
     #modal-cancel-membership { z-index: 90 !important; }
     #modal-submit-feedback { z-index: 85 !important; }
+    /* Feedback AI option: checkbox styled as a pill switch (knob slides right when on).
+       The input stays clickable and barely visible (not opacity:0) so assistive tech and tests can target it;
+       the track and knob beside it are the visible switch. */
+    #feedback-ai-toggle {
+      -webkit-appearance: none;
+      appearance: none;
+      opacity: 0.01;
+      background: transparent;
+      border: 0;
+      margin: 0;
+    }
+    #feedback-ai-toggle:checked + #feedback-ai-switch-track {
+      background-color: #7c3aed; /* same violet-600 as #btn-feedback-send */
+    }
+    #feedback-ai-toggle:checked ~ #feedback-ai-switch-knob {
+      transform: translateX(1rem);
+    }
+    #feedback-ai-toggle:focus-visible + #feedback-ai-switch-track {
+      outline: 2px solid #7c3aed;
+      outline-offset: 2px;
+    }
     #post-options-menu { z-index: 70 !important; }
     #modal-create-post.hidden { display: none !important; }
     #modal-drafts.hidden { display: none !important; }
@@ -681,7 +702,11 @@
       <div id="feedback-ai-section" class="rounded-xl border border-violet-200 bg-violet-50/60 p-3 space-y-2">
         <p class="text-xs font-bold text-neutral-900">Get an instant AI answer? <span id="feedback-ai-badge" class="ml-1 inline-block align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white bg-violet-600">&#10024;AI</span></p>
         <label for="feedback-ai-toggle" class="flex items-start gap-2 cursor-pointer">
-          <input type="checkbox" id="feedback-ai-toggle" role="switch" aria-checked="false" onchange="updateFeedbackAiUi()" class="mt-0.5 w-4 h-4 accent-violet-600 cursor-pointer shrink-0">
+          <span class="relative w-10 h-6 shrink-0 mt-0.5">
+            <input type="checkbox" id="feedback-ai-toggle" role="switch" aria-checked="false" onchange="updateFeedbackAiUi()" class="absolute inset-0 z-10 w-full h-full cursor-pointer m-0">
+            <span id="feedback-ai-switch-track" class="block w-10 h-6 rounded-full bg-neutral-300 transition-colors pointer-events-none"></span>
+            <span id="feedback-ai-switch-knob" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform pointer-events-none"></span>
+          </span>
           <span class="text-[11px] font-semibold text-neutral-800">Let Grokbot try to answer right away (instant reply via email)</span>
         </label>
         <p class="text-[10px] text-neutral-500">Your query will be sent to grokbot@pixlynote.com to get you quick help.</p>

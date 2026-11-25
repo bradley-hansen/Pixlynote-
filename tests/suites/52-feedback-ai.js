@@ -54,6 +54,52 @@ module.exports = {
           a.ok(section.includes('Let Grokbot try to answer right away (instant reply via email)'), 'toggle label: ' + section);
           a.ok(section.includes('Your query will be sent to grokbot@pixlynote.com to get you quick help.'), 'helper text: ' + section);
           a.equal(await page.evaluate(() => document.getElementById('feedback-ai-toggle').checked), false, 'toggle defaults to off');
+          const sw = await page.evaluate(() => {
+            const el = document.getElementById('feedback-ai-toggle');
+            const track = document.getElementById('feedback-ai-switch-track');
+            const knob = document.getElementById('feedback-ai-switch-knob');
+            const hex = (c) => {
+              const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+              if (!m) return c;
+              return '#' + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+            };
+            const r = track.getBoundingClientRect();
+            const kr = knob.getBoundingClientRect();
+            return {
+              type: el.type, role: el.getAttribute('role'),
+              w: Math.round(r.width), h: Math.round(r.height),
+              radius: getComputedStyle(track).borderRadius,
+              offBg: hex(getComputedStyle(track).backgroundColor),
+              knobLeft: Math.round(kr.left - r.left)
+            };
+          });
+          a.equal(sw.type, 'checkbox', 'toggle stays a checkbox input');
+          a.equal(sw.role, 'switch', 'toggle has role=switch');
+          a.ok(sw.w > sw.h && sw.w >= 32 && sw.h >= 20, 'pill shape: ' + sw.w + 'x' + sw.h);
+          a.ok(sw.offBg === '#d4d4d4' || sw.offBg === '#d3d3d3', 'off is gray: ' + sw.offBg);
+          a.ok(sw.knobLeft < 8, 'knob starts on the left when off: ' + sw.knobLeft);
+          await page.click('#feedback-ai-toggle');
+          await page.waitForTimeout(200);
+          const onBg = await page.evaluate(() => {
+            const track = document.getElementById('feedback-ai-switch-track');
+            const knob = document.getElementById('feedback-ai-switch-knob');
+            const btn = document.getElementById('btn-feedback-send');
+            const hex = (c) => {
+              const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+              if (!m) return c;
+              return '#' + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+            };
+            const r = track.getBoundingClientRect();
+            const kr = knob.getBoundingClientRect();
+            return {
+              sw: hex(getComputedStyle(track).backgroundColor),
+              btn: hex(getComputedStyle(btn).backgroundColor),
+              knobLeft: Math.round(kr.left - r.left)
+            };
+          });
+          a.equal(onBg.sw, onBg.btn, 'on uses the Submit button purple: ' + JSON.stringify(onBg));
+          a.ok(onBg.knobLeft > 12, 'knob slides right when on: ' + onBg.knobLeft);
+          await page.click('#feedback-ai-toggle');
           a.equal(await txt(page, '#btn-feedback-send'), 'Send', 'off: current button label');
           a.equal(await txt(page, '#feedback-footer-note'), 'Sent to ' + SUPPORT + ' with your @username.', 'off: footer names only support@');
           await page.click('#feedback-ai-toggle');
