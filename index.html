@@ -2065,14 +2065,18 @@
     <div class="relative bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-neutral-200" style="max-height: 85vh !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important;">
       
       <div class="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-white sticky top-0 z-10">
-        <h3 class="text-sm font-bold text-neutral-900" id="create-modal-title">Create new post</h3>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-2 min-w-0">
+          <h3 class="text-sm font-bold text-neutral-900 truncate" id="create-modal-title">Create new post</h3>
+          <button type="button" id="btn-create-camera" onclick="openCreateCamera()" class="px-2 py-0.5 text-sm font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition cursor-pointer flex-shrink-0">Camera</button>
+        </div>
+        <div class="flex items-center gap-1 flex-shrink-0">
           <button type="button" id="btn-open-drafts-from-create" class="px-2.5 py-1 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition cursor-pointer">Drafts</button>
           <button type="button" id="btn-close-create-modal" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-full cursor-pointer transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       </div>
+      <input type="file" id="create-camera-upload" accept="image/*" capture="environment" class="hidden" tabindex="-1" aria-hidden="true">
 
       <!-- Creation Mode Selector: Grid Post | Story | Highlight -->
       <div class="px-4 pt-3.5 pb-0">
@@ -8611,6 +8615,8 @@ function syncLikedStateToPosts() {
       }
       const fileInp = document.getElementById('create-file-upload');
       if (fileInp) { try { fileInp.value = ''; } catch (e) {} }
+      const camInp = document.getElementById('create-camera-upload');
+      if (camInp) { try { camInp.value = ''; } catch (e) {} }
     }
     function applyDraftImageToWizard(img) {
       clearCreateWizardImage();
@@ -19649,6 +19655,19 @@ function syncLikedStateToPosts() {
       if (btn) { btn.disabled = false; btn.textContent = '✨ Suggest with Gemini'; }
     }
     window.suggestCaptionsWithGemini = suggestCaptionsWithGemini;
+
+    function openCreateCamera() {
+      try {
+        const inp = document.getElementById('create-camera-upload');
+        if (!inp) return;
+        try { inp.value = ''; } catch (e) {}
+        inp.click();
+      } catch (e) {
+        // Denied or blocked camera permission (or a canceled capture) must
+        // not throw or break the create wizard; the library upload stays usable.
+      }
+    }
+    window.openCreateCamera = openCreateCamera;
 
     function openCreatePostModal(mode = "post") {
       state.activeDraftId = null;
@@ -31379,6 +31398,16 @@ function syncLikedStateToPosts() {
           createFileInput.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
             handlePostImageFile(file);
+          });
+        }
+
+        const createCameraInput = document.getElementById('create-camera-upload');
+        if (createCameraInput) {
+          createCameraInput.addEventListener('change', (e) => {
+            try {
+              const file = e.target && e.target.files && e.target.files[0];
+              handlePostImageFile(file);
+            } catch (err) {}
           });
         }
 
