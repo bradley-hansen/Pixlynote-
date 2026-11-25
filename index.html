@@ -656,9 +656,9 @@
     </div>
   </div>
 
-  <!-- Submit feedback modal (sends to support@pixlynote.com) -->
+  <!-- Submit feedback modal (sends to support@pixlynote.com, plus grokbot@pixlynote.com when the AI toggle is on) -->
   <div id="modal-submit-feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center p-4" style="display: none; z-index: 75;" onclick="if (event.target === this) closeSubmitFeedbackModal()">
-    <form id="form-submit-feedback" onsubmit="event.preventDefault(); submitPostFeedback();" class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-neutral-200">
+    <form id="form-submit-feedback" novalidate onsubmit="event.preventDefault(); submitPostFeedback();" class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-neutral-200">
       <div class="flex items-center justify-between">
         <h4 id="feedback-title" class="text-sm font-bold text-neutral-900">Submit feedback</h4>
         <button type="button" id="btn-feedback-close" onclick="closeSubmitFeedbackModal()" class="p-1 text-neutral-400 hover:text-neutral-700 rounded-lg cursor-pointer" aria-label="Close">
@@ -678,13 +678,24 @@
       <label class="block text-[11px] font-semibold text-neutral-700">Message
         <textarea id="feedback-message" rows="4" maxlength="2000" placeholder="Tell us what happened or what you'd like to see..." class="mt-1 w-full border border-neutral-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-violet-500 resize-none"></textarea>
       </label>
+      <div id="feedback-ai-section" class="rounded-xl border border-violet-200 bg-violet-50/60 p-3 space-y-2">
+        <p class="text-xs font-bold text-neutral-900">Get an instant AI answer? <span id="feedback-ai-badge" class="ml-1 inline-block align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white bg-violet-600">&#10024;AI</span></p>
+        <label for="feedback-ai-toggle" class="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" id="feedback-ai-toggle" role="switch" aria-checked="false" onchange="updateFeedbackAiUi()" class="mt-0.5 w-4 h-4 accent-violet-600 cursor-pointer shrink-0">
+          <span class="text-[11px] font-semibold text-neutral-800">Let Grokbot try to answer right away (instant reply via email)</span>
+        </label>
+        <p class="text-[10px] text-neutral-500">Your query will be sent to grokbot@pixlynote.com to get you quick help.</p>
+      </div>
+      <label id="feedback-reply-wrap" style="display:none" class="text-[11px] font-semibold text-neutral-700">Email for reply (optional)
+        <input type="email" id="feedback-reply-email" maxlength="254" autocomplete="email" placeholder="you@example.com" class="mt-1 w-full border border-neutral-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-violet-500">
+      </label>
       <p id="feedback-status" class="text-[11px] min-h-[1rem]" aria-live="polite"></p>
       <a id="feedback-mailto-link" href="mailto:support@pixlynote.com" class="hidden text-[11px] font-semibold text-violet-700 underline">Email support@pixlynote.com instead</a>
       <div class="flex space-x-2 pt-1">
         <button type="button" id="btn-feedback-cancel" onclick="closeSubmitFeedbackModal()" class="flex-1 py-2 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition cursor-pointer">Cancel</button>
         <button type="submit" id="btn-feedback-send" class="flex-1 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition cursor-pointer disabled:opacity-50">Send</button>
       </div>
-      <p class="text-[10px] text-neutral-400">Sent to support@pixlynote.com with your @username.</p>
+      <p id="feedback-footer-note" class="text-[10px] text-neutral-400">Sent to support@pixlynote.com with your @username.</p>
     </form>
   </div>
 
@@ -10237,6 +10248,8 @@ function syncLikedStateToPosts() {
 
     // ===== Feed post "..." menu: Copy link, Not interested, Help > Submit feedback =====
     var PIXLY_SUPPORT_EMAIL = 'support@pixlynote.com';
+    var PIXLY_GROKBOT_EMAIL = 'grokbot@pixlynote.com';
+    var PIXLY_FEEDBACK_EMAIL_RE = /^[^\s@<>"',;:()\[\]\\]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/;
     function pixlyCurrentUserKey() {
       return normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : '') || '';
     }
@@ -10527,6 +10540,11 @@ function syncLikedStateToPosts() {
       if (cat) cat.value = 'bug';
       if (st) { st.textContent = ''; st.className = 'text-[11px] min-h-[1rem]'; }
       if (link) link.classList.add('hidden');
+      const aiTog = document.getElementById('feedback-ai-toggle');
+      if (aiTog) aiTog.checked = false;
+      const replyIn = document.getElementById('feedback-reply-email');
+      if (replyIn) replyIn.value = '';
+      updateFeedbackAiUi();
       const post = window._feedbackPostId ? ((typeof getPostById === 'function' ? getPostById(window._feedbackPostId) : null) || findContentByKindId('post', window._feedbackPostId)) : null;
       if (ctx) ctx.textContent = post ? ('About a post by @' + normalizeUsername(post.author || '') + ' (#' + window._feedbackPostId + ')') : 'General feedback';
       const send = document.getElementById('btn-feedback-send');
@@ -10535,6 +10553,29 @@ function syncLikedStateToPosts() {
       m.style.display = 'flex';
       if (msg) { try { msg.focus(); } catch (e) {} }
     }
+    function feedbackAccountEmail() {
+      const e = String(state.currentUser && state.currentUser.email || '').trim();
+      return PIXLY_FEEDBACK_EMAIL_RE.test(e) ? e : '';
+    }
+    function feedbackAiOn() {
+      const t = document.getElementById('feedback-ai-toggle');
+      return !!(t && t.checked);
+    }
+    function updateFeedbackAiUi() {
+      const on = feedbackAiOn();
+      const t = document.getElementById('feedback-ai-toggle');
+      if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+      const send = document.getElementById('btn-feedback-send');
+      if (send) send.textContent = on ? 'Submit & Ask Grokbot' : 'Send';
+      const note = document.getElementById('feedback-footer-note');
+      if (note) note.textContent = on
+        ? 'Sent to ' + PIXLY_SUPPORT_EMAIL + ' & ' + PIXLY_GROKBOT_EMAIL + ' with your @username.'
+        : 'Sent to ' + PIXLY_SUPPORT_EMAIL + ' with your @username.';
+      const link = document.getElementById('feedback-mailto-link');
+      if (link) link.textContent = 'Email ' + (on ? PIXLY_SUPPORT_EMAIL + ' & ' + PIXLY_GROKBOT_EMAIL : PIXLY_SUPPORT_EMAIL) + ' instead';
+      const wrap = document.getElementById('feedback-reply-wrap');
+      if (wrap) wrap.style.display = feedbackAccountEmail() ? 'none' : 'block';
+    }
     function closeSubmitFeedbackModal() {
       const m = document.getElementById('modal-submit-feedback');
       if (m) { m.classList.add('hidden'); m.style.display = 'none'; }
@@ -10542,8 +10583,12 @@ function syncLikedStateToPosts() {
     function buildFeedbackMailto(payload) {
       const subject = 'Pixlynote feedback (' + payload.category + ')' + (payload.postId ? ' - post ' + payload.postId : '');
       const body = payload.message + '\n\n---\nFrom: @' + (payload.username || 'guest')
+        + (payload.replyTo ? '\nReply to: ' + payload.replyTo : '')
         + (payload.postId ? ('\nPost: ' + payload.postId + (payload.postAuthor ? ' by @' + payload.postAuthor : '') + '\nLink: ' + payload.url) : '');
-      return 'mailto:' + PIXLY_SUPPORT_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body.slice(0, 1800));
+      const recipients = [PIXLY_SUPPORT_EMAIL].concat(payload.askGrokbot ? [PIXLY_GROKBOT_EMAIL] : []).join(',');
+      return 'mailto:' + recipients + '?subject=' + encodeURIComponent(subject)
+        + (payload.replyTo ? '&reply-to=' + encodeURIComponent(payload.replyTo) : '')
+        + '&body=' + encodeURIComponent(body.slice(0, 1800));
     }
     function openMailtoFallback(href) {
       if (typeof window.__pixlyOpenMailto === 'function') { window.__pixlyOpenMailto(href); return; }
@@ -10568,6 +10613,17 @@ function syncLikedStateToPosts() {
         if (st) { st.textContent = 'Please describe the problem or idea.'; st.className = 'text-[11px] min-h-[1rem] text-rose-600'; }
         return { ok: false, reason: 'empty' };
       }
+      const askGrokbot = feedbackAiOn();
+      const replyIn = document.getElementById('feedback-reply-email');
+      let replyTo = feedbackAccountEmail();
+      if (!replyTo) {
+        const typed = String(replyIn && replyIn.value || '').trim();
+        if (typed && !PIXLY_FEEDBACK_EMAIL_RE.test(typed)) {
+          if (st) { st.textContent = 'Please enter a valid email for the reply, or leave it blank.'; st.className = 'text-[11px] min-h-[1rem] text-rose-600'; }
+          return { ok: false, reason: 'bad_reply_email' };
+        }
+        replyTo = typed;
+      }
       const pid = window._feedbackPostId || '';
       const post = pid ? ((typeof getPostById === 'function' ? getPostById(pid) : null) || findContentByKindId('post', pid)) : null;
       const payload = {
@@ -10579,6 +10635,8 @@ function syncLikedStateToPosts() {
         postAuthor: post ? normalizeUsername(post.author || '') : '',
         url: pid ? buildPostShareUrl(pid) : ''
       };
+      if (askGrokbot) payload.askGrokbot = true;
+      if (replyTo) payload.replyTo = replyTo;
       if (send) send.disabled = true;
       if (st) { st.textContent = 'Sending...'; st.className = 'text-[11px] min-h-[1rem] text-neutral-500'; }
       let sent = false;
@@ -10600,14 +10658,14 @@ function syncLikedStateToPosts() {
       if (send) send.disabled = false;
       if (sent) {
         closeSubmitFeedbackModal();
-        showToast('Thanks! Your feedback was sent to Pixlynote support.');
+        showToast(askGrokbot ? 'Thanks! Your feedback was sent to Pixlynote support and Grokbot.' : 'Thanks! Your feedback was sent to Pixlynote support.');
         return { ok: true, via: 'worker' };
       }
       // Fail safe: hand the message to the user's email app, addressed to support@pixlynote.com.
       const href = buildFeedbackMailto(payload);
       window._pixlyLastFeedbackMailto = href;
       if (link) { link.href = href; link.classList.remove('hidden'); }
-      if (st) { st.textContent = 'Opening your email app to send this to ' + PIXLY_SUPPORT_EMAIL + '.'; st.className = 'text-[11px] min-h-[1rem] text-amber-700'; }
+      if (st) { st.textContent = 'Opening your email app to send this to ' + PIXLY_SUPPORT_EMAIL + (askGrokbot ? ' and ' + PIXLY_GROKBOT_EMAIL : '') + '.'; st.className = 'text-[11px] min-h-[1rem] text-amber-700'; }
       openMailtoFallback(href);
       return { ok: true, via: 'mailto' };
     }
@@ -10675,6 +10733,7 @@ function syncLikedStateToPosts() {
     window.closeSubmitFeedbackModal = closeSubmitFeedbackModal;
     window.submitPostFeedback = submitPostFeedback;
     window.buildFeedbackMailto = buildFeedbackMailto;
+    window.updateFeedbackAiUi = updateFeedbackAiUi;
     (function wirePostOptionsMenuGlobal() {
       document.addEventListener('click', function (e) {
         const m = document.getElementById('post-options-menu');
