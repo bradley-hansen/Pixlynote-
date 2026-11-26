@@ -64,6 +64,22 @@ service cloud.firestore {
           && request.resource.data.get('isBusinessPlus', resource.data.get('isBusinessPlus', false)) == resource.data.get('isBusinessPlus', false)
           && request.resource.data.get('subscriptionStatus', resource.data.get('subscriptionStatus', '')) == resource.data.get('subscriptionStatus', '');
     }
+    // Showcase (house-run) accounts: only @pixlynote admin tools may mark an account as Showcase.
+    function showcaseClaimed() {
+      return request.resource.data.get('isShowcase', false) == true
+          || request.resource.data.get('accountType', '') == 'showcase';
+    }
+    // Owners may keep or drop the Showcase marker, never add it.
+    function showcaseNotAdded() {
+      return (request.resource.data.get('isShowcase', false) != true || resource.data.get('isShowcase', false) == true)
+          && (request.resource.data.get('accountType', '') != 'showcase' || resource.data.get('accountType', '') == 'showcase');
+    }
+    // Promote Post fields are written only by the Worker (service account, after a paid Stripe Checkout) or admin.
+    function promoteFields() {
+      return ['isPromoted', 'promotedUntil', 'targetImpressions', 'promotedImpressionsCount', 'ctaLabel', 'ctaUrl',
+              'promotedAt', 'promotionTier', 'promotionAmount', 'promotionDurationHours', 'promoteSessionId',
+              'promotionEndedAt'];
+    }
     // Notes, stories, highlights and the following list live in users/{u}/content/profile, not on the public doc.
     function contentFields() {
       return ['notes', 'story', 'userStories', 'highlights', 'following'];
@@ -159,7 +175,8 @@ service cloud.firestore {
                         && !request.resource.data.keys().hasAny(privateFields())
                         && !request.resource.data.keys().hasAny(contentFields())
                         && request.resource.data.get('isAdmin', false) == false
-                        && noPrivilegeGrant())
+                        && noPrivilegeGrant()
+                        && !showcaseClaimed())
                     // A notification to an account that has no doc yet (must be from this user).
                     || (realUser() && request.resource.data.keys().hasOnly(['notifications', 'lastUpdated'])
                         && request.resource.data.get('notifications', []) is list
@@ -174,6 +191,7 @@ service cloud.firestore {
                         && !changed().hasAny(privateFields())
                         && !changed().hasAny(privilegeFields())
                         && privilegeUnchanged()
+                        && showcaseNotAdded()
                         && !changed().hasAny(contentFields()))
                     // Sign-up on a username that only had a placeholder doc (no uid, never had a password).
                     || (realUser()
@@ -181,11 +199,18 @@ service cloud.firestore {
                         && !('passwordHash' in resource.data)
                         && request.resource.data.get('uid', '') == request.auth.uid
                         && noPrivilegeGrant()
+                        && showcaseNotAdded()
                         && !changed().hasAny(privilegeFields()))
                     || crossUserUpdate(username)
                     || isAdmin();
       allow delete: if ownsUser(username) || isAdmin();
 
+      // Billing History: Stripe purchase records written only by the Worker's signed Stripe webhook
+      // (service account) or admin. Only the account owner can read them (not Privileged Access delegates).
+      match /billing/{recordId} {
+        allow read: if ownsUser(username) || isAdmin();
+        allow write: if isAdmin();
+      }
       match /private/{docId} {
         allow read: if canActAs(username) || isAdmin();
         allow write: if canWriteAs(username) || isAdmin();
@@ -234,8 +259,10 @@ service cloud.firestore {
       // or where('author', '==', X) for an account the viewer may see.
       allow read: if readablePost(resource.data);
       allow create: if realUser() && canWriteAs(request.resource.data.author)
-        && (isPublicAccount(request.resource.data.author) || request.resource.data.get('authorPrivate', false) == true);
+        && (isPublicAccount(request.resource.data.author) || request.resource.data.get('authorPrivate', false) == true)
+        && !request.resource.data.keys().hasAny(promoteFields());
       allow update: if (canWriteAs(resource.data.author)
+                        && !changed().hasAny(promoteFields())
                         && (request.resource.data.author == resource.data.author || canWriteAs(request.resource.data.author))
                         && (isPublicAccount(resource.data.author) || request.resource.data.get('authorPrivate', false) == true))
                     || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data))
@@ -309,6 +336,11 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if realUser();
       allow delete: if isAdmin();
+    }
+    // Promoted notes (notes have no document of their own). Written only by the Worker / admin.
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
     match /noteViews/{noteId} {
       allow read: if true;

@@ -19,7 +19,8 @@ const SKIP_CLICK_IDS = new Set([
   'btn-modal-delete-post',
   'btn-ac-leave-associated-business',
   'btn-leave-associated-business',
-  'btn-logout'
+  'btn-logout',
+  'btn-promote-checkout'
 ]);
 
 const SKIP_CLICK_FNS = new Set([
@@ -95,6 +96,25 @@ async function reveal(page, h, item) {
     }
     return;
   }
+  if (/^modal-promote-insights|^btn-close-promote-insights|^promote-insights-/.test(id) || /PromoteInsights/.test(fn)) {
+    await page.evaluate(() => {
+      const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.username) || 'reg_personal';
+      if (typeof ingestPromotionDoc === 'function') {
+        ingestPromotionDoc('post', 3001, { id: 3001, author: me, isPromoted: true, promotedUntil: Date.now() + 86400000,
+          targetImpressions: 1500, promotedImpressionsCount: 10, promotionTier: 'explore', ctaLabel: '', ctaUrl: '' });
+      }
+      if (typeof openPromoteInsights === 'function') openPromoteInsights('post', 3001);
+    });
+    return;
+  }
+  if (/^modal-promote|^btn-close-promote|^promote-|^btn-promote-/.test(id) || /PromoteModal|PromoteCheckout|setPromoteAmount/.test(fn)) {
+    await page.evaluate(() => {
+      if (window._pixlyPromos && typeof window._pixlyPromos.delete === 'function') window._pixlyPromos.delete('post_3001');
+      if (typeof openPromoteModal === 'function') openPromoteModal('post', 3001);
+    });
+    if (/cta/.test(id)) await page.evaluate(() => { if (typeof setPromoteAmount === 'function') setPromoteAmount(100); });
+    return;
+  }
   if (/^btn-modal-|^modal-post|^modal-comment|^btn-close-post|^btn-modal-/.test(id) || /PostDetail|toggleLikePostComment|startReplyToPostComment|toggleSavePost/.test(fn)) {
     await page.evaluate(() => { if (typeof openPostDetailModal === 'function') openPostDetailModal(3001); });
     return;
@@ -162,6 +182,17 @@ async function reveal(page, h, item) {
     await page.evaluate(() => { if (typeof toggleNotificationsDropdown === 'function') toggleNotificationsDropdown(); });
     return;
   }
+  if (/^btn-billing-history|^billing-history|^ac-view-billing-history/.test(id) || /BillingHistory/.test(fn)) {
+    await h.openOwnerMenu(page);
+    await page.evaluate(() => {
+      window.__pixlyBillingFixture = async () => [];
+      if (typeof toggleDrawerSettingsInfo === 'function') toggleDrawerSettingsInfo();
+      if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
+      else if (typeof openAccountCenter === 'function') openAccountCenter();
+      if (typeof setAccountCenterView === 'function') setAccountCenterView('billingHistory');
+    });
+    return;
+  }
   if (/^btn-ac-|^ac-|^modal-account|^form-ac-|^btn-switcher|^modal-switch|^modal-deactivate/.test(id) || /AccountCenter|AccountInfo|SecurityAccess|LoginActivity|PrivilegedInvite|PrivilegedAccess/.test(fn)) {
     await h.openOwnerMenu(page);
     await page.evaluate(() => {
@@ -169,7 +200,8 @@ async function reveal(page, h, item) {
       if (typeof handleDrawerAccountCenterClick === 'function') handleDrawerAccountCenterClick();
       else if (typeof openAccountCenter === 'function') openAccountCenter();
     });
-    if (/btn-ac-download-data/.test(id)) {
+    if (/btn-ac-download-data|btn-ac-tab-billing-history/.test(id)) {
+      await page.evaluate(() => { window.__pixlyBillingFixture = async () => []; });
       await page.evaluate(() => { if (typeof setAccountCenterView === 'function') setAccountCenterView('yourAccount'); });
     }
     if (/ac-priv|grantPrivileged|PrivilegedInvite|btn-ac-grant-privileged|btn-ac-tab-privileged/.test(id + fn + key)) {

@@ -663,6 +663,8 @@
     body.privileged-read-only #btn-user-profile-message,
     body.privileged-read-only #btn-share-profile,
     body.privileged-read-only #btn-share-user-profile,
+    body.privileged-read-only .promote-mode,
+    body.privileged-read-only #modal-promote,
     body.privileged-read-only #btn-modal-focus-comment,
     body.privileged-read-only #btn-modal-dm-share,
     body.privileged-read-only #btn-modal-share,
@@ -1302,6 +1304,7 @@
                     <svg id="profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" title="Verified Subscriber" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
+                    <span id="profile-showcase-pill" class="hidden showcase-pill items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide text-[10px] px-2 py-0.5" style="display:none;background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" title="Official Pixlynote Showcase Account">Showcase</span>
                   </div>
                   <div class="text-[11px] text-neutral-500 font-medium hidden" id="profile-category"></div>
                   <div class="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 text-[11px] text-neutral-500">
@@ -1361,6 +1364,7 @@
                   </span>
                 </div>
                 <div class="text-neutral-600 whitespace-pre-line" id="profile-bio-text" style="display: none;"></div>
+                <div id="profile-showcase-disclosure" class="hidden text-[11px] text-neutral-500 font-medium" style="display:none;"></div>
                 <div class="flex items-center justify-center sm:justify-start space-x-3 pt-1 text-xs text-neutral-500">
                   <span id="profile-location" class="hidden items-center space-x-1">
                     <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -1639,6 +1643,7 @@
                     <h2 class="text-xl font-bold text-neutral-900" id="user-profile-username">username</h2>
                     <img id="user-profile-associated-avatar" class="hidden w-4 h-4 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
                     <svg id="user-profile-verified-badge" class="hidden w-4 h-4 text-sky-500 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <span id="user-profile-showcase-pill" class="hidden showcase-pill items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide text-[10px] px-2 py-0.5" style="display:none;background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" title="Official Pixlynote Showcase Account">Showcase</span>
                   </div>
                   <div class="text-[11px] text-neutral-500 font-medium hidden" id="user-profile-category"></div>
                 </div>
@@ -1690,6 +1695,7 @@
                   <div class="font-semibold text-neutral-900" id="user-profile-fullname"></div>
                 </div>
                 <div class="text-neutral-600 whitespace-pre-line hidden" id="user-profile-bio"></div>
+                <div id="user-profile-showcase-disclosure" class="hidden text-[11px] text-neutral-500 font-medium" style="display:none;"></div>
                 <div class="flex items-center justify-center sm:justify-start space-x-3 pt-1 text-xs text-neutral-500">
                   <span id="user-profile-location" class="hidden items-center space-x-1">
                     <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -1953,15 +1959,19 @@
               <span id="note-modal-author-name" class="font-bold text-xs sm:text-sm text-neutral-900">Author</span>
               <img id="note-modal-associated-avatar" class="hidden w-3.5 h-3.5 rounded-full object-cover border border-neutral-200 flex-shrink-0" alt="">
               <svg id="note-modal-verified-badge" class="hidden w-3.5 h-3.5 text-sky-500 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              <span id="note-modal-showcase-pill" class="hidden showcase-pill items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide text-[9px] px-1.5 py-px" style="display:none;background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" title="Official Pixlynote Showcase Account">Showcase</span>
             </div>
             <div class="text-[11px] text-neutral-400 font-medium">
               <span id="note-modal-author-handle">@handle</span> · <span id="note-modal-time">time</span>
             </div>
           </div>
         </div>
+        <div class="flex items-center gap-1.5">
+        <button type="button" id="btn-note-modal-promote" onclick="handlePromoteButtonClick('note')" class="hidden promote-mode px-2.5 py-1 bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-violet-200 cursor-pointer shadow-xs" style="display:none;" title="Promote this note"><span>Promote</span></button>
         <button type="button" id="btn-close-note-modal" onclick="closeNoteDetailModal()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close note">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
+        </div>
       </div>
 
       <!-- Scrollable Note Body & Comments Thread -->
@@ -2037,6 +2047,108 @@
     </div>
   </div>
 
+
+  <!-- PROMOTE POST MODAL ($5-$500). Views only: never likes, comments, or followers. -->
+  <div id="modal-promote" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="promote-title">
+    <div class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white/95 backdrop-blur px-4 pt-4 pb-3 border-b border-neutral-100 flex items-center justify-between z-10">
+        <div>
+          <h3 id="promote-title" class="text-base font-bold text-neutral-900">Promote</h3>
+          <p class="text-[11px] text-neutral-500">Get more people to see it in their feed</p>
+        </div>
+        <button type="button" id="btn-close-promote" onclick="closePromoteModal()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="flex items-center gap-3 p-2.5 bg-neutral-50 border border-neutral-100 rounded-2xl">
+          <img id="promote-item-thumb" class="hidden w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="">
+          <p id="promote-item-summary" class="text-xs text-neutral-700 leading-snug break-words min-w-0"></p>
+        </div>
+        <p id="promote-blocked-msg" class="hidden text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></p>
+        <div>
+          <div class="flex items-end justify-between mb-1.5">
+            <label for="promote-amount-slider" class="text-xs font-semibold text-neutral-700">Budget</label>
+            <div id="promote-amount-label" class="text-2xl font-black text-neutral-900">$25</div>
+          </div>
+          <input type="range" id="promote-amount-slider" min="5" max="500" step="1" value="25" class="w-full accent-violet-600 cursor-pointer" aria-label="Promote budget in dollars">
+          <div class="flex justify-between text-[10px] text-neutral-400 mt-0.5"><span>$5</span><span>$500</span></div>
+          <div class="grid grid-cols-4 gap-2 mt-2.5" role="group" aria-label="Quick amounts">
+            <button type="button" id="btn-promote-preset-5" data-amount="5" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$5</button>
+            <button type="button" id="btn-promote-preset-25" data-amount="25" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$25</button>
+            <button type="button" id="btn-promote-preset-100" data-amount="100" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$100</button>
+            <button type="button" id="btn-promote-preset-500" data-amount="500" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$500</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 gap-2">
+          <div class="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl border border-neutral-100">
+            <span class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide">Runs for</span>
+            <span id="promote-duration" class="text-sm font-bold text-neutral-900">3 days</span>
+          </div>
+          <div class="flex items-center justify-between px-3 py-2.5 bg-neutral-50 rounded-xl border border-neutral-100">
+            <span class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide">Guaranteed</span>
+            <span id="promote-views" class="text-sm font-bold text-neutral-900">At least 1,500 views</span>
+          </div>
+          <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-neutral-50 rounded-xl border border-neutral-100">
+            <span class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide flex-shrink-0">Placement</span>
+            <span id="promote-placement" class="text-xs font-bold text-neutral-900 text-right">Main feed + Explore/Trending</span>
+          </div>
+        </div>
+        <div id="promote-cta-section" class="hidden space-y-2 p-3 rounded-2xl border border-sky-100 bg-sky-50/60">
+          <div class="text-xs font-semibold text-neutral-800">Button to your link <span class="font-normal text-neutral-500">(optional)</span></div>
+          <select id="promote-cta-label" class="w-full text-xs bg-white border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-violet-500" aria-label="Button label">
+            <option value="">No button</option>
+            <option value="Learn more">Learn more</option>
+            <option value="Shop now">Shop now</option>
+            <option value="Visit site">Visit site</option>
+            <option value="Book now">Book now</option>
+            <option value="Sign up">Sign up</option>
+            <option value="Contact us">Contact us</option>
+          </select>
+          <input type="url" id="promote-cta-url" inputmode="url" maxlength="300" placeholder="https://your-site.com" class="w-full text-xs bg-white border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-violet-500" aria-label="Button link">
+        </div>
+        <p id="promote-cta-locked" class="text-[11px] text-neutral-500">A button to your link is included at $100 and up.</p>
+        <div id="promote-guarantee" class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+          <div class="text-xs font-bold text-emerald-800">Delivery Guarantee</div>
+          <p id="promote-guarantee-text" class="text-[11px] text-emerald-900 leading-snug mt-0.5"></p>
+        </div>
+        <p class="text-[11px] text-neutral-500 leading-snug">Promote buys views only. It never buys likes, comments, or followers. Promoted posts are labeled "Promoted". A view is counted once per person per browser session. Payment is handled by Stripe.</p>
+        <p id="promote-error" class="hidden text-xs font-semibold text-rose-700"></p>
+        <button type="button" id="btn-promote-checkout" onclick="startPromoteCheckout()" class="w-full py-3 text-sm font-bold text-white rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 active:scale-[0.99] transition shadow-sm cursor-pointer">Continue to secure checkout · $25</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROMOTED INSIGHTS DRAWER (author only) -->
+  <div id="modal-promote-insights" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="promote-insights-title">
+    <div class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 id="promote-insights-title" class="text-base font-bold text-neutral-900">Promoted Insights</h3>
+          <p class="text-[11px] text-neutral-500">Only you can see this</p>
+        </div>
+        <button type="button" id="btn-close-promote-insights" onclick="closePromoteInsights()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div>
+        <div class="flex items-end justify-between">
+          <div id="promote-insights-views" class="text-xl font-black text-neutral-900">0 / 0 views</div>
+          <div id="promote-insights-status" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Active</div>
+        </div>
+        <div class="mt-2 h-2.5 w-full bg-neutral-100 rounded-full overflow-hidden">
+          <div id="promote-insights-bar" class="h-full bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full transition-all" style="width:0%" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+        </div>
+        <div id="promote-insights-time" class="text-xs text-neutral-600 mt-1.5"></div>
+      </div>
+      <div class="grid grid-cols-1 gap-2 text-xs">
+        <div class="flex items-center justify-between gap-3 px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-100"><span class="text-neutral-500 flex-shrink-0">Placement</span><span id="promote-insights-placement" class="font-semibold text-neutral-900 text-right"></span></div>
+        <div class="flex items-center justify-between gap-3 px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-100"><span class="text-neutral-500 flex-shrink-0">Button</span><span id="promote-insights-cta" class="font-semibold text-neutral-900 text-right break-all"></span></div>
+      </div>
+      <p class="text-[11px] text-neutral-500 leading-snug">Views are counted once per person per browser session and update live. If the guaranteed views aren't reached in time, the boost keeps running at no extra cost.</p>
+    </div>
+  </div>
+
   <!-- MODAL 1: POST DETAIL / FULL PICTURE VIEW -->
   <div id="modal-post-detail" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm items-center justify-center p-2 sm:p-4" style="display: none;">
     <div class="relative bg-white rounded-2xl overflow-y-auto max-w-4xl w-full max-h-[90vh] flex flex-col md:flex-row shadow-2xl" style="max-height: 90vh !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important;">
@@ -2073,6 +2185,7 @@
             </div>
           </div>
           <div class="flex items-center space-x-2">
+            <button type="button" id="btn-modal-promote-post" onclick="handlePromoteButtonClick('post')" class="hidden promote-mode px-2.5 py-1 bg-violet-50 hover:bg-violet-100 active:bg-violet-200 text-violet-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-violet-200 cursor-pointer shadow-xs" style="display:none;" title="Promote this post"><span>Promote</span></button>
             <button type="button" id="btn-modal-edit-post" class="hidden px-2.5 py-1 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1 border border-sky-200 cursor-pointer shadow-xs" title="Edit Post (Pixlynote Plus)">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               <span>Edit</span>
@@ -3569,6 +3682,19 @@
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
+        <button type="button" id="btn-ac-tab-billing-history" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-violet-200 transition cursor-pointer group">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4M7 3h10a2 2 0 012 2v16l-3-2-2 2-2-2-2 2-2-2-3 2V5a2 2 0 012-2z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="text-xs font-bold text-neutral-900">History</div>
+              <div class="text-[10px] text-neutral-500">Your purchases: Promote campaigns and subscriptions</div>
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+
         <button type="button" id="btn-ac-tab-verification" class="w-full flex items-center justify-between p-3.5 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-slate-300 transition cursor-pointer group">
           <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
@@ -3701,6 +3827,16 @@
       </div>
 
       <!-- VIEW 3: ACCOUNT INFO -->
+      <div id="ac-view-billing-history" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] text-neutral-500 leading-snug pr-2">Purchases made with this account. Payments are processed by Stripe.</p>
+          <button type="button" id="btn-billing-history-refresh" aria-label="Refresh history" class="flex-shrink-0 text-[11px] font-semibold text-violet-600 px-2.5 py-1 rounded-full border border-violet-200 hover:bg-violet-50">Refresh</button>
+        </div>
+        <div id="billing-history-status" class="hidden text-xs text-neutral-500 text-center py-6 px-4 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50"></div>
+        <div id="billing-history-list" class="space-y-2" aria-live="polite"></div>
+        <p class="text-[10px] text-neutral-400 leading-snug">Only you can see this list. Need a receipt or a refund? Contact Pixlynote support with the date and amount.</p>
+      </div>
+
       <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
         <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-neutral-100">
           <button type="button" id="btn-ac-info-tab-details" onclick="setAccountInfoTab('details')" class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer">Details</button>
@@ -13744,6 +13880,7 @@ function syncLikedStateToPosts() {
       const post = findPostForViews(id);
       if (!post) return false;
       if (isPostAuthorCurrentUser(post)) return false;
+      if (typeof activeAccountIsShowcase === 'function' && activeAccountIsShowcase()) return false;
       if (_pendingViewIncrements.has(id)) return false;
       if (hasViewedPost(id)) return false;
       if (viewsCountOfPost(id) >= PIXLY_VIEWS_PER_POST_VIEWER_CAP) return false;
@@ -13972,6 +14109,7 @@ function syncLikedStateToPosts() {
       const note = (typeof getNoteById === 'function') ? getNoteById(id) : null;
       if (!note) return false;
       if (isNoteAuthorCurrentUser(note)) return false;
+      if (typeof activeAccountIsShowcase === 'function' && activeAccountIsShowcase()) return false;
       if (_pendingNoteViewIncrements.has(id)) return false;
       if (hasViewedNote(id)) return false;
       return true;
@@ -14320,6 +14458,11 @@ function syncLikedStateToPosts() {
           if (!connectedSet.has(norm(feedPosts[i] && feedPosts[i].author))) feedPosts.splice(i, 1);
         }
       }
+      if (feedTab !== 'connected' && typeof applyPromotedFeedSlots === 'function') {
+        try { applyPromotedFeedSlots(feedPosts); } catch (e) { window._promoFeedInjected = new Set(); }
+      } else {
+        window._promoFeedInjected = new Set();
+      }
       if (typeof paintFeedTabs === 'function') paintFeedTabs();
 
       // Helper to generate Suggested Creators cards
@@ -14423,12 +14566,13 @@ function syncLikedStateToPosts() {
 
       // Render all feed posts
       const postsHtml = feedPosts.map(post => {
+        if (post && post.__promoNote) return (typeof promotedNoteCardHtml === 'function') ? promotedNoteCardHtml(post) : '';
         const isSaved = isPostSaved(post.id);
         const heartFill = post.isLiked ? 'fill-rose-500 text-rose-500' : 'text-neutral-800 hover:text-rose-500';
         const bookmarkFill = isSaved ? 'fill-neutral-900 text-neutral-900' : 'text-neutral-800 hover:text-neutral-900';
 
         return `
-          <article class="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs post-card" data-post-id="${post.id}">
+          <article class="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs post-card" data-post-id="${post.id}"${typeof promotedArticleAttrs === 'function' ? promotedArticleAttrs(post) : ''}>
             
             <!-- Post Header -->
             <div class="p-3.5 flex items-center justify-between">
@@ -14444,6 +14588,7 @@ function syncLikedStateToPosts() {
                     ${authorStatusBadgesHtml(post.author)}
                     ${post.author === state.currentUser.username ? '<span class="text-[10px] text-neutral-400 font-medium">• You</span>' : ''}
                   </div>
+                  ${typeof promotedLabelHtml === 'function' ? promotedLabelHtml(post) : ''}
                   ${(typeof displayPostLocation === 'function' ? displayPostLocation(post.location) : String(post.location || '').trim()) ? `<div class="text-[11px] text-neutral-500">${(typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : post.location}</div>` : ''}
                 </div>
               </div>
@@ -14464,6 +14609,7 @@ function syncLikedStateToPosts() {
               </div>
             </div>
 
+            ${typeof promotedCtaHtml === 'function' ? promotedCtaHtml(post) : ''}
             <!-- Action Bar -->
             <div class="p-3.5 space-y-2.5">
               <div class="flex items-center justify-between">
@@ -14625,6 +14771,7 @@ function syncLikedStateToPosts() {
       stream.innerHTML = postsHtml + endOfFeedBanner;
       attachFeedCardEventListeners();
       if (typeof observePostViewTargets === 'function') observePostViewTargets();
+      if (typeof observePromotedImpressions === 'function') observePromotedImpressions();
     }
 
     function attachFeedCardEventListeners() {
@@ -15296,6 +15443,10 @@ function syncLikedStateToPosts() {
       renderNoteModalComments(note);
 
       modal.setAttribute('data-note-id', String(note.id));
+      if (typeof paintPromoteButton === 'function') {
+        const _meN = normalizeUsername((state.isLoggedIn && state.currentUser && state.currentUser.username) || '');
+        paintPromoteButton('note', note.id, !!_meN && normalizeUsername(note.author || '') === _meN);
+      }
       if (typeof updateNoteViewsDisplays === 'function') updateNoteViewsDisplays(note.id, (typeof getNoteViewsCount === 'function') ? getNoteViewsCount(note.id) : 0);
       if (typeof fetchNoteViewsCounts === 'function') fetchNoteViewsCounts([note.id]);
       if (typeof observeNoteViewTargets === 'function') observeNoteViewTargets();
@@ -15759,6 +15910,7 @@ function syncLikedStateToPosts() {
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     </button>
                   `}
+                  ${typeof promoteNoteCardButtonHtml === 'function' ? promoteNoteCardButtonHtml(n.id) : ''}
                   <button type="button" onclick="event.stopPropagation(); handleDeleteNoteAction('${n.id}')" class="text-neutral-400 hover:text-rose-500 transition p-1 cursor-pointer" title="Delete note">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
@@ -17160,7 +17312,8 @@ function syncLikedStateToPosts() {
           const visible = real.slice(0, window._exploreVisible.posts);
           const moreFromServer = !exploreUsingListener() && pg.used && pg.hasMore && !q;
           const moreReal = real.length > visible.length || moreFromServer;
-          html = visible.map(p => exploreTileHtml(p, false)).join('');
+          const promoTiles = (!q && typeof promotedExploreTilesHtml === 'function') ? promotedExploreTilesHtml(visible) : '';
+          html = promoTiles + visible.map(p => exploreTileHtml(p, false)).join('');
           if (moreReal) html += exploreLoadMoreHtml('posts', true);
           if (!moreReal && real.length < EXPLORE_MIN_REAL) {
             const realIds = new Set(real.map(p => String(p.id)));
@@ -17178,6 +17331,7 @@ function syncLikedStateToPosts() {
         }
         grid.innerHTML = html;
         observeExploreLoadMore(grid);
+        if (typeof observePromotedImpressions === 'function') observePromotedImpressions();
       }
 
       // 2. Real public notes (from every account's notes), ranked and paged, demo filler only when sparse
@@ -17326,6 +17480,8 @@ function syncLikedStateToPosts() {
           followBtn.onclick = (e) => { e.stopPropagation(); window.toggleFollowCreator(pAuthor, followBtn, { onDone: paintFollow }); };
         }
       }
+
+      if (typeof paintPromoteButton === 'function') paintPromoteButton('post', postId, isMyPost);
 
       // Populate Comments
       const list = document.getElementById('modal-comments-list');
@@ -19232,7 +19388,11 @@ function syncLikedStateToPosts() {
         renderLikes();
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        showToast('Photo posted to your profile grid!');
+        if (typeof showToastWithAction === 'function' && typeof openPromoteModal === 'function' && !(state.currentUser && state.currentUser.isPrivate === true) && (newPost.audience || 'public') === 'public') {
+          showToastWithAction('Photo posted to your profile grid!', 'Promote', function () { openPromoteModal('post', newPostId); }, 6000);
+        } else {
+          showToast('Photo posted to your profile grid!');
+        }
       } catch(err) {
         console.error("Error creating post:", err);
         showToast('Error creating post: ' + err.message);
@@ -22030,6 +22190,10 @@ function syncLikedStateToPosts() {
       return assoc;
     }
     function creatorStatusBadgesHtml(creator) {
+      const sc = (typeof showcaseBadgeHtmlFor === 'function') ? showcaseBadgeHtmlFor(creator) : '';
+      return creatorStatusBadgesHtmlBase(creator) + sc;
+    }
+    function creatorStatusBadgesHtmlBase(creator) {
       const assoc = getAssociatedBusinessFor(creator);
       const assocHtml = assoc
         ? '<img class="associated-business-avatar w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-neutral-200" src="' + escapeHtml(assoc.avatar || '') + '" alt="@' + escapeHtml(assoc.username) + '" title="Associated with @' + escapeHtml(assoc.username) + '">'
@@ -22052,6 +22216,7 @@ function syncLikedStateToPosts() {
       el.innerHTML = authorStatusBadgesHtml(author);
     }
     function paintStatusBadgesForUser(user, svgIds, assocIds) {
+      if (typeof paintShowcaseForUser === 'function') paintShowcaseForUser(user, svgIds);
       const showOfficial = typeof isGovOrOrgBadgeShown === 'function' && isGovOrOrgBadgeShown(user);
       const showGreen = !showOfficial && isBusinessPlusShown(user);
       const showBlue = !showOfficial && !showGreen && typeof isViewedCreatorCheckmarkShown === 'function' && isViewedCreatorCheckmarkShown(user);
@@ -24558,7 +24723,8 @@ function syncLikedStateToPosts() {
         blockedList: document.getElementById('ac-view-blocked-list'),
         mutedList: document.getElementById('ac-view-muted-list'),
         privilegedAccess: document.getElementById('ac-view-privileged-access'),
-        associate: document.getElementById('ac-view-associate')
+        associate: document.getElementById('ac-view-associate'),
+        billingHistory: document.getElementById('ac-view-billing-history')
       };
       Object.entries(views).forEach(([k, el]) => {
         if (!el) return;
@@ -24582,6 +24748,12 @@ function syncLikedStateToPosts() {
         if (iconEl) iconEl.classList.add('hidden');
         if (titleEl) titleEl.textContent = 'Your Account';
         if (subEl) subEl.textContent = '@' + curU;
+      } else if (viewName === 'billingHistory') {
+        if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
+        if (iconEl) iconEl.classList.add('hidden');
+        if (titleEl) titleEl.textContent = 'History';
+        if (subEl) subEl.textContent = '@' + curU;
+        if (typeof loadBillingHistory === 'function') loadBillingHistory();
       } else if (viewName === 'accountInfo') {
         if (backBtn) { backBtn.classList.remove('hidden'); backBtn.dataset.target = 'yourAccount'; }
         if (iconEl) iconEl.classList.add('hidden');
@@ -26909,6 +27081,7 @@ function syncLikedStateToPosts() {
         : 0;
       const thread = state.messages[currentIdx];
       if (!thread) return false;
+      if (typeof showcaseDmBlocked === 'function' && showcaseDmBlocked(thread)) return false;
 
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -26953,6 +27126,7 @@ function syncLikedStateToPosts() {
         : 0;
       const thread = state.messages[currentIdx];
       if (!thread) return;
+      if (typeof showcaseDmBlocked === 'function' && showcaseDmBlocked(thread)) return;
 
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -26997,6 +27171,7 @@ function syncLikedStateToPosts() {
           : 0;
         const thread = state.messages[currentIdx];
         if (!thread) return;
+        if (typeof showcaseDmBlocked === 'function' && showcaseDmBlocked(thread)) return;
 
         const timeStr = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         const newMsg = {
@@ -27608,6 +27783,7 @@ function syncLikedStateToPosts() {
     function sendDmShareToSelected() {
       if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!window._dmShareTarget || window._dmShareSelectedUsers.size === 0) return;
+      if (typeof showcaseShareBlocked === 'function' && showcaseShareBlocked(window._dmShareSelectedUsers)) return;
       const { type, id, item } = window._dmShareTarget;
       const noteInp = document.getElementById('dm-share-note-input');
       const optionalText = noteInp ? noteInp.value.trim() : '';
@@ -29152,6 +29328,8 @@ function syncLikedStateToPosts() {
         bind('btn-ac-download-data', 'click', () => { if (typeof requestAccountDataExport === 'function') requestAccountDataExport(); });
         try { window.state = state; } catch(e) {}
         bind('btn-ac-tab-account-info', 'click', () => setAccountCenterView('accountInfo'));
+        bind('btn-ac-tab-billing-history', 'click', () => setAccountCenterView('billingHistory'));
+        bind('btn-billing-history-refresh', 'click', () => { if (typeof loadBillingHistory === 'function') loadBillingHistory(true); });
         bind('btn-ac-tab-drafts', 'click', () => { if (typeof closeAccountCenterModal === 'function') closeAccountCenterModal(); if (typeof openDraftsPage === 'function') openDraftsPage(); });
         bind('btn-ac-tab-close-friends', 'click', () => setAccountCenterView('closeFriends'));
         bind('btn-save-post-draft', 'click', () => { if (typeof handleSavePostDraft === 'function') handleSavePostDraft(); });
@@ -34638,6 +34816,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const personalEl = document.getElementById('metric-personal-users');
       const businessEl = document.getElementById('metric-business-users');
       const plusEl = document.getElementById('metric-plus-users');
+      const showcaseEl = document.getElementById('metric-showcase-users');
       const listEl = document.getElementById('drawer-metrics-accounts-list');
 
       if (sourceEl && manualRefresh) sourceEl.textContent = 'Syncing...';
@@ -34648,13 +34827,16 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const addUserRecord = (rawUsername, data) => {
         const u = normU(rawUsername);
         if (!u || u.includes('__') || u.includes('@')) return;
-        const existing = usersMap.get(u) || { username: u, fullName: '', accountType: 'personal', isPlus: false };
+        const existing = usersMap.get(u) || { username: u, fullName: '', accountType: 'personal', isPlus: false, isShowcase: false };
         const d = data || {};
         usersMap.set(u, {
           username: u,
           fullName: d.fullName || existing.fullName || u,
           accountType: (d.accountType === 'business' || u === 'pixlynote' || u === 'digitalassetpro') ? 'business' : (existing.accountType || 'personal'),
-          isPlus: Boolean(d.isPlus || d.isVerified || existing.isPlus)
+          isPlus: Boolean(d.isPlus || d.isVerified || existing.isPlus),
+          // Showcase (house-run) accounts stay in the database but are never counted as users.
+          isShowcase: Boolean(existing.isShowcase || d.isShowcase === true || d.accountType === 'showcase'
+            || (typeof isShowcaseAccount === 'function' && isShowcaseAccount(u)))
         });
       };
 
@@ -34705,7 +34887,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         }
       }
 
-      const allUsers = Array.from(usersMap.values()).sort((a, b) => a.username.localeCompare(b.username));
+      const everyone = Array.from(usersMap.values()).sort((a, b) => a.username.localeCompare(b.username));
+      const allUsers = everyone.filter(u => !u.isShowcase);
+      const showcaseUsers = everyone.filter(u => u.isShowcase);
+      window._pixlyMetricsLast = { total: allUsers.length, showcaseExcluded: showcaseUsers.length };
       const totalCount = allUsers.length;
       const businessCount = allUsers.filter(u => u.accountType === 'business').length;
       const personalCount = totalCount - businessCount;
@@ -34715,7 +34900,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (personalEl) personalEl.textContent = personalCount.toLocaleString();
       if (businessEl) businessEl.textContent = businessCount.toLocaleString();
       if (plusEl) plusEl.textContent = plusCount.toLocaleString();
+      if (showcaseEl) showcaseEl.textContent = showcaseUsers.length.toLocaleString();
       if (sourceEl) sourceEl.textContent = syncedFromCloud ? 'Live · Cloud' : 'Local Cache';
+      if (totalEl) totalEl.title = showcaseUsers.length ? (showcaseUsers.length + ' Showcase account' + (showcaseUsers.length === 1 ? '' : 's') + ' not counted') : '';
 
       if (listEl) {
         if (allUsers.length === 0) {
@@ -34730,7 +34917,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               </div>
               <span class="ml-2 flex-shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${u.accountType === 'business' ? 'bg-violet-100 text-violet-700' : 'bg-neutral-100 text-neutral-600'}">${u.accountType === 'business' ? 'Business' : 'Personal'}</span>
             </div>
-          `).join('');
+          `).join('') + (showcaseUsers.length
+            ? '<div id="drawer-metrics-showcase-note" class="text-[10px] text-neutral-500 text-center py-1">' + showcaseUsers.length + ' Showcase account' + (showcaseUsers.length === 1 ? '' : 's') + ' not counted</div>'
+            : '');
         }
       }
     }
@@ -36995,6 +37184,864 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     else bindCancelMembershipUi();
 
 </script>
+<script>
+    // =========================================================================
+    // SHOWCASE ACCOUNTS + PROMOTE POST (Stripe Checkout, sandbox until Bradley says otherwise)
+    // - Showcase: house-run accounts marked isShowcase:true (or accountType:"showcase") on users/{u}.
+    //   Only @pixlynote admin tools / the admin script can set it (firestore.rules). The badge is read from
+    //   live user docs only, never from a post or comment copy.
+    // - Promote: the Worker creates the Checkout Session and, on Stripe's signed webhook, writes the
+    //   promotion fields. The browser never marks anything promoted. Views only: never likes/comments/followers.
+    // =========================================================================
+    var SHOWCASE_HANDLES = ['pixly_official', 'jersey_shore_snaps', 'morning_pour', 'retro_filter_lab', 'pocket_wisdom',
+      'midnight_slices', 'pixel_paws', 'chart_check', 'skywatch_daily', 'found_on_foot'];
+    window.SHOWCASE_HANDLES = SHOWCASE_HANDLES;
+    var SHOWCASE_DISCLOSURE = 'Official Pixlynote Showcase Account \u2022 Curated by the Pixlynote Team';
+    window.SHOWCASE_DISCLOSURE = SHOWCASE_DISCLOSURE;
+
+    function showcaseNorm(u) {
+      return (typeof normalizeUsername === 'function') ? normalizeUsername(u || '') : String(u || '').toLowerCase().replace(/^@/, '');
+    }
+    function showcaseFlagOf(d) {
+      return !!(d && (d.isShowcase === true || d.accountType === 'showcase'));
+    }
+    // Trusted sources only: live users/{u} docs (directory, profile cache, the profile being viewed, myself).
+    function isShowcaseAccount(creator) {
+      const src = (typeof creator === 'string') ? { username: creator } : (creator || {});
+      const u = showcaseNorm(src.username || src.user || src.author || '');
+      if (!u) return false;
+      try {
+        const dir = window._exploreUserDir && window._exploreUserDir.users && typeof window._exploreUserDir.users.get === 'function'
+          ? window._exploreUserDir.users.get(u) : null;
+        if (showcaseFlagOf(dir)) return true;
+        const rc = window._remoteUserProfilesCache && window._remoteUserProfilesCache[u];
+        if (showcaseFlagOf(rc)) return true;
+        if (window._viewedConn && showcaseNorm(window._viewedConn.user) === u && showcaseFlagOf(window._viewedConn.doc)) return true;
+        if (state && state.currentUser && showcaseNorm(state.currentUser.username) === u && showcaseFlagOf(state.currentUser)) return true;
+      } catch (e) {}
+      return false;
+    }
+    window.isShowcaseAccount = isShowcaseAccount;
+    function showcasePillHtml(size) {
+      const big = size === 'lg';
+      return '<span class="showcase-pill inline-flex items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide '
+        + (big ? 'text-[10px] px-2 py-0.5' : 'text-[9px] px-1.5 py-px') + '" '
+        + 'style="background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" '
+        + 'title="' + SHOWCASE_DISCLOSURE + '" aria-label="Showcase account" data-showcase-pill="1">Showcase</span>';
+    }
+    window.showcasePillHtml = showcasePillHtml;
+    function showcaseBadgeHtmlFor(creator) {
+      return isShowcaseAccount(creator) ? showcasePillHtml() : '';
+    }
+    window.showcaseBadgeHtmlFor = showcaseBadgeHtmlFor;
+    // Profile headers / note modal: <x>-verified-badge has sibling <x>-showcase-pill and <x>-showcase-disclosure.
+    function paintShowcaseForUser(user, svgIds) {
+      const on = isShowcaseAccount(user);
+      (svgIds || []).forEach(function (id) {
+        const base = String(id || '').replace(/-verified-badge$/, '');
+        if (!base || base === id) return;
+        const pill = document.getElementById(base + '-showcase-pill');
+        if (pill) { pill.classList.toggle('hidden', !on); pill.style.display = on ? '' : 'none'; }
+        const disc = document.getElementById(base + '-showcase-disclosure');
+        if (disc) { disc.classList.toggle('hidden', !on); disc.style.display = on ? '' : 'none'; disc.textContent = on ? SHOWCASE_DISCLOSURE : ''; }
+      });
+    }
+    window.paintShowcaseForUser = paintShowcaseForUser;
+    function activeAccountIsShowcase() {
+      return !!(state && state.isLoggedIn && state.currentUser && isShowcaseAccount(state.currentUser.username));
+    }
+    window.activeAccountIsShowcase = activeAccountIsShowcase;
+    // Showcase accounts never start a DM: they may only answer someone who wrote to them first.
+    function threadHasInbound(thread) {
+      return !!(thread && Array.isArray(thread.chat) && thread.chat.some(function (m) { return m && m.sender && m.sender !== 'me'; }));
+    }
+    function showcaseDmBlocked(thread) {
+      if (!activeAccountIsShowcase()) return false;
+      if (threadHasInbound(thread)) return false;
+      if (typeof showToast === 'function') showToast('Showcase accounts can only reply to people who message them first.');
+      return true;
+    }
+    window.showcaseDmBlocked = showcaseDmBlocked;
+    function showcaseShareBlocked(usernames) {
+      if (!activeAccountIsShowcase()) return false;
+      const list = Array.from(usernames || []);
+      const ok = list.every(function (u) {
+        const n = showcaseNorm(u);
+        const t = (state.messages || []).find(function (th) { return th && showcaseNorm(th.user || th.username) === n; });
+        return threadHasInbound(t);
+      });
+      if (ok) return false;
+      if (typeof showToast === 'function') showToast('Showcase accounts can only reply to people who message them first.');
+      return true;
+    }
+    window.showcaseShareBlocked = showcaseShareBlocked;
+
+    // ---------- Promote: pricing (must match PROMOTE_ANCHORS in the Worker) ----------
+    var PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7500], [500, 720, 50000]];
+    window.PROMOTE_ANCHORS = PROMOTE_ANCHORS;
+    var PROMOTE_MIN = 5, PROMOTE_MAX = 500, PROMOTE_PRESETS = [5, 25, 100, 500];
+    var PROMOTE_CTA_LABELS = ['Learn more', 'Shop now', 'Visit site', 'Book now', 'Sign up', 'Contact us'];
+    function promotePlan(amount) {
+      const a = Math.round(Number(amount));
+      if (!isFinite(a) || a < PROMOTE_MIN || a > PROMOTE_MAX) return null;
+      let seg = PROMOTE_ANCHORS.length - 2;
+      for (let i = 0; i < PROMOTE_ANCHORS.length - 1; i++) { if (a <= PROMOTE_ANCHORS[i + 1][0]) { seg = i; break; } }
+      const lo = PROMOTE_ANCHORS[seg], hi = PROMOTE_ANCHORS[seg + 1];
+      const t = (a - lo[0]) / (hi[0] - lo[0]);
+      const durationHours = Math.round(lo[1] + t * (hi[1] - lo[1]));
+      const targetImpressions = Math.round((lo[2] + t * (hi[2] - lo[2])) / 50) * 50;
+      const tier = a >= 100 ? 'cta' : (a >= 25 ? 'explore' : 'feed');
+      return { amount: a, durationHours: durationHours, targetImpressions: targetImpressions, tier: tier };
+    }
+    window.promotePlan = promotePlan;
+    function promoteDurationLabel(h) {
+      if (h < 48) return h + ' hours';
+      const d = Math.round(h / 24);
+      return d + ' days';
+    }
+    function promoteTierLabel(tier) {
+      if (tier === 'cta') return 'Main feed + Explore/Trending + button to your link';
+      if (tier === 'explore') return 'Main feed + Explore/Trending';
+      return 'Main feed rotation';
+    }
+    window.promoteTierLabel = promoteTierLabel;
+
+    // ---------- Promotion records (from Firestore post docs / promotions docs only) ----------
+    window._pixlyPromos = window._pixlyPromos || new Map();
+    function promoKey(kind, id) { return (kind === 'note' ? 'note_' : 'post_') + String(id); }
+    function promoNum(v) {
+      if (v && typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (e) { return 0; } }
+      const n = Number(v); return isFinite(n) ? n : 0;
+    }
+    function ingestPromotionDoc(kind, id, d) {
+      if (!d || id === undefined || id === null || id === '') return null;
+      const key = promoKey(kind, id);
+      const prev = window._pixlyPromos.get(key);
+      const rec = {
+        key: key, kind: kind === 'note' ? 'note' : 'post', id: String(id),
+        author: showcaseNorm(d.author || (prev && prev.author) || ''),
+        isPromoted: d.isPromoted === true,
+        promotedUntil: promoNum(d.promotedUntil),
+        targetImpressions: Math.max(0, Math.round(promoNum(d.targetImpressions))),
+        promotedImpressionsCount: Math.max(promoNum(d.promotedImpressionsCount), prev ? prev.promotedImpressionsCount : 0),
+        ctaLabel: PROMOTE_CTA_LABELS.indexOf(String(d.ctaLabel || '')) !== -1 ? String(d.ctaLabel) : '',
+        ctaUrl: /^https:\/\/[^\s"'<>]+$/.test(String(d.ctaUrl || '')) ? String(d.ctaUrl) : '',
+        promotionTier: ['feed', 'explore', 'cta'].indexOf(d.promotionTier) !== -1 ? d.promotionTier : 'feed',
+        promotedAt: promoNum(d.promotedAt),
+        doc: kind === 'note' ? null : d
+      };
+      window._pixlyPromos.set(key, rec);
+      return rec;
+    }
+    window.ingestPromotionDoc = ingestPromotionDoc;
+    function getPromotion(kind, id) { return window._pixlyPromos.get(promoKey(kind, id)) || null; }
+    window.getPromotion = getPromotion;
+    // Active until BOTH the paid time has passed and the guaranteed views are delivered.
+    function isPromotionActive(rec, now) {
+      if (!rec || rec.isPromoted !== true) return false;
+      const t = now || Date.now();
+      return t < rec.promotedUntil || rec.promotedImpressionsCount < rec.targetImpressions;
+    }
+    window.isPromotionActive = isPromotionActive;
+    function promoMe() {
+      return (state && state.isLoggedIn && state.currentUser) ? showcaseNorm(state.currentUser.username) : '';
+    }
+    let _promoLoadAt = 0, _promoLoading = false;
+    async function loadPixlyPromotions(force) {
+      const fb = window.firebase;
+      if (!window.firebaseReady || !fb || !fb.db || !fb.getDocs || !fb.query || !fb.where || !fb.collection) return false;
+      if (_promoLoading || (!force && Date.now() - _promoLoadAt < 180000)) return false;
+      _promoLoading = true;
+      try {
+        const lim = typeof fb.limit === 'function' ? [fb.limit(20)] : [];
+        const before = JSON.stringify(Array.from(window._pixlyPromos.values()).map(r => [r.key, r.isPromoted, r.promotedImpressionsCount]));
+        const ps = await fb.getDocs(fb.query(fb.collection(fb.db, 'posts'), fb.where('isPromoted', '==', true), fb.where('authorPrivate', '==', false), ...lim)).catch(() => null);
+        if (ps) ps.forEach(function (d) { const v = d.data(); if (v && v.id !== undefined) ingestPromotionDoc('post', v.id, v); });
+        const ns = await fb.getDocs(fb.query(fb.collection(fb.db, 'promotions'), fb.where('isPromoted', '==', true), ...lim)).catch(() => null);
+        if (ns) ns.forEach(function (d) { const v = d.data(); if (v && v.noteId !== undefined) ingestPromotionDoc('note', v.noteId, v); });
+        _promoLoadAt = Date.now();
+        const after = JSON.stringify(Array.from(window._pixlyPromos.values()).map(r => [r.key, r.isPromoted, r.promotedImpressionsCount]));
+        if (before !== after) {
+          if (typeof renderFeed === 'function') renderFeed();
+          if (typeof scheduleExploreRender === 'function') scheduleExploreRender();
+        }
+        return true;
+      } catch (e) {
+        return false;
+      } finally {
+        _promoLoading = false;
+      }
+    }
+    window.loadPixlyPromotions = loadPixlyPromotions;
+    // Fresh read of one of MY items (post doc or promotions doc) so the Promote/Insights button is right.
+    async function refreshOwnPromotion(kind, id) {
+      const fb = window.firebase;
+      if (!window.firebaseReady || !fb || !fb.db || !fb.getDoc || !fb.doc) return null;
+      try {
+        const snap = await fb.getDoc(kind === 'note' ? fb.doc(fb.db, 'promotions', 'note_' + String(id)) : fb.doc(fb.db, 'posts', String(id)));
+        if (snap && snap.exists()) return ingestPromotionDoc(kind, id, snap.data());
+      } catch (e) {}
+      return null;
+    }
+    window.refreshOwnPromotion = refreshOwnPromotion;
+
+    // ---------- Promote / Insights buttons on MY posts and notes ----------
+    const PROMOTE_ICON = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>';
+    const INSIGHTS_ICON = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>';
+    function promoteButtonState(kind, id) {
+      const rec = getPromotion(kind, id);
+      return isPromotionActive(rec) ? 'insights' : 'promote';
+    }
+    window.promoteButtonState = promoteButtonState;
+    function paintPromoteButtonEl(btn, kind, id, show) {
+      if (!btn) return;
+      if (!show) { btn.classList.add('hidden'); btn.style.display = 'none'; return; }
+      const mode = promoteButtonState(kind, id);
+      btn.classList.remove('hidden');
+      btn.style.display = '';
+      btn.classList.toggle('promote-mode', mode === 'promote');
+      btn.classList.toggle('insights-mode', mode === 'insights');
+      btn.setAttribute('data-promote-kind', kind);
+      btn.setAttribute('data-promote-id', String(id));
+      btn.title = mode === 'insights' ? 'Promoted Insights' : ('Promote this ' + (kind === 'note' ? 'note' : 'post'));
+      btn.innerHTML = (mode === 'insights' ? INSIGHTS_ICON : PROMOTE_ICON) + '<span>' + (mode === 'insights' ? 'Insights' : 'Promote') + '</span>';
+    }
+    function paintPromoteButton(kind, id, isMine) {
+      const btn = document.getElementById(kind === 'note' ? 'btn-note-modal-promote' : 'btn-modal-promote-post');
+      paintPromoteButtonEl(btn, kind, id, !!isMine);
+      if (isMine) {
+        refreshOwnPromotion(kind, id).then(function (rec) {
+          const cur = kind === 'note' ? state.currentModalNoteId : state.currentModalPostId;
+          if (rec && String(cur) === String(id)) paintPromoteButtonEl(btn, kind, id, true);
+        });
+      }
+    }
+    window.paintPromoteButton = paintPromoteButton;
+    function promoteNoteCardButtonHtml(noteId) {
+      const id = String(noteId).replace(/[^A-Za-z0-9_-]/g, '');
+      const mode = promoteButtonState('note', id);
+      return '<button type="button" onclick="event.stopPropagation(); openPromoteForItem(\'note\', \'' + id + '\')" '
+        + 'class="btn-promote-note ' + (mode === 'insights' ? 'insights-mode text-emerald-600' : 'promote-mode text-violet-600') + ' inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md hover:bg-violet-50 text-[10px] font-semibold transition cursor-pointer" '
+        + 'data-note-id="' + id + '" title="' + (mode === 'insights' ? 'Promoted Insights' : 'Promote this note') + '">'
+        + (mode === 'insights' ? INSIGHTS_ICON : PROMOTE_ICON) + '<span>' + (mode === 'insights' ? 'Insights' : 'Promote') + '</span></button>';
+    }
+    window.promoteNoteCardButtonHtml = promoteNoteCardButtonHtml;
+    function openPromoteForItem(kind, id) {
+      if (promoteButtonState(kind, id) === 'insights') return openPromoteInsights(kind, id);
+      return openPromoteModal(kind, id);
+    }
+    window.openPromoteForItem = openPromoteForItem;
+    function handlePromoteButtonClick(kind) {
+      const btn = document.getElementById(kind === 'note' ? 'btn-note-modal-promote' : 'btn-modal-promote-post');
+      const id = (btn && btn.getAttribute('data-promote-id')) || (kind === 'note' ? state.currentModalNoteId : state.currentModalPostId);
+      if (id === undefined || id === null || id === '') return;
+      openPromoteForItem(kind, id);
+    }
+    window.handlePromoteButtonClick = handlePromoteButtonClick;
+
+    // ---------- Promote modal ----------
+    window._promoteTarget = null;
+    function promoteItemFor(kind, id) {
+      return kind === 'note' ? (typeof getNoteById === 'function' ? getNoteById(id) : null) : (typeof getPostById === 'function' ? getPostById(id) : null);
+    }
+    function promoteBlockReason(kind, item) {
+      const me = promoMe();
+      if (!me) return 'Sign in to promote.';
+      if (!item || showcaseNorm(item.author) !== me) return 'You can only promote your own ' + (kind === 'note' ? 'notes.' : 'posts.');
+      if (state.currentUser && state.currentUser.isPrivate === true) return 'Private accounts can\'t promote. Make your account public to promote this ' + (kind === 'note' ? 'note.' : 'post.');
+      if (item.audience && item.audience !== 'public') return 'Only public ' + (kind === 'note' ? 'notes' : 'posts') + ' can be promoted (this one is for Close Friends).';
+      return '';
+    }
+    function openPromoteModal(kind, id) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      const k = kind === 'note' ? 'note' : 'post';
+      const item = promoteItemFor(k, id);
+      const blocked = promoteBlockReason(k, item);
+      if (!item || (blocked && blocked.indexOf('own') !== -1) || !promoMe()) {
+        if (typeof showToast === 'function') showToast(blocked || 'You can only promote your own posts.');
+        return false;
+      }
+      window._promoteTarget = { kind: k, id: String(id) };
+      const modal = document.getElementById('modal-promote');
+      if (!modal) return false;
+      const sum = document.getElementById('promote-item-summary');
+      if (sum) {
+        const txt = k === 'note' ? String(item.text || '') : String(item.caption || '');
+        sum.textContent = (k === 'note' ? 'Note: ' : 'Post: ') + (txt ? (txt.length > 70 ? txt.slice(0, 70) + '\u2026' : txt) : '(no caption)');
+      }
+      const thumb = document.getElementById('promote-item-thumb');
+      if (thumb) {
+        if (k === 'post' && item.image) { thumb.src = item.image; thumb.classList.remove('hidden'); }
+        else { thumb.removeAttribute('src'); thumb.classList.add('hidden'); }
+      }
+      const blockMsg = document.getElementById('promote-blocked-msg');
+      if (blockMsg) { blockMsg.textContent = blocked; blockMsg.classList.toggle('hidden', !blocked); }
+      const err = document.getElementById('promote-error');
+      if (err) { err.textContent = ''; err.classList.add('hidden'); }
+      const lab = document.getElementById('promote-cta-label');
+      const url = document.getElementById('promote-cta-url');
+      if (lab) lab.value = '';
+      if (url) url.value = '';
+      setPromoteAmount(25);
+      const co = document.getElementById('btn-promote-checkout');
+      if (co) { co.disabled = !!blocked; co.classList.toggle('opacity-50', !!blocked); }
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      return true;
+    }
+    window.openPromoteModal = openPromoteModal;
+    function closePromoteModal() {
+      const modal = document.getElementById('modal-promote');
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+      window._promoteTarget = null;
+    }
+    window.closePromoteModal = closePromoteModal;
+    function setPromoteAmount(amount) {
+      const a = Math.min(PROMOTE_MAX, Math.max(PROMOTE_MIN, Math.round(Number(amount) || PROMOTE_MIN)));
+      const slider = document.getElementById('promote-amount-slider');
+      if (slider && String(slider.value) !== String(a)) slider.value = String(a);
+      paintPromotePlan(a);
+      return a;
+    }
+    window.setPromoteAmount = setPromoteAmount;
+    function paintPromotePlan(a) {
+      const plan = promotePlan(a);
+      if (!plan) return;
+      const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      set('promote-amount-label', '$' + plan.amount);
+      set('promote-duration', promoteDurationLabel(plan.durationHours));
+      set('promote-views', 'At least ' + plan.targetImpressions.toLocaleString('en-US') + ' views');
+      set('promote-placement', promoteTierLabel(plan.tier));
+      set('promote-guarantee-text', 'If your post doesn\'t reach ' + plan.targetImpressions.toLocaleString('en-US') + ' views in ' + promoteDurationLabel(plan.durationHours)
+        + ', the boost keeps running at no extra cost until it does.');
+      const co = document.getElementById('btn-promote-checkout');
+      if (co) co.textContent = 'Continue to secure checkout \u00b7 $' + plan.amount;
+      const cta = document.getElementById('promote-cta-section');
+      if (cta) cta.classList.toggle('hidden', plan.tier !== 'cta');
+      const ctaLock = document.getElementById('promote-cta-locked');
+      if (ctaLock) ctaLock.classList.toggle('hidden', plan.tier === 'cta');
+      document.querySelectorAll('.btn-promote-preset').forEach(function (b) {
+        const on = Number(b.getAttribute('data-amount')) === plan.amount;
+        b.classList.toggle('bg-violet-600', on);
+        b.classList.toggle('text-white', on);
+        b.classList.toggle('border-violet-600', on);
+        b.classList.toggle('bg-white', !on);
+        b.classList.toggle('text-neutral-700', !on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      const modal = document.getElementById('modal-promote');
+      if (modal) {
+        modal.setAttribute('data-amount', String(plan.amount));
+        modal.setAttribute('data-duration-hours', String(plan.durationHours));
+        modal.setAttribute('data-target-impressions', String(plan.targetImpressions));
+        modal.setAttribute('data-tier', plan.tier);
+      }
+    }
+    function promoteError(msg) {
+      const err = document.getElementById('promote-error');
+      if (err) { err.textContent = msg; err.classList.remove('hidden'); }
+    }
+    const PROMOTE_ERRORS = {
+      sign_in_required: 'Please sign in again, then try Promote. You weren\'t charged.',
+      not_owner: 'You can only promote your own posts. You weren\'t charged.',
+      private_account: 'Private accounts can\'t promote. You weren\'t charged.',
+      not_public: 'Only public posts can be promoted. You weren\'t charged.',
+      already_promoted: 'This is already being promoted. Open Insights to see how it\'s doing.',
+      not_found: 'We couldn\'t find this post yet. Wait a moment and try again. You weren\'t charged.',
+      rate_limited: 'Too many tries. Wait a few minutes and try again. You weren\'t charged.'
+    };
+    let _promoteCheckoutBusy = false;
+    async function startPromoteCheckout() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      const tgt = window._promoteTarget;
+      if (!tgt || _promoteCheckoutBusy) return false;
+      const item = promoteItemFor(tgt.kind, tgt.id);
+      const blocked = promoteBlockReason(tgt.kind, item);
+      if (blocked) { promoteError(blocked); return false; }
+      const slider = document.getElementById('promote-amount-slider');
+      const plan = promotePlan(slider ? slider.value : 25);
+      if (!plan) { promoteError('Pick an amount from $5 to $500.'); return false; }
+      let ctaLabel = '', ctaUrl = '';
+      if (plan.tier === 'cta') {
+        const l = document.getElementById('promote-cta-label');
+        const u = document.getElementById('promote-cta-url');
+        ctaLabel = l ? String(l.value || '') : '';
+        ctaUrl = u ? String(u.value || '').trim() : '';
+        if ((ctaLabel && !ctaUrl) || (!ctaLabel && ctaUrl)) { promoteError('Pick a button label and add a link, or leave both empty.'); return false; }
+        if (ctaUrl && !/^https:\/\/[^\s"'<>]+\.[^\s"'<>]+$/.test(ctaUrl)) { promoteError('The button link must start with https://'); return false; }
+      }
+      const btn = document.getElementById('btn-promote-checkout');
+      _promoteCheckoutBusy = true;
+      if (btn) { btn.disabled = true; btn.textContent = 'Opening secure checkout\u2026'; }
+      const done = (msg) => {
+        _promoteCheckoutBusy = false;
+        if (btn) btn.disabled = false;
+        paintPromotePlan(plan.amount);
+        if (msg) promoteError(msg);
+        return false;
+      };
+      let idToken = '';
+      try {
+        const fb = window.firebase;
+        const cu = fb && fb.auth && fb.auth.currentUser;
+        if (cu && typeof cu.getIdToken === 'function') idToken = await cu.getIdToken();
+      } catch (e) { idToken = ''; }
+      if (!idToken && window.__PIXLY_REGRESSION === true && typeof window.__pixlyPromoteIdToken === 'function') {
+        try { idToken = await window.__pixlyPromoteIdToken(); } catch (e) { idToken = ''; }
+      }
+      if (!idToken) return done(PROMOTE_ERRORS.sign_in_required);
+      let data = null;
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/promote/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: promoMe(), kind: tgt.kind, id: tgt.id, amount: plan.amount, ctaLabel: ctaLabel, ctaUrl: ctaUrl, idToken: idToken })
+        });
+        data = await res.json().catch(() => null);
+      } catch (e) { data = null; }
+      if (!data || data.ok !== true || typeof data.url !== 'string' || !/^https:\/\/checkout\.stripe\.com\//.test(data.url)) {
+        const code = data && data.error;
+        return done(PROMOTE_ERRORS[code] || 'Checkout isn\'t available right now. You weren\'t charged. Please try again later.');
+      }
+      try { sessionStorage.setItem('pixly_promote_pending', JSON.stringify({ kind: tgt.kind, id: tgt.id, amount: plan.amount, at: Date.now() })); } catch (e) {}
+      _promoteCheckoutBusy = false;
+      // If the redirect is blocked or the user comes Back from Stripe, the button must work again.
+      setTimeout(function () { if (btn) btn.disabled = false; paintPromotePlan(plan.amount); }, 4000);
+      if (window.__PIXLY_REGRESSION === true && typeof window.__pixlyPromoteNavigate === 'function') window.__pixlyPromoteNavigate(data.url);
+      else window.location.assign(data.url);
+      return true;
+    }
+    window.startPromoteCheckout = startPromoteCheckout;
+
+    // Stripe sends people back to /?promote=success or /?promote=cancel. Nothing is marked promoted here:
+    // only the Worker's signed webhook does that.
+    function handlePromoteReturn(search) {
+      let params;
+      try { params = new URLSearchParams(search != null ? search : window.location.search); } catch (e) { return ''; }
+      const v = params.get('promote');
+      if (v !== 'success' && v !== 'cancel') return '';
+      try {
+        params.delete('promote');
+        const qs = params.toString();
+        window.history.replaceState({}, document.title, window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+      } catch (e) {}
+      try { sessionStorage.removeItem('pixly_promote_pending'); } catch (e) {}
+      const msg = v === 'success'
+        ? 'Payment received. Your promotion starts as soon as Stripe confirms it, usually within a minute.'
+        : 'Checkout canceled. You weren\'t charged.';
+      setTimeout(function () { if (typeof showToast === 'function') showToast(msg); }, 1200);
+      if (v === 'success') setTimeout(function () { loadPixlyPromotions(true); }, 8000);
+      return msg;
+    }
+    window.handlePromoteReturn = handlePromoteReturn;
+
+    // ---------- Promoted Insights drawer ----------
+    let _insightsTimer = null;
+    function promoteRemainingLabel(ms) {
+      const m = Math.max(0, Math.round(ms / 60000));
+      const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+      if (d > 0) return d + 'd ' + h + 'h left';
+      if (h > 0) return h + 'h ' + mm + 'm left';
+      return mm + 'm left';
+    }
+    function promoteInsightsModel(rec, now) {
+      const t = now || Date.now();
+      const delivered = Math.max(0, rec.promotedImpressionsCount || 0);
+      const target = Math.max(0, rec.targetImpressions || 0);
+      const pct = target ? Math.min(100, Math.round(delivered / target * 100)) : 0;
+      let status, time;
+      if (rec.isPromoted && t < rec.promotedUntil) { status = 'Active'; time = promoteRemainingLabel(rec.promotedUntil - t); }
+      else if (rec.isPromoted && delivered < target) { status = 'Extended at no extra cost'; time = (target - delivered).toLocaleString('en-US') + ' views still to deliver'; }
+      else { status = 'Completed'; time = 'Ended'; }
+      return { delivered: delivered, target: target, pct: pct, status: status, time: time };
+    }
+    window.promoteInsightsModel = promoteInsightsModel;
+    function paintPromoteInsights(rec) {
+      const m = promoteInsightsModel(rec);
+      const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      set('promote-insights-views', m.delivered.toLocaleString('en-US') + ' / ' + m.target.toLocaleString('en-US') + ' views');
+      set('promote-insights-status', m.status);
+      set('promote-insights-time', m.time);
+      set('promote-insights-placement', promoteTierLabel(rec.promotionTier));
+      set('promote-insights-cta', rec.ctaLabel && rec.ctaUrl ? (rec.ctaLabel + ' \u2192 ' + rec.ctaUrl) : 'No button');
+      const bar = document.getElementById('promote-insights-bar');
+      if (bar) { bar.style.width = m.pct + '%'; bar.setAttribute('aria-valuenow', String(m.pct)); }
+    }
+    async function refreshPromoteInsights() {
+      const modal = document.getElementById('modal-promote-insights');
+      if (!modal || modal.classList.contains('hidden')) return;
+      const kind = modal.getAttribute('data-kind'), id = modal.getAttribute('data-id');
+      await refreshOwnPromotion(kind, id);
+      let rec = getPromotion(kind, id);
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/promote/stats?key=' + encodeURIComponent(promoKey(kind, id)));
+        const live = await res.json().catch(() => null);
+        if (rec && live && live.ok && live.found && Number(live.count) > rec.promotedImpressionsCount) {
+          rec.promotedImpressionsCount = Number(live.count);
+        }
+      } catch (e) {}
+      rec = getPromotion(kind, id);
+      if (rec) paintPromoteInsights(rec);
+    }
+    window.refreshPromoteInsights = refreshPromoteInsights;
+    function openPromoteInsights(kind, id) {
+      const k = kind === 'note' ? 'note' : 'post';
+      const rec = getPromotion(k, id);
+      const me = promoMe();
+      if (!rec || !me || rec.author !== me) {
+        if (typeof showToast === 'function') showToast('Insights are only for your own promoted posts.');
+        return false;
+      }
+      const modal = document.getElementById('modal-promote-insights');
+      if (!modal) return false;
+      modal.setAttribute('data-kind', k);
+      modal.setAttribute('data-id', String(id));
+      paintPromoteInsights(rec);
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      clearInterval(_insightsTimer);
+      _insightsTimer = setInterval(refreshPromoteInsights, 15000);
+      refreshPromoteInsights();
+      return true;
+    }
+    window.openPromoteInsights = openPromoteInsights;
+    function closePromoteInsights() {
+      const modal = document.getElementById('modal-promote-insights');
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+      clearInterval(_insightsTimer);
+      _insightsTimer = null;
+    }
+    window.closePromoteInsights = closePromoteInsights;
+
+    // ---------- Feed / Explore placement ----------
+    window._promoFeedInjected = new Set();
+    let _promoRotation = Math.floor(Math.random() * 1000);
+    function promotedPostObject(rec) {
+      let p = (typeof getPostById === 'function') ? getPostById(rec.id) : null;
+      if (p && showcaseNorm(p.author) !== rec.author) p = null;
+      if (!p && rec.doc && rec.doc.image) {
+        p = Object.assign({}, rec.doc, { id: rec.doc.id });
+        if (!Array.isArray(p.comments)) p.comments = [];
+        if (!Array.isArray(p.tags)) p.tags = [];
+        if (!state.explorePostsArchive) state.explorePostsArchive = new Map();
+        state.explorePostsArchive.set(String(rec.id), p);
+      }
+      if (!p || showcaseNorm(p.author) !== rec.author) return null;
+      return p;
+    }
+    function promotedNoteObject(rec) {
+      const n = (typeof getNoteById === 'function') ? getNoteById(rec.id) : null;
+      if (!n || showcaseNorm(n.author) !== rec.author) return null;
+      return n;
+    }
+    function promoVisibleTo(rec, item) {
+      if (!item) return false;
+      if (typeof isPrivacyLockedFor === 'function' && isPrivacyLockedFor(item.author, item)) return false;
+      if (typeof isAuthorHiddenFromFeed === 'function' && isAuthorHiddenFromFeed(item.author)) return false;
+      if (rec.kind === 'post' && typeof isPostNotInterested === 'function' && isPostNotInterested(item)) return false;
+      if (item.audience && item.audience !== 'public') return false;
+      if (rec.kind === 'post' && state.deletedPostIds && state.deletedPostIds.has(String(item.id))) return false;
+      return true;
+    }
+    function activePromotions(minTier) {
+      const order = { feed: 0, explore: 1, cta: 2 };
+      const me = promoMe();
+      const out = [];
+      window._pixlyPromos.forEach(function (rec) {
+        if (!isPromotionActive(rec)) return;
+        if (minTier && order[rec.promotionTier] < order[minTier]) return;
+        // My own promotion is never placed in my own feed (it already shows there); slots go to others.
+        if (me && rec.author === me) return;
+        out.push(rec);
+      });
+      out.sort(function (a, b) { return (b.promotedAt || 0) - (a.promotedAt || 0); });
+      return out;
+    }
+    window.activePromotions = activePromotions;
+    // Up to 2 promoted items near the top of For You: slot 0 and slot 3, rotating between renders.
+    function applyPromotedFeedSlots(feedPosts) {
+      window._promoFeedInjected = new Set();
+      if (!Array.isArray(feedPosts)) return feedPosts;
+      const picks = [];
+      const recs = activePromotions();
+      if (!recs.length) return feedPosts;
+      const start = recs.length ? (_promoRotation++ % recs.length) : 0;
+      for (let i = 0; i < recs.length && picks.length < 2; i++) {
+        const rec = recs[(start + i) % recs.length];
+        const item = rec.kind === 'note' ? promotedNoteObject(rec) : promotedPostObject(rec);
+        if (!promoVisibleTo(rec, item)) continue;
+        picks.push({ rec: rec, item: item });
+      }
+      const slots = [0, 3];
+      picks.forEach(function (pk, i) {
+        if (pk.rec.kind === 'post') {
+          for (let j = feedPosts.length - 1; j >= 0; j--) { if (feedPosts[j] && String(feedPosts[j].id) === String(pk.item.id)) feedPosts.splice(j, 1); }
+          feedPosts.splice(Math.min(slots[i], feedPosts.length), 0, pk.item);
+          window._promoFeedInjected.add(pk.rec.key);
+        } else {
+          feedPosts.splice(Math.min(slots[i], feedPosts.length), 0, { id: 'promo-note-' + pk.rec.id, __promoNote: pk.item, __promoKey: pk.rec.key });
+          window._promoFeedInjected.add(pk.rec.key);
+        }
+      });
+      return feedPosts;
+    }
+    window.applyPromotedFeedSlots = applyPromotedFeedSlots;
+    function promoFeedRec(post) {
+      if (!post) return null;
+      const key = post.__promoKey || promoKey('post', post.id);
+      if (!window._promoFeedInjected || !window._promoFeedInjected.has(key)) return null;
+      return window._pixlyPromos.get(key) || null;
+    }
+    function promoEsc(s) { return (typeof escapeHtml === 'function') ? escapeHtml(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function promotedArticleAttrs(post) {
+      const rec = promoFeedRec(post);
+      return rec ? ' data-promo-key="' + promoEsc(rec.key) + '" data-promo-author="' + promoEsc(rec.author) + '"' : '';
+    }
+    window.promotedArticleAttrs = promotedArticleAttrs;
+    function promotedLabelHtml(post) {
+      const rec = promoFeedRec(post);
+      return rec ? '<div class="promoted-label text-[10px] font-semibold text-neutral-500 tracking-wide">Promoted</div>' : '';
+    }
+    window.promotedLabelHtml = promotedLabelHtml;
+    function promotedCtaHtml(post) {
+      const rec = promoFeedRec(post);
+      if (!rec || rec.promotionTier !== 'cta' || !rec.ctaLabel || !rec.ctaUrl) return '';
+      return '<a class="promoted-cta-btn flex items-center justify-between px-3.5 py-2.5 bg-neutral-50 hover:bg-neutral-100 border-b border-neutral-200 text-xs font-semibold text-sky-700 transition" '
+        + 'href="' + promoEsc(rec.ctaUrl) + '" target="_blank" rel="noopener noreferrer nofollow sponsored" onclick="event.stopPropagation()">'
+        + '<span>' + promoEsc(rec.ctaLabel) + '</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></a>';
+    }
+    window.promotedCtaHtml = promotedCtaHtml;
+    function promotedNoteCardHtml(entry) {
+      const n = entry.__promoNote;
+      const rec = window._pixlyPromos.get(entry.__promoKey);
+      if (!n || !rec) return '';
+      const avatar = (typeof getNoteAuthorAvatar === 'function') ? getNoteAuthorAvatar(n) : '';
+      const idJs = String(n.id).replace(/[^A-Za-z0-9_.-]/g, '');
+      const author = promoEsc(n.author);
+      return '<article class="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs post-card promoted-note-card cursor-pointer" data-promo-key="' + promoEsc(rec.key) + '" data-promo-author="' + promoEsc(rec.author) + '" data-note-id="' + promoEsc(n.id) + '" onclick="openNoteDetailModal(\'' + idJs + '\')">'
+        + '<div class="p-3.5 flex items-center space-x-2.5">'
+        + '<div class="w-9 h-9 rounded-full overflow-hidden border border-neutral-200 flex-shrink-0"><img src="' + promoEsc(avatar) + '" alt="' + author + '" class="w-full h-full object-cover"></div>'
+        + '<div><div class="flex items-center space-x-1"><span class="font-bold text-xs text-neutral-900">' + author + '</span>' + ((typeof authorStatusBadgesHtml === 'function') ? authorStatusBadgesHtml(n.author) : '') + '</div>'
+        + '<div class="promoted-label text-[10px] font-semibold text-neutral-500 tracking-wide">Promoted</div></div></div>'
+        + '<p class="px-3.5 pb-3.5 text-sm text-neutral-900 leading-relaxed whitespace-pre-line">' + promoEsc(n.text) + '</p>'
+        + (rec.promotionTier === 'cta' && rec.ctaLabel && rec.ctaUrl ? promotedCtaHtml({ __promoKey: rec.key }) : '')
+        + '</article>';
+    }
+    window.promotedNoteCardHtml = promotedNoteCardHtml;
+    // Explore/Trending inclusion for the $25+ tiers: promoted tiles lead the Explore grid (no search query).
+    function promotedExploreTilesHtml(visible) {
+      const recs = activePromotions('explore').filter(function (r) { return r.kind === 'post'; }).slice(0, 3);
+      let html = '';
+      recs.forEach(function (rec) {
+        const p = promotedPostObject(rec);
+        if (!promoVisibleTo(rec, p) || typeof exploreTileHtml !== 'function') return;
+        for (let j = visible.length - 1; j >= 0; j--) { if (visible[j] && String(visible[j].id) === String(p.id)) visible.splice(j, 1); }
+        html += exploreTileHtml(p, false).replace('>', ' data-promo-key="' + promoEsc(rec.key) + '" data-promo-author="' + promoEsc(rec.author) + '">'
+          + '<span class="promoted-explore-chip absolute bottom-8 left-2 z-20 px-1.5 py-px rounded-full bg-black/60 text-white text-[9px] font-semibold pointer-events-none">Promoted</span>');
+      });
+      return html;
+    }
+    window.promotedExploreTilesHtml = promotedExploreTilesHtml;
+
+    // ---------- View counting: once per browser session per promotion (the Worker also caps per IP) ----------
+    function promoSessionId() {
+      try {
+        let sid = sessionStorage.getItem('pixly_promo_sid');
+        if (!sid || !/^[A-Za-z0-9_-]{8,64}$/.test(sid)) {
+          const a = new Uint8Array(16);
+          (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(a) : a.forEach(function (_, i) { a[i] = Math.floor(Math.random() * 256); });
+          sid = Array.from(a).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+          sessionStorage.setItem('pixly_promo_sid', sid);
+        }
+        return sid;
+      } catch (e) { return ''; }
+    }
+    function promoSeen() {
+      try { return new Set(JSON.parse(sessionStorage.getItem('pixly_promo_seen') || '[]')); } catch (e) { return new Set(); }
+    }
+    function recordPromotedImpression(key, author) {
+      if (!key || !/^(post|note)_[A-Za-z0-9_-]{1,64}$/.test(key)) return false;
+      const me = promoMe();
+      if (me && showcaseNorm(author) === me) return false;
+      if (activeAccountIsShowcase()) return false;
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return false;
+      const seen = promoSeen();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      try { sessionStorage.setItem('pixly_promo_seen', JSON.stringify(Array.from(seen).slice(-200))); } catch (e) {}
+      const sid = promoSessionId();
+      if (!sid) return false;
+      try {
+        fetch(PIXLYNOTE_API_ENDPOINT + '/promote/impression', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key, sid: sid })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          const rec = window._pixlyPromos.get(key);
+          if (rec && d && d.counted && Number(d.count) > rec.promotedImpressionsCount) rec.promotedImpressionsCount = Number(d.count);
+        }).catch(function () {});
+      } catch (e) {}
+      return true;
+    }
+    window.recordPromotedImpression = recordPromotedImpression;
+    let _promoObserver = null;
+    function observePromotedImpressions() {
+      const els = document.querySelectorAll('[data-promo-key]');
+      if (!els.length) return 0;
+      if (typeof IntersectionObserver !== 'function') {
+        els.forEach(function (el) { recordPromotedImpression(el.getAttribute('data-promo-key'), el.getAttribute('data-promo-author')); });
+        return els.length;
+      }
+      if (!_promoObserver) {
+        _promoObserver = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            const el = en.target;
+            if (en.isIntersecting && en.intersectionRatio >= 0.5) {
+              if (!el._promoTimer) el._promoTimer = setTimeout(function () {
+                el._promoTimer = null;
+                recordPromotedImpression(el.getAttribute('data-promo-key'), el.getAttribute('data-promo-author'));
+                try { _promoObserver.unobserve(el); } catch (e) {}
+              }, 1000);
+            } else if (el._promoTimer) { clearTimeout(el._promoTimer); el._promoTimer = null; }
+          });
+        }, { threshold: [0, 0.5, 1] });
+      }
+      els.forEach(function (el) { try { _promoObserver.observe(el); } catch (e) {} });
+      loadPixlyPromotions(false);
+      return els.length;
+    }
+    window.observePromotedImpressions = observePromotedImpressions;
+
+
+    // ---------- Billing History (Account Center > Your Account > History) ----------
+    // Reads only users/{me}/billing (owner-only rule). Records are written by the Worker's Stripe webhook.
+    const BILLING_STATUS = {
+      paid: ['Paid', '#ECFDF5', '#047857', '#A7F3D0'],
+      trial: ['Free trial', '#EFF6FF', '#1D4ED8', '#BFDBFE'],
+      pending: ['Pending', '#FFFBEB', '#B45309', '#FDE68A'],
+      refund_pending: ['Refund pending', '#FFFBEB', '#B45309', '#FDE68A'],
+      refunded: ['Refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
+      partially_refunded: ['Partly refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
+      failed: ['Failed', '#FEF2F2', '#B91C1C', '#FECACA']
+    };
+    function billingEsc(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+    }
+    function billingMs(v) {
+      if (v && typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (e) { return 0; } }
+      const n = Number(v); return isFinite(n) ? n : 0;
+    }
+    function billingAmount(cents, currency) {
+      const c = String(currency || 'usd').toUpperCase();
+      const n = (Number(cents) || 0) / 100;
+      try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: c }).format(n); } catch (e) { return '$' + n.toFixed(2); }
+    }
+    function billingDate(ms) {
+      if (!ms) return '';
+      try { return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; }
+    }
+    function normalizeBillingRecord(id, d) {
+      if (!d) return null;
+      const kind = d.kind === 'promote' ? 'promote' : (d.kind === 'subscription' ? 'subscription' : 'other');
+      return {
+        id: String(id), kind: kind,
+        item: String(d.item || (kind === 'promote' ? 'Promote' : 'Subscription')).slice(0, 140),
+        amountCents: Number(d.amountCents) || 0, currency: String(d.currency || 'usd'),
+        status: BILLING_STATUS[d.status] ? d.status : 'pending',
+        createdAt: billingMs(d.createdAt), livemode: d.livemode === true
+      };
+    }
+    window.normalizeBillingRecord = normalizeBillingRecord;
+    function billingRowHtml(r) {
+      const st = BILLING_STATUS[r.status] || BILLING_STATUS.pending;
+      const icon = r.kind === 'promote'
+        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>'
+        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>';
+      return '<div class="billing-row flex items-center gap-3 p-3 rounded-2xl border border-neutral-200 bg-white" data-billing-id="' + billingEsc(r.id) + '" data-kind="' + r.kind + '" data-status="' + r.status + '">'
+        + '<div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ' + (r.kind === 'promote' ? 'bg-violet-50 text-violet-600' : 'bg-emerald-50 text-emerald-600') + '">'
+        + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' + icon + '</svg></div>'
+        + '<div class="min-w-0 flex-1">'
+        + '<div class="billing-item text-xs font-bold text-neutral-900 leading-snug">' + billingEsc(r.item) + '</div>'
+        + '<div class="billing-date text-[10px] text-neutral-500 mt-0.5">' + billingEsc(billingDate(r.createdAt)) + (r.livemode ? '' : ' \u00b7 Test mode') + '</div>'
+        + '</div>'
+        + '<div class="text-right flex-shrink-0">'
+        + '<div class="billing-amount text-xs font-bold text-neutral-900">' + billingEsc(billingAmount(r.amountCents, r.currency)) + '</div>'
+        + '<span class="billing-status inline-block mt-1 text-[9px] font-semibold px-1.5 py-px rounded-full" style="background:' + st[1] + ';color:' + st[2] + ';border:1px solid ' + st[3] + '">' + st[0] + '</span>'
+        + '</div></div>';
+    }
+    function paintBillingHistory(records, statusMsg) {
+      const list = document.getElementById('billing-history-list');
+      const status = document.getElementById('billing-history-status');
+      if (status) { status.textContent = statusMsg || ''; status.classList.toggle('hidden', !statusMsg); }
+      if (list) list.innerHTML = (records || []).map(billingRowHtml).join('');
+    }
+    let _billingLoadSeq = 0;
+    async function loadBillingHistory(force) {
+      const seq = ++_billingLoadSeq;
+      const me = (state && state.currentUser && state.currentUser.username) ? String(state.currentUser.username).toLowerCase() : '';
+      if (!me || !state.isLoggedIn) { paintBillingHistory([], 'Sign in to see your purchase history.'); return []; }
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+        paintBillingHistory([], 'Only the account owner can see purchase history.');
+        return [];
+      }
+      let docs = null;
+      if (window.__PIXLY_REGRESSION === true && typeof window.__pixlyBillingFixture === 'function') {
+        try { docs = await window.__pixlyBillingFixture(me); } catch (e) { docs = 'error'; }
+      } else {
+        const fb = window.firebase;
+        if (!window.firebaseReady || !fb || !fb.db || !fb.getDocs || !fb.collection || !fb.query) {
+          paintBillingHistory([], 'History isn\'t available right now. Check your connection and try again.');
+          return [];
+        }
+        paintBillingHistory([], 'Loading\u2026');
+        try {
+          const parts = [];
+          if (typeof fb.orderBy === 'function') parts.push(fb.orderBy('createdAt', 'desc'));
+          if (typeof fb.limit === 'function') parts.push(fb.limit(100));
+          const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'users', me, 'billing'), ...parts));
+          docs = [];
+          snap.forEach(function (d) { docs.push({ id: d.id, data: d.data() }); });
+        } catch (e) { docs = 'error'; }
+      }
+      if (seq !== _billingLoadSeq) return [];
+      if (docs === 'error' || !Array.isArray(docs)) { paintBillingHistory([], 'Couldn\'t load your history. Try Refresh.'); return []; }
+      const recs = docs.map(function (x) { return normalizeBillingRecord(x.id, x.data); }).filter(Boolean)
+        .sort(function (a, b) { return b.createdAt - a.createdAt; });
+      paintBillingHistory(recs, recs.length ? '' : 'No purchases yet. Promote campaigns and subscriptions you buy will show here.');
+      return recs;
+    }
+    window.loadBillingHistory = loadBillingHistory;
+
+    // ---------- Wiring ----------
+    (function bindPromoteUi() {
+      const bind = function () {
+        const slider = document.getElementById('promote-amount-slider');
+        if (slider && !slider._pxBound) { slider._pxBound = true; slider.addEventListener('input', function () { setPromoteAmount(slider.value); }); }
+        document.querySelectorAll('.btn-promote-preset').forEach(function (b) {
+          if (b._pxBound) return; b._pxBound = true;
+          b.addEventListener('click', function () { setPromoteAmount(b.getAttribute('data-amount')); });
+        });
+        const pm = document.getElementById('modal-promote');
+        if (pm && !pm._pxBound) { pm._pxBound = true; pm.addEventListener('click', function (e) { if (e.target === pm) closePromoteModal(); }); }
+        const im = document.getElementById('modal-promote-insights');
+        if (im && !im._pxBound) { im._pxBound = true; im.addEventListener('click', function (e) { if (e.target === im) closePromoteInsights(); }); }
+        handlePromoteReturn();
+        setTimeout(function () { loadPixlyPromotions(false); }, 4000);
+        // Back from Stripe (page restored from the back/forward cache): re-enable checkout.
+        window.addEventListener('pageshow', function (e) {
+          if (!e.persisted) return;
+          _promoteCheckoutBusy = false;
+          const b = document.getElementById('btn-promote-checkout');
+          if (b) b.disabled = false;
+          const sl = document.getElementById('promote-amount-slider');
+          if (sl) paintPromotePlan(sl.value);
+        });
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+      else bind();
+    })();
+</script>
+
 
   
 
@@ -37200,7 +38247,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <span id="metric-users-source" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Loading...</span>
           </div>
 
-          <div class="grid grid-cols-3 gap-1.5 mt-2">
+          <div class="grid grid-cols-4 gap-1.5 mt-2">
             <div class="bg-white/80 rounded-xl p-2 border border-violet-100/70 text-center">
               <div id="metric-personal-users" class="text-sm font-black text-neutral-900">0</div>
               <div class="text-[9px] font-semibold text-neutral-500">Personal</div>
@@ -37213,7 +38260,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               <div id="metric-plus-users" class="text-sm font-black text-sky-600">0</div>
               <div class="text-[9px] font-semibold text-neutral-500">Plus</div>
             </div>
+            <div id="metric-showcase-tile" class="rounded-xl p-2 text-center" style="background:#F3F4F6;border:1px solid #D1D5DB" title="House-run Showcase accounts. Not included in the totals.">
+              <div id="metric-showcase-users" class="text-sm font-black" style="color:#4B5563">0</div>
+              <div class="text-[9px] font-semibold" style="color:#6B7280">Showcase</div>
+            </div>
           </div>
+          <p class="text-[9px] text-neutral-500 mt-1">Totals exclude Showcase accounts.</p>
 
           <button type="button" onclick="toggleDrawerUserMetricsList()" class="mt-2 w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/70 hover:bg-white text-[11px] font-bold text-violet-700 transition cursor-pointer border border-violet-100/80">
             <span>View signed-up accounts</span>
