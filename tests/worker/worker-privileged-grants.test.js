@@ -202,3 +202,16 @@ t('promote grant: the paid receipt in Billing History records delegatedBy', asyn
   assert.ok(rec, 'billing record written');
   assert.strictEqual(rec.delegatedBy, 'dee');
 });
+
+t('promote grant: on an exempt (free) account the delegate promotion is free and History records delegatedBy; no grant = still refused', async () => {
+  await fsPut('promoteSettings/exempt', { usernames: ['alice'], updatedAt: 1, updatedBy: 'pixlynote' });
+  const no = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 25, idToken: tokens.bob.idToken });
+  assert.strictEqual(no.status, 403, 'free list never bypasses the promote grant');
+  const r = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 25, idToken: tokens.dee.idToken });
+  assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  assert.strictEqual(r.body.free, true);
+  assert.strictEqual(stripeCalls.length, 0);
+  const d = await fsGet('posts/p1');
+  const bill = await fsGet('users/alice/billing/' + d.promoteSessionId);
+  assert.deepStrictEqual([bill.status, bill.amountCents, bill.delegatedBy], ['free', 0, 'dee']);
+});

@@ -259,7 +259,7 @@ async function handlePromoteCheckout(req, env, cors, body) {
   const cta = promoteCleanCta(body.ctaLabel, body.ctaUrl, plan.tier);
   let exempt;
   try { exempt = await promoteIsExempt(env, username); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
-  if (exempt) return promoteStartFree(env, cors, username, kind, id, plan, cta);
+  if (exempt) return promoteStartFree(env, cors, username, kind, id, plan, cta, delegatedBy);
   if (!promoteStripeKeyOk(env)) return json({ ok: false, error: "stripe_not_configured" }, 503, cors);
   // Fail safe: without the webhook secret a payment could never be applied (and nothing is refunded), so no checkout.
   if (!env.STRIPE_WEBHOOK_SECRET) return json({ ok: false, error: "promote_unavailable" }, 503, cors);
@@ -287,7 +287,7 @@ async function handlePromoteCheckout(req, env, cors, body) {
   return json({ ok: true, url: r.data.url, plan, livemode: !!r.data.livemode }, 200, cors);
 }
 // Exempt accounts (Admin Promote Settings): no Stripe, the promotion starts now. Recorded in History as Free ($0).
-async function promoteStartFree(env, cors, username, kind, id, plan, cta) {
+async function promoteStartFree(env, cors, username, kind, id, plan, cta, delegatedBy) {
   const sid = "free_" + promoteRandId();
   const now = Date.now();
   const until = now + plan.durationHours * HOUR * 1000;
@@ -307,7 +307,7 @@ async function promoteStartFree(env, cors, username, kind, id, plan, cta) {
   await env.GUARD.get(env.GUARD.idFromName("global")).promoStart(key, sid, plan.targetImpressions, until);
   let billing = true;
   try {
-    const rec = promoteBillingRecord({ id: sid, currency: "usd", created: Math.floor(now / 1000), livemode: false }, plan, kind, id, "free", "Free: exempt account, no charge");
+    const rec = promoteBillingRecord({ id: sid, currency: "usd", created: Math.floor(now / 1000), livemode: false, metadata: { delegatedBy: delegatedBy || "" } }, plan, kind, id, "free", "Free: exempt account, no charge");
     rec.amountCents = 0;
     await billingUpsert(env, username, sid, rec);
   } catch (e) { billing = false; }

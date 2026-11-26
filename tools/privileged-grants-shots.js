@@ -62,15 +62,16 @@ function hideToast() {
       await new Promise((r) => setTimeout(r, 200));
       openAccountSwitcher();
     });
-    await page.evaluate(() => { const t = document.getElementById('toast'); if (t) { t.style.visibility = 'hidden'; } });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { const st = document.createElement('style'); st.id = 'shot-no-toast'; st.textContent = '#toast{display:none !important}'; document.head.appendChild(st); });
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(OUT, '2-owner-switch-toggle.png') });
     await page.click('#btn-switcher-delegate-view');
     await page.evaluate(() => { switchMainTab('feed'); renderFeed(); window.scrollTo(0, 0); });
     await page.evaluate(hideToast);
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(OUT, '2b-delegate-view-switch-to-full-access.png') });
-    await page.evaluate(() => { clearPrivilegedReadOnlySession(); delete window.__pixlyPrivTargetDoc; const t = document.getElementById('toast'); if (t) t.style.visibility = ''; });
+    await page.evaluate(() => { clearPrivilegedReadOnlySession(); delete window.__pixlyPrivTargetDoc; const st = document.getElementById('shot-no-toast'); if (st) st.remove(); });
 
     // 3. Delegate session with only some grants: @pixlynote in @reg_personal with Like + Comment.
     await h.loginAs(page, h.ACCOUNTS.personal);
