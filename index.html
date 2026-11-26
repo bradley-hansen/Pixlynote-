@@ -675,7 +675,13 @@
     body.privileged-read-only #btn-story-share-to-feed,
     body.privileged-read-only #story-reply-input,
     body.privileged-read-only #btn-story-send-reply,
-    body.privileged-read-only .post-card .border-t:has(.feed-comment-form) {
+    body.privileged-read-only .post-card .border-t:has(.feed-comment-form),
+    body.privileged-read-only #btn-note-fab,
+    body.privileged-read-only #btn-note-fab.is-visible,
+    body.privileged-read-only #note-composer-sheet,
+    body.privileged-read-only #note-composer-sheet.is-open,
+    body.privileged-read-only #note-composer-panel,
+    body.privileged-read-only #note-composer-panel.is-expanded {
       display: none !important;
     }
     #ac-priv-user-list { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
@@ -11200,6 +11206,7 @@ function syncLikedStateToPosts() {
       return !!(isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
     }
     function isNoteFabContextVisible() {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return false;
       return !!(isOwnProfileNotesTabVisible() || isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
     }
     function isNoteComposerExpanded() {
@@ -11231,6 +11238,7 @@ function syncLikedStateToPosts() {
       }
     }
     function setNoteComposerExpanded(open, opts) {
+      if (open && typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
       opts = opts || {};
       const expanded = !!open;
       _noteComposerOpen = expanded;
@@ -11430,6 +11438,13 @@ function syncLikedStateToPosts() {
             if (ms > 1600000000000) return ms;
           }
         }
+        if (typeof val === 'string' && /^\d{10,}$/.test(val.trim())) {
+          const n = Number(val.trim());
+          if (isFinite(n) && n > 0) {
+            const ms = n < 1e12 ? n * 1000 : n;
+            if (ms > 1600000000000 && ms <= Date.now() + 86400000) return ms;
+          }
+        }
         if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
           const parsed = Date.parse(val);
           if (!isNaN(parsed) && parsed > 1600000000000) return parsed;
@@ -11443,6 +11458,7 @@ function syncLikedStateToPosts() {
         ts = extractMs(itemOrTs.createdAtMs)
           || extractMs(itemOrTs.timestamp)
           || extractMs(itemOrTs.createdAt)
+          || extractMs(itemOrTs.time)
           || extractMs(itemOrTs.id);
       }
 
@@ -26480,7 +26496,7 @@ function syncLikedStateToPosts() {
                   <span class="font-bold text-neutral-900 hover:text-violet-700">@${u}</span>${authorStatusBadgesHtml(u)}
                   <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
                 </div>`}
-                <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
+                <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, (typeof n.time === 'string' && !/^\d{10,}$/.test(String(n.time).trim())) ? n.time : 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
                 ${n.type === 'privileged_access_invite' ? privilegedInviteActionsHtml(n, idx) : ''}
                 ${n.type === 'business_associate_invite' && n.status !== 'accepted' && n.status !== 'declined' && typeof associateInviteActionsHtml === 'function' ? associateInviteActionsHtml(n, idx) : ''}
                 ${n.type === 'connect_request' && typeof getIncomingConnectRequests === 'function' && getIncomingConnectRequests().some(r => r.username === normalizeUsername(u)) ? `
@@ -35800,6 +35816,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           if (on) { bar.classList.remove('hidden'); bar.style.display = 'block'; }
           else { bar.classList.add('hidden'); bar.style.display = 'none'; }
         }
+        if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
+        if (on && typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false);
       } catch (e) {}
     }
     window.applyPrivilegedReadOnlyUi = applyPrivilegedReadOnlyUi;
@@ -36000,7 +36018,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         '#btn-modal-focus-comment', '#btn-modal-dm-share', '#btn-modal-share', '#btn-modal-post-comment',
         '#note-modal-comment-form', '#btn-note-modal-dm-share', '#btn-note-modal-share',
         '#btn-story-owner-share', '#btn-story-viewer-share', '#btn-story-share-to-feed',
-        '#story-reply-input', '#btn-story-send-reply', '#modal-dm-share'
+        '#story-reply-input', '#btn-story-send-reply', '#modal-dm-share',
+        '#btn-note-fab', '#note-composer-sheet', '#note-composer-panel'
       ].join(',');
       function isPrivilegedActionTarget(el) {
         if (!el || !el.closest) return false;

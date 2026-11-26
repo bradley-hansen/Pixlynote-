@@ -6,6 +6,15 @@ const REPO = path.resolve(__dirname, '..');
 const h = require(REPO + '/tests/helpers/harness');
 const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
 
+function hideToast() {
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.style.display = 'none';
+    toast.classList.add('opacity-0', 'pointer-events-none');
+    toast.classList.remove('opacity-100');
+  }
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const session = await h.launchSession({ port: Number(process.env.SHOT_PORT || 8432) });
@@ -17,9 +26,9 @@ const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
     await page.evaluate(() => {
       if (typeof switchMainTab === 'function') switchMainTab('feed');
       if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
     });
     await page.waitForTimeout(200);
-    // Show a post's Comment / Send via DM / Share plus Messages in the header.
     const firstActions = await page.$('.btn-focus-comment, .btn-share-post');
     if (firstActions) {
       await firstActions.evaluate((el) => el.scrollIntoView({ block: 'center' }));
@@ -43,22 +52,20 @@ const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
       if (typeof applyPrivilegedReadOnlyUi === 'function') applyPrivilegedReadOnlyUi();
       if (typeof switchMainTab === 'function') switchMainTab('feed');
       if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
     });
     await h.seedContent(page, h.ACCOUNTS.personal);
     await page.evaluate(() => {
       if (typeof applyPrivilegedReadOnlyUi === 'function') applyPrivilegedReadOnlyUi();
       if (typeof renderFeed === 'function') renderFeed();
+      if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
     });
     await page.waitForFunction(() => {
       const bar = document.getElementById('privileged-readonly-banner');
       return !!(bar && !bar.classList.contains('hidden') && getComputedStyle(bar).display !== 'none');
     }, null, { timeout: 4000 });
+    await page.evaluate(hideToast);
     await page.evaluate(() => {
-      const toast = document.getElementById('toast');
-      if (toast) {
-        toast.classList.add('opacity-0', 'pointer-events-none');
-        toast.classList.remove('opacity-100');
-      }
       const target = document.querySelector('article');
       if (target) {
         const likes = Array.from(target.querySelectorAll('div, span, p')).find((n) => /^\s*[\d,.]+\s+likes/i.test((n.textContent || '').trim()) && (n.textContent || '').trim().length < 40);
@@ -72,20 +79,17 @@ const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
       const btn = document.querySelector('.btn-open-discover-creators');
       const card = btn && (btn.closest('.rounded-2xl') || btn);
       if (card) card.scrollIntoView({ block: 'center' });
-      const toast = document.getElementById('toast');
-      if (toast) {
-        toast.classList.add('opacity-0', 'pointer-events-none');
-        toast.classList.remove('opacity-100');
-      }
     });
+    await page.evaluate(hideToast);
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(OUT, '4-privileged-feed-end.png') });
 
-    // Invite card: pending then accepted (as the invitee, a normal session)
+    // Invite card: pending then accepted, with a raw numeric time field
     await h.loadApp(page, session);
     await h.loginAs(page, h.ACCOUNTS.business);
     await page.evaluate(() => {
       window._incomingConnectRequests = { owner: '', list: [] };
+      if (typeof setNotificationMode === 'function') setNotificationMode('all');
       state.notifications = [{
         type: 'privileged_access_invite',
         fromUser: 'reg_personal',
@@ -105,6 +109,7 @@ const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
       }
     });
     await page.waitForSelector('.notif-priv-accept', { timeout: 4000 });
+    await page.evaluate(hideToast);
     await page.waitForTimeout(150);
     await page.screenshot({ path: path.join(OUT, '5-invite-pending.png') });
 
@@ -117,17 +122,18 @@ const OUT = '/workspace/pixlynote/priv-readonly-cleanup-shots';
       }
     });
     await page.waitForSelector('.notif-priv-resolved', { timeout: 4000 });
+    await page.evaluate(hideToast);
     await page.waitForTimeout(150);
     await page.screenshot({ path: path.join(OUT, '6-invite-accepted.png') });
 
     const check = await page.evaluate(() => {
-      function hiddenSel(sel) {
-        const els = Array.from(document.querySelectorAll(sel));
-        return els.length > 0 && els.every((el) => getComputedStyle(el).display === 'none' || el.classList.contains('hidden'));
-      }
+      const fab = document.getElementById('btn-note-fab');
+      const list = (document.getElementById('notifications-list') && document.getElementById('notifications-list').innerText) || '';
       return {
         pendingGone: !document.querySelector('.notif-priv-accept'),
-        acceptedLabel: (document.querySelector('.notif-priv-resolved') || {}).textContent || ''
+        acceptedLabel: (document.querySelector('.notif-priv-resolved') || {}).textContent || '',
+        listHasRaw: /\b\d{12,}\b/.test(list),
+        listText: list.replace(/\s+/g, ' ').trim()
       };
     });
     console.log(JSON.stringify({ out: OUT, files: fs.readdirSync(OUT), check }, null, 2));

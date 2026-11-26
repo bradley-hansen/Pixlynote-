@@ -232,7 +232,11 @@ module.exports = {
         'el:.btn-share-post',
         'el:#btn-open-messages',
         'handler:openMessagesModal',
-        'handler:openDmShareModal'
+        'handler:openDmShareModal',
+        'el:#btn-note-fab',
+        'handler:updateNoteComposerFab',
+        'handler:isNoteFabContextVisible',
+        'handler:setNoteComposerExpanded'
       ],
       async run(ctx) {
         const { page, h, a, account } = ctx;
@@ -271,24 +275,32 @@ module.exports = {
         a.ok(ownAccess.notReadonly && ownAccess.createShown, 'A normal login still shows create and is not read-only');
         a.ok(ownAccess.likeWorked, 'A normal login can still like a post');
 
-        await page.evaluate(() => { if (typeof renderFeed === 'function') renderFeed(); });
+        await page.evaluate(() => {
+          if (typeof switchMainTab === 'function') switchMainTab('feed');
+          if (typeof renderFeed === 'function') renderFeed();
+          if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
+        });
         const ownChrome = await page.evaluate(() => {
           function shown(sel) {
             return Array.from(document.querySelectorAll(sel)).some((el) => {
               return !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
             });
           }
+          const fab = document.getElementById('btn-note-fab');
           return {
             newPost: shown('.btn-feed-create-first'),
             comment: shown('.btn-focus-comment'),
             sendDm: shown('.btn-dm-share-post'),
             share: shown('.btn-share-post'),
-            messages: shown('#btn-open-messages')
+            messages: shown('#btn-open-messages'),
+            fabPresent: !!fab,
+            fabShown: !!(fab && getComputedStyle(fab).display !== 'none' && !fab.classList.contains('hidden'))
           };
         });
         a.ok(ownChrome.newPost, 'A normal login still shows + New Post on the feed');
         a.ok(ownChrome.comment && ownChrome.sendDm && ownChrome.share, 'A normal login still shows Comment, Send via DM, and Share on posts');
         a.ok(ownChrome.messages, 'A normal login still shows Messages in the nav');
+        a.ok(ownChrome.fabPresent && ownChrome.fabShown, 'A normal login still shows the floating camera button on the feed');
 
         const owner = h.ACCOUNTS.personal;
         await enterPrivilegedView(page, owner, account);
@@ -452,6 +464,21 @@ module.exports = {
             dmShareBlocked: !dmShareOpen,
             modalActionsHidden: modalComment && modalShare,
             commentsViewable: commentsView,
+            fabHidden: (function () {
+              const fab = document.getElementById('btn-note-fab');
+              if (fab) fab.classList.add('is-visible');
+              if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
+              const el = document.getElementById('btn-note-fab');
+              return !el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none';
+            })(),
+            composerBlocked: (function () {
+              if (typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(true);
+              const sheet = document.getElementById('note-composer-sheet');
+              const panel = document.getElementById('note-composer-panel');
+              const sheetOpen = !!(sheet && sheet.classList.contains('is-open') && getComputedStyle(sheet).display !== 'none');
+              const panelOpen = !!(panel && panel.classList.contains('is-expanded') && getComputedStyle(panel).display !== 'none');
+              return !sheetOpen && !panelOpen;
+            })(),
             editHidden: hidden('btn-edit-profile'),
             likeBlocked: likeBefore === likeAfter && !noteLiked,
             commentsBlocked: commentsAfter === commentsBefore && noteCommentsAfter === noteCommentsBefore,
@@ -471,6 +498,7 @@ module.exports = {
         a.ok(ro.viewing === 'reg_personal', 'Passwordless privileged switch opens the owner account');
         a.ok(ro.banner, 'A read-only banner is shown');
         a.ok(/read only/i.test(ro.bannerText) && /@reg_personal/.test(ro.bannerText), 'Banner names the owner and says read only');
+        a.ok(ro.fabHidden && ro.composerBlocked, 'The floating camera button is hidden and blocked in a privileged session');
         a.ok(ro.createHidden, 'Create is hidden while viewing with Privileged Access');
         a.ok(ro.newPostHidden && ro.newPostCount > 0, '+ New Post is hidden while viewing with Privileged Access');
         a.ok(ro.commentHidden && ro.commentCount > 0, 'Comment is hidden on posts in a privileged session');
@@ -599,30 +627,58 @@ module.exports = {
           const display = (typeof notificationsForDisplay === 'function')
             ? notificationsForDisplay(state.notifications)
             : state.notifications;
+          const timeEl = (function () {
+            const mark = document.querySelector('.notif-priv-accept, .notif-priv-decline, .notif-priv-resolved');
+            let node = mark;
+            for (let i = 0; i < 6 && node; i++) {
+              const prev = node.previousElementSibling;
+              const text = prev && String(prev.textContent || '').trim();
+              if (text && /just now|\d+m ago|\d+h ago|\d{12,}|[A-Za-z]{3} \d/i.test(text)) return text;
+              node = node.parentElement;
+            }
+            return '';
+          })();
           return {
             hasButtons: !!(accept && decline),
             resolved: !!document.querySelector('.notif-priv-resolved'),
             idx: accept ? accept.getAttribute('data-idx') : null,
             displayLen: display.length,
-            displayTypes: display.map((n) => n && n.type)
+            displayTypes: display.map((n) => n && n.type),
+            timeText: String(timeEl).trim(),
+            rawTime: /\b\d{12,}\b/.test(String(timeEl))
           };
         });
         a.ok(pending.hasButtons && !pending.resolved, 'A pending invite shows Accept and Decline');
         a.ok(pending.idx === '1' && pending.displayLen >= 2, 'Invite Accept uses the display-list index when a connect request is also shown');
+        a.ok(!pending.rawTime && /just now|\d+m ago|\d+h ago|[A-Za-z]{3} \d/i.test(pending.timeText), 'A pending invite shows a normal time, not a raw number');
 
         const accepted = await page.evaluate(async (idx) => {
           await respondToPrivilegedAccessInvite(Number(idx), true);
           const n = (state.notifications || []).find((x) => x && x.type === 'privileged_access_invite' && String(x.fromUser).toLowerCase() === 'reg_personal');
           const label = document.querySelector('.notif-priv-resolved');
+          const timeEl = (function () {
+            const mark = document.querySelector('.notif-priv-accept, .notif-priv-decline, .notif-priv-resolved');
+            let node = mark;
+            for (let i = 0; i < 6 && node; i++) {
+              const prev = node.previousElementSibling;
+              const text = prev && String(prev.textContent || '').trim();
+              if (text && /just now|\d+m ago|\d+h ago|\d{12,}|[A-Za-z]{3} \d/i.test(text)) return text;
+              node = node.parentElement;
+            }
+            return '';
+          })();
           return {
             status: n && n.status,
             buttons: !!document.querySelector('.notif-priv-accept, .notif-priv-decline'),
             label: (label && label.textContent) || '',
-            listText: (document.getElementById('notifications-list') && document.getElementById('notifications-list').innerText) || ''
+            listText: (document.getElementById('notifications-list') && document.getElementById('notifications-list').innerText) || '',
+            timeText: String(timeEl).trim(),
+            rawTime: /\b\d{12,}\b/.test(String(timeEl))
           };
         }, pending.idx);
         a.ok(accepted.status === 'accepted', 'Accept marks the real invite notification, not the prepended connect-request row');
         a.ok(!accepted.buttons && /Accepted/i.test(accepted.label), 'After accepting, the card shows Accepted and has no buttons');
+        a.ok(!accepted.rawTime && /just now|\d+m ago|\d+h ago|[A-Za-z]{3} \d/i.test(accepted.timeText), 'An accepted invite shows a normal time, not a raw number');
 
         const declined = await page.evaluate(async () => {
           window._incomingConnectRequests = { owner: '', list: [] };
@@ -641,14 +697,28 @@ module.exports = {
           await respondToPrivilegedAccessInvite(idx, false);
           const n = (state.notifications || []).find((x) => x && x.type === 'privileged_access_invite' && String(x.fromUser).toLowerCase() === 'pixlynote');
           const label = document.querySelector('.notif-priv-resolved');
+          const timeEl = (function () {
+            const mark = document.querySelector('.notif-priv-accept, .notif-priv-decline, .notif-priv-resolved');
+            let node = mark;
+            for (let i = 0; i < 6 && node; i++) {
+              const prev = node.previousElementSibling;
+              const text = prev && String(prev.textContent || '').trim();
+              if (text && /just now|\d+m ago|\d+h ago|\d{12,}|[A-Za-z]{3} \d/i.test(text)) return text;
+              node = node.parentElement;
+            }
+            return '';
+          })();
           return {
             status: n && n.status,
             buttons: !!document.querySelector('.notif-priv-accept, .notif-priv-decline'),
-            label: (label && label.textContent) || ''
+            label: (label && label.textContent) || '',
+            timeText: String(timeEl).trim(),
+            rawTime: /\b\d{12,}\b/.test(String(timeEl))
           };
         });
         a.ok(declined.status === 'declined', 'Decline marks the invite notification as declined');
         a.ok(!declined.buttons && /Declined/i.test(declined.label), 'After declining, the card shows Declined and has no buttons');
+        a.ok(!declined.rawTime && /just now|\d+m ago|\d+h ago|[A-Za-z]{3} \d/i.test(declined.timeText), 'A declined invite shows a normal time, not a raw number');
 
         const fallback = await page.evaluate(() => {
           if (typeof savePrivilegedAccountsList === 'function') {
