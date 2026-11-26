@@ -2309,6 +2309,7 @@
       <div id="photo-edit-panel-filter">
         <div id="photo-filter-row" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;"></div>
         <div id="photo-filter-dots" class="flex items-center justify-center gap-1.5 pt-2" aria-hidden="true"></div>
+        <div id="photo-ears-note" class="hidden text-xs text-amber-200 text-center pt-2 px-1"></div>
       </div>
       <div id="photo-edit-panel-ai" class="hidden">
         <form id="photo-ai-form" onsubmit="applyPhotoAiEdit(event)" class="flex items-center gap-2">
@@ -2316,9 +2317,6 @@
           <button type="submit" id="btn-photo-ai-apply" class="px-4 py-2.5 rounded-full text-sm font-bold bg-gradient-to-r from-violet-600 to-pink-500 cursor-pointer">Apply</button>
         </form>
         <div id="photo-ai-note" class="text-xs text-white/70 pt-2 px-1">Try warm, cool, bright, dark, b&amp;w, vintage, studio or pink.</div>
-      </div>
-      <div id="photo-edit-panel-ears" class="hidden">
-        <div id="photo-ears-note" class="text-xs text-white/75 text-center pt-2 px-2">Tap Puppy ears to add ears to the face in your photo.</div>
       </div>
     </div>
     <div class="flex items-stretch justify-around border-t border-white/10 px-2 pt-2 pb-5">
@@ -2329,10 +2327,6 @@
       <button type="button" id="btn-photo-tool-ai" onclick="setPhotoEditTool('ai')" class="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3zM18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></svg>
         <span>AI</span>
-      </button>
-      <button type="button" id="btn-photo-tool-ears" onclick="setPhotoEditTool('ears')" class="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 4c-2.5 0-4 3-4 6.5 0 1.6.9 2.5 2 2.5M17 4c2.5 0 4 3 4 6.5 0 1.6-.9 2.5-2 2.5M7 4c1.5 0 2.5 1.6 2.6 3.3M17 4c-1.5 0-2.5 1.6-2.6 3.3M6 13.5C6 18 8.7 21 12 21s6-3 6-7.5S15.3 7 12 7s-6 2-6 6.5z"/><ellipse cx="12" cy="15.5" rx="1.6" ry="1.1" fill="currentColor"/></svg>
-        <span>Puppy ears</span>
       </button>
     </div>
   </div>
@@ -19734,7 +19728,8 @@ function syncLikedStateToPosts() {
       { id: 'ink', name: 'Ink', p: { grayscale: 1, contrast: 1.2 } },
       { id: 'retro', name: 'Retro Reel', p: { sepia: 0.55, contrast: 0.9, brightness: 1.05, saturate: 0.85, fade: 0.1 } },
       { id: 'studio', name: 'Studio', p: { brightness: 1.06, contrast: 1.24, saturate: 1.08 } },
-      { id: 'bloom', name: 'Pixly Bloom', p: { brightness: 1.05, contrast: 1.04, saturate: 1.1, gradient: [[139, 92, 246], [236, 72, 153], 0.26] } }
+      { id: 'bloom', name: 'Pixly Bloom', p: { brightness: 1.05, contrast: 1.04, saturate: 1.1, gradient: [[139, 92, 246], [236, 72, 153], 0.26] } },
+      { id: 'puppy', name: 'Puppy ears', p: {}, ears: true }
     ];
     window.PIXLY_PHOTO_FILTERS = PIXLY_PHOTO_FILTERS;
     const PIXLY_AI_EDIT_RULES = [
@@ -19758,6 +19753,16 @@ function syncLikedStateToPosts() {
     function pixlyFilterById(id) {
       return PIXLY_PHOTO_FILTERS.find((f) => f.id === id) || PIXLY_PHOTO_FILTERS[0];
     }
+    function pixlyIsEarsFilter(id) {
+      const f = PIXLY_PHOTO_FILTERS.find((x) => x.id === id);
+      return !!(f && f.ears);
+    }
+    // Used only for the Puppy ears filter thumbnail, so the tile shows ears
+    // before (or without) running face tracking on the real photo.
+    const PIXLY_PUPPY_THUMB_FACES = [{
+      left: { x: 0.32, y: 0.52 }, right: { x: 0.68, y: 0.52 },
+      top: { x: 0.5, y: 0.32 }, nose: { x: 0.5, y: 0.56 }, chin: { x: 0.5, y: 0.82 }
+    }];
     function matchPhotoAiKeyword(text) {
       const t = String(text || '');
       if (!t.trim()) return null;
@@ -19837,24 +19842,31 @@ function syncLikedStateToPosts() {
         if (!(faceW > 4)) return;
         const ang = Math.atan2(R.y - L.y, R.x - L.x);
         const ux = Math.cos(ang), uy = Math.sin(ang);      // across the face
-        const px = Math.sin(ang), py = -Math.cos(ang);     // up from the face
-        // Floppy ears: attached at the top sides of the head, hanging down and flaring out.
-        const earW = faceW * 0.32, earH = faceW * 0.66;
+        const px = Math.sin(ang), py = -Math.cos(ang);     // up from the face (toward the crown)
+        // Landmark 10 is the forehead, not the top of the hair. Place the ears
+        // on the crown, above the hairline, and point them up like a dog-ear filter.
+        const chin = f.chin ? { x: f.chin.x * w, y: f.chin.y * h } : null;
+        const faceH = (chin && Math.hypot(chin.x - T.x, chin.y - T.y) > 4)
+          ? Math.hypot(chin.x - T.x, chin.y - T.y)
+          : faceW * 1.25;
+        const crownX = T.x + px * faceH * 0.38;
+        const crownY = T.y + py * faceH * 0.38;
+        const earW = faceW * 0.30, earH = faceW * 0.55;
         [-1, 1].forEach((side) => {
-          const ax = T.x + ux * side * faceW * 0.44 + px * faceW * 0.06;
-          const ay = T.y + uy * side * faceW * 0.44 + py * faceW * 0.06;
+          const ax = crownX + ux * side * faceW * 0.34;
+          const ay = crownY + uy * side * faceW * 0.34;
           ctx.save();
           ctx.translate(ax, ay);
-          ctx.rotate(ang - side * 0.38);
+          ctx.rotate(ang + side * 0.32);
           ctx.fillStyle = '#7a4a24';
           ctx.strokeStyle = '#4a2a10';
           ctx.lineWidth = Math.max(2, faceW * 0.015);
           ctx.beginPath();
-          ctx.ellipse(0, earH * 0.42, earW / 2, earH / 2, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, -earH * 0.48, earW / 2, earH / 2, 0, 0, Math.PI * 2);
           ctx.fill(); ctx.stroke();
-          ctx.fillStyle = '#9c6236';
+          ctx.fillStyle = '#f2a3bf';
           ctx.beginPath();
-          ctx.ellipse(-side * earW * 0.06, earH * 0.5, earW * 0.26, earH * 0.34, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, -earH * 0.42, earW * 0.26, earH * 0.32, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         });
@@ -19899,7 +19911,7 @@ function syncLikedStateToPosts() {
       ctx.drawImage(img, 0, 0, w, h);
       const e = edits || {};
       pixlyApplyFilterPixels(ctx, w, h, pixlyFilterById(e.filter).p);
-      if (e.faces && e.faces.length) pixlyDrawPuppyEars(ctx, w, h, e.faces);
+      if (pixlyIsEarsFilter(e.filter) && e.faces && e.faces.length) pixlyDrawPuppyEars(ctx, w, h, e.faces);
       return c;
     }
 
@@ -19907,7 +19919,9 @@ function syncLikedStateToPosts() {
     async function renderPhotoEdit(src, edits) {
       try {
         const e = edits || {};
-        if ((!e.filter || e.filter === 'original') && !(e.faces && e.faces.length)) return src;
+        const hasColor = e.filter && e.filter !== 'original' && !pixlyIsEarsFilter(e.filter);
+        const hasEars = pixlyIsEarsFilter(e.filter) && e.faces && e.faces.length;
+        if (!hasColor && !hasEars) return src;
         const c = await pixlyRenderPhotoToCanvas(src, e);
         return c.toDataURL('image/jpeg', PIXLY_PHOTO_JPEG_QUALITY);
       } catch (err) {
@@ -19926,7 +19940,7 @@ function syncLikedStateToPosts() {
       const el = document.getElementById(id);
       if (!el) return;
       el.textContent = text || '';
-      if (id === 'photo-review-note') el.classList.toggle('hidden', !text);
+      if (id === 'photo-review-note' || id === 'photo-ears-note') el.classList.toggle('hidden', !text);
     }
 
     function openPhotoReview(dataUrl, opts) {
@@ -20032,7 +20046,13 @@ function syncLikedStateToPosts() {
       if (!src) return;
       for (const f of PIXLY_PHOTO_FILTERS) {
         try {
-          const c = await pixlyRenderPhotoToCanvas(src, { filter: f.id }, null, 96);
+          const edits = { filter: f.id };
+          if (pixlyIsEarsFilter(f.id)) {
+            edits.faces = (pixlyPhotoEdit.previewFaces && pixlyPhotoEdit.previewFaces.length)
+              ? pixlyPhotoEdit.previewFaces
+              : PIXLY_PUPPY_THUMB_FACES;
+          }
+          const c = await pixlyRenderPhotoToCanvas(src, edits, null, 96);
           if (src !== pixlyPhotoEdit.original) return;
           const img = row.querySelector(`.photo-filter-thumb[data-filter="${f.id}"] img`);
           if (img) img.src = c.toDataURL('image/jpeg', 0.7);
@@ -20042,9 +20062,9 @@ function syncLikedStateToPosts() {
 
     function setPhotoEditTool(tool) {
       try {
-        const t = ['filter', 'ai', 'ears'].includes(tool) ? tool : 'filter';
+        const t = (tool === 'ai') ? 'ai' : 'filter';
         pixlyPhotoEdit.tool = t;
-        ['filter', 'ai', 'ears'].forEach((k) => {
+        ['filter', 'ai'].forEach((k) => {
           const panel = document.getElementById('photo-edit-panel-' + k);
           if (panel) panel.classList.toggle('hidden', k !== t);
           const btn = document.getElementById('btn-photo-tool-' + k);
@@ -20058,7 +20078,6 @@ function syncLikedStateToPosts() {
           const inp = document.getElementById('photo-ai-input');
           if (inp) { try { inp.focus(); } catch (e) {} }
         }
-        if (t === 'ears') togglePuppyEars();
       } catch (e) {}
     }
     window.setPhotoEditTool = setPhotoEditTool;
@@ -20073,10 +20092,10 @@ function syncLikedStateToPosts() {
         const inp = document.getElementById('photo-ai-input');
         if (inp) inp.value = '';
         pixlySetNote('photo-ai-note', 'Try warm, cool, bright, dark, b&w, vintage, studio or pink.');
-        pixlySetNote('photo-ears-note', 'Tap Puppy ears to add ears to the face in your photo.');
+        pixlySetNote('photo-ears-note', '');
         pixlyShowOverlay('photo-edit-overlay', true);
         pixlyPhotoEdit.tool = 'filter';
-        ['filter', 'ai', 'ears'].forEach((k) => {
+        ['filter', 'ai'].forEach((k) => {
           const panel = document.getElementById('photo-edit-panel-' + k);
           if (panel) panel.classList.toggle('hidden', k !== 'filter');
           const btn = document.getElementById('btn-photo-tool-' + k);
@@ -20091,12 +20110,72 @@ function syncLikedStateToPosts() {
     }
     window.openPhotoEditor = openPhotoEditor;
 
+    function pixlyScrollToFilter(id) {
+      const btn = document.querySelector(`#photo-filter-row .photo-filter-thumb[data-filter="${id}"]`);
+      if (btn && btn.scrollIntoView) { try { btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch (e) {} }
+    }
+
+    async function applyPuppyEarsFilter(prevFilter) {
+      try {
+        if (pixlyPhotoEdit.earsBusy) return;
+        if (pixlyIsEarsFilter(pixlyPhotoEdit.draft.filter) && pixlyPhotoEdit.draft.faces && pixlyPhotoEdit.draft.faces.length) {
+          pixlyMarkSelectedFilter();
+          pixlyScrollToFilter('puppy');
+          return pixlyRefreshEditCanvas();
+        }
+        const src = pixlyPhotoEdit.original;
+        if (!src) return;
+        pixlyPhotoEdit.earsBusy = true;
+        pixlySetNote('photo-ears-note', 'Finding the face… 🐶');
+        let faces = [];
+        try {
+          faces = await detectPuppyEarFaces(src);
+        } catch (e) {
+          pixlyPhotoEdit.earsBusy = false;
+          pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
+          pixlyPhotoEdit.draft.filter = prevFilter || 'original';
+          pixlyPhotoEdit.draft.faces = null;
+          pixlyMarkSelectedFilter();
+          pixlyScrollToFilter(pixlyPhotoEdit.draft.filter);
+          return pixlyRefreshEditCanvas();
+        }
+        pixlyPhotoEdit.earsBusy = false;
+        if (src !== pixlyPhotoEdit.original) return;
+        if (!faces.length) {
+          pixlySetNote('photo-ears-note', 'No face found for puppy ears. Your photo is unchanged.');
+          pixlyPhotoEdit.draft.filter = prevFilter || 'original';
+          pixlyPhotoEdit.draft.faces = null;
+          pixlyMarkSelectedFilter();
+          pixlyScrollToFilter(pixlyPhotoEdit.draft.filter);
+          return pixlyRefreshEditCanvas();
+        }
+        pixlyPhotoEdit.previewFaces = faces;
+        pixlyPhotoEdit.draft.filter = 'puppy';
+        pixlyPhotoEdit.draft.faces = faces;
+        pixlySetNote('photo-ears-note', '');
+        pixlyMarkSelectedFilter();
+        pixlyScrollToFilter('puppy');
+        return pixlyRefreshEditCanvas();
+      } catch (e) {
+        pixlyPhotoEdit.earsBusy = false;
+        pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
+        pixlyPhotoEdit.draft.filter = prevFilter || 'original';
+        pixlyPhotoEdit.draft.faces = null;
+        pixlyMarkSelectedFilter();
+        return pixlyRefreshEditCanvas();
+      }
+    }
+
     function selectPhotoFilter(id) {
       try {
-        pixlyPhotoEdit.draft.filter = pixlyFilterById(id).id;
+        const prev = pixlyPhotoEdit.draft.filter || 'original';
+        const f = pixlyFilterById(id);
+        if (pixlyIsEarsFilter(f.id)) return applyPuppyEarsFilter(prev);
+        pixlyPhotoEdit.draft.filter = f.id;
+        pixlyPhotoEdit.draft.faces = null;
+        pixlySetNote('photo-ears-note', '');
         pixlyMarkSelectedFilter();
-        const btn = document.querySelector(`#photo-filter-row .photo-filter-thumb[data-filter="${pixlyPhotoEdit.draft.filter}"]`);
-        if (btn && btn.scrollIntoView) { try { btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch (e) {} }
+        pixlyScrollToFilter(f.id);
         return pixlyRefreshEditCanvas();
       } catch (e) {}
     }
@@ -20155,43 +20234,6 @@ function syncLikedStateToPosts() {
         return { left: pick(234), right: pick(454), top: pick(10), nose: pick(4), chin: pick(152) };
       }).filter((f) => f.left && f.right && f.top && f.nose);
     }
-
-    async function togglePuppyEars() {
-      try {
-        if (pixlyPhotoEdit.earsBusy) return;
-        if (pixlyPhotoEdit.draft.faces && pixlyPhotoEdit.draft.faces.length) {
-          pixlyPhotoEdit.draft.faces = null;
-          pixlySetNote('photo-ears-note', 'Puppy ears removed. Tap Puppy ears again to add them back.');
-          await pixlyRefreshEditCanvas();
-          return;
-        }
-        const src = pixlyPhotoEdit.original;
-        if (!src) return;
-        pixlyPhotoEdit.earsBusy = true;
-        pixlySetNote('photo-ears-note', 'Finding the face… 🐶');
-        let faces = [];
-        try {
-          faces = await detectPuppyEarFaces(src);
-        } catch (e) {
-          pixlyPhotoEdit.earsBusy = false;
-          pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
-          return;
-        }
-        pixlyPhotoEdit.earsBusy = false;
-        if (src !== pixlyPhotoEdit.original) return;
-        if (!faces.length) {
-          pixlySetNote('photo-ears-note', 'No face found for puppy ears. Your photo is unchanged.');
-          return;
-        }
-        pixlyPhotoEdit.draft.faces = faces;
-        pixlySetNote('photo-ears-note', 'Puppy ears added 🐶 Tap Puppy ears again to remove them.');
-        await pixlyRefreshEditCanvas();
-      } catch (e) {
-        pixlyPhotoEdit.earsBusy = false;
-        pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
-      }
-    }
-    window.togglePuppyEars = togglePuppyEars;
 
     function cancelPhotoEdit() {
       try {

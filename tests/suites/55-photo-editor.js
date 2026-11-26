@@ -93,7 +93,7 @@ module.exports = {
       covers: [
         'el:#btn-photo-review-back', 'el:#btn-photo-review-edit', 'el:#btn-photo-review-next',
         'el:#btn-photo-edit-cancel', 'el:#btn-photo-edit-done',
-        'el:#btn-photo-tool-filter', 'el:#btn-photo-tool-ai', 'el:#btn-photo-tool-ears',
+        'el:#btn-photo-tool-filter', 'el:#btn-photo-tool-ai',
         'handler:closePhotoReview', 'handler:openPhotoEditor', 'handler:setPhotoEditTool', 'handler:cancelPhotoEdit'
       ],
       async run({ page, h, a }) {
@@ -134,7 +134,8 @@ module.exports = {
           const thumbs = Array.from(document.querySelectorAll('#photo-filter-row .photo-filter-thumb'));
           return {
             cancel: txt('btn-photo-edit-cancel'), done: txt('btn-photo-edit-done'),
-            tools: [txt('btn-photo-tool-filter'), txt('btn-photo-tool-ai'), txt('btn-photo-tool-ears')],
+            tools: [txt('btn-photo-tool-filter'), txt('btn-photo-tool-ai')],
+            hasEarsTool: !!document.getElementById('btn-photo-tool-ears'),
             names: thumbs.map((t) => (t.querySelector('.photo-filter-name').textContent || '').trim()),
             dots: document.querySelectorAll('#photo-filter-dots [data-dot]').length,
             activeDot: (document.querySelector('#photo-filter-dots .bg-pink-400') || {}).getAttribute ? document.querySelector('#photo-filter-dots .bg-pink-400').getAttribute('data-dot') : '',
@@ -143,10 +144,13 @@ module.exports = {
         });
         a.equal(edit.cancel, 'Cancel', 'Edit photo has Cancel');
         a.equal(edit.done, 'Done', 'Edit photo has Done');
-        a.equal(JSON.stringify(edit.tools), JSON.stringify(['Filter', 'AI', 'Puppy ears']), 'tool row is Filter, AI, Puppy ears');
+        a.equal(JSON.stringify(edit.tools), JSON.stringify(['Filter', 'AI']), 'tool row is Filter and AI');
+        a.ok(!edit.hasEarsTool, 'Puppy ears is not a bottom tool button');
         a.equal(edit.names[0], 'Original', 'first filter is Original');
         a.ok(edit.names.length >= 9, 'Original plus about 8 filters: ' + edit.names.join(', '));
         a.ok(edit.names.includes('Pixly Bloom'), 'brand purple-pink filter is present');
+        a.ok(edit.names.includes('Puppy ears'), 'Puppy ears is a tile in the filter row');
+        a.ok(await page.$('#photo-filter-row .photo-filter-thumb[data-filter="puppy"]'), 'Puppy ears filter tile is in the row');
         a.equal(edit.dots, edit.names.length, 'one dot per filter');
         a.equal(edit.activeDot, 'original', 'dot shows the current filter');
         a.equal(edit.rowScrolls, 'auto', 'filter row scrolls horizontally');
@@ -265,7 +269,7 @@ module.exports = {
     {
       name: 'Photo editor: Puppy ears fails safely when the face library cannot load',
       accounts: ['personal'],
-      covers: ['el:#btn-photo-tool-ears', 'handler:setPhotoEditTool'],
+      covers: ['handler:selectPhotoFilter'],
       async run({ page, h, a }) {
         await page.setViewportSize({ width: 390, height: 844 });
         await h.gotoMainTab(page, 'feed');
@@ -277,10 +281,11 @@ module.exports = {
         await pickToReview(page, '#create-camera-upload', file);
         await openEditor(page);
         const before = await canvasStats(page);
-        await page.click('#btn-photo-tool-ears');
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="puppy"]');
         await page.waitForFunction(() => /could not load/i.test(document.getElementById('photo-ears-note').textContent || ''), null, { timeout: 30000 });
         const after = await canvasStats(page);
         a.equal(after.ears, '0', 'no ears drawn');
+        a.equal(after.filter, 'original', 'failed Puppy ears leaves the previous filter selected');
         a.equal(after.avgR.toFixed(2), before.avgR.toFixed(2), 'photo is unchanged');
         a.ok(/unchanged/i.test(await page.textContent('#photo-ears-note')), 'note says the photo is unchanged');
         await page.click('#btn-photo-edit-done');
@@ -293,9 +298,9 @@ module.exports = {
       }
     },
     {
-      name: 'Photo editor: Puppy ears draws ears for a found face, toggles off, and notes when no face is found',
+      name: 'Photo editor: selecting the Puppy ears filter draws ears, another filter removes them, and no face fails safely',
       accounts: ['personal'],
-      covers: ['el:#btn-photo-tool-ears'],
+      covers: ['handler:selectPhotoFilter'],
       async run({ page, h, a }) {
         await page.setViewportSize({ width: 390, height: 844 });
         await h.gotoMainTab(page, 'feed');
@@ -310,25 +315,52 @@ module.exports = {
         await pickToReview(page, '#create-file-upload', file);
         await openEditor(page);
         const before = await canvasStats(page);
-        await page.click('#btn-photo-tool-ears');
-        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '1', null, { timeout: 8000 });
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="puppy"]');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'puppy' && document.getElementById('photo-edit-canvas').dataset.ears === '1', null, { timeout: 8000 });
         const withEars = await canvasStats(page);
-        a.ok(Math.abs(withEars.avgR - before.avgR) > 1, 'ears and nose are drawn onto the photo');
-        a.ok(/added/i.test(await page.textContent('#photo-ears-note')), 'note says ears were added');
-        await page.click('#btn-photo-tool-ears');
-        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '0', null, { timeout: 4000 });
-        a.equal((await canvasStats(page)).avgR.toFixed(2), before.avgR.toFixed(2), 'tapping again removes the ears');
+        a.equal(withEars.filter, 'puppy', 'Puppy ears filter is selected');
+        const marks = await page.evaluate(() => {
+          const c = document.getElementById('photo-edit-canvas');
+          const { width: w, height: h } = c;
+          const d = c.getContext('2d').getImageData(0, 0, w, h).data;
+          let brownOrPink = 0, brownOrPinkTop = 0, nose = 0;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = (y * w + x) * 4;
+              const r = d[i], g = d[i + 1], b = d[i + 2];
+              const ear = (r > 90 && r < 170 && g > 40 && g < 120 && b < 80 && r > g + 10) ||
+                          (r > 200 && g > 120 && g < 210 && b > 140 && b < 230 && r > g + 20);
+              if (ear) {
+                brownOrPink++;
+                if (y < h * 0.3) brownOrPinkTop++;
+              }
+              if (r < 45 && g < 45 && b < 45 && y > h * 0.4 && y < h * 0.7) nose++;
+            }
+          }
+          return { brownOrPink, brownOrPinkTop, nose };
+        });
+        a.ok(marks.brownOrPink > 30, 'ears are drawn onto the photo: ' + JSON.stringify(marks));
+        a.ok(marks.brownOrPinkTop > 10, 'ears sit on top of the head, not over the face: ' + JSON.stringify(marks));
+        a.ok(marks.nose > 5, 'the nose is kept: ' + JSON.stringify(marks));
+        a.equal(await page.evaluate(() => document.querySelector('#photo-filter-dots .bg-pink-400').getAttribute('data-dot')), 'puppy', 'dots follow the Puppy ears filter');
+
+        // Another filter removes the ears.
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="ink"]');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'ink' && document.getElementById('photo-edit-canvas').dataset.ears === '0', null, { timeout: 4000 });
+        a.equal((await canvasStats(page)).ears, '0', 'selecting another filter removes the ears');
 
         await page.evaluate(() => { window.__fakeNoFace = true; });
-        await page.click('#btn-photo-tool-ears');
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="puppy"]');
         await page.waitForFunction(() => /No face found/i.test(document.getElementById('photo-ears-note').textContent || ''), null, { timeout: 4000 });
-        a.equal((await canvasStats(page)).ears, '0', 'no face leaves the photo unchanged');
+        const noFace = await canvasStats(page);
+        a.equal(noFace.ears, '0', 'no face leaves the photo unchanged');
+        a.equal(noFace.filter, 'ink', 'no face keeps the previous filter selected');
 
         await page.evaluate(() => { window.__fakeNoFace = false; });
-        await page.click('#btn-photo-tool-ears');
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="puppy"]');
         await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '1', null, { timeout: 4000 });
         await page.click('#btn-photo-edit-done');
-        await page.waitForFunction(() => !!(pixlyPhotoEdit.applied.faces && pixlyPhotoEdit.applied.faces.length), null, { timeout: 4000 });
+        await page.waitForFunction(() => pixlyPhotoEdit.applied.filter === 'puppy' && !!(pixlyPhotoEdit.applied.faces && pixlyPhotoEdit.applied.faces.length), null, { timeout: 4000 });
         a.ok(await page.evaluate(() => pixlyPhotoEdit.current !== pixlyPhotoEdit.original), 'Done applies the puppy ears');
         a.equal(errors.length, 0, 'no page errors: ' + errors.join(' | '));
         await page.click('#btn-photo-review-back');
