@@ -225,7 +225,14 @@ module.exports = {
         'el:#btn-stripe-cancel-membership',
         'el:#btn-stripe-billing-portal',
         'el:#pixly-stripe-buy-btn',
-        'el:#form-ac-change-password'
+        'el:#form-ac-change-password',
+        'el:.btn-feed-create-first',
+        'el:.btn-focus-comment',
+        'el:.btn-dm-share-post',
+        'el:.btn-share-post',
+        'el:#btn-open-messages',
+        'handler:openMessagesModal',
+        'handler:openDmShareModal'
       ],
       async run(ctx) {
         const { page, h, a, account } = ctx;
@@ -263,6 +270,25 @@ module.exports = {
         });
         a.ok(ownAccess.notReadonly && ownAccess.createShown, 'A normal login still shows create and is not read-only');
         a.ok(ownAccess.likeWorked, 'A normal login can still like a post');
+
+        await page.evaluate(() => { if (typeof renderFeed === 'function') renderFeed(); });
+        const ownChrome = await page.evaluate(() => {
+          function shown(sel) {
+            return Array.from(document.querySelectorAll(sel)).some((el) => {
+              return !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+            });
+          }
+          return {
+            newPost: shown('.btn-feed-create-first'),
+            comment: shown('.btn-focus-comment'),
+            sendDm: shown('.btn-dm-share-post'),
+            share: shown('.btn-share-post'),
+            messages: shown('#btn-open-messages')
+          };
+        });
+        a.ok(ownChrome.newPost, 'A normal login still shows + New Post on the feed');
+        a.ok(ownChrome.comment && ownChrome.sendDm && ownChrome.share, 'A normal login still shows Comment, Send via DM, and Share on posts');
+        a.ok(ownChrome.messages, 'A normal login still shows Messages in the nav');
 
         const owner = h.ACCOUNTS.personal;
         await enterPrivilegedView(page, owner, account);
@@ -380,9 +406,32 @@ module.exports = {
           // Viewing is still allowed
           if (typeof switchMainTab === 'function') switchMainTab('feed');
           if (typeof renderFeed === 'function') renderFeed();
+          function hiddenSel(sel) {
+            const els = Array.from(document.querySelectorAll(sel));
+            return {
+              count: els.length,
+              hidden: els.length > 0 && els.every((el) => el.classList.contains('hidden') || getComputedStyle(el).display === 'none')
+            };
+          }
+          const newPost = hiddenSel('.btn-feed-create-first');
+          const commentBtn = hiddenSel('.btn-focus-comment');
+          const sendDm = hiddenSel('.btn-dm-share-post');
+          const shareBtn = hiddenSel('.btn-share-post');
+          const messagesBtn = hidden('btn-open-messages');
+          if (typeof openMessagesModal === 'function') openMessagesModal();
+          const messagesOpen = vis('modal-messages');
+          if (typeof openDmShareModal === 'function') openDmShareModal('post', postId);
+          const dmShareOpen = vis('modal-dm-share');
           if (typeof openPostDetailModal === 'function') openPostDetailModal(3001);
           const detail = document.getElementById('modal-post-detail');
           const canViewPost = !!(detail && !detail.classList.contains('hidden') && getComputedStyle(detail).display !== 'none');
+          const modalComment = hidden('btn-modal-focus-comment') && hidden('btn-modal-post-comment') && hidden('modal-comment-form');
+          const modalShare = hidden('btn-modal-share') && hidden('btn-modal-dm-share');
+          const commentsView = (function () {
+            const lists = Array.from(document.querySelectorAll('#modal-comments-list, .modal-comments-list, .post-comments, #post-detail-comments'));
+            if (lists.length) return lists.some((el) => getComputedStyle(el).display !== 'none');
+            return canViewPost;
+          })();
 
           return {
             flag: typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly(),
@@ -390,6 +439,19 @@ module.exports = {
             banner: vis('privileged-readonly-banner'),
             bannerText: barText,
             createHidden: hidden('nav-btn-create'),
+            newPostHidden: newPost.hidden,
+            newPostCount: newPost.count,
+            commentHidden: commentBtn.hidden,
+            commentCount: commentBtn.count,
+            sendDmHidden: sendDm.hidden,
+            sendDmCount: sendDm.count,
+            shareHidden: shareBtn.hidden,
+            shareCount: shareBtn.count,
+            messagesHidden: messagesBtn,
+            messagesBlocked: !messagesOpen,
+            dmShareBlocked: !dmShareOpen,
+            modalActionsHidden: modalComment && modalShare,
+            commentsViewable: commentsView,
             editHidden: hidden('btn-edit-profile'),
             likeBlocked: likeBefore === likeAfter && !noteLiked,
             commentsBlocked: commentsAfter === commentsBefore && noteCommentsAfter === noteCommentsBefore,
@@ -410,6 +472,13 @@ module.exports = {
         a.ok(ro.banner, 'A read-only banner is shown');
         a.ok(/read only/i.test(ro.bannerText) && /@reg_personal/.test(ro.bannerText), 'Banner names the owner and says read only');
         a.ok(ro.createHidden, 'Create is hidden while viewing with Privileged Access');
+        a.ok(ro.newPostHidden && ro.newPostCount > 0, '+ New Post is hidden while viewing with Privileged Access');
+        a.ok(ro.commentHidden && ro.commentCount > 0, 'Comment is hidden on posts in a privileged session');
+        a.ok(ro.sendDmHidden && ro.sendDmCount > 0, 'Send via DM is hidden on posts in a privileged session');
+        a.ok(ro.shareHidden && ro.shareCount > 0, 'Share is hidden on posts in a privileged session');
+        a.ok(ro.messagesHidden && ro.messagesBlocked, 'Messages is hidden and blocked in a privileged session');
+        a.ok(ro.dmShareBlocked && ro.modalActionsHidden, 'Post comment, Send via DM, and Share stays blocked in the post modal');
+        a.ok(ro.commentsViewable, 'Viewing comments still works in a privileged session');
         a.ok(ro.editHidden, 'Edit profile is hidden while viewing with Privileged Access');
         a.ok(ro.likeBlocked, 'Likes are blocked in a privileged session');
         a.ok(ro.commentsBlocked, 'Comments are blocked in a privileged session');
@@ -483,6 +552,127 @@ module.exports = {
         });
         a.ok(admin.user === 'pixlynote' && !admin.readonly && admin.createShown, 'A direct @pixlynote login is full access, not read-only');
         a.ok(admin.metrics && admin.pending && admin.ver && admin.bizVer, 'Admin tools are still present for @pixlynote');
+      }
+    },
+
+    {
+      name: 'Privileged Access invite card becomes Accepted or Declined with no buttons after a response',
+      accounts: ['business'],
+      covers: [
+        'handler:respondToPrivilegedAccessInvite',
+        'handler:privilegedInviteIsResolved',
+        'handler:privilegedInviteActionsHtml',
+        'handler:notificationsForDisplay',
+        'el:.notif-priv-accept',
+        'el:.notif-priv-decline',
+        'el:.notif-priv-resolved'
+      ],
+      async run(ctx) {
+        const { page, h, a, account } = ctx;
+        const port = Number(new URL(page.url()).port);
+        await h.loadApp(page, { port });
+        await h.loginAs(page, account);
+
+        const pending = await page.evaluate(() => {
+          if (typeof savePrivilegedAccountsList === 'function') savePrivilegedAccountsList('reg_business', []);
+          try { localStorage.removeItem('pixly_priv_accounts_reg_business'); } catch (e) {}
+          if (typeof setNotificationMode === 'function') setNotificationMode('all');
+          else { state.notifMode = 'all'; state.notifModeUser = 'reg_business'; }
+          window._incomingConnectRequests = {
+            owner: (state.currentUser && state.currentUser.username) || 'reg_business',
+            list: [{ username: 'reg_empty', fullName: 'Reg Empty', avatar: '' }]
+          };
+          state.notifications = [{
+            type: 'privileged_access_invite',
+            fromUser: 'reg_personal',
+            fromFullName: 'Reg Personal',
+            fromAvatar: '',
+            fromAccountType: 'personal',
+            text: 'invited you to have Privileged Access to @reg_personal',
+            status: 'pending',
+            read: false,
+            time: Date.now()
+          }];
+          if (typeof renderNotifications === 'function') renderNotifications(true);
+          const accept = document.querySelector('.notif-priv-accept');
+          const decline = document.querySelector('.notif-priv-decline');
+          const display = (typeof notificationsForDisplay === 'function')
+            ? notificationsForDisplay(state.notifications)
+            : state.notifications;
+          return {
+            hasButtons: !!(accept && decline),
+            resolved: !!document.querySelector('.notif-priv-resolved'),
+            idx: accept ? accept.getAttribute('data-idx') : null,
+            displayLen: display.length,
+            displayTypes: display.map((n) => n && n.type)
+          };
+        });
+        a.ok(pending.hasButtons && !pending.resolved, 'A pending invite shows Accept and Decline');
+        a.ok(pending.idx === '1' && pending.displayLen >= 2, 'Invite Accept uses the display-list index when a connect request is also shown');
+
+        const accepted = await page.evaluate(async (idx) => {
+          await respondToPrivilegedAccessInvite(Number(idx), true);
+          const n = (state.notifications || []).find((x) => x && x.type === 'privileged_access_invite' && String(x.fromUser).toLowerCase() === 'reg_personal');
+          const label = document.querySelector('.notif-priv-resolved');
+          return {
+            status: n && n.status,
+            buttons: !!document.querySelector('.notif-priv-accept, .notif-priv-decline'),
+            label: (label && label.textContent) || '',
+            listText: (document.getElementById('notifications-list') && document.getElementById('notifications-list').innerText) || ''
+          };
+        }, pending.idx);
+        a.ok(accepted.status === 'accepted', 'Accept marks the real invite notification, not the prepended connect-request row');
+        a.ok(!accepted.buttons && /Accepted/i.test(accepted.label), 'After accepting, the card shows Accepted and has no buttons');
+
+        const declined = await page.evaluate(async () => {
+          window._incomingConnectRequests = { owner: '', list: [] };
+          state.notifications = [{
+            type: 'privileged_access_invite',
+            fromUser: 'pixlynote',
+            fromFullName: 'Pixlynote',
+            text: 'invited you to have Privileged Access to @pixlynote',
+            status: 'pending',
+            read: false,
+            time: Date.now()
+          }];
+          if (typeof renderNotifications === 'function') renderNotifications(true);
+          const accept = document.querySelector('.notif-priv-accept');
+          const idx = accept ? parseInt(accept.getAttribute('data-idx'), 10) : 0;
+          await respondToPrivilegedAccessInvite(idx, false);
+          const n = (state.notifications || []).find((x) => x && x.type === 'privileged_access_invite' && String(x.fromUser).toLowerCase() === 'pixlynote');
+          const label = document.querySelector('.notif-priv-resolved');
+          return {
+            status: n && n.status,
+            buttons: !!document.querySelector('.notif-priv-accept, .notif-priv-decline'),
+            label: (label && label.textContent) || ''
+          };
+        });
+        a.ok(declined.status === 'declined', 'Decline marks the invite notification as declined');
+        a.ok(!declined.buttons && /Declined/i.test(declined.label), 'After declining, the card shows Declined and has no buttons');
+
+        const fallback = await page.evaluate(() => {
+          if (typeof savePrivilegedAccountsList === 'function') {
+            savePrivilegedAccountsList('reg_business', [{ username: 'reg_personal', status: 'accepted' }]);
+          }
+          window._incomingConnectRequests = { owner: '', list: [] };
+          state.notifications = [{
+            type: 'privileged_access_invite',
+            fromUser: 'reg_personal',
+            fromFullName: 'Reg Personal',
+            text: 'invited you to have Privileged Access to @reg_personal',
+            status: 'pending',
+            read: false,
+            time: Date.now()
+          }];
+          if (typeof renderNotifications === 'function') renderNotifications(true);
+          const label = document.querySelector('.notif-priv-resolved');
+          return {
+            buttons: !!document.querySelector('.notif-priv-accept, .notif-priv-decline'),
+            label: (label && label.textContent) || '',
+            resolved: typeof privilegedInviteIsResolved === 'function' && privilegedInviteIsResolved(state.notifications[0])
+          };
+        });
+        a.ok(fallback.resolved && !fallback.buttons && /Accepted/i.test(fallback.label), 'An already-accepted grant still shows the invite as Accepted with no buttons');
       }
     }
   ]

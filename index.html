@@ -652,7 +652,30 @@
     body.privileged-read-only #form-ac-change-password,
     body.privileged-read-only #btn-ac-tab-change-password,
     body.privileged-read-only #btn-ac-deactivate-account,
-    body.privileged-read-only #btn-confirm-deactivate {
+    body.privileged-read-only #btn-confirm-deactivate,
+    body.privileged-read-only .btn-feed-create-first,
+    body.privileged-read-only .btn-focus-comment,
+    body.privileged-read-only .btn-dm-share-post,
+    body.privileged-read-only .btn-share-post,
+    body.privileged-read-only .btn-dm-share-explore-note,
+    body.privileged-read-only .btn-share-explore-note,
+    body.privileged-read-only #btn-open-messages,
+    body.privileged-read-only #btn-user-profile-message,
+    body.privileged-read-only #btn-share-profile,
+    body.privileged-read-only #btn-share-user-profile,
+    body.privileged-read-only #btn-modal-focus-comment,
+    body.privileged-read-only #btn-modal-dm-share,
+    body.privileged-read-only #btn-modal-share,
+    body.privileged-read-only #btn-modal-post-comment,
+    body.privileged-read-only #note-modal-comment-form,
+    body.privileged-read-only #btn-note-modal-dm-share,
+    body.privileged-read-only #btn-note-modal-share,
+    body.privileged-read-only #btn-story-owner-share,
+    body.privileged-read-only #btn-story-viewer-share,
+    body.privileged-read-only #btn-story-share-to-feed,
+    body.privileged-read-only #story-reply-input,
+    body.privileged-read-only #btn-story-send-reply,
+    body.privileged-read-only .post-card .border-t:has(.feed-comment-form) {
       display: none !important;
     }
     #ac-priv-user-list { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
@@ -15661,6 +15684,7 @@ function syncLikedStateToPosts() {
     window.handleNoteModalSaveToggle = handleNoteModalSaveToggle;
 
     function handleNoteModalShare() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!state.currentModalNoteId) return;
       const note = getNoteById(state.currentModalNoteId);
       if (!note) return;
@@ -25722,6 +25746,7 @@ function syncLikedStateToPosts() {
     }
 
     function openMessagesModal() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const modal = document.getElementById('modal-messages');
       if (modal) {
         modal.classList.remove('hidden');
@@ -26183,6 +26208,29 @@ function syncLikedStateToPosts() {
         _synthetic: true
       };
     }
+    function privilegedInviteIsResolved(n) {
+      if (!n || n.type !== 'privileged_access_invite') return false;
+      if (n.status === 'accepted' || n.status === 'declined') return true;
+      const owner = (typeof normalizeUsername === 'function') ? normalizeUsername(n.fromUser) : String(n.fromUser || '').toLowerCase();
+      const me = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase();
+      return !!(owner && me && typeof hasAcceptedPrivilegedAccess === 'function' && hasAcceptedPrivilegedAccess(me, owner));
+    }
+    window.privilegedInviteIsResolved = privilegedInviteIsResolved;
+    function privilegedInviteActionsHtml(n, idx) {
+      if (privilegedInviteIsResolved(n)) {
+        const accepted = n.status !== 'declined';
+        const label = (n.status === 'declined') ? 'Declined' : 'Accepted';
+        const cls = accepted ? 'text-emerald-700' : 'text-neutral-500';
+        return '<div class="pt-1 text-[10px] font-bold ' + cls + ' notif-priv-resolved" data-status="' + label.toLowerCase() + '">' + label + '</div>';
+      }
+      return '<div class="flex items-center space-x-2 pt-1.5">'
+        + '<button type="button" class="notif-priv-accept px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '">Accept</button>'
+        + '<button type="button" class="notif-priv-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="' + idx + '">Decline</button>'
+        + '</div>';
+    }
+    window.privilegedInviteActionsHtml = privilegedInviteActionsHtml;
     function notificationsForDisplay(src) {
       const list = [];
       const incoming = (typeof getIncomingConnectRequests === 'function') ? getIncomingConnectRequests() : [];
@@ -26433,12 +26481,7 @@ function syncLikedStateToPosts() {
                   <span class="text-neutral-600">${escapeHtml(connectionsNotifText(n.text || ''))}</span>
                 </div>`}
                 <div class="text-[10px] text-neutral-400 font-medium">${formatPixlyTimestamp(n, n.time || 'Just now')}${storyLabel ? ` • <span class="notif-story-label">${storyLabel}</span>` : ''}</div>
-                ${n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined' ? `
-                  <div class="flex items-center space-x-2 pt-1.5">
-                    <button type="button" class="notif-priv-accept px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Accept</button>
-                    <button type="button" class="notif-priv-decline px-2.5 py-1 rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-[10px] font-bold transition cursor-pointer" data-idx="${idx}">Decline</button>
-                  </div>
-                ` : ''}
+                ${n.type === 'privileged_access_invite' ? privilegedInviteActionsHtml(n, idx) : ''}
                 ${n.type === 'business_associate_invite' && n.status !== 'accepted' && n.status !== 'declined' && typeof associateInviteActionsHtml === 'function' ? associateInviteActionsHtml(n, idx) : ''}
                 ${n.type === 'connect_request' && typeof getIncomingConnectRequests === 'function' && getIncomingConnectRequests().some(r => r.username === normalizeUsername(u)) ? `
                   <div class="flex items-center space-x-2 pt-1.5">
@@ -27423,6 +27466,7 @@ function syncLikedStateToPosts() {
     window._dmShareSelectedUsers = new Set();
 
     function openDmShareModal(itemType, itemId) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const type = itemType === 'note' ? 'note' : 'post';
       const item = type === 'note' ? getNoteById(itemId) : getPostById(itemId);
       if (!item) {
@@ -35949,7 +35993,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         '#pixly-stripe-buy-btn', '#pixly-stripe-business-buy-btn', 'stripe-buy-button',
         '#btn-stripe-cancel-membership', '#btn-stripe-billing-portal', '#btn-confirm-cancel-membership',
         '#btn-verification-paywall-subscribe', '#form-edit-content', '#form-ac-change-password',
-        '#btn-ac-tab-change-password', '#btn-ac-deactivate-account', '#btn-confirm-deactivate'
+        '#btn-ac-tab-change-password', '#btn-ac-deactivate-account', '#btn-confirm-deactivate',
+        '.btn-feed-create-first', '.btn-focus-comment', '.btn-dm-share-post', '.btn-share-post',
+        '.btn-dm-share-explore-note', '.btn-share-explore-note',
+        '#btn-open-messages', '#btn-user-profile-message', '#btn-share-profile', '#btn-share-user-profile',
+        '#btn-modal-focus-comment', '#btn-modal-dm-share', '#btn-modal-share', '#btn-modal-post-comment',
+        '#note-modal-comment-form', '#btn-note-modal-dm-share', '#btn-note-modal-share',
+        '#btn-story-owner-share', '#btn-story-viewer-share', '#btn-story-share-to-feed',
+        '#story-reply-input', '#btn-story-send-reply', '#modal-dm-share'
       ].join(',');
       function isPrivilegedActionTarget(el) {
         if (!el || !el.closest) return false;
@@ -35957,7 +36008,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const host = (el.getAttribute && el.getAttribute('onclick')) ? el : (el.closest && el.closest('[onclick]'));
         const oc = host && host.getAttribute ? (host.getAttribute('onclick') || '') : '';
         if (!oc) return false;
-        return /togglePostLike|toggleSavePost|toggleLikeNote|applyLocalFollowToggle|sendConnectRequest|sendDmQuickReaction|handleSendDirectMessage|handleCreatePostAction|openCreatePostModal|openCreateCamera|handleDeletePostAction|blockUser|muteUser|submitNoteModalComment|grantPrivilegedAccessToUser|revokePrivilegedAccess|openCancelMembershipConfirm|confirmCancelMembership|markStripeCheckoutInitiated|markStripePortalVisit|goToSubscriptionFromVerificationPaywall|saveEditedContent|openDeactivateConfirmModal|confirmDeactivateAccount/.test(oc);
+        return /togglePostLike|toggleSavePost|toggleLikeNote|applyLocalFollowToggle|sendConnectRequest|sendDmQuickReaction|handleSendDirectMessage|handleCreatePostAction|openCreatePostModal|openCreateCamera|handleDeletePostAction|blockUser|muteUser|submitNoteModalComment|grantPrivilegedAccessToUser|revokePrivilegedAccess|openCancelMembershipConfirm|confirmCancelMembership|markStripeCheckoutInitiated|markStripePortalVisit|goToSubscriptionFromVerificationPaywall|saveEditedContent|openDeactivateConfirmModal|confirmDeactivateAccount|openDmShareModal|openMessagesModal|handleNoteModalShare/.test(oc);
       }
       function blockIfNeeded(e) {
         if (typeof isPrivilegedReadOnly !== 'function' || !isPrivilegedReadOnly()) return;
@@ -36208,8 +36259,29 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
 
     async function respondToPrivilegedAccessInvite(idx, accept) {
-      const notif = state.notifications && state.notifications[idx];
-      if (!notif) return;
+      const display = (typeof notificationsForDisplay === 'function')
+        ? notificationsForDisplay(state.notifications || [])
+        : (state.notifications || []);
+      const fromDisplay = display[idx];
+      const list = Array.isArray(state.notifications) ? state.notifications : [];
+      function sameInvite(a, b) {
+        if (!a || !b) return false;
+        if (typeof makeNotificationKey === 'function') {
+          const ka = makeNotificationKey(a), kb = makeNotificationKey(b);
+          if (ka && kb && ka === kb) return true;
+        }
+        return a.type === 'privileged_access_invite' && b.type === 'privileged_access_invite'
+          && normalizeUsername(a.fromUser) === normalizeUsername(b.fromUser);
+      }
+      let notif = null;
+      if (fromDisplay && fromDisplay.type === 'privileged_access_invite') {
+        notif = list.find((n) => sameInvite(n, fromDisplay)) || fromDisplay;
+      }
+      if (!notif && list[idx] && list[idx].type === 'privileged_access_invite') notif = list[idx];
+      if (!notif) {
+        notif = list.find((n) => n && n.type === 'privileged_access_invite' && n.status !== 'accepted' && n.status !== 'declined') || null;
+      }
+      if (!notif || notif.type !== 'privileged_access_invite') return;
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
       const ownerU = normalizeUsername(notif.fromUser);
       notif.read = true;
@@ -36217,6 +36289,17 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       notif.text = accept
         ? `granted you Privileged Access to @${ownerU} (Accepted)`
         : `invited you to have Privileged Access to @${ownerU} (Declined)`;
+      if (list.indexOf(notif) === -1) {
+        const existing = list.find((n) => sameInvite(n, notif));
+        if (existing) {
+          existing.read = notif.read;
+          existing.status = notif.status;
+          existing.text = notif.text;
+        } else {
+          list.unshift(notif);
+          state.notifications = list;
+        }
+      }
 
       if (accept && ownerU) {
         const privList = getPrivilegedAccountsList(curU);
