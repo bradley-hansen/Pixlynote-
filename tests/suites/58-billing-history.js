@@ -101,7 +101,7 @@ module.exports = {
         const patch = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'promote', 'patch_worker.py'), 'utf8');
         a.ok(!/"refunds"|\/v1\/refunds|promoteRefund/.test(patch), 'The Worker patch never issues refunds');
         const rules = fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.rules'), 'utf8');
-        a.ok(/match \/billing\/\{recordId\} \{\s*allow read: if ownsUser\(username\) \|\| isAdmin\(\);\s*allow write: if isAdmin\(\);/.test(rules), 'Rules: owner-only read, Worker/admin-only write');
+        a.ok(/match \/billing\/\{recordId\} \{\s*allow read: if ownsUser\(username\) \|\| delegateMay\(username, 'billing'\) \|\| isAdmin\(\);\s*allow write: if isAdmin\(\);/.test(rules), 'Rules: owner (or a delegate granted View Billing History) read, Worker/admin-only write');
       }
     }
   ]

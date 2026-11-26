@@ -614,30 +614,35 @@
 
 
     body.privileged-read-only #privileged-readonly-banner { display: block !important; }
-    body.privileged-read-only #nav-btn-create,
-    body.privileged-read-only #btn-open-create-modal,
-    body.privileged-read-only #btn-profile-create-post,
-    body.privileged-read-only #btn-create-camera,
-    body.privileged-read-only #btn-submit-post,
+    /* Privileged Access: actions stay hidden in a delegate session unless the owner turned on the matching grant
+       (body.priv-grant-<key>, see applyPrivilegedReadOnlyUi). */
+    body.privileged-read-only:not(.priv-grant-post) #nav-btn-create,
+    body.privileged-read-only:not(.priv-grant-post) #btn-open-create-modal,
+    body.privileged-read-only:not(.priv-grant-post) #btn-profile-create-post,
+    body.privileged-read-only:not(.priv-grant-post) #btn-create-camera,
+    body.privileged-read-only:not(.priv-grant-post) #btn-submit-post,
     body.privileged-read-only #btn-submit-story,
     body.privileged-read-only #btn-highlight-submit,
     body.privileged-read-only #btn-save-post-draft,
-    body.privileged-read-only #btn-edit-profile,
-    body.privileged-read-only #btn-profile-avatar-edit,
-    body.privileged-read-only #btn-save-edit-profile,
+    body.privileged-read-only:not(.priv-grant-editProfile) #btn-edit-profile,
+    body.privileged-read-only:not(.priv-grant-editProfile) #btn-profile-avatar-edit,
+    body.privileged-read-only:not(.priv-grant-editProfile) #btn-save-edit-profile,
     body.privileged-read-only #btn-ac-grant-privileged,
     body.privileged-read-only .ac-priv-revoke-btn,
-    body.privileged-read-only .btn-like-post,
+    body.privileged-read-only .ac-priv-edit-grants-btn,
+    body.privileged-read-only .ac-priv-grant-editor,
+    body.privileged-read-only #ac-priv-grant-picker,
+    body.privileged-read-only:not(.priv-grant-like) .btn-like-post,
     body.privileged-read-only .btn-save-post,
-    body.privileged-read-only .btn-like-explore-card,
-    body.privileged-read-only .feed-comment-form,
-    body.privileged-read-only #modal-comment-form,
-    body.privileged-read-only #note-composer-sheet,
-    body.privileged-read-only #btn-note-modal-like,
-    body.privileged-read-only #dm-send-form,
-    body.privileged-read-only #btn-dm-send,
-    body.privileged-read-only #btn-dm-photo,
-    body.privileged-read-only #btn-dm-new-chat,
+    body.privileged-read-only:not(.priv-grant-like) .btn-like-explore-card,
+    body.privileged-read-only:not(.priv-grant-comment) .feed-comment-form,
+    body.privileged-read-only:not(.priv-grant-comment) #modal-comment-form,
+    body.privileged-read-only:not(.priv-grant-note) #note-composer-sheet,
+    body.privileged-read-only:not(.priv-grant-like) #btn-note-modal-like,
+    body.privileged-read-only:not(.priv-grant-dm) #dm-send-form,
+    body.privileged-read-only:not(.priv-grant-dm) #btn-dm-send,
+    body.privileged-read-only:not(.priv-grant-dm) #btn-dm-photo,
+    body.privileged-read-only:not(.priv-grant-dm) #btn-dm-new-chat,
     body.privileged-read-only .explore-account-follow,
     body.privileged-read-only #btn-user-profile-follow,
     body.privileged-read-only #btn-user-profile-connect,
@@ -653,23 +658,23 @@
     body.privileged-read-only #btn-ac-tab-change-password,
     body.privileged-read-only #btn-ac-deactivate-account,
     body.privileged-read-only #btn-confirm-deactivate,
-    body.privileged-read-only .btn-feed-create-first,
-    body.privileged-read-only .btn-focus-comment,
+    body.privileged-read-only:not(.priv-grant-post) .btn-feed-create-first,
+    body.privileged-read-only:not(.priv-grant-comment) .btn-focus-comment,
     body.privileged-read-only .btn-dm-share-post,
     body.privileged-read-only .btn-share-post,
     body.privileged-read-only .btn-dm-share-explore-note,
     body.privileged-read-only .btn-share-explore-note,
-    body.privileged-read-only #btn-open-messages,
-    body.privileged-read-only #btn-user-profile-message,
+    body.privileged-read-only:not(.priv-grant-dm) #btn-open-messages,
+    body.privileged-read-only:not(.priv-grant-dm) #btn-user-profile-message,
     body.privileged-read-only #btn-share-profile,
     body.privileged-read-only #btn-share-user-profile,
-    body.privileged-read-only .promote-mode,
-    body.privileged-read-only #modal-promote,
-    body.privileged-read-only #btn-modal-focus-comment,
+    body.privileged-read-only:not(.priv-grant-promote) .promote-mode,
+    body.privileged-read-only:not(.priv-grant-promote) #modal-promote,
+    body.privileged-read-only:not(.priv-grant-comment) #btn-modal-focus-comment,
     body.privileged-read-only #btn-modal-dm-share,
     body.privileged-read-only #btn-modal-share,
-    body.privileged-read-only #btn-modal-post-comment,
-    body.privileged-read-only #note-modal-comment-form,
+    body.privileged-read-only:not(.priv-grant-comment) #btn-modal-post-comment,
+    body.privileged-read-only:not(.priv-grant-comment) #note-modal-comment-form,
     body.privileged-read-only #btn-note-modal-dm-share,
     body.privileged-read-only #btn-note-modal-share,
     body.privileged-read-only #btn-story-owner-share,
@@ -677,15 +682,17 @@
     body.privileged-read-only #btn-story-share-to-feed,
     body.privileged-read-only #story-reply-input,
     body.privileged-read-only #btn-story-send-reply,
-    body.privileged-read-only .post-card .border-t:has(.feed-comment-form),
-    body.privileged-read-only #btn-note-fab,
-    body.privileged-read-only #btn-note-fab.is-visible,
-    body.privileged-read-only #note-composer-sheet,
-    body.privileged-read-only #note-composer-sheet.is-open,
-    body.privileged-read-only #note-composer-panel,
-    body.privileged-read-only #note-composer-panel.is-expanded {
+    body.privileged-read-only:not(.priv-grant-comment) .post-card .border-t:has(.feed-comment-form),
+    body.privileged-read-only:not(.priv-grant-note) #btn-note-fab,
+    body.privileged-read-only:not(.priv-grant-note) #btn-note-fab.is-visible,
+    body.privileged-read-only:not(.priv-grant-note) #note-composer-sheet.is-open,
+    body.privileged-read-only:not(.priv-grant-note) #note-composer-panel,
+    body.privileged-read-only:not(.priv-grant-note) #note-composer-panel.is-expanded {
       display: none !important;
     }
+    .pixly-delegate-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 2px; border-radius: 9999px; background: #eef2ff; color: #4338ca; font-size: 10px; font-weight: 700; line-height: 16px; white-space: nowrap; vertical-align: middle; }
+    .pixly-delegate-badge img { width: 14px; height: 14px; border-radius: 9999px; object-fit: cover; }
+    #privileged-readonly-banner .priv-banner-btn { margin-left: 6px; padding: 2px 8px; border-radius: 9999px; background: #fff; color: #3730a3; font-weight: 800; font-size: 10px; cursor: pointer; }
     #ac-priv-user-list { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
   </style>
   <script async src="https://js.stripe.com/v3/buy-button.js"></script>
@@ -1128,7 +1135,8 @@
   <!-- MAIN APPLICATION VIEW (Hidden initially until login) -->
   <div id="main-view" class="hidden flex-1 flex flex-col min-h-screen relative" style="display: none;">
     <div id="privileged-readonly-banner" class="hidden sticky top-0 z-[60] px-3 py-2 bg-indigo-700 text-white text-center text-[11px] font-semibold leading-snug" role="status">
-      Viewing with Privileged Access — read only
+      <span id="privileged-readonly-banner-text">Viewing with Privileged Access — read only</span>
+      <button type="button" id="btn-priv-banner-full-access" class="priv-banner-btn hidden" onclick="switchPrivilegedToFullAccess()">Switch to full access</button>
     </div>
     <!-- Pull to Refresh Banner -->
     <div id="pull-refresh-indicator" class="hidden sticky top-14 z-20 bg-sky-500 text-white text-xs font-semibold py-2 px-4 text-center shadow-md transition-all flex items-center justify-center space-x-2">
@@ -1962,7 +1970,7 @@
               <span id="note-modal-showcase-pill" class="hidden showcase-pill items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide text-[9px] px-1.5 py-px" style="display:none;background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" title="Official Pixlynote Showcase Account">Showcase</span>
             </div>
             <div class="text-[11px] text-neutral-400 font-medium">
-              <span id="note-modal-author-handle">@handle</span> · <span id="note-modal-time">time</span>
+              <span id="note-modal-author-handle">@handle</span> · <span id="note-modal-time">time</span> <span id="note-modal-delegate"></span>
             </div>
           </div>
         </div>
@@ -2282,6 +2290,7 @@
               <div class="flex items-center gap-0.5 min-w-0">
                 <div class="font-bold text-xs text-neutral-900 group-hover:text-violet-700 group-hover:underline transition truncate" id="modal-post-author">bradley_hansen</div>
                 <span id="modal-post-author-badges" class="inline-flex items-center gap-0.5 flex-shrink-0"></span>
+                <span id="modal-post-delegate" class="inline-flex items-center flex-shrink-0"></span>
               </div>
               <div class="text-[10px] text-neutral-400 hidden" id="modal-post-location"></div>
             </div>
@@ -2333,6 +2342,7 @@
           </div>
           <div class="flex items-center justify-between gap-3">
             <div class="font-bold text-xs text-neutral-900" id="modal-likes-count">1,428 likes</div>
+            <div id="modal-like-delegates"></div>
             <div id="modal-views-count" class="post-views-count flex items-center space-x-1 text-xs text-neutral-600" data-post-id="" title="0 views" aria-label="0 views">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>
               <span class="post-views-count-num font-semibold">0</span>
@@ -3696,6 +3706,11 @@
         </button>
       </div>
 
+      <!-- Owner of this account who also holds a delegate account here: open the read-only delegate view -->
+      <div id="account-switcher-delegate-view" class="hidden px-3 pt-3">
+        <button type="button" id="btn-switcher-delegate-view" class="w-full py-2 px-3 text-[11px] font-bold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition cursor-pointer" onclick="openOwnerDelegateView()">View as delegate (read only)</button>
+      </div>
+
       <!-- Logged-in Accounts List -->
       <div id="account-switcher-list" class="flex-1 overflow-y-auto p-3 space-y-2">
         <!-- Rendered dynamically -->
@@ -4326,7 +4341,7 @@
         <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-1.5">
           <div class="text-xs font-bold text-indigo-950">Grant Privileged Access</div>
           <p class="text-[11px] text-indigo-800/80 leading-relaxed">
-            Invite a trusted account to view <span id="ac-priv-owner-handle" class="font-bold">@account</span> without your password. Access is read-only. They must accept the invite from their notifications. Pick the person from the userbase so you know it is the right account.
+            Invite a trusted account to view <span id="ac-priv-owner-handle" class="font-bold">@account</span> without your password. Access is read-only unless you turn on actions below. They must accept the invite from their notifications. Pick the person from the userbase so you know it is the right account.
           </p>
           <div class="flex items-start space-x-2 pt-1">
             <div class="relative flex-1 min-w-0" id="ac-priv-invite-picker">
@@ -4337,6 +4352,10 @@
             <button type="button" id="btn-ac-grant-privileged" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
               Invite
             </button>
+          </div>
+          <div id="ac-priv-grant-picker" class="pt-1.5 space-y-1" role="group" aria-label="What they may do for you">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-900/70">What they may do for you (all off = read only)</div>
+            <div id="ac-priv-grant-options" class="grid grid-cols-2 gap-1"></div>
           </div>
         </div>
         <div class="space-y-1.5">
@@ -5520,6 +5539,21 @@
           return true;
         } catch (e) { return false; }
       }
+      // Per-permission grants: users/{owner}.delegateGrants[delegateUid] = ['like', ...]. Only the owner can write it
+      // (firestore.rules), and the rules allow a delegate only the writes its grants cover. [] = read only.
+      async function syncDelegateGrants(ownerU, targetU, grants) {
+        var fb = window.firebase;
+        if (!window.firebaseReady || !fb || !fb.getDoc || !fb.doc || !fb.setDoc) return false;
+        try {
+          var snap = await fb.getDoc(fb.doc(fb.db, 'users', normU(targetU)));
+          var uid = snap && snap.exists && snap.exists() ? ((snap.data() || {}).uid || '') : '';
+          if (!uid) return false;
+          var clean = (typeof window.normalizePrivilegedGrants === 'function') ? window.normalizePrivilegedGrants(grants) : [];
+          var patch = {}; patch[uid] = clean;
+          await fb.setDoc(fb.doc(fb.db, 'users', normU(ownerU)), { delegateGrants: patch }, { merge: true });
+          return true;
+        } catch (e) { return false; }
+      }
       // Cold start: a migrated account must have its own Auth session (or a Privileged Access grant).
       // Anything else means the session is stale, so the app asks for a fresh login instead of failing writes.
       async function checkSessionMatchesAccount() {
@@ -5538,7 +5572,10 @@
         rememberAuthDoc(u, d);
         var user = currentAuthUser();
         if (user && !user.isAnonymous && (user.uid === d.uid || (Array.isArray(d.delegateUids) && d.delegateUids.indexOf(user.uid) !== -1))) {
-          if (user.uid === d.uid) { window._pixlyAuthUsername = u; linkUidIndex(u); }
+          if (user.uid === d.uid) {
+            window._pixlyAuthUsername = u; linkUidIndex(u);
+            if (window.pixlyOwnerSessions && typeof window.pixlyOwnerSessions.remember === 'function') window.pixlyOwnerSessions.remember(u).catch(function () {});
+          }
           return 'ok';
         }
         if (normU(window.state && window.state.currentUser && window.state.currentUser.username) !== u) return 'changed';
@@ -5579,13 +5616,14 @@
         rememberAuthDoc: rememberAuthDoc,
         knownUids: knownUids,
         syncDelegateUid: syncDelegateUid,
+        syncDelegateGrants: syncDelegateGrants,
         checkSessionMatchesAccount: checkSessionMatchesAccount
       };
     })();
 
     setTimeout(async () => {
       try {
-        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js");
+        const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js");
         const { 
           getAuth, 
           createUserWithEmailAndPassword, 
@@ -5597,7 +5635,8 @@
           signInWithPhoneNumber,
           updatePassword,
           reauthenticateWithCredential,
-          EmailAuthProvider
+          EmailAuthProvider,
+          updateCurrentUser
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js");
         
         const { 
@@ -5646,6 +5685,8 @@
           RecaptchaVerifier,
           signInWithPhoneNumber,
           updatePassword, reauthenticateWithCredential, EmailAuthProvider,
+          // Owner switch-back keeps each owned account's sign-in in its own named Auth instance.
+          updateCurrentUser, initializeApp, getApp, getAuth, firebaseConfig,
           collection, doc, setDoc, getDoc, getDocs,
           query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc,
           arrayUnion, arrayRemove, collectionGroup
@@ -8473,7 +8514,12 @@ function syncLikedStateToPosts() {
       if (it.kind === 'post') {
         await setDoc(doc(db, 'users', it.who), { likedPostIds: op(it.id), lastUpdated: Date.now() }, { merge: true });
         if (meta.cloud && updateDoc) {
-          try { await updateDoc(doc(db, 'posts', it.id), { likedBy: op(it.who) }); } catch (e) { /* no cloud doc, or rules not updated yet: the per-user set still counts */ }
+          // Privileged Access: a like a delegate makes for the owner records the delegate (likeDelegates[owner]).
+          const likeBy = liked && meta.delegatedBy ? { likeDelegates: { [it.who]: meta.delegatedBy } } : null;
+          try {
+            if (likeBy) await setDoc(doc(db, 'posts', it.id), Object.assign({ likedBy: op(it.who) }, likeBy), { merge: true });
+            else await updateDoc(doc(db, 'posts', it.id), { likedBy: op(it.who) });
+          } catch (e) { /* no cloud doc, or rules not updated yet: the per-user set still counts */ }
         }
       } else if (it.kind === 'note') {
         await setDoc(doc(db, 'users', it.who), { likedNoteIds: op(it.id), lastUpdated: Date.now() }, { merge: true });
@@ -9247,6 +9293,7 @@ function syncLikedStateToPosts() {
             authorPrivate: !!(state.currentUser && state.currentUser.isPrivate === true),
             createdAt: serverTimestamp()
           };
+          if (post.delegatedBy) postPayload.delegatedBy = post.delegatedBy;
           // merge so we never overwrite posts/{id}.views; increments own that field
           await setDoc(postDocRef, postPayload, { merge: true });
           const curU = (typeof getActiveFirestoreUsername === 'function' && getActiveFirestoreUsername())
@@ -9321,6 +9368,8 @@ function syncLikedStateToPosts() {
             changed = true;
           }
           if (cp.edited) existing.edited = true;
+          if (cp.delegatedBy && existing.delegatedBy !== cp.delegatedBy) { existing.delegatedBy = cp.delegatedBy; changed = true; }
+          if (cp.likeDelegates && typeof cp.likeDelegates === 'object') existing.likeDelegates = cp.likeDelegates;
           // posts/{id}.likedBy is the public set of likers. Only the posts collection is trusted for it (the
           // users/{u}.customPosts mirror can be older), and the list is always collapsed to unique names.
           if (opts && opts.fromPostDocs && Array.isArray(cp.likedBy) && typeof likeUniqueNames === 'function') {
@@ -9374,7 +9423,7 @@ function syncLikedStateToPosts() {
     }
 // Unified toggle function for all like buttons, hearts, modals, and double-taps
     function togglePostLike(postId, forceState = null) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('like')) return;
       if (postId === undefined || postId === null) return;
       const strId = String(postId);
       const target = getPostById(postId);
@@ -9433,7 +9482,12 @@ function syncLikedStateToPosts() {
       saveAccountLikes(curU);
       syncLikedStateToPosts();
       persistState();
-      queueLikeWrite('post', strId, newLiked, { cloud: !(target.isSeed === true || typeof target._likeBase === 'number' || typeof target.baseLikes === 'number') });
+      const likeStamp = (typeof privilegedDelegateStamp === 'function') ? privilegedDelegateStamp() : {};
+      if (likeStamp.delegatedBy) {
+        if (!target.likeDelegates || typeof target.likeDelegates !== 'object') target.likeDelegates = {};
+        if (newLiked) target.likeDelegates[curU] = likeStamp.delegatedBy; else delete target.likeDelegates[curU];
+      }
+      queueLikeWrite('post', strId, newLiked, Object.assign({ cloud: !(target.isSeed === true || typeof target._likeBase === 'number' || typeof target.baseLikes === 'number') }, likeStamp.delegatedBy ? { delegatedBy: likeStamp.delegatedBy } : {}));
 
       renderFeed();
       if (state.explorePosts) renderExplore();
@@ -9561,7 +9615,9 @@ function syncLikedStateToPosts() {
     };
 // --- Comprehensive Persistent Storage Controller (Likes, Notes, Saved, Profile) ---
     function persistState() {
-      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
+      // Delegate session: saves only when the owner granted at least one action (the rules allow just those writes).
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()
+          && !(typeof privilegedHasAnyGrant === 'function' && privilegedHasAnyGrant())) return;
       try {
         const curU = getActiveFirestoreUsername() || 'guest';
         const k = (base) => getAccountStorageKey(base, curU);
@@ -9732,7 +9788,8 @@ function syncLikedStateToPosts() {
     }
 
     function saveUserProfile() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()
+          && !(typeof privilegedHasGrant === 'function' && privilegedHasGrant('editProfile'))) return;
       persistState();
     }
 
@@ -11446,7 +11503,8 @@ function syncLikedStateToPosts() {
       return !!(isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
     }
     function isNoteFabContextVisible() {
-      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return false;
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()
+          && !(typeof privilegedHasGrant === 'function' && privilegedHasGrant('note'))) return false;
       return !!(isOwnProfileNotesTabVisible() || isFeedTabVisibleForNotes() || isExploreNotesTabVisible());
     }
     function isNoteComposerExpanded() {
@@ -11478,7 +11536,7 @@ function syncLikedStateToPosts() {
       }
     }
     function setNoteComposerExpanded(open, opts) {
-      if (open && typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      if (open && typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('note')) return false;
       opts = opts || {};
       const expanded = !!open;
       _noteComposerOpen = expanded;
@@ -14692,6 +14750,7 @@ function syncLikedStateToPosts() {
                     <span class="font-bold text-xs text-neutral-900 cursor-pointer open-author-profile" data-author="${post.author}">${post.author}</span>
                     ${authorStatusBadgesHtml(post.author)}
                     ${post.author === state.currentUser.username ? '<span class="text-[10px] text-neutral-400 font-medium">• You</span>' : ''}
+                    ${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(post) : ''}
                   </div>
                   ${typeof promotedLabelHtml === 'function' ? promotedLabelHtml(post) : ''}
                   ${(typeof displayPostLocation === 'function' ? displayPostLocation(post.location) : String(post.location || '').trim()) ? `<div class="text-[11px] text-neutral-500">${(typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : post.location}</div>` : ''}
@@ -14765,6 +14824,7 @@ function syncLikedStateToPosts() {
                 </div>
                 ${postViewsCountHtml(post)}
               </div>
+              ${typeof privilegedLikeDelegatesHtml === 'function' ? privilegedLikeDelegatesHtml(post) : ''}
               ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(post) : ''}
 
               <!-- Caption (omitted entirely when the post has no caption) -->
@@ -14798,7 +14858,7 @@ function syncLikedStateToPosts() {
                   ${latest ? `
                     <div class="text-xs text-neutral-800 flex items-center justify-between gap-2">
                       <div class="min-w-0 truncate">
-                        <span class="font-bold mr-1.5">${latest.user}</span>${authorStatusBadgesHtml(latest.user)}
+                        <span class="font-bold mr-1.5">${latest.user}</span>${authorStatusBadgesHtml(latest.user)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(latest) : ''}
                         <span>${escapeHtml(latest.text)}</span>
                       </div>
                       <button type="button" onclick="event.stopPropagation(); toggleCommentSpam('post', '${post.id}', '${latest.id}')" class="p-1 text-neutral-300 hover:text-amber-600 transition cursor-pointer flex-shrink-0" title="Flag as Spam">
@@ -15022,7 +15082,7 @@ function syncLikedStateToPosts() {
       document.querySelectorAll('.feed-comment-form').forEach(form => {
         form.addEventListener('submit', (e) => {
           e.preventDefault();
-          if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+          if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('comment')) return;
           const postId = parseInt(form.dataset.postId, 10);
           const input = form.querySelector('.feed-comment-input');
           const text = input ? input.value.trim() : '';
@@ -15031,7 +15091,7 @@ function syncLikedStateToPosts() {
           const post = (state.posts && state.posts.find(p => p.id === postId)) || (state.explorePosts && state.explorePosts.find(p => p.id === postId));
           if (post) {
             if (!post.comments) post.comments = [];
-            const newComment = {
+            const newComment = Object.assign({
               id: Date.now(),
               user: state.currentUser.username,
               text: text,
@@ -15039,7 +15099,7 @@ function syncLikedStateToPosts() {
               createdAtMs: Date.now(),
               likedBy: [],
               replies: []
-            };
+            }, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
             post.comments.push(newComment);
             const curU = normalizeUsername(state.currentUser.username);
             const curAv = state.currentUser.avatar || getPostAuthorAvatar({ author: curU });
@@ -15507,6 +15567,7 @@ function syncLikedStateToPosts() {
         }
       }
       if (authorHandleEl) authorHandleEl.textContent = `@${note.author}`;
+      { const ndEl = document.getElementById('note-modal-delegate'); if (ndEl) ndEl.innerHTML = (typeof privilegedDelegateBadgeHtml === 'function') ? privilegedDelegateBadgeHtml(note) : ''; }
       if (authorAvatarEl) authorAvatarEl.src = avatarSrc;
       if (timeEl) timeEl.textContent = formatPixlyTimestamp(note, note.time || 'Just now');
       if (textEl) textEl.textContent = note.text;
@@ -15572,7 +15633,7 @@ function syncLikedStateToPosts() {
     window.closeNoteDetailModal = closeNoteDetailModal;
 
     function toggleLikeNoteComment(noteId, commentId, replyId = null) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('like')) return;
       const note = getNoteById(noteId);
       if (!note || !note.comments) return;
       const comment = note.comments.find(c => String(c.id) === String(commentId));
@@ -15686,7 +15747,7 @@ function syncLikedStateToPosts() {
                     <img src="${rAvatar}" alt="${r.user}" class="w-full h-full object-cover">
                   </div>
                   <div class="text-[11px] min-w-0">
-                    <span class="font-bold text-neutral-900 mr-1">@${r.user}</span>${authorStatusBadgesHtml(r.user)}
+                    <span class="font-bold text-neutral-900 mr-1">@${r.user}</span>${authorStatusBadgesHtml(r.user)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(r) : ''}
                     <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                   </div>
                 </div>
@@ -15709,7 +15770,7 @@ function syncLikedStateToPosts() {
               <div class="flex-1 text-xs min-w-0">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-1.5 min-w-0">
-                    <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>${authorStatusBadgesHtml(c.user)}
+                    <span class="font-bold text-neutral-900 cursor-pointer hover:underline truncate" onclick="closeNoteDetailModal(); viewUserProfile('${c.user}')">${c.userName || c.user}</span>${authorStatusBadgesHtml(c.user)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(c) : ''}
                     <span class="text-[10px] text-neutral-400">@${c.user} · ${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                   </div>
                   <div class="flex items-center space-x-1 flex-shrink-0">
@@ -15736,7 +15797,7 @@ function syncLikedStateToPosts() {
     }
 
     function submitNoteModalComment() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('comment')) return;
       if (!state.currentModalNoteId) return;
       const note = getNoteById(state.currentModalNoteId);
       const input = document.getElementById('note-modal-comment-input');
@@ -15756,7 +15817,7 @@ function syncLikedStateToPosts() {
         const parentComment = note.comments.find(c => String(c.id) === String(replyTarget.commentId));
         if (parentComment) {
           if (!Array.isArray(parentComment.replies)) parentComment.replies = [];
-          const newReply = { id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', createdAtMs: Date.now(), likedBy: [] };
+          const newReply = Object.assign({ id: Date.now(), user: curU, userName: curName, userAvatar: curAvatar, text: text, timestamp: 'Just now', createdAtMs: Date.now(), likedBy: [] }, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
           parentComment.replies.push(newReply);
           if (normalizeUsername(parentComment.user) !== normalizeUsername(curU)) {
             addNotificationForUser(parentComment.user, {
@@ -15787,6 +15848,7 @@ function syncLikedStateToPosts() {
           likedBy: [],
           replies: []
         };
+        Object.assign(newComment, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
         note.comments.push(newComment);
         if (note.author && normalizeUsername(note.author) !== normalizeUsername(curU)) {
           addNotificationForUser(note.author, {
@@ -15824,7 +15886,7 @@ function syncLikedStateToPosts() {
     window.submitNoteModalComment = submitNoteModalComment;
 
     function toggleLikePostComment(postId, commentId, replyId = null) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('like')) return;
       const post = getPostById(postId);
       if (!post || !post.comments) return;
       const comment = post.comments.find(c => String(c.id) === String(commentId));
@@ -16002,7 +16064,7 @@ function syncLikedStateToPosts() {
                     <img src="${avatar}" alt="${n.authorName || n.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
                   </div>
                   <div>
-                    <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${n.authorName || state.currentUser.fullName}</div>${authorStatusBadgesHtml(n.author || state.currentUser.username)}</div>
+                    <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${n.authorName || state.currentUser.fullName}</div>${authorStatusBadgesHtml(n.author || state.currentUser.username)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(n) : ''}</div>
                     <div class="text-[10px] text-neutral-400">@${n.author || state.currentUser.username} · ${formatPixlyTimestamp(n, n.time || 'Just now')}</div>
                     ${typeof closeFriendsLabelHtml === 'function' ? closeFriendsLabelHtml(n) : ''}
                   </div>
@@ -16496,7 +16558,7 @@ function syncLikedStateToPosts() {
 
         // Global toggle like for notes (Feed, Explore, Liked, Note Modal)
     function toggleLikeNote(noteId, btnEl) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('like')) return;
       if (noteId === undefined || noteId === null) return;
       const note = getNoteById(noteId);
       if (!note) return;
@@ -16715,7 +16777,7 @@ function syncLikedStateToPosts() {
                 </div>
                 <div class="space-y-0.5 min-w-0">
                   <div class="flex items-center space-x-1.5">
-                    <span class="font-bold text-neutral-900 group-hover:text-violet-700 transition">${n.authorName || n.author}</span>${authorStatusBadgesHtml(n.author)}
+                    <span class="font-bold text-neutral-900 group-hover:text-violet-700 transition">${n.authorName || n.author}</span>${authorStatusBadgesHtml(n.author)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(n) : ''}
                     <span class="text-[10px] text-neutral-400">@${n.author}</span>
                   </div>
                   <p class="text-neutral-700 leading-relaxed text-xs">${escapeHtml(n.text)}</p>
@@ -17500,6 +17562,7 @@ function syncLikedStateToPosts() {
       document.getElementById('modal-post-img').src = post.image;
       document.getElementById('modal-post-author').textContent = post.author;
       if (typeof paintAuthorBadgeMount === 'function') paintAuthorBadgeMount('modal-post-author-badges', post.author);
+      { const dEl = document.getElementById('modal-post-delegate'); if (dEl) dEl.innerHTML = (typeof privilegedDelegateBadgeHtml === 'function') ? privilegedDelegateBadgeHtml(post) : ''; }
       const locEl = document.getElementById('modal-post-location');
       if (locEl) {
         const loc = (typeof displayPostLocation === 'function') ? displayPostLocation(post.location) : String(post.location || '').trim();
@@ -17516,6 +17579,7 @@ function syncLikedStateToPosts() {
         };
       }
       document.getElementById('modal-likes-count').textContent = `${postLikeCount(post).toLocaleString()} likes`;
+      { const ldEl = document.getElementById('modal-like-delegates'); if (ldEl) ldEl.innerHTML = (typeof privilegedLikeDelegatesHtml === 'function') ? privilegedLikeDelegatesHtml(post) : ''; }
       if (modal) modal.setAttribute('data-post-id', String(postId));
       const pixaiSlot = document.getElementById('modal-pixai-slot');
       if (pixaiSlot) {
@@ -17625,7 +17689,7 @@ function syncLikedStateToPosts() {
             return `
               <div class="mt-1.5 pl-3 border-l-2 border-neutral-100 flex items-start justify-between space-x-2">
                 <div class="text-[11px] min-w-0">
-                  <span class="font-bold text-neutral-900 mr-1">${r.user}</span>${authorStatusBadgesHtml(r.user)}
+                  <span class="font-bold text-neutral-900 mr-1">${r.user}</span>${authorStatusBadgesHtml(r.user)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(r) : ''}
                   <span class="text-[10px] text-neutral-400 mr-1">${formatPixlyTimestamp(r, r.timestamp || 'Just now')}</span>
                   <span class="text-neutral-700">${escapeHtml(r.text)}</span>
                 </div>
@@ -17647,7 +17711,7 @@ function syncLikedStateToPosts() {
               </div>
               <div class="flex-1 min-w-0">
                 <div>
-                  <span class="font-bold text-neutral-900 mr-1">${c.user}</span>${authorStatusBadgesHtml(c.user)}
+                  <span class="font-bold text-neutral-900 mr-1">${c.user}</span>${authorStatusBadgesHtml(c.user)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(c) : ''}
                   <span>${escapeHtml(c.text)}</span>
                   <span class="text-[10px] text-neutral-400 ml-1.5">${formatPixlyTimestamp(c, c.timestamp || 'Just now')}</span>
                 </div>
@@ -18905,7 +18969,7 @@ function syncLikedStateToPosts() {
                       <img src="${avatarSrc}" alt="${note.authorName || note.author}" class="w-full h-full object-cover" onerror="this.src=BRADLEY_AVATAR_IMAGE">
                     </div>
                     <div>
-                      <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${note.authorName || note.author}</div>${authorStatusBadgesHtml(note.author)}</div>
+                      <div class="flex items-center gap-0.5 min-w-0"><div class="font-bold text-xs text-neutral-900 truncate">${note.authorName || note.author}</div>${authorStatusBadgesHtml(note.author)}${typeof privilegedDelegateBadgeHtml === 'function' ? privilegedDelegateBadgeHtml(note) : ''}</div>
                       <div class="text-[10px] text-neutral-400">@${note.author} · ${formatPixlyTimestamp(note, note.time || 'Saved')}</div>
                     </div>
                   </div>
@@ -19086,7 +19150,7 @@ function syncLikedStateToPosts() {
     window.confirmDeletePostConfirm = confirmDeletePostConfirm;
 
     function handleDeletePostAction(targetPostId) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('deletePost')) return;
       try {
         const pid = targetPostId || state.currentModalPostId;
         if (!pid) return;
@@ -19346,7 +19410,7 @@ function syncLikedStateToPosts() {
     // --- Direct Post Creation Controller (Single-Flight Mutex Guarded) ---
     let isCreatingPost = false;
     function handleCreatePostAction() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('post')) return;
       if (isCreatingPost) {
         console.warn("Post creation already in progress. Ignoring duplicate call.");
         return;
@@ -19416,6 +19480,8 @@ function syncLikedStateToPosts() {
           comments: [],
           audience: (typeof currentComposerAudience === 'function') ? currentComposerAudience('create-cf-only-toggle') : 'public'
         };
+        // Privileged Access: a post a delegate makes for the owner names the delegate (shown as "by @delegate").
+        Object.assign(newPost, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
 
         // 1. Prepend to state.posts array (exactly one post added)
         state.posts.unshift(newPost);
@@ -20792,7 +20858,7 @@ function syncLikedStateToPosts() {
     window.openCreateCamera = openCreateCamera;
 
     function openCreatePostModal(mode = "post") {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('post')) return;
       state.activeDraftId = null;
       const modal = document.getElementById('modal-create-post');
       if (modal) {
@@ -24524,6 +24590,7 @@ function syncLikedStateToPosts() {
     function renderAccountSwitcherList() {
       const container = document.getElementById('account-switcher-list');
       if (!container) return;
+      if (typeof paintOwnerDelegateViewToggle === 'function') paintOwnerDelegateViewToggle();
       const accounts = getSessionAccounts();
       const curNorm = (state.currentUser && state.currentUser.username ? state.currentUser.username : '').toLowerCase();
 
@@ -26043,7 +26110,7 @@ function syncLikedStateToPosts() {
     }
 
     function openMessagesModal() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('dm')) return;
       const modal = document.getElementById('modal-messages');
       if (modal) {
         modal.classList.remove('hidden');
@@ -27166,7 +27233,7 @@ function syncLikedStateToPosts() {
                 ${contentHtml}
               </div>
               <div class="text-[9px] text-neutral-400 mt-0.5 px-1 ${isMe ? 'text-right' : 'text-left'}" title="${msgMs ? dmFullTimeTitle(msgMs) : ''}">
-                <span class="dm-msg-time" ${msgMs ? `data-dm-msg-ts="${msgMs}"` : ''}>${timeText}</span> ${isMe ? '• Sent ✓' : ''}
+                <span class="dm-msg-time" ${msgMs ? `data-dm-msg-ts="${msgMs}"` : ''}>${timeText}</span> ${isMe ? '• Sent ✓' : ''}${isMe && msg.delegatedBy && typeof privilegedDelegateBadgeHtml === 'function' ? ' ' + privilegedDelegateBadgeHtml(msg) : ''}
               </div>
             </div>
           </div>
@@ -27179,7 +27246,7 @@ function syncLikedStateToPosts() {
 
     function handleSendDirectMessage(e) {
       if (e && e.preventDefault) e.preventDefault();
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('dm')) return false;
       const input = document.getElementById('dm-input-text');
       if (!input) return false;
       const text = input.value.trim();
@@ -27195,12 +27262,12 @@ function syncLikedStateToPosts() {
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-      const newMsg = {
+      const newMsg = Object.assign({
         sender: 'me',
         text: text,
         time: timeStr,
         timestamp: Date.now()
-      };
+      }, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
 
       if (!thread.chat) thread.chat = [];
       thread.chat.push(newMsg);
@@ -27229,7 +27296,7 @@ function syncLikedStateToPosts() {
     window.handleSendDirectMessage = handleSendDirectMessage;
 
     function sendDmQuickReaction(emoji) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('dm')) return;
       const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
         ? state.activeDmThreadIndex 
         : 0;
@@ -27261,14 +27328,14 @@ function syncLikedStateToPosts() {
     window.sendDmQuickReaction = sendDmQuickReaction;
 
     function triggerDmPhotoChooser() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('dm')) return;
       const fileInp = document.getElementById('dm-file-input');
       if (fileInp) fileInp.click();
     }
     window.triggerDmPhotoChooser = triggerDmPhotoChooser;
 
     function handleDmPhotoSelected(e) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('dm')) return;
       const file = e.target.files && e.target.files[0];
       if (!file) return;
 
@@ -27663,7 +27730,8 @@ function syncLikedStateToPosts() {
     window.handleDmMobileBack = handleDmMobileBack;
 
     function persistDirectMessages() {
-      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()
+          && !(typeof privilegedHasGrant === 'function' && privilegedHasGrant('dm'))) return;
       window._lastLocalDmWriteTs = Date.now();
       let cleanDms = [];
       try {
@@ -28931,9 +28999,15 @@ function syncLikedStateToPosts() {
       const retWrap = document.getElementById('auth-return-session-wrap');
       if (retWrap) retWrap.classList.add('hidden');
       window._pixlyReturningSessionUser = null;
+      // Owner switch-back: keep this account's own sign-in so switching back from a delegate view can reopen
+      // full access. Only a real owner session is kept (the Auth uid must be this account's uid).
+      if (!privilegedSwitch && window.pixlyOwnerSessions && typeof window.pixlyOwnerSessions.remember === 'function') {
+        try { window.pixlyOwnerSessions.remember(normTargetU).catch(function () {}); } catch (e) {}
+      }
       if (privilegedSwitch && typeof setPrivilegedReadOnlySession === 'function') {
-        setPrivilegedReadOnlySession(normTargetU, loginOpts.viewer);
-        showToast('Viewing @' + normTargetU + ' with Privileged Access — read only');
+        setPrivilegedReadOnlySession(normTargetU, loginOpts.viewer, loginOpts.grants, { ownerPreview: !!loginOpts.ownerPreview });
+        const grantCount = (typeof normalizePrivilegedGrants === 'function') ? normalizePrivilegedGrants(loginOpts.grants).length : 0;
+        showToast('Viewing @' + normTargetU + ' with Privileged Access' + (grantCount ? '' : ' — read only'));
       } else if (restorePrivileged && typeof restorePrivilegedReadOnlySession === 'function') {
         const restored = restorePrivilegedReadOnlySession(normTargetU);
         if (!restored) {
@@ -28965,6 +29039,9 @@ function syncLikedStateToPosts() {
 
     function performLogout() {
       if (typeof clearPrivilegedReadOnlySession === 'function') clearPrivilegedReadOnlySession();
+      if (window.pixlyOwnerSessions && typeof window.pixlyOwnerSessions.clearAll === 'function') {
+        try { window.pixlyOwnerSessions.clearAll().catch(function () {}); } catch (e) {}
+      }
       window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1;
       window._pixlyAuthUsername = '';
       if (typeof closeSwitchPasswordModal === 'function') closeSwitchPasswordModal();
@@ -33259,7 +33336,7 @@ function syncLikedStateToPosts() {
         if (editProfileForm) {
           editProfileForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('editProfile')) return;
             const validated = (typeof validateEditProfileForm === 'function')
               ? validateEditProfileForm()
               : { ok: false, errors: [{ message: 'Profile validation is unavailable.', focusId: 'btn-save-edit-profile' }], values: {} };
@@ -33278,6 +33355,16 @@ function syncLikedStateToPosts() {
             const bizFields = validated.values.bizFields;
             const oldUNorm = validated.values.oldUNorm;
             const newUNorm = validated.values.newUNorm;
+            // Privileged Access 'Edit profile' grant: name, bio, link, photo and business details only. The username,
+            // account type, email and phone stay with the owner (firestore.rules allow the same fields).
+            if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+              const typeChanged = !!(window._editingAccountType && window._editingAccountType !== (state.currentUser.accountType || 'personal'));
+              const contactChanged = String(email || '') !== String(state.currentUser.email || '') || String(phone || '') !== String(state.currentUser.phone || '');
+              if ((username && newUNorm !== oldUNorm) || typeChanged || contactChanged) {
+                showToast('Only the owner can change the username, account type, email or phone');
+                return;
+              }
+            }
 
             // Username change: validate already passed. Migrate the account first, then save remaining fields.
             if (username && newUNorm !== oldUNorm) {
@@ -33534,7 +33621,7 @@ function syncLikedStateToPosts() {
         if (modalCommentForm) {
           modalCommentForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('comment')) return;
             const input = document.getElementById('modal-comment-input');
             const text = input ? input.value.trim() : '';
             if (!text || !state.currentModalPostId) return;
@@ -33549,7 +33636,7 @@ function syncLikedStateToPosts() {
                 const parentC = post.comments.find(c => String(c.id) === String(replyTarget.commentId));
                 if (parentC) {
                   if (!Array.isArray(parentC.replies)) parentC.replies = [];
-                  const newReply = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [] };
+                  const newReply = Object.assign({ id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [] }, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
                   parentC.replies.push(newReply);
                   if (parentC.user && normalizeUsername(parentC.user) !== curU) {
                     addNotificationForUser(parentC.user, {
@@ -33570,7 +33657,7 @@ function syncLikedStateToPosts() {
                 window._replyingToPostComment = null;
                 if (input) input.placeholder = 'Add a comment...';
               } else {
-                const newComment = { id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [], replies: [] };
+                const newComment = Object.assign({ id: Date.now(), user: state.currentUser.username, text: text, timestamp: 'Just now', likedBy: [], replies: [] }, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
                 post.comments.push(newComment);
                 if (post.author && normalizeUsername(post.author) !== curU) {
                   addNotificationForUser(post.author, {
@@ -34200,7 +34287,7 @@ function syncLikedStateToPosts() {
         if (noteComposeForm) {
           noteComposeForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('note')) return;
             const input = document.getElementById('note-input-text');
             if (!input || !input.value.trim()) {
               showToast('Please enter a note to share');
@@ -34219,6 +34306,7 @@ function syncLikedStateToPosts() {
               replies: 0,
               audience: (typeof currentComposerAudience === 'function') ? currentComposerAudience('note-cf-only-toggle') : 'public'
             };
+            Object.assign(newNote, (typeof privilegedDelegateStamp === 'function' ? privilegedDelegateStamp() : {}));
             if (!state.notes) state.notes = [];
             state.notes.unshift(newNote);
             if (typeof notifyMentionsInText === 'function' && newNote.text) {
@@ -36093,42 +36181,142 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
 
     // --- Privileged Access session (read-only while viewing as a granted account) ---
+    // Per-permission grants (t1044u/t1045u): the owner picks what a delegate may do for them. All off = read only.
+    // The UI hides/blocks ungranted actions; firestore.rules (delegateGrants) and the Worker (Promote) enforce them.
     const PIXLY_PRIV_READONLY_KEY = 'pixly_priv_readonly_session';
+    const PIXLY_PRIV_GRANTS = [
+      { key: 'post', label: 'Post posts' },
+      { key: 'note', label: 'Post notes' },
+      { key: 'like', label: 'Like' },
+      { key: 'comment', label: 'Comment' },
+      { key: 'dm', label: 'Send DMs' },
+      { key: 'editProfile', label: 'Edit profile' },
+      { key: 'deletePost', label: 'Delete posts' },
+      { key: 'billing', label: 'View Billing History and stats' },
+      { key: 'promote', label: 'Spend on Promote' }
+    ];
+    window.PIXLY_PRIV_GRANTS = PIXLY_PRIV_GRANTS;
+    function normalizePrivilegedGrants(list) {
+      const valid = PIXLY_PRIV_GRANTS.map(function (g) { return g.key; });
+      const out = [];
+      (Array.isArray(list) ? list : []).forEach(function (k) {
+        const key = String(k || '');
+        if (valid.indexOf(key) !== -1 && out.indexOf(key) === -1) out.push(key);
+      });
+      return out;
+    }
+    window.normalizePrivilegedGrants = normalizePrivilegedGrants;
+    function privilegedGrantLabel(key) {
+      const g = PIXLY_PRIV_GRANTS.find(function (x) { return x.key === key; });
+      return g ? g.label : key;
+    }
+    window.privilegedGrantLabel = privilegedGrantLabel;
     function isPrivilegedReadOnly() {
       return !!(state && state.privilegedReadOnly);
     }
     window.isPrivilegedReadOnly = isPrivilegedReadOnly;
-    function privilegedActionBlocked() {
+    // True only in a delegate session whose owner turned this grant on (never in the owner's read-only preview).
+    function privilegedHasGrant(key) {
+      if (!isPrivilegedReadOnly() || state.privilegedOwnerPreview) return false;
+      return normalizePrivilegedGrants(state.privilegedGrants).indexOf(String(key || '')) !== -1;
+    }
+    window.privilegedHasGrant = privilegedHasGrant;
+    function privilegedHasAnyGrant() {
+      return PIXLY_PRIV_GRANTS.some(function (g) { return privilegedHasGrant(g.key); });
+    }
+    window.privilegedHasAnyGrant = privilegedHasAnyGrant;
+    function privilegedActionBlocked(grant) {
       if (!isPrivilegedReadOnly()) return false;
-      if (typeof showToast === 'function') showToast('Privileged Access is read-only');
+      if (grant && privilegedHasGrant(grant)) return false;
+      if (typeof showToast === 'function') {
+        showToast(grant && !state.privilegedOwnerPreview
+          ? ('@' + (state.privilegedOwner || 'this account') + ' has not allowed you to ' + privilegedGrantLabel(grant).toLowerCase())
+          : 'Privileged Access is read-only');
+      }
       return true;
     }
     window.privilegedActionBlocked = privilegedActionBlocked;
+    // Stamp for anything a delegate makes for the owner (posts, notes, comments, DMs). Empty for the owner.
+    function privilegedDelegateStamp() {
+      if (!isPrivilegedReadOnly() || state.privilegedOwnerPreview || !state.privilegedViewer) return {};
+      return { delegatedBy: String(state.privilegedViewer).toLowerCase().replace(/^@/, '') };
+    }
+    window.privilegedDelegateStamp = privilegedDelegateStamp;
+    function privilegedDelegateAvatar(username) {
+      const u = String(username || '').toLowerCase().replace(/^@/, '');
+      try {
+        if (typeof getPostAuthorAvatar === 'function') {
+          const av = getPostAuthorAvatar({ author: u });
+          if (av) return av;
+        }
+      } catch (e) {}
+      return (typeof NEUTRAL_BLANK_AVATAR !== 'undefined') ? NEUTRAL_BLANK_AVATAR : '';
+    }
+    window.privilegedDelegateAvatar = privilegedDelegateAvatar;
+    // Small "by @delegate" chip with the delegate's avatar, for posts, notes, comments and likes made by a delegate.
+    function privilegedDelegateBadgeHtml(itemOrName) {
+      const raw = (itemOrName && typeof itemOrName === 'object') ? itemOrName.delegatedBy : itemOrName;
+      const u = String(raw || '').toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '');
+      if (!u) return '';
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (x) { return String(x); };
+      return '<span class="pixly-delegate-badge" title="Done by @' + esc(u) + ' with Privileged Access" data-delegate="' + esc(u) + '">'
+        + '<img src="' + esc(privilegedDelegateAvatar(u)) + '" alt="">by @' + esc(u) + '</span>';
+    }
+    window.privilegedDelegateBadgeHtml = privilegedDelegateBadgeHtml;
+    // Likes a delegate made for an account: "Liked for @owner  [avatar] by @delegate".
+    function privilegedLikeDelegatesHtml(item) {
+      const map = item && item.likeDelegates && typeof item.likeDelegates === 'object' ? item.likeDelegates : null;
+      if (!map) return '';
+      const likers = (typeof likeUniqueNames === 'function') ? likeUniqueNames(item.likedBy) : (Array.isArray(item.likedBy) ? item.likedBy : []);
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (x) { return String(x); };
+      const rows = Object.keys(map).filter(function (owner) {
+        return map[owner] && likers.indexOf(owner) !== -1;
+      }).map(function (owner) {
+        return '<div class="pixly-like-delegate text-[10px] text-neutral-500 flex items-center gap-1">Liked for @' + esc(owner) + ' ' + privilegedDelegateBadgeHtml(map[owner]) + '</div>';
+      });
+      return rows.join('');
+    }
+    window.privilegedLikeDelegatesHtml = privilegedLikeDelegatesHtml;
     function applyPrivilegedReadOnlyUi() {
       try {
         const on = isPrivilegedReadOnly();
+        const grants = on && !state.privilegedOwnerPreview ? normalizePrivilegedGrants(state.privilegedGrants) : [];
         document.body.classList.toggle('privileged-read-only', on);
+        PIXLY_PRIV_GRANTS.forEach(function (g) {
+          document.body.classList.toggle('priv-grant-' + g.key, on && grants.indexOf(g.key) !== -1);
+        });
         const bar = document.getElementById('privileged-readonly-banner');
         if (bar) {
           const owner = state.privilegedOwner || (state.currentUser && state.currentUser.username) || '';
-          bar.textContent = on
-            ? ('Viewing @' + String(owner).replace(/^@/, '') + ' with Privileged Access — read only. You can look around, but you cannot post, message, like, follow, or change settings.')
-            : 'Viewing with Privileged Access — read only';
+          const o = String(owner).replace(/^@/, '');
+          let msg;
+          if (!on) msg = 'Viewing with Privileged Access — read only';
+          else if (state.privilegedOwnerPreview) msg = 'Viewing @' + o + ' as @' + (state.privilegedViewer || 'delegate') + ' would — read only preview.';
+          else if (grants.length) msg = 'Viewing @' + o + ' with Privileged Access. You can: ' + grants.map(privilegedGrantLabel).join(', ') + '. Everything else is read only.';
+          else msg = 'Viewing @' + o + ' with Privileged Access — read only. You can look around, but you cannot post, message, like, follow, or change settings.';
+          const txt = document.getElementById('privileged-readonly-banner-text');
+          if (txt) txt.textContent = msg; else bar.textContent = msg;
+          const fullBtn = document.getElementById('btn-priv-banner-full-access');
+          if (fullBtn) fullBtn.classList.toggle('hidden', !on);
           if (on) { bar.classList.remove('hidden'); bar.style.display = 'block'; }
           else { bar.classList.add('hidden'); bar.style.display = 'none'; }
         }
         if (typeof updateNoteComposerFab === 'function') updateNoteComposerFab();
-        if (on && typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false);
+        if (on && !privilegedHasGrant('note') && typeof setNoteComposerExpanded === 'function') setNoteComposerExpanded(false);
       } catch (e) {}
     }
     window.applyPrivilegedReadOnlyUi = applyPrivilegedReadOnlyUi;
-    function setPrivilegedReadOnlySession(owner, viewer) {
+    function setPrivilegedReadOnlySession(owner, viewer, grants, opts) {
       const o = (typeof normalizeUsername === 'function') ? normalizeUsername(owner) : String(owner || '').toLowerCase();
       const v = (typeof normalizeUsername === 'function') ? normalizeUsername(viewer) : String(viewer || '').toLowerCase();
+      const preview = !!(opts && opts.ownerPreview);
+      const g = preview ? [] : normalizePrivilegedGrants(grants);
       state.privilegedReadOnly = true;
       state.privilegedOwner = o;
       state.privilegedViewer = v;
-      try { sessionStorage.setItem(PIXLY_PRIV_READONLY_KEY, JSON.stringify({ owner: o, viewer: v })); } catch (e) {}
+      state.privilegedGrants = g;
+      state.privilegedOwnerPreview = preview;
+      try { sessionStorage.setItem(PIXLY_PRIV_READONLY_KEY, JSON.stringify({ owner: o, viewer: v, grants: g, ownerPreview: preview })); } catch (e) {}
       applyPrivilegedReadOnlyUi();
     }
     window.setPrivilegedReadOnlySession = setPrivilegedReadOnlySession;
@@ -36136,6 +36324,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       state.privilegedReadOnly = false;
       state.privilegedOwner = '';
       state.privilegedViewer = '';
+      state.privilegedGrants = [];
+      state.privilegedOwnerPreview = false;
       try { sessionStorage.removeItem(PIXLY_PRIV_READONLY_KEY); } catch (e) {}
       applyPrivilegedReadOnlyUi();
     }
@@ -36148,7 +36338,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase();
         const owner = rec && rec.owner ? String(rec.owner).toLowerCase().replace(/^@/, '') : '';
         if (rec && owner && owner === u && rec.viewer) {
-          setPrivilegedReadOnlySession(rec.owner, rec.viewer);
+          setPrivilegedReadOnlySession(rec.owner, rec.viewer, rec.grants, { ownerPreview: !!rec.ownerPreview });
           return true;
         }
       } catch (e) {}
@@ -36303,8 +36493,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         '#nav-btn-create', '#btn-open-create-modal', '#btn-profile-create-post', '#btn-create-camera',
         '#btn-submit-post', '#btn-submit-story', '#btn-highlight-submit', '#btn-save-post-draft',
         '#btn-edit-profile', '#btn-profile-avatar-edit', '#btn-save-edit-profile',
-        '#btn-ac-grant-privileged', '.ac-priv-revoke-btn',
-        '.btn-like-post', '.btn-save-post', '.btn-like-explore-card',
+        '#btn-ac-grant-privileged', '.ac-priv-revoke-btn', '.ac-priv-edit-grants-btn', '.ac-priv-save-grants-btn',
+        '#ac-priv-grant-picker', '.btn-like-post', '.btn-save-post', '.btn-like-explore-card',
         '#btn-note-modal-like', '#btn-dm-send', '#btn-dm-new-chat', '#btn-dm-photo',
         '.explore-account-follow', '#btn-user-profile-follow', '#btn-user-profile-connect',
         '#create-post-form', '#edit-profile-form', '#modal-comment-form', '#note-modal-comment-form',
@@ -36330,9 +36520,40 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (!oc) return false;
         return /togglePostLike|toggleSavePost|toggleLikeNote|applyLocalFollowToggle|sendConnectRequest|sendDmQuickReaction|handleSendDirectMessage|handleCreatePostAction|openCreatePostModal|openCreateCamera|handleDeletePostAction|blockUser|muteUser|submitNoteModalComment|grantPrivilegedAccessToUser|revokePrivilegedAccess|openCancelMembershipConfirm|confirmCancelMembership|markStripeCheckoutInitiated|markStripePortalVisit|goToSubscriptionFromVerificationPaywall|saveEditedContent|openDeactivateConfirmModal|confirmDeactivateAccount|openDmShareModal|openMessagesModal|handleNoteModalShare/.test(oc);
       }
+      // Actions the owner may allow one by one (per-permission grants). A granted action is let through here;
+      // its handler still checks the grant, and firestore.rules / the Worker enforce it on the server.
+      const GRANT_SEL = {
+        post: '#nav-btn-create, #btn-open-create-modal, #btn-profile-create-post, #btn-create-camera, #btn-submit-post, #create-post-form, .btn-feed-create-first',
+        note: '#btn-note-fab, #note-composer-sheet, #note-composer-panel, #note-compose-form',
+        like: '.btn-like-post, .btn-like-explore-card, #btn-note-modal-like',
+        comment: '.feed-comment-form, #modal-comment-form, #note-modal-comment-form, .btn-focus-comment, #btn-modal-focus-comment, #btn-modal-post-comment',
+        dm: '#btn-dm-send, #btn-dm-new-chat, #btn-dm-photo, #dm-send-form, #btn-open-messages, #btn-user-profile-message',
+        editProfile: '#btn-edit-profile, #btn-profile-avatar-edit, #btn-save-edit-profile, #edit-profile-form'
+      };
+      const GRANT_ONCLICK = {
+        post: /handleCreatePostAction|openCreatePostModal|openCreateCamera/,
+        like: /togglePostLike|toggleLikeNote/,
+        comment: /submitNoteModalComment/,
+        dm: /handleSendDirectMessage|sendDmQuickReaction|openMessagesModal/,
+        deletePost: /handleDeletePostAction/
+      };
+      function grantedActionTarget(el) {
+        if (!el || !el.closest || typeof privilegedHasGrant !== 'function') return false;
+        // Stories, drafts and highlights have no grant: they stay read-only even inside the create form.
+        if (el.closest('#btn-submit-story, #btn-save-post-draft, #btn-highlight-submit')) return false;
+        const host = (el.getAttribute && el.getAttribute('onclick')) ? el : el.closest('[onclick]');
+        const oc = host && host.getAttribute ? (host.getAttribute('onclick') || '') : '';
+        return Object.keys(GRANT_SEL).concat(Object.keys(GRANT_ONCLICK)).some(function (k) {
+          if (!privilegedHasGrant(k)) return false;
+          if (GRANT_SEL[k] && el.closest(GRANT_SEL[k])) return true;
+          return !!(oc && GRANT_ONCLICK[k] && GRANT_ONCLICK[k].test(oc));
+        });
+      }
+      window.privilegedGrantedActionTarget = grantedActionTarget;
       function blockIfNeeded(e) {
         if (typeof isPrivilegedReadOnly !== 'function' || !isPrivilegedReadOnly()) return;
         if (!isPrivilegedActionTarget(e.target)) return;
+        if (grantedActionTarget((e.type === 'submit' && e.submitter) ? e.submitter : e.target)) return;
         e.preventDefault();
         e.stopPropagation();
         if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
@@ -36341,7 +36562,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       document.addEventListener('submit', blockIfNeeded, true);
       document.addEventListener('change', function (e) {
         if (typeof isPrivilegedReadOnly !== 'function' || !isPrivilegedReadOnly()) return;
-        if (e.target && e.target.id === 'dm-file-input') {
+        if (e.target && e.target.id === 'dm-file-input' && !(typeof privilegedHasGrant === 'function' && privilegedHasGrant('dm'))) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
@@ -36415,10 +36636,53 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.hasAcceptedPrivilegedAccess = hasAcceptedPrivilegedAccess;
 
+    // Grant picker: one checkbox per action the owner may allow. All off = read only (the default).
+    function privilegedGrantChecksHtml(selected, cls) {
+      const sel = normalizePrivilegedGrants(selected);
+      return PIXLY_PRIV_GRANTS.map(function (g) {
+        return '<label class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-indigo-100 text-[11px] font-semibold text-neutral-800 cursor-pointer">'
+          + '<input type="checkbox" class="' + cls + ' accent-indigo-600" data-grant="' + g.key + '"' + (sel.indexOf(g.key) !== -1 ? ' checked' : '') + '>'
+          + '<span>' + escapeHtml(g.label) + '</span></label>';
+      }).join('');
+    }
+    window.privilegedGrantChecksHtml = privilegedGrantChecksHtml;
+    function renderPrivilegedGrantOptions(containerId, selected, cls) {
+      const el = document.getElementById(containerId);
+      if (el) el.innerHTML = privilegedGrantChecksHtml(selected, cls);
+    }
+    window.renderPrivilegedGrantOptions = renderPrivilegedGrantOptions;
+    function readPrivilegedGrantChecks(scope, cls) {
+      const root = typeof scope === 'string' ? document.querySelector(scope) : scope;
+      if (!root) return [];
+      return normalizePrivilegedGrants(Array.from(root.querySelectorAll('input.' + cls)).filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.getAttribute('data-grant'); }));
+    }
+    window.readPrivilegedGrantChecks = readPrivilegedGrantChecks;
+    // The owner changes what a delegate may do. Saved on the owner's doc (rules read delegateGrants).
+    function updatePrivilegedGrants(rawTarget, grants) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(rawTarget);
+      if (!curU || !targetU) return false;
+      const clean = normalizePrivilegedGrants(grants);
+      const list = getPrivilegedGrantedList(curU);
+      const entry = list.find(g => normalizeUsername(g.username) === targetU);
+      if (!entry) return false;
+      entry.grants = clean;
+      entry.grantsUpdatedAt = Date.now();
+      savePrivilegedGrantedList(curU, list);
+      if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateGrants === 'function') window.pixlyGuard.syncDelegateGrants(curU, targetU, clean);
+      showToast(clean.length ? ('@' + targetU + ' can now: ' + clean.map(privilegedGrantLabel).join(', ')) : ('@' + targetU + ' is read only now'));
+      renderPrivilegedAccessView();
+      return true;
+    }
+    window.updatePrivilegedGrants = updatePrivilegedGrants;
+
     async function renderPrivilegedAccessView() {
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
       const ownerEl = document.getElementById('ac-priv-owner-handle');
       if (ownerEl) ownerEl.textContent = '@' + curU;
+      const pickEl = document.getElementById('ac-priv-grant-options');
+      if (pickEl && !pickEl.querySelector('input.ac-priv-grant-cb')) renderPrivilegedGrantOptions('ac-priv-grant-options', [], 'ac-priv-grant-cb');
 
       // Sync from Firestore if available
       if (window.firebaseReady && window.firebase && window.firebase.db && curU) {
@@ -36443,17 +36707,48 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (granted.length === 0) {
           grantedEl.innerHTML = '<div class="p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-[11px] text-neutral-500 text-center">No accounts granted privileged access yet.</div>';
         } else {
-          grantedEl.innerHTML = granted.map(g => `
-            <div class="flex items-center justify-between p-2.5 rounded-xl border border-neutral-200 bg-white">
-              <div class="min-w-0">
-                <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(g.username)}</div>
-                <div class="text-[10px] ${g.status === 'accepted' ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}">${g.status === 'accepted' ? 'Active · Accepted' : 'Pending invite'}</div>
+          grantedEl.innerHTML = granted.map(g => {
+            // Grants made before per-permission grants have no list: they stay read only.
+            const gs = normalizePrivilegedGrants(g.grants);
+            const summary = gs.length ? ('Can: ' + gs.map(privilegedGrantLabel).join(', ')) : 'Read only';
+            return `
+            <div class="p-2.5 rounded-xl border border-neutral-200 bg-white space-y-1.5 ac-priv-granted-row" data-username="${escapeHtml(g.username)}">
+              <div class="flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(g.username)}</div>
+                  <div class="text-[10px] ${g.status === 'accepted' ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}">${g.status === 'accepted' ? 'Active · Accepted' : 'Pending invite'}</div>
+                  <div class="ac-priv-grant-summary text-[10px] text-neutral-500">${escapeHtml(summary)}</div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <button type="button" class="ac-priv-edit-grants-btn px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(g.username)}">Edit</button>
+                  <button type="button" class="ac-priv-revoke-btn px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(g.username)}">Revoke</button>
+                </div>
               </div>
-              <button type="button" class="ac-priv-revoke-btn px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(g.username)}">Revoke</button>
-            </div>
-          `).join('');
+              <div class="ac-priv-grant-editor hidden pt-1 border-t border-neutral-100 space-y-1.5">
+                <div class="grid grid-cols-2 gap-1 ac-priv-edit-grant-options"></div>
+                <button type="button" class="ac-priv-save-grants-btn w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(g.username)}">Save</button>
+              </div>
+            </div>`;
+          }).join('');
           grantedEl.querySelectorAll('.ac-priv-revoke-btn').forEach(btn => {
             btn.addEventListener('click', () => revokePrivilegedAccess(btn.dataset.username));
+          });
+          grantedEl.querySelectorAll('.ac-priv-granted-row').forEach(row => {
+            const u = row.dataset.username;
+            const entry = granted.find(x => normalizeUsername(x.username) === normalizeUsername(u)) || {};
+            const opts = row.querySelector('.ac-priv-edit-grant-options');
+            if (opts) opts.innerHTML = privilegedGrantChecksHtml(normalizePrivilegedGrants(entry.grants), 'ac-priv-edit-grant-cb');
+            const editBtn = row.querySelector('.ac-priv-edit-grants-btn');
+            if (editBtn) editBtn.addEventListener('click', () => {
+              if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
+              const ed = row.querySelector('.ac-priv-grant-editor');
+              if (ed) ed.classList.toggle('hidden');
+            });
+            const saveBtn = row.querySelector('.ac-priv-save-grants-btn');
+            if (saveBtn) saveBtn.addEventListener('click', () => {
+              const picked = readPrivilegedGrantChecks(row, 'ac-priv-edit-grant-cb');
+              updatePrivilegedGrants(u, picked);
+            });
           });
         }
       }
@@ -36514,10 +36809,12 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         showToast(existing.status === 'accepted' ? `@${targetU} already has privileged access` : `Invite already pending for @${targetU}`);
         return;
       }
-      list.unshift({ username: targetU, status: 'pending', grantedAt: Date.now() });
+      const grants = readPrivilegedGrantChecks('#ac-priv-grant-options', 'ac-priv-grant-cb');
+      list.unshift({ username: targetU, status: 'pending', grantedAt: Date.now(), grants: grants });
       savePrivilegedGrantedList(curU, list);
       // Database lockdown: the security rules let @targetU act for this account only while its uid is listed here.
       if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateUid === 'function') window.pixlyGuard.syncDelegateUid(curU, targetU, true);
+      if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateGrants === 'function') window.pixlyGuard.syncDelegateGrants(curU, targetU, grants);
 
       if (typeof addNotificationForUser === 'function') {
         await addNotificationForUser(targetU, {
@@ -36535,6 +36832,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         });
       }
       if (typeof clearPrivilegedInviteUser === 'function') clearPrivilegedInviteUser();
+      renderPrivilegedGrantOptions('ac-priv-grant-options', [], 'ac-priv-grant-cb');
       showToast(`Privileged Access invite sent to @${targetU} ✓`);
       renderPrivilegedAccessView();
     }
@@ -36547,6 +36845,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const updated = getPrivilegedGrantedList(curU).filter(g => normalizeUsername(g.username) !== targetU);
       savePrivilegedGrantedList(curU, updated);
       if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateUid === 'function') window.pixlyGuard.syncDelegateUid(curU, targetU, false);
+      if (window.pixlyGuard && typeof window.pixlyGuard.syncDelegateGrants === 'function') window.pixlyGuard.syncDelegateGrants(curU, targetU, []);
 
       // Remove curU from targetU's privilegedAccounts and accountCenters/<targetU>
       if (window.firebaseReady && window.firebase && window.firebase.db) {
@@ -36684,38 +36983,187 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.respondToPrivilegedAccessInvite = respondToPrivilegedAccessInvite;
 
-    let _pendingSwitchAccountObj = null;
-    let _switchRequestSeq = 0;
-    async function requestAccountSwitchWithAuth(acc) {
-      if (!acc || !acc.username) return;
-      const reqSeq = ++_switchRequestSeq;
-      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
-      const targetU = normalizeUsername(acc.username);
-      if (!targetU || curU === targetU) return;
-
-      // Allow passwordless switch ONLY if current user has accepted Privileged Access for targetU
-      if (hasAcceptedPrivilegedAccess(curU, targetU)) {
-        let verifiedByTarget = false;
-        if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
-          try {
-            const { db, doc, getDoc } = window.firebase;
-            const snap = await getDoc(doc(db, 'users', targetU));
-            if (reqSeq !== _switchRequestSeq) return;
-            if (snap.exists()) {
-              const d = snap.data() || {};
-              const granted = Array.isArray(d.privilegedAccessGranted) ? d.privilegedAccessGranted : [];
-              verifiedByTarget = granted.some(g => normalizeUsername(g && g.username) === curU && g.status === 'accepted');
-            }
-          } catch(e) {}
+    // --- Owner switch-back (t1041u) ---
+    // Bradley owns @bradley_hansen and @pixlynote, and @pixlynote has Privileged Access to @bradley_hansen. Switching
+    // back used to always open the read-only delegate view. Now, when this browser still holds @bradley_hansen's OWN
+    // sign-in (kept in a named Firebase Auth instance after a real owner login, uid checked), the switch opens full
+    // owner access. A delegate who is not the owner never has that sign-in, so they still get the delegate view.
+    // Signing out clears every kept sign-in.
+    const PIXLY_OWNER_SESSIONS_KEY = 'pixly_owner_sessions';
+    window.pixlyOwnerSessions = (function () {
+      const vaults = {};
+      function norm(u) { return (typeof normalizeUsername === 'function') ? normalizeUsername(u || '') : String(u || '').toLowerCase().replace(/^@/, '').trim(); }
+      function list() {
+        try { const a = JSON.parse(sessionStorage.getItem(PIXLY_OWNER_SESSIONS_KEY) || '[]'); return Array.isArray(a) ? a.map(norm).filter(Boolean) : []; } catch (e) { return []; }
+      }
+      function save(arr) { try { sessionStorage.setItem(PIXLY_OWNER_SESSIONS_KEY, JSON.stringify(arr || [])); } catch (e) {} }
+      function fbOk() {
+        const fb = window.firebase;
+        return !!(window.firebaseReady && fb && fb.auth && fb.updateCurrentUser && fb.initializeApp && fb.getAuth && fb.firebaseConfig);
+      }
+      function vault(u) {
+        if (vaults[u]) return vaults[u];
+        const fb = window.firebase;
+        const name = 'pixly-owner-' + u.replace(/[^a-z0-9_]/g, '_');
+        let app = null;
+        try { app = fb.getApp ? fb.getApp(name) : null; } catch (e) { app = null; }
+        if (!app) app = fb.initializeApp(fb.firebaseConfig, name);
+        vaults[u] = fb.getAuth(app);
+        return vaults[u];
+      }
+      async function accountUid(u, expected) {
+        if (expected) return String(expected);
+        const k = window.pixlyGuard && window.pixlyGuard.knownUids && window.pixlyGuard.knownUids[u];
+        if (k && k.uid) return k.uid;
+        try {
+          const fb = window.firebase;
+          const snap = await fb.getDoc(fb.doc(fb.db, 'users', u));
+          return (snap && snap.exists && snap.exists()) ? String((snap.data() || {}).uid || '') : '';
+        } catch (e) { return ''; }
+      }
+      // After a real owner login: keep a copy of this account's sign-in.
+      async function remember(username) {
+        const u = norm(username);
+        if (!u) return false;
+        if (fbOk()) {
+          const cur = window.firebase.auth.currentUser;
+          const uid = await accountUid(u);
+          if (!cur || cur.isAnonymous || !uid || cur.uid !== uid) return false;
+          try { await window.firebase.updateCurrentUser(vault(u), cur); } catch (e) { return false; }
+        } else if (window.firebaseReady) {
+          return false;
         }
-        if (reqSeq !== _switchRequestSeq) return;
-        if (verifiedByTarget) {
-          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc, { privilegedReadOnly: true, viewer: curU });
-          return;
+        const arr = list();
+        if (arr.indexOf(u) === -1) { arr.push(u); save(arr); }
+        return true;
+      }
+      // True only when this browser holds the account's own sign-in (its uid), never a delegate's.
+      async function available(username, expectedUid) {
+        const u = norm(username);
+        if (!u || list().indexOf(u) === -1) return false;
+        if (!fbOk()) return !window.firebaseReady && window.__PIXLY_REGRESSION === true;
+        const uid = await accountUid(u, expectedUid);
+        if (!uid) return false;
+        const a = vault(u);
+        try { if (typeof a.authStateReady === 'function') await a.authStateReady(); } catch (e) {}
+        return !!(a.currentUser && !a.currentUser.isAnonymous && a.currentUser.uid === uid);
+      }
+      // Make the kept owner sign-in the active one (Firestore then reads and writes as the owner).
+      async function restore(username, expectedUid) {
+        const u = norm(username);
+        if (!(await available(u, expectedUid))) return false;
+        if (!fbOk()) return true;
+        const uid = await accountUid(u, expectedUid);
+        window._pixlyAuthLoginInProgress = true;
+        try {
+          await window.firebase.updateCurrentUser(window.firebase.auth, vault(u).currentUser);
+        } catch (e) {
+          return false;
+        } finally {
+          window._pixlyAuthLoginInProgress = false;
+        }
+        const cur = window.firebase.auth.currentUser;
+        if (!cur || cur.uid !== uid) return false;
+        window._pixlyAuthUsername = u;
+        return true;
+      }
+      function forget(username) {
+        const u = norm(username);
+        save(list().filter(function (x) { return x !== u; }));
+        if (vaults[u] && window.firebase && window.firebase.signOut) { try { window.firebase.signOut(vaults[u]).catch(function () {}); } catch (e) {} }
+      }
+      async function clearAll() {
+        const arr = list();
+        save([]);
+        if (!fbOk()) return;
+        for (const u of arr) {
+          try { await window.firebase.signOut(vault(u)); } catch (e) {}
         }
       }
+      return { remember: remember, available: available, restore: restore, forget: forget, clearAll: clearAll, list: list };
+    })();
 
-      if (reqSeq !== _switchRequestSeq) return;
+    // The delegate account (signed in here too) that has accepted Privileged Access to `owner`, or ''.
+    function ownerDelegateViewer(owner) {
+      const o = normalizeUsername(owner || '');
+      if (!o) return '';
+      const accs = (typeof getSessionAccounts === 'function') ? getSessionAccounts() : [];
+      const hit = accs.find(function (a) {
+        const u = normalizeUsername(a && a.username);
+        return u && u !== o && hasAcceptedPrivilegedAccess(u, o);
+      });
+      return hit ? normalizeUsername(hit.username) : '';
+    }
+    window.ownerDelegateViewer = ownerDelegateViewer;
+    function paintOwnerDelegateViewToggle() {
+      const wrap = document.getElementById('account-switcher-delegate-view');
+      const btn = document.getElementById('btn-switcher-delegate-view');
+      if (!wrap || !btn) return;
+      const cur = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const viewer = (!isPrivilegedReadOnly() && state.isLoggedIn) ? ownerDelegateViewer(cur) : '';
+      wrap.classList.toggle('hidden', !viewer);
+      btn.textContent = viewer ? ('View @' + cur + ' as @' + viewer + ' (read only)') : 'View as delegate (read only)';
+      btn.dataset.viewer = viewer;
+    }
+    window.paintOwnerDelegateViewToggle = paintOwnerDelegateViewToggle;
+    // Owner -> read-only delegate view. The owner's own sign-in stays active (this view can only do less).
+    function openOwnerDelegateView() {
+      if (isPrivilegedReadOnly()) return false;
+      const cur = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const viewer = ownerDelegateViewer(cur);
+      if (!cur || !viewer) return false;
+      if (window.pixlyOwnerSessions) window.pixlyOwnerSessions.remember(cur).catch(function () {});
+      setPrivilegedReadOnlySession(cur, viewer, [], { ownerPreview: true });
+      if (typeof closeAccountSwitcher === 'function') closeAccountSwitcher();
+      try { if (typeof renderFeed === 'function') renderFeed(); } catch (e) {}
+      try { if (typeof renderProfile === 'function') renderProfile(); } catch (e) {}
+      if (typeof showToast === 'function') showToast('Viewing @' + cur + ' as @' + viewer + ' — read only');
+      return true;
+    }
+    window.openOwnerDelegateView = openOwnerDelegateView;
+    // Delegate view -> full owner access. Needs proof of ownership: the owner's own sign-in kept in this browser,
+    // or the owner's password. Never opens full access for a delegate who is not the owner.
+    async function switchPrivilegedToFullAccess() {
+      if (!isPrivilegedReadOnly()) return false;
+      const owner = normalizeUsername(state.privilegedOwner || (state.currentUser && state.currentUser.username) || '');
+      if (!owner) return false;
+      if (state.privilegedOwnerPreview) {
+        // The owner opened this preview from their own full session; their sign-in never changed.
+        clearPrivilegedReadOnlySession();
+        try { if (typeof renderFeed === 'function') renderFeed(); } catch (e) {}
+        try { if (typeof renderProfile === 'function') renderProfile(); } catch (e) {}
+        if (typeof showToast === 'function') showToast('Back to full access on @' + owner);
+        return true;
+      }
+      const acc = ((typeof getSessionAccounts === 'function') ? getSessionAccounts() : []).find(function (a) { return normalizeUsername(a && a.username) === owner; })
+        || Object.assign({}, state.currentUser || {}, { username: owner });
+      if (window.pixlyOwnerSessions && await window.pixlyOwnerSessions.restore(owner)) {
+        performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc);
+        if (typeof showToast === 'function') showToast('Full access on @' + owner);
+        return true;
+      }
+      // No kept owner sign-in: ask for the owner's password (the normal password switch).
+      openSwitchPasswordFor(acc);
+      return false;
+    }
+    window.switchPrivilegedToFullAccess = switchPrivilegedToFullAccess;
+    // Grants the owner gave the signed-in delegate, read from the owner's doc (delegateGrants[my uid] is what the
+    // rules enforce; the granted-list entry is the fallback for display).
+    function privilegedGrantsFromOwnerDoc(d, viewerU) {
+      if (!d) return [];
+      const fb = window.firebase;
+      const myUid = fb && fb.auth && fb.auth.currentUser ? fb.auth.currentUser.uid : '';
+      const gm = d.delegateGrants && typeof d.delegateGrants === 'object' ? d.delegateGrants : null;
+      if (gm && myUid && Array.isArray(gm[myUid])) return normalizePrivilegedGrants(gm[myUid]);
+      const granted = Array.isArray(d.privilegedAccessGranted) ? d.privilegedAccessGranted : [];
+      const entry = granted.find(function (g) { return normalizeUsername(g && g.username) === normalizeUsername(viewerU); });
+      return normalizePrivilegedGrants(entry && entry.grants);
+    }
+    window.privilegedGrantsFromOwnerDoc = privilegedGrantsFromOwnerDoc;
+
+    let _pendingSwitchAccountObj = null;
+    let _switchRequestSeq = 0;
+    function openSwitchPasswordFor(acc) {
       _pendingSwitchAccountObj = acc;
       const modal = document.getElementById('modal-switch-password');
       const targetEl = document.getElementById('switch-password-target');
@@ -36729,6 +37177,53 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         modal.style.display = 'flex';
         setTimeout(() => { if (inp) inp.focus(); }, 100);
       }
+    }
+    window.openSwitchPasswordFor = openSwitchPasswordFor;
+    async function requestAccountSwitchWithAuth(acc) {
+      if (!acc || !acc.username) return;
+      const reqSeq = ++_switchRequestSeq;
+      const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
+      const targetU = normalizeUsername(acc.username);
+      if (!targetU || curU === targetU) return;
+
+      // Allow passwordless switch ONLY if current user has accepted Privileged Access for targetU
+      if (hasAcceptedPrivilegedAccess(curU, targetU)) {
+        let verifiedByTarget = false;
+        let targetDocData = null;
+        if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.getDoc) {
+          try {
+            const { db, doc, getDoc } = window.firebase;
+            const snap = await getDoc(doc(db, 'users', targetU));
+            if (reqSeq !== _switchRequestSeq) return;
+            if (snap.exists()) {
+              const d = snap.data() || {};
+              targetDocData = d;
+              const granted = Array.isArray(d.privilegedAccessGranted) ? d.privilegedAccessGranted : [];
+              verifiedByTarget = granted.some(g => normalizeUsername(g && g.username) === curU && g.status === 'accepted');
+            }
+          } catch(e) {}
+        } else if (window.__PIXLY_REGRESSION === true && typeof window.__pixlyPrivTargetDoc === 'function') {
+          targetDocData = window.__pixlyPrivTargetDoc(targetU) || null;
+          const granted = targetDocData && Array.isArray(targetDocData.privilegedAccessGranted) ? targetDocData.privilegedAccessGranted : [];
+          verifiedByTarget = granted.some(g => normalizeUsername(g && g.username) === curU && g.status === 'accepted');
+        }
+        if (reqSeq !== _switchRequestSeq) return;
+        // Owner switch-back: this browser still holds the target account's OWN sign-in -> full owner access.
+        if (window.pixlyOwnerSessions && await window.pixlyOwnerSessions.restore(targetU, targetDocData && targetDocData.uid)) {
+          if (reqSeq !== _switchRequestSeq) return;
+          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc);
+          return;
+        }
+        if (reqSeq !== _switchRequestSeq) return;
+        if (verifiedByTarget) {
+          const grants = privilegedGrantsFromOwnerDoc(targetDocData, curU);
+          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc, { privilegedReadOnly: true, viewer: curU, grants: grants });
+          return;
+        }
+      }
+
+      if (reqSeq !== _switchRequestSeq) return;
+      openSwitchPasswordFor(acc);
     }
     window.requestAccountSwitchWithAuth = requestAccountSwitchWithAuth;
 
@@ -37635,7 +38130,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return '';
     }
     function openPromoteModal(kind, id) {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('promote')) return false;
       const k = kind === 'note' ? 'note' : 'post';
       const item = promoteItemFor(k, id);
       const blocked = promoteBlockReason(k, item);
@@ -37742,7 +38237,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     };
     let _promoteCheckoutBusy = false;
     async function startPromoteCheckout() {
-      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('promote')) return false;
       const tgt = window._promoteTarget;
       if (!tgt || _promoteCheckoutBusy) return false;
       const item = promoteItemFor(tgt.kind, tgt.id);
@@ -37898,6 +38393,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (typeof showToast === 'function') showToast('Insights are only for your own promoted posts.');
         return false;
       }
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('billing')) return false;
       const modal = document.getElementById('modal-promote-insights');
       if (!modal) return false;
       modal.setAttribute('data-kind', k);
@@ -38155,7 +38651,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         amountCents: Number(d.amountCents) || 0, currency: String(d.currency || 'usd'),
         status: BILLING_STATUS[d.status] ? d.status : 'pending',
         createdAt: billingMs(d.createdAt), livemode: d.livemode === true,
-        note: String(d.note || '').slice(0, 140)
+        note: String(d.note || '').slice(0, 140),
+        delegatedBy: String(d.delegatedBy || '').toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 40)
       };
     }
     window.normalizeBillingRecord = normalizeBillingRecord;
@@ -38171,6 +38668,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         + '<div class="billing-item text-xs font-bold text-neutral-900 leading-snug">' + billingEsc(r.item) + '</div>'
         + '<div class="billing-date text-[10px] text-neutral-500 mt-0.5">' + billingEsc(billingDate(r.createdAt)) + (r.livemode ? '' : ' \u00b7 Test mode') + '</div>'
         + (r.note ? '<div class="billing-note text-[10px] text-neutral-500 mt-0.5">' + billingEsc(r.note) + '</div>' : '')
+        + (r.delegatedBy && typeof privilegedDelegateBadgeHtml === 'function' ? '<div class="billing-delegate mt-0.5">' + privilegedDelegateBadgeHtml(r.delegatedBy) + '</div>' : '')
         + '</div>'
         + '<div class="text-right flex-shrink-0">'
         + '<div class="billing-amount text-xs font-bold text-neutral-900">' + billingEsc(billingAmount(r.amountCents, r.currency)) + '</div>'
@@ -38188,7 +38686,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const seq = ++_billingLoadSeq;
       const me = (state && state.currentUser && state.currentUser.username) ? String(state.currentUser.username).toLowerCase() : '';
       if (!me || !state.isLoggedIn) { paintBillingHistory([], 'Sign in to see your purchase history.'); return []; }
-      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()
+          && !(typeof privilegedHasGrant === 'function' && privilegedHasGrant('billing'))) {
         paintBillingHistory([], 'Only the account owner can see purchase history.');
         return [];
       }

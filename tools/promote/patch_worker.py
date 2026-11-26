@@ -152,6 +152,22 @@ async function fsPatchExisting(env, path, fields) {
   if (!r.ok) throw new Error("firestore_patch " + r.status);
   return true;
 }
+// Privileged Access (t1045u): a delegate may start Promote checkout for the owner only when the owner listed the
+// delegate's uid in users/{owner}.delegateUids AND turned on the 'promote' grant in delegateGrants[uid].
+// Returns the delegate's account name (for "by @delegate" on the receipt), or "" when not allowed.
+async function promoteDelegateAllowed(env, username, uid) {
+  if (!uid) return "";
+  const user = await fsGetDocAdmin(env, "users/" + encodeURIComponent(username));
+  if (!user) return "";
+  const list = (user.delegateUids && user.delegateUids.arrayValue && user.delegateUids.arrayValue.values || []).map(fsVal);
+  if (!list.includes(uid)) return "";
+  const gm = user.delegateGrants && user.delegateGrants.mapValue && user.delegateGrants.mapValue.fields || {};
+  const mine = gm[uid] && gm[uid].arrayValue && gm[uid].arrayValue.values || [];
+  if (!mine.map(fsVal).includes("promote")) return "";
+  const idx = await fsGetDocAdmin(env, "uidIndex/" + encodeURIComponent(uid));
+  const name = normStripeUser(idx && fsVal(idx.username) || "");
+  return USER_RE.test(name) ? name : "";
+}
 async function verifyFirebaseIdToken(env, idToken) {
   if (typeof idToken !== "string" || idToken.length < 20 || idToken.length > 4096) return "";
   const base = env.AUTH_EMULATOR_BASE ? env.AUTH_EMULATOR_BASE.replace(/\/+$/, "") + "/identitytoolkit.googleapis.com" : "https://identitytoolkit.googleapis.com";
@@ -235,7 +251,11 @@ async function handlePromoteCheckout(req, env, cors, body) {
   let elig;
   try { elig = await promoteEligibility(env, username, kind, id); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
   if (elig.error) return json({ ok: false, error: elig.error }, elig.error === "not_found" || elig.error === "no_account" ? 404 : (elig.error === "already_promoted" ? 409 : 403), cors);
-  if (!elig.uid || elig.uid !== uid) return json({ ok: false, error: "not_owner" }, 403, cors);
+  let delegatedBy = "";
+  if (!elig.uid || elig.uid !== uid) {
+    try { delegatedBy = await promoteDelegateAllowed(env, username, uid); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
+    if (!delegatedBy) return json({ ok: false, error: "not_owner" }, 403, cors);
+  }
   const cta = promoteCleanCta(body.ctaLabel, body.ctaUrl, plan.tier);
   let exempt;
   try { exempt = await promoteIsExempt(env, username); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
@@ -248,6 +268,7 @@ async function handlePromoteCheckout(req, env, cors, body) {
     purpose: "promote", username, kind, postId: id, amount: String(plan.amount), durationHours: String(plan.durationHours),
     targetImpressions: String(plan.targetImpressions), tier: plan.tier, ctaLabel: cta.ctaLabel, ctaUrl: cta.ctaUrl,
   };
+  if (delegatedBy) meta.delegatedBy = delegatedBy;
   const site = promoteSiteBase(env);
   const r = await stripePost(env, "checkout/sessions", {
     mode: "payment",
@@ -322,6 +343,7 @@ function promoteBillingRecord(s, plan, kind, id, status, note) {
     itemKind: kind, itemId: id, amountCents: Number(s.amount_total) || plan.amount * 100, currency: String(s.currency || "usd").toLowerCase(),
     tier: plan.tier, durationHours: plan.durationHours, targetImpressions: plan.targetImpressions,
     status, note: note || "", createdAt: (Number(s.created) || Math.floor(Date.now() / 1000)) * 1000, sessionId: s.id, paymentIntent: stripePi(s), livemode: !!s.livemode,
+    delegatedBy: normStripeUser((s.metadata && s.metadata.delegatedBy) || ""),
   };
 }
 function stripeLiveBlocked(env, o) { return !!(o && o.livemode) && env.PROMOTE_ALLOW_LIVE !== "on"; }

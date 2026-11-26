@@ -8,7 +8,11 @@ rules_version = '2';
 // - uidIndex/{uid} = { username } maps the signed-in user back to the account name (written by the owner).
 // - Signed-out visitors have NO Auth session (Anonymous sign-in is off in Firebase): they can read public content
 //   and raise a public post's or note's view count by exactly one. Nothing else.
-// - users/{u}.delegateUids lists the uids the owner granted Privileged Access (passwordless, read-only view).
+// - users/{u}.delegateUids lists the uids the owner granted Privileged Access (passwordless view).
+// - users/{u}.delegateGrants[delegateUid] lists what that delegate may do for the owner (t1044u/t1045u):
+//   'post', 'note', 'like', 'comment', 'dm', 'editProfile', 'deletePost', 'billing', 'promote'.
+//   Missing or empty = read-only (the old behavior). Only the owner can write delegateUids / delegateGrants.
+//   Posts, notes and comments a delegate makes carry delegatedBy = the delegate's own account name.
 // - @pixlynote is the admin account: its uid may read and fix anything (admin tools keep working).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,8 +27,25 @@ service cloud.firestore {
       return realUser() && exists(userPath(u)) && request.auth.uid in get(userPath(u)).data.get('delegateUids', []);
     }
     function canActAs(u) { return ownsUser(u) || isDelegate(u); }
-    // Privileged Access is read-only: delegates may view as the owner, but only the owner may write.
+    // Privileged Access is read-only unless the owner turned on a grant: only the owner may write, except the
+    // narrow, per-grant writes below (delegateMay).
     function canWriteAs(u) { return ownsUser(u); }
+    // ---- Per-permission grants ----
+    function grantsOf(u) {
+      let g = get(userPath(u)).data.get('delegateGrants', {});
+      return g is map ? g.get(request.auth.uid, []) : [];
+    }
+    function delegateMay(u, g) { return isDelegate(u) && grantsOf(u) is list && grantsOf(u).hasAny([g]); }
+    // The item names the delegate who made it (their own account name, from uidIndex).
+    function stampedByMe(d) { return d is map && myName() != '__none__' && d.get('delegatedBy', '') == myName(); }
+    // Profile fields a delegate with the 'editProfile' grant may change (never username, account type, contact,
+    // privacy, Plus/verification flags, delegate lists, or anything private).
+    function delegateProfileFields() {
+      return ['fullName', 'bio', 'link', 'avatar', 'photoURL', 'dbaName', 'personalName', 'businessName',
+              'businessIndustry', 'businessIndustryOther', 'businessStreet', 'businessCity', 'businessState',
+              'businessPostal', 'businessAddressVisibility', 'businessHours', 'businessSupportEmail',
+              'profileUpdatedAt', 'lastUpdated'];
+    }
     function isAdmin() { return ownsUser('pixlynote'); }
     // Bradley's decision (open, default NO): may @pixlynote read private accounts' posts and connections lists?
     // Admin moderation (delete, verification review, account deletion, support data) works either way.
@@ -180,6 +201,64 @@ service cloud.firestore {
             || (changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
           );
     }
+    // A delegate's write to the owner's public doc: only what the matching grant covers.
+    function delegateUserUpdate(u) {
+      return realUser() && isDelegate(u)
+          && request.resource.data.get('uid', '') == resource.data.get('uid', '')
+          && (
+            (changed().hasOnly(['lastUpdated']) && grantsOf(u) is list && grantsOf(u).size() > 0)
+            || (delegateMay(u, 'editProfile') && changed().hasOnly(delegateProfileFields()))
+            || (delegateMay(u, 'like') && changed().hasOnly(['likedPostIds', 'likedNoteIds', 'likedStoryIds', 'lastUpdated'])
+                && showcaseLikesNotGrown())
+            || (delegateMay(u, 'comment') && changed().hasOnly(['commentsMap', 'lastUpdated']))
+          );
+    }
+    // posts/{id}.likedBy: a delegate with the 'like' grant adds or removes the OWNER's name (one entry), and
+    // records who did it in likeDelegates[owner] = delegate.
+    function delegateLikeStep() {
+      let before = resource.data.get('likedBy', []);
+      let after = request.resource.data.get('likedBy', []);
+      let bd = resource.data.get('likeDelegates', {});
+      let ad = request.resource.data.get('likeDelegates', {});
+      return before is list && after is list && bd is map && ad is map
+          && changed().hasOnly(['likedBy', 'likeDelegates'])
+          && (
+            (after.size() == before.size() + 1
+              && delegateMay(after[after.size() - 1], 'like')
+              && likeAdds(before, after, after[after.size() - 1])
+              && notShowcase(after[after.size() - 1])
+              && myName() != '__none__'
+              && ad.get(after[after.size() - 1], '') == myName()
+              && ad.diff(bd).affectedKeys().hasOnly([after[after.size() - 1]]))
+            || (before.size() == after.size() + 1
+              && before.removeAll(after).size() == 1
+              && delegateMay(before.removeAll(after)[0], 'like')
+              && likeRemoves(before, after, before.removeAll(after)[0])
+              && ad.diff(bd).affectedKeys().hasOnly([before.removeAll(after)[0]]))
+          );
+    }
+    // posts/{id}.comments: a new comment in someone else's name needs that account's 'comment' grant and must
+    // name the delegate. Comments in your own name work as before.
+    function commentGrowthOk() {
+      let b = resource.data.get('comments', []);
+      let a = request.resource.data.get('comments', []);
+      return !(a is list) || !(b is list) || a.size() != b.size() + 1 || !(a[a.size() - 1] is map)
+          || a[a.size() - 1].get('user', '') == '' || a[a.size() - 1].get('user', '') == myName()
+          || (delegateMay(a[a.size() - 1].get('user', ''), 'comment') && stampedByMe(a[a.size() - 1]));
+    }
+    // users/{u}/content/profile: a delegate with the 'note' grant adds exactly one note (at the top), stamped.
+    function delegateNoteAdd() {
+      let b = resource == null ? [] : resource.data.get('notes', []);
+      let a = request.resource.data.get('notes', []);
+      let keys = resource == null ? request.resource.data.keys() : changed();
+      return keys.hasOnly(['notes', 'lastUpdated']) && a is list && b is list
+          && a.size() == b.size() + 1 && stampedByMe(a[0]) && a.hasAll(b);
+    }
+    // users/{u}/private/account: a delegate with the 'dm' grant may change only the owner's DMs.
+    function delegateDmWrite() {
+      let keys = resource == null ? request.resource.data.keys() : changed();
+      return keys.hasOnly(['dms', 'lastDmUpdated']);
+    }
     // Contact, credential, DM and session fields live in users/{u}/private/account, never on the public doc.
     function privateFields() {
       return ['email', 'phone', 'dms', 'lastDmUpdated', 'loginActivityLog', 'otherSessions', 'sessionRevokedAt',
@@ -208,6 +287,7 @@ service cloud.firestore {
       allow update: if (canWriteAs(username)
                         && request.resource.data.get('uid', '') == resource.data.get('uid', '')
                         && (ownsUser(username) || request.resource.data.get('delegateUids', []) == resource.data.get('delegateUids', []))
+                        && (ownsUser(username) || request.resource.data.get('delegateGrants', {}) == resource.data.get('delegateGrants', {}))
                         && !changed().hasAny(privateFields())
                         && !changed().hasAny(privilegeFields())
                         && privilegeUnchanged()
@@ -223,24 +303,25 @@ service cloud.firestore {
                         && showcaseNotAdded()
                         && !changed().hasAny(privilegeFields()))
                     || crossUserUpdate(username)
+                    || delegateUserUpdate(username)
                     || isAdmin();
       allow delete: if ownsUser(username) || isAdmin();
 
       // Billing History: Stripe purchase records written only by the Worker's signed Stripe webhook
       // (service account) or admin. Only the account owner can read them (not Privileged Access delegates).
       match /billing/{recordId} {
-        allow read: if ownsUser(username) || isAdmin();
+        allow read: if ownsUser(username) || delegateMay(username, 'billing') || isAdmin();
         allow write: if isAdmin();
       }
       match /private/{docId} {
         allow read: if canActAs(username) || isAdmin();
-        allow write: if canWriteAs(username) || isAdmin();
+        allow write: if canWriteAs(username) || isAdmin() || (delegateMay(username, 'dm') && delegateDmWrite());
       }
       // Notes, stories, highlights and the following list. Public accounts: anyone may read.
       // Private accounts: only the owner, a Privileged Access delegate, or an approved connection.
       match /content/{docId} {
         allow read: if isPublicAccount(username) || canActAs(username) || approvedBy(username) || adminSeesPrivate();
-        allow write: if canWriteAs(username) || isAdmin();
+        allow write: if canWriteAs(username) || isAdmin() || (delegateMay(username, 'note') && delegateNoteAdd());
       }
 
       // Connections edges. Public account: the follower writes their own edge.
@@ -282,18 +363,21 @@ service cloud.firestore {
       // Rules are not filters: list queries must say where('authorPrivate', '==', false),
       // or where('author', '==', X) for an account the viewer may see.
       allow read: if readablePost(resource.data);
-      allow create: if realUser() && canWriteAs(request.resource.data.author)
+      allow create: if realUser()
+        && (canWriteAs(request.resource.data.author)
+            || (delegateMay(request.resource.data.author, 'post') && stampedByMe(request.resource.data)))
         && (isPublicAccount(request.resource.data.author) || request.resource.data.get('authorPrivate', false) == true)
         && !request.resource.data.keys().hasAny(promoteFields());
       allow update: if (canWriteAs(resource.data.author)
                         && !changed().hasAny(promoteFields())
                         && (request.resource.data.author == resource.data.author || canWriteAs(request.resource.data.author))
                         && (isPublicAccount(resource.data.author) || request.resource.data.get('authorPrivate', false) == true))
-                    || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data))
+                    || (realUser() && changed().hasOnly(['comments']) && readablePost(resource.data) && commentGrowthOk())
                     || (changed().hasOnly(['views']) && plusOneView() && readablePost(resource.data))
                     || (realUser() && postLikedByStep() && readablePost(resource.data))
+                    || (realUser() && delegateLikeStep() && readablePost(resource.data))
                     || isAdmin();
-      allow delete: if canWriteAs(resource.data.author) || isAdmin();
+      allow delete: if canWriteAs(resource.data.author) || delegateMay(resource.data.author, 'deletePost') || isAdmin();
     }
 
     match /uidIndex/{uid} {
