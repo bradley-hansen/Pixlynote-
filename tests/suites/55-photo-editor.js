@@ -156,6 +156,26 @@ module.exports = {
         a.equal(edit.rowScrolls, 'auto', 'filter row scrolls horizontally');
         await page.waitForFunction(() => Array.from(document.querySelectorAll('#photo-filter-row img')).every((i) => (i.src || '').startsWith('data:image')), null, { timeout: 5000 });
         a.ok(true, 'every filter thumbnail is a preview of the photo');
+        const thumbMarks = await page.evaluate(async () => {
+          const img = document.querySelector('#photo-filter-row .photo-filter-thumb[data-filter="puppy"] img');
+          if (!img || !img.src) return { brownOrPink: 0, nose: 0 };
+          await new Promise((res, rej) => { if (img.complete && img.naturalWidth) res(); else { img.onload = res; img.onerror = rej; } });
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth || 96; c.height = img.naturalHeight || 96;
+          c.getContext('2d').drawImage(img, 0, 0);
+          const { width: w, height: h } = c;
+          const d = c.getContext('2d').getImageData(0, 0, w, h).data;
+          let brownOrPink = 0, nose = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2];
+            if ((r > 90 && r < 170 && g > 40 && g < 120 && b < 80 && r > g + 10) ||
+                (r > 200 && g > 120 && g < 210 && b > 140 && b < 230 && r > g + 20)) brownOrPink++;
+            if (r < 45 && g < 45 && b < 45) nose++;
+          }
+          return { brownOrPink, nose, w, h };
+        });
+        a.ok(thumbMarks.brownOrPink > 30, 'Puppy ears tile thumbnail clearly shows ears: ' + JSON.stringify(thumbMarks));
+        a.ok(thumbMarks.nose > 5, 'Puppy ears tile thumbnail still shows the nose: ' + JSON.stringify(thumbMarks));
 
         await page.click('#btn-photo-tool-ai');
         a.ok(await page.evaluate(() => !document.getElementById('photo-edit-panel-ai').classList.contains('hidden')), 'AI tool opens its panel');
@@ -364,6 +384,65 @@ module.exports = {
         a.ok(await page.evaluate(() => pixlyPhotoEdit.current !== pixlyPhotoEdit.original), 'Done applies the puppy ears');
         a.equal(errors.length, 0, 'no page errors: ' + errors.join(' | '));
         await page.click('#btn-photo-review-back');
+      }
+    },
+    {
+      name: 'Photo editor: puppy ear bounds stay inside the image when the face is near the top edge, and the exported JPEG contains the full ears',
+      accounts: ['personal'],
+      covers: ['handler:selectPhotoFilter'],
+      async run({ page, h, a }) {
+        await h.gotoMainTab(page, 'feed');
+        const report = await page.evaluate(() => {
+          const nearTop = [{
+            left: { x: 0.32, y: 0.20 }, right: { x: 0.68, y: 0.20 },
+            top: { x: 0.5, y: 0.05 }, nose: { x: 0.5, y: 0.24 }, chin: { x: 0.5, y: 0.42 }
+          }];
+          const normal = [{
+            left: { x: 0.30, y: 0.50 }, right: { x: 0.70, y: 0.50 },
+            top: { x: 0.5, y: 0.32 }, nose: { x: 0.5, y: 0.55 }, chin: { x: 0.5, y: 0.80 }
+          }];
+          function inside(b, w, h) {
+            return b && b.left >= 0 && b.top >= 0 && b.right <= w && b.bottom <= h && (b.right - b.left) > 8 && (b.bottom - b.top) > 8;
+          }
+          function render(w, h, faces) {
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#7ec8e3';
+            ctx.fillRect(0, 0, w, h);
+            pixlyDrawPuppyEars(ctx, w, h, faces);
+            const layout = pixlyPuppyEarLayout(w, h, faces);
+            const d = ctx.getImageData(0, 0, w, h).data;
+            let insideEars = 0, outsideEars = 0;
+            const pad = 0;
+            for (let y = 0; y < h; y++) {
+              for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                const r = d[i], g = d[i + 1], b = d[i + 2];
+                const ear = (r > 90 && r < 170 && g > 40 && g < 120 && b < 80 && r > g + 10) ||
+                            (r > 200 && g > 120 && g < 210 && b > 140 && b < 230 && r > g + 20);
+                if (!ear) continue;
+                const inBox = x >= pad && y >= pad && x < w - pad && y < h - pad;
+                if (inBox) insideEars++; else outsideEars++;
+              }
+            }
+            const jpeg = c.toDataURL('image/jpeg', 0.82);
+            return { w, h, bounds: layout.bounds, inside: inside(layout.bounds, w, h), insideEars, outsideEars, jpegLen: jpeg.length };
+          }
+          return {
+            topSquare: render(400, 400, nearTop),
+            topPortrait: render(300, 400, nearTop),
+            normal: render(400, 400, normal)
+          };
+        });
+        ['topSquare', 'topPortrait', 'normal'].forEach((k) => {
+          const r = report[k];
+          a.ok(r.inside, k + ': ear bounding box stays inside the image: ' + JSON.stringify(r.bounds) + ' in ' + r.w + 'x' + r.h);
+          a.ok(r.insideEars > 30, k + ': ears are actually drawn: ' + JSON.stringify(r));
+          a.equal(r.outsideEars, 0, k + ': no ear pixels fall outside the image');
+        });
+        a.ok(report.topSquare.bounds.top >= 0 && report.topPortrait.bounds.top >= 0, 'ears of a near-top face are not clipped at y < 0');
+        a.ok(report.topSquare.jpegLen > 1000 && report.topPortrait.jpegLen > 1000, 'JPEG of the fitted ears is produced for the upload path');
       }
     },
     {

@@ -2288,7 +2288,7 @@
       </button>
     </div>
     <div class="flex-1 min-h-0 flex items-center justify-center px-3">
-      <img id="photo-review-img" alt="Photo to post" class="max-w-full max-h-full object-contain rounded-xl">
+      <img id="photo-review-img" alt="Photo to post" class="max-w-full max-h-full object-contain rounded-xl overflow-hidden">
     </div>
     <div id="photo-review-note" class="hidden text-center text-xs text-amber-200 px-4 pt-2"></div>
     <div class="p-4 pb-6">
@@ -2303,7 +2303,7 @@
       <button type="button" id="btn-photo-edit-done" onclick="donePhotoEdit()" class="px-3 py-1 text-sm font-bold rounded-full bg-gradient-to-r from-violet-600 to-pink-500 cursor-pointer">Done</button>
     </div>
     <div class="flex-1 min-h-0 flex items-center justify-center px-3">
-      <canvas id="photo-edit-canvas" class="max-w-full max-h-full object-contain rounded-xl" style="max-width: 100%; max-height: 100%;"></canvas>
+      <canvas id="photo-edit-canvas" class="max-w-full max-h-full object-contain rounded-xl overflow-hidden" style="max-width: 100%; max-height: 100%;"></canvas>
     </div>
     <div class="px-3 pt-3 min-h-[132px]">
       <div id="photo-edit-panel-filter">
@@ -19760,8 +19760,8 @@ function syncLikedStateToPosts() {
     // Used only for the Puppy ears filter thumbnail, so the tile shows ears
     // before (or without) running face tracking on the real photo.
     const PIXLY_PUPPY_THUMB_FACES = [{
-      left: { x: 0.32, y: 0.52 }, right: { x: 0.68, y: 0.52 },
-      top: { x: 0.5, y: 0.32 }, nose: { x: 0.5, y: 0.56 }, chin: { x: 0.5, y: 0.82 }
+      left: { x: 0.30, y: 0.58 }, right: { x: 0.70, y: 0.58 },
+      top: { x: 0.5, y: 0.40 }, nose: { x: 0.5, y: 0.62 }, chin: { x: 0.5, y: 0.86 }
     }];
     function matchPhotoAiKeyword(text) {
       const t = String(text || '');
@@ -19831,7 +19831,30 @@ function syncLikedStateToPosts() {
     }
 
     // faces: [{ left:{x,y}, right:{x,y}, top:{x,y}, nose:{x,y}, chin:{x,y} }] in 0..1 image coords
-    function pixlyDrawPuppyEars(ctx, w, h, faces) {
+    function pixlyRotatedEllipseBounds(cx, cy, a, b, rot) {
+      const c = Math.cos(rot), s = Math.sin(rot);
+      const bw = Math.sqrt(a * a * c * c + b * b * s * s);
+      const bh = Math.sqrt(a * a * s * s + b * b * c * c);
+      return { left: cx - bw, right: cx + bw, top: cy - bh, bottom: cy + bh };
+    }
+    function pixlyUnionBounds(list) {
+      if (!list || !list.length) return { left: 0, top: 0, right: 0, bottom: 0 };
+      return list.reduce((u, b) => ({
+        left: Math.min(u.left, b.left), right: Math.max(u.right, b.right),
+        top: Math.min(u.top, b.top), bottom: Math.max(u.bottom, b.bottom)
+      }));
+    }
+    function pixlyEarEllipseWorld(ax, ay, rot, earW, earH, pad) {
+      // Local ear center is (0, -earH * 0.48); rotate into image space.
+      const cx = ax + (earH * 0.48) * Math.sin(rot);
+      const cy = ay - (earH * 0.48) * Math.cos(rot);
+      return pixlyRotatedEllipseBounds(cx, cy, earW / 2 + pad, earH / 2 + pad, rot);
+    }
+    // Preferred: ears on the crown, just above the hairline. If that would
+    // leave the photo, shift and shrink so the whole ear stays inside.
+    function pixlyPuppyEarLayout(w, h, faces) {
+      const out = { items: [], bounds: { left: 0, top: 0, right: 0, bottom: 0 } };
+      const all = [];
       (faces || []).forEach((f) => {
         if (!f || !f.left || !f.right || !f.top || !f.nose) return;
         const L = { x: f.left.x * w, y: f.left.y * h };
@@ -19841,35 +19864,101 @@ function syncLikedStateToPosts() {
         const faceW = Math.hypot(R.x - L.x, R.y - L.y);
         if (!(faceW > 4)) return;
         const ang = Math.atan2(R.y - L.y, R.x - L.x);
-        const ux = Math.cos(ang), uy = Math.sin(ang);      // across the face
-        const px = Math.sin(ang), py = -Math.cos(ang);     // up from the face (toward the crown)
-        // Landmark 10 is the forehead, not the top of the hair. Place the ears
-        // on the crown, above the hairline, and point them up like a dog-ear filter.
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        const px = Math.sin(ang), py = -Math.cos(ang);
         const chin = f.chin ? { x: f.chin.x * w, y: f.chin.y * h } : null;
         const faceH = (chin && Math.hypot(chin.x - T.x, chin.y - T.y) > 4)
           ? Math.hypot(chin.x - T.x, chin.y - T.y)
           : faceW * 1.25;
-        const crownX = T.x + px * faceH * 0.38;
-        const crownY = T.y + py * faceH * 0.38;
-        const earW = faceW * 0.30, earH = faceW * 0.55;
-        [-1, 1].forEach((side) => {
-          const ax = crownX + ux * side * faceW * 0.34;
-          const ay = crownY + uy * side * faceW * 0.34;
+        const lineW = Math.max(2, faceW * 0.015);
+        const strokePad = lineW / 2 + 0.5;
+        function makeLayout(lift, scale) {
+          const crownX = T.x + px * lift;
+          const crownY = T.y + py * lift;
+          const earW = faceW * 0.30 * scale;
+          const earH = faceW * 0.55 * scale;
+          const spread = faceW * 0.34 * scale;
+          const ears = [-1, 1].map((side) => {
+            const rot = ang + side * 0.32;
+            const ax = crownX + ux * side * spread;
+            const ay = crownY + uy * side * spread;
+            return { ax, ay, rot, earW, earH, bounds: pixlyEarEllipseWorld(ax, ay, rot, earW, earH, strokePad) };
+          });
+          return { ears, earW, earH, bounds: pixlyUnionBounds(ears.map((e) => e.bounds)) };
+        }
+        function shiftLayout(lay, dx, dy) {
+          lay.ears.forEach((e) => {
+            e.ax += dx; e.ay += dy;
+            e.bounds = pixlyEarEllipseWorld(e.ax, e.ay, e.rot, e.earW, e.earH, strokePad);
+          });
+          lay.bounds = pixlyUnionBounds(lay.ears.map((e) => e.bounds));
+          return lay;
+        }
+        function isInside(b) {
+          return b.left >= 0 && b.top >= 0 && b.right <= w && b.bottom <= h;
+        }
+        let lift = faceH * 0.38;
+        let scale = 1;
+        let lay = makeLayout(lift, scale);
+        const boxW = lay.bounds.right - lay.bounds.left;
+        const boxH = lay.bounds.bottom - lay.bounds.top;
+        if (boxW > w || boxH > h) {
+          scale = Math.min(w / Math.max(1, boxW), h / Math.max(1, boxH)) * 0.98;
+          if (!(scale > 0.2)) scale = 0.2;
+          lay = makeLayout(lift * scale, scale);
+        }
+        if (!isInside(lay.bounds)) {
+          let dx = 0, dy = 0;
+          if (lay.bounds.top < 0) dy = -lay.bounds.top;
+          if (lay.bounds.left < 0) dx = -lay.bounds.left;
+          if (lay.bounds.right + dx > w) dx = w - lay.bounds.right;
+          if (lay.bounds.bottom + dy > h) dy = h - lay.bounds.bottom;
+          if (lay.bounds.left + dx < 0) dx = -lay.bounds.left;
+          if (lay.bounds.top + dy < 0) dy = -lay.bounds.top;
+          shiftLayout(lay, dx, dy);
+        }
+        if (!isInside(lay.bounds)) {
+          const bw = Math.max(1, lay.bounds.right - lay.bounds.left);
+          const bh = Math.max(1, lay.bounds.bottom - lay.bounds.top);
+          scale = Math.min(scale, w / bw, h / bh) * 0.98;
+          if (!(scale > 0.2)) scale = 0.2;
+          lay = makeLayout(lift * scale, scale);
+          let dx = 0, dy = 0;
+          if (lay.bounds.top < 0) dy = -lay.bounds.top;
+          if (lay.bounds.left < 0) dx = -lay.bounds.left;
+          if (lay.bounds.right + dx > w) dx = w - lay.bounds.right;
+          if (lay.bounds.bottom + dy > h) dy = h - lay.bounds.bottom;
+          shiftLayout(lay, dx, dy);
+        }
+        out.items.push({ ang: ang, nose: N, faceW: faceW, lineW: lineW, ears: lay.ears });
+        all.push(lay.bounds);
+      });
+      if (all.length) out.bounds = pixlyUnionBounds(all);
+      return out;
+    }
+    window.pixlyPuppyEarLayout = pixlyPuppyEarLayout;
+    window.pixlyDrawPuppyEars = pixlyDrawPuppyEars;
+
+    function pixlyDrawPuppyEars(ctx, w, h, faces) {
+      const layout = pixlyPuppyEarLayout(w, h, faces);
+      layout.items.forEach((face) => {
+        face.ears.forEach((e) => {
           ctx.save();
-          ctx.translate(ax, ay);
-          ctx.rotate(ang + side * 0.32);
+          ctx.translate(e.ax, e.ay);
+          ctx.rotate(e.rot);
           ctx.fillStyle = '#7a4a24';
           ctx.strokeStyle = '#4a2a10';
-          ctx.lineWidth = Math.max(2, faceW * 0.015);
+          ctx.lineWidth = face.lineW;
           ctx.beginPath();
-          ctx.ellipse(0, -earH * 0.48, earW / 2, earH / 2, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, -e.earH * 0.48, e.earW / 2, e.earH / 2, 0, 0, Math.PI * 2);
           ctx.fill(); ctx.stroke();
           ctx.fillStyle = '#f2a3bf';
           ctx.beginPath();
-          ctx.ellipse(0, -earH * 0.42, earW * 0.26, earH * 0.32, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, -e.earH * 0.42, e.earW * 0.26, e.earH * 0.32, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         });
+        const N = face.nose, faceW = face.faceW, ang = face.ang;
         ctx.save();
         ctx.translate(N.x, N.y);
         ctx.rotate(ang);
@@ -20033,6 +20122,37 @@ function syncLikedStateToPosts() {
       pixlyRenderFilterDots();
     }
 
+    function pixlyCropToPuppyThumb(srcCanvas, faces, size) {
+      const w = srcCanvas.width, h = srcCanvas.height;
+      const layout = pixlyPuppyEarLayout(w, h, faces);
+      const b = layout.bounds;
+      const noses = layout.items.map((it) => it.nose);
+      let left = b.left, right = b.right, top = b.top, bottom = b.bottom;
+      noses.forEach((n) => {
+        if (!n) return;
+        left = Math.min(left, n.x);
+        right = Math.max(right, n.x);
+        top = Math.min(top, n.y);
+        bottom = Math.max(bottom, n.y);
+      });
+      const pad = Math.max(8, (b.bottom - b.top) * 0.35);
+      left -= pad; right += pad; top -= pad; bottom += pad;
+      let side = Math.max(right - left, bottom - top, 16);
+      if (side > w) side = w;
+      if (side > h) side = h;
+      let x = (left + right) / 2 - side / 2;
+      let y = (top + bottom) / 2 - side / 2;
+      if (x < 0) x = 0;
+      if (y < 0) y = 0;
+      if (x + side > w) x = w - side;
+      if (y + side > h) y = h - side;
+      const thumb = document.createElement('canvas');
+      thumb.width = size;
+      thumb.height = size;
+      thumb.getContext('2d').drawImage(srcCanvas, x, y, side, side, 0, 0, size, size);
+      return thumb;
+    }
+
     async function pixlyBuildFilterRow() {
       const row = document.getElementById('photo-filter-row');
       if (!row) return;
@@ -20047,15 +20167,18 @@ function syncLikedStateToPosts() {
       for (const f of PIXLY_PHOTO_FILTERS) {
         try {
           const edits = { filter: f.id };
-          if (pixlyIsEarsFilter(f.id)) {
-            edits.faces = (pixlyPhotoEdit.previewFaces && pixlyPhotoEdit.previewFaces.length)
+          const earFaces = pixlyIsEarsFilter(f.id)
+            ? ((pixlyPhotoEdit.previewFaces && pixlyPhotoEdit.previewFaces.length)
               ? pixlyPhotoEdit.previewFaces
-              : PIXLY_PUPPY_THUMB_FACES;
-          }
-          const c = await pixlyRenderPhotoToCanvas(src, edits, null, 96);
+              : PIXLY_PUPPY_THUMB_FACES)
+            : null;
+          if (earFaces) edits.faces = earFaces;
+          const c = await pixlyRenderPhotoToCanvas(src, edits, null, earFaces ? 240 : 96);
           if (src !== pixlyPhotoEdit.original) return;
+          let out = c;
+          if (earFaces) out = pixlyCropToPuppyThumb(c, earFaces, 96);
           const img = row.querySelector(`.photo-filter-thumb[data-filter="${f.id}"] img`);
-          if (img) img.src = c.toDataURL('image/jpeg', 0.7);
+          if (img) img.src = out.toDataURL('image/jpeg', 0.7);
         } catch (e) {}
       }
     }
