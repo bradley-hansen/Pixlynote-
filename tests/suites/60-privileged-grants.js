@@ -243,16 +243,21 @@ module.exports = {
           const form = document.getElementById('note-compose-form');
           if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
           const note = (state.notes || []).find((n) => n.text === 'note from delegate');
-          // Comment via the feed form.
+          // Comment via the feed form, on a post seeded here so earlier suites cannot change which card is first.
+          const pid = 990000000 + Math.floor(Math.random() * 1000);
+          state.posts.unshift({ id: pid, author: 'someone_else', authorName: 'Someone', image: (state.posts[0] && state.posts[0].image) || '', caption: 'comment probe', likes: 0, likedBy: [], comments: [], timestamp: 'JUST NOW' });
           switchMainTab('feed'); renderFeed();
-          const cform = Array.from(document.querySelectorAll('.feed-comment-form')).find((f) => /^\d+$/.test(String(f.dataset.postId || '')));
+          const cform = document.querySelector('.feed-comment-form[data-post-id="' + pid + '"]');
           let comment = null;
+          let diag = { hadForm: !!cform, forms: document.querySelectorAll('.feed-comment-form').length };
           if (cform) {
-            const pid = parseInt(cform.dataset.postId, 10);
             cform.querySelector('.feed-comment-input').value = 'comment from delegate';
-            cform.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-            const p = (state.posts || []).concat(state.explorePosts || []).find((x) => x.id === pid);
+            const btn = cform.querySelector('button[type="submit"]');
+            if (cform.requestSubmit) cform.requestSubmit(btn || undefined); else cform.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            const p = state.posts.find((x) => x.id === pid);
             comment = p && (p.comments || []).find((c) => c.text === 'comment from delegate');
+            diag.comments = p ? (p.comments || []).length : -1;
+            state.posts = state.posts.filter((x) => x.id !== pid);
           }
           // DM.
           state.messages = state.messages && state.messages.length ? state.messages : [{ user: 'dm_friend', name: 'DM Friend', chat: [] }];
@@ -263,11 +268,12 @@ module.exports = {
           handleSendDirectMessage({ preventDefault() {} });
           const thread = state.messages.find((t) => (t.chat || []).some((m) => m.text === 'dm from delegate'));
           const dm = thread && thread.chat.find((m) => m.text === 'dm from delegate');
-          return { note: note && note.delegatedBy, comment: comment && comment.delegatedBy, hadForm: !!cform, dm: dm && dm.delegatedBy,
+          return { note: note && note.delegatedBy, comment: comment && comment.delegatedBy, hadForm: !!cform, diag, dm: dm && dm.delegatedBy,
             likeBlocked: privilegedActionBlocked('like') };
         });
         a.equal(r.note, viewer, 'note stamped');
-        if (r.hadForm) a.equal(r.comment, viewer, 'comment stamped');
+        a.ok(r.hadForm, 'feed comment form is shown with the Comment grant: ' + JSON.stringify(r.diag));
+        a.equal(r.comment, viewer, 'comment stamped: ' + JSON.stringify(r.diag));
         a.equal(r.dm, viewer, 'DM stamped');
         a.ok(r.likeBlocked, 'Like stays blocked when not granted');
         // Delegate with Edit profile still cannot change the username.
