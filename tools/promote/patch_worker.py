@@ -12,7 +12,8 @@ Routes added
     the browser. Returns {ok, url}. Nothing is marked promoted here.
 - POST /stripe/webhook     Stripe-signed (STRIPE_WEBHOOK_SECRET). On checkout.session.completed /
     async_payment_succeeded with payment_status=paid and metadata.purpose=promote, re-checks ownership and
-    writes the promotion fields with the service account. Unpromotable paid sessions are refunded.
+    writes the promotion fields with the service account. NOTHING is ever refunded by this code: a paid
+    session whose post was deleted or made private before payment completed is recorded (billing) and not promoted.
 - POST /promote/impression {key, sid}  counts one view per browser session per promotion, with per-IP caps.
     The count lives in the Guard Durable Object and is written to Firestore every 10 views and at the end.
 - GET  /promote/stats?key= live {count, target, until, active} for the Insights drawer.
@@ -21,10 +22,11 @@ Billing History (t1007u): the same webhook writes one record per Stripe purchase
 users/{username}/billing/{id} (read: owner only; write: Worker/admin only, see firestore.rules):
   {kind: "promote"|"subscription", item, amountCents, currency, status, createdAt, sessionId|invoiceId,
    paymentIntent, livemode, source: "stripe_webhook"}
-  - checkout.session.completed (promote)       -> status paid | refunded | refund_pending
+  - checkout.session.completed (promote)       -> status paid (with a note if the item could not be promoted)
   - checkout.session.completed (subscription)  -> status paid | trial  (Plus flags still come from /sync-subscription)
   - invoice.paid (renewals) / invoice.payment_failed -> paid | failed
-  - charge.refunded                             -> refunded | partially_refunded
+  - charge.refunded                             -> refunded | partially_refunded (display only, when Stripe reports a
+                                                   refund made manually in the Stripe Dashboard; this code never issues refunds)
 Stripe webhook events to enable: checkout.session.completed, checkout.session.async_payment_succeeded,
 invoice.paid, invoice.payment_failed, charge.refunded.
 """
@@ -40,7 +42,7 @@ def rep(old, new):
 SNIPPET = r'''
 // ---------- Promote Post: Stripe Checkout, webhook, view counting (free tiers) ----------
 // Keep PROMOTE_ANCHORS identical to PROMOTE_ANCHORS in index.html (tests compare them).
-const PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7500], [500, 720, 50000]];
+const PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7000], [500, 720, 50000]];
 const PROMOTE_MIN = 5, PROMOTE_MAX = 500;
 const PROMOTE_CTA_LABELS = ["Learn more", "Shop now", "Visit site", "Book now", "Sign up", "Contact us"];
 const PROMOTE_KEY_RE = /^(post|note)_[A-Za-z0-9_-]{1,64}$/;
@@ -54,7 +56,9 @@ function promotePlan(amount) {
   for (let i = 0; i < PROMOTE_ANCHORS.length - 1; i++) { if (a <= PROMOTE_ANCHORS[i + 1][0]) { seg = i; break; } }
   const [a0, h0, v0] = PROMOTE_ANCHORS[seg], [a1, h1, v1] = PROMOTE_ANCHORS[seg + 1];
   const t = (a - a0) / (a1 - a0);
-  const durationHours = Math.round(h0 + t * (h1 - h0));
+  // Whole hours under 2 days, whole days from 2 days up (so "5 days" is exactly 5 days).
+  const rawH = h0 + t * (h1 - h0);
+  const durationHours = rawH < 48 ? Math.round(rawH) : Math.round(rawH / 24) * 24;
   const targetImpressions = Math.round((v0 + t * (v1 - v0)) / 50) * 50;
   const tier = a >= 100 ? "cta" : (a >= 25 ? "explore" : "feed");
   return { amount: a, durationHours, targetImpressions, tier };
@@ -149,10 +153,8 @@ function formBody(obj, prefix, out) {
   }
   return out.join("&");
 }
-async function stripePost(env, path, obj, idemKey) {
-  const headers = { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" };
-  if (idemKey) headers["Idempotency-Key"] = idemKey;
-  const r = await fetch("https://api.stripe.com/v1/" + path, { method: "POST", headers, body: formBody(obj) });
+async function stripePost(env, path, obj) {
+  const r = await fetch("https://api.stripe.com/v1/" + path, { method: "POST", headers: { Authorization: "Bearer " + env.STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" }, body: formBody(obj) });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
@@ -211,13 +213,6 @@ async function verifyStripeSignature(env, raw, header) {
   const hex = [...mac].map(b => b.toString(16).padStart(2, "0")).join("");
   return sigs.some(s => timingSafeEqualStr(s, hex));
 }
-async function promoteRefund(env, session, reason) {
-  const pi = typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent && session.payment_intent.id);
-  if (!pi) return false;
-  // Idempotent: a webhook retry never issues a second refund.
-  const r = await stripePost(env, "refunds", { payment_intent: pi, metadata: { reason: "promote_" + reason } }, "promote_refund_" + session.id).catch(() => ({ ok: false }));
-  return !!r.ok;
-}
 // ---------- Billing History records (users/{u}/billing/{id}); Worker/admin write only ----------
 const BILLING_ID_RE = /^[A-Za-z0-9_]{6,128}$/;
 function stripePi(o) { return typeof o.payment_intent === "string" ? o.payment_intent : (o.payment_intent && o.payment_intent.id) || ""; }
@@ -228,12 +223,12 @@ async function billingUpsert(env, username, id, rec) {
   if (rec.paymentIntent) await guard.billMapSet("pi:" + rec.paymentIntent, JSON.stringify({ u: username, id }));
   return true;
 }
-function promoteBillingRecord(s, plan, kind, id, status) {
+function promoteBillingRecord(s, plan, kind, id, status, note) {
   const days = plan.durationHours >= 48 ? Math.round(plan.durationHours / 24) + " days" : plan.durationHours + " hours";
   return {
     kind: "promote", item: `Promote ${kind} (${days}, at least ${plan.targetImpressions.toLocaleString("en-US")} views)`,
     itemKind: kind, itemId: id, amountCents: Number(s.amount_total) || plan.amount * 100, currency: String(s.currency || "usd").toLowerCase(),
-    status, createdAt: (Number(s.created) || Math.floor(Date.now() / 1000)) * 1000, sessionId: s.id, paymentIntent: stripePi(s), livemode: !!s.livemode,
+    status, note: note || "", createdAt: (Number(s.created) || Math.floor(Date.now() / 1000)) * 1000, sessionId: s.id, paymentIntent: stripePi(s), livemode: !!s.livemode,
   };
 }
 function stripeLiveBlocked(env, o) { return !!(o && o.livemode) && env.PROMOTE_ALLOW_LIVE !== "on"; }
@@ -280,6 +275,13 @@ async function handleBillingEvent(env, cors, type, o) {
   }
   return json({ received: true, ignored: type || "unknown" }, 200, cors);
 }
+const PROMOTE_NOT_STARTED = {
+  not_found: "Not started: the item was deleted before payment completed",
+  private_account: "Not started: the account was private when payment completed",
+  not_public: "Not started: the item was not public when payment completed",
+  not_owner: "Not started: the item belongs to another account",
+  no_account: "Not started: the account no longer exists",
+};
 async function handleStripeWebhook(req, env, cors) {
   if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: "webhook_not_configured" }, 503, cors);
   const raw = await req.text();
@@ -315,15 +317,32 @@ async function handleStripeWebhook(req, env, cors) {
   let elig;
   try { elig = await promoteEligibility(env, username, kind, id); } catch (e) { return json({ error: "lookup_failed" }, 500, cors); }
   if (elig.error === "already_promoted" && elig.sessionId === s.id) {
-    // A retry after the Firestore write already succeeded: finish the bookkeeping, never refund.
+    // A retry after the Firestore write already succeeded: finish the bookkeeping.
     if (!seen || seen.sid !== s.id) await guard.promoStart(key, s.id, plan.targetImpressions, Date.now() + plan.durationHours * HOUR * 1000);
     try { await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, "paid")); } catch (e) { return json({ error: "billing_write_failed" }, 500, cors); }
     return json({ received: true, duplicate: true }, 200, cors);
   }
+  if (elig.error === "already_promoted") {
+    // Two checkouts raced for the same item and both were paid. No refunds: the second purchase is added on top
+    // (more time and more guaranteed views) instead of being lost.
+    try {
+      const cur = kind === "post" ? await fsGetDocAdmin(env, promoteDocPath(kind, id)) : await fsGetDocAdmin(env, promoteDocPath("note", id));
+      const now2 = Date.now();
+      const curUntil = Number(fsVal(cur && cur.promotedUntil) || 0), curTarget = Number(fsVal(cur && cur.targetImpressions) || 0);
+      const until2 = Math.max(curUntil, now2) + plan.durationHours * HOUR * 1000;
+      const target2 = curTarget + plan.targetImpressions;
+      const f2 = { isPromoted: true, promotedUntil: until2, targetImpressions: target2, promoteSessionId: s.id };
+      const ok2 = await fsPatchExisting(env, promoteDocPath(kind, id), f2);
+      if (!ok2) throw new Error("extend_failed");
+      await guard.promoExtend(key, s.id, target2, until2, Number(fsVal(cur && cur.promotedImpressionsCount) || 0));
+      await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, "paid", "Added to the promotion already running"));
+    } catch (e) { return json({ error: "write_failed" }, 500, cors); }
+    return json({ received: true, promoted: true, extended: true, key }, 200, cors);
+  }
   if (elig.error) {
-    const refunded = await promoteRefund(env, s, elig.error);
-    try { await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, refunded ? "refunded" : "refund_pending")); } catch (e) {}
-    return json({ received: true, promoted: false, reason: elig.error, refunded }, 200, cors);
+    // No refunds (Bradley, t1022u). Record the purchase so it shows in History; nothing is promoted.
+    try { await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, "paid", PROMOTE_NOT_STARTED[elig.error] || "Not started")); } catch (e) { return json({ error: "billing_write_failed" }, 500, cors); }
+    return json({ received: true, promoted: false, reason: elig.error }, 200, cors);
   }
   const now = Date.now();
   const until = now + plan.durationHours * HOUR * 1000;
@@ -337,9 +356,8 @@ async function handleStripeWebhook(req, env, cors) {
     if (kind === "post") {
       const ok = await fsPatchExisting(env, promoteDocPath(kind, id), fields);
       if (!ok) {
-        const refunded = await promoteRefund(env, s, "not_found");
-        try { await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, refunded ? "refunded" : "refund_pending")); } catch (e) {}
-        return json({ received: true, promoted: false, reason: "not_found", refunded }, 200, cors);
+        try { await billingUpsert(env, username, s.id, promoteBillingRecord(s, plan, kind, id, "paid", PROMOTE_NOT_STARTED.not_found)); } catch (e) { return json({ error: "billing_write_failed" }, 500, cors); }
+        return json({ received: true, promoted: false, reason: "not_found" }, 200, cors);
       }
     } else {
       await fsPatchDoc(env, promoteDocPath(kind, id), Object.assign({ kind: "note", noteId: id, author: username }, fields));
@@ -417,6 +435,14 @@ r'''  promoTable() {
   async promoStart(k, sid, target, until) {
     this.promoTable();
     this.sql.exec("INSERT OR REPLACE INTO promos (k, sid, target, until, n, done) VALUES (?, ?, ?, ?, 0, 0)", k, sid, target, until);
+    return true;
+  }
+  // Adds a second paid purchase on top of a running promotion (keeps the views delivered so far).
+  async promoExtend(k, sid, target, until, countIfNew) {
+    this.promoTable();
+    const r = this.sql.exec("SELECT n FROM promos WHERE k = ?", k).toArray()[0];
+    if (r) this.sql.exec("UPDATE promos SET sid = ?, target = ?, until = ?, done = 0 WHERE k = ?", sid, target, until, k);
+    else this.sql.exec("INSERT INTO promos (k, sid, target, until, n, done) VALUES (?, ?, ?, ?, ?, 0)", k, sid, target, until, Number(countIfNew) || 0);
     return true;
   }
   async promoGet(k) {

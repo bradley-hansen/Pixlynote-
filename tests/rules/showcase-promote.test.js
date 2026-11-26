@@ -7,7 +7,7 @@ const { test, before, after, beforeEach } = require('node:test');
 const fs = require('fs');
 const path = require('path');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, arrayRemove } = require('firebase/firestore');
 
 let env;
 const UID = { admin: 'uid-admin', alice: 'uid-alice', mallory: 'uid-mallory', pour: 'uid-pour', fresh: 'uid-fresh' };
@@ -127,4 +127,39 @@ test('billing: only the owner reads their billing records; nobody but admin/Work
   await assertFails(deleteDoc(ref(real(UID.alice), 'users/alice/billing/cs_test_1')));
   await assertFails(setDoc(ref(real(UID.mallory), 'users/alice/billing/cs_fake'), { status: 'paid' }));
   await assertSucceeds(getDoc(ref(real(UID.admin), 'users/alice/billing/cs_test_1')));
+});
+
+// ---------- Showcase accounts never like or connect (t1022u) ----------
+test('showcase: cannot like a post, but can remove an old like; regular users still can like', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'posts/p_old_like'), { id: 'p_old_like', author: 'alice', authorPrivate: false, caption: 'x', comments: [], views: 0, likedBy: ['morning_pour'] });
+  });
+  await assertFails(updateDoc(ref(real(UID.pour), 'posts/p_alice'), { likedBy: arrayUnion('morning_pour') }));
+  await assertSucceeds(updateDoc(ref(real(UID.pour), 'posts/p_old_like'), { likedBy: arrayRemove('morning_pour') }));
+  await assertSucceeds(updateDoc(ref(real(UID.mallory), 'posts/p_alice'), { likedBy: arrayUnion('mallory') }));
+});
+test('showcase: cannot like stories', async () => {
+  await assertFails(updateDoc(ref(real(UID.pour), 'users/alice'), { storyLikes: { s1: ['morning_pour'] }, lastUpdated: 1 }));
+  await assertSucceeds(updateDoc(ref(real(UID.mallory), 'users/alice'), { storyLikes: { s1: ['mallory'] }, lastUpdated: 1 }));
+});
+test('showcase: its own like lists can only shrink', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users/morning_pour'), { likedPostIds: ['p_old'], likedNoteIds: [] }, { merge: true });
+  });
+  await assertFails(updateDoc(ref(real(UID.pour), 'users/morning_pour'), { likedPostIds: ['p_old', 'p_alice'] }));
+  await assertFails(updateDoc(ref(real(UID.pour), 'users/morning_pour'), { likedNoteIds: ['n1'] }));
+  await assertFails(updateDoc(ref(real(UID.pour), 'users/morning_pour'), { likedStoryIds: ['s1'] }));
+  await assertSucceeds(updateDoc(ref(real(UID.pour), 'users/morning_pour'), { likedPostIds: [] }));
+  await assertSucceeds(updateDoc(ref(real(UID.alice), 'users/alice'), { likedPostIds: ['p_promoted'] }));
+});
+test('showcase: cannot follow / connect with anyone, or send connect requests; regular users still can', async () => {
+  await assertFails(setDoc(ref(real(UID.pour), 'users/alice/followers/morning_pour'), { username: 'morning_pour' }));
+  await assertFails(setDoc(ref(real(UID.pour), 'users/alice/connectRequests/morning_pour'), { username: 'morning_pour', requestedAt: 1 }));
+  // a private owner cannot "approve" a Showcase follower either
+  await assertFails(setDoc(ref(real(UID.alice), 'users/alice/followers/morning_pour'), { username: 'morning_pour' }));
+  await assertSucceeds(setDoc(ref(real(UID.mallory), 'users/alice/followers/mallory'), { username: 'mallory' }));
+  await assertSucceeds(setDoc(ref(real(UID.mallory), 'users/alice/connectRequests/mallory'), { username: 'mallory', requestedAt: 1 }));
+  // removing an old edge still works
+  await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'users/alice/followers/morning_pour'), { username: 'morning_pour' }); });
+  await assertSucceeds(deleteDoc(ref(real(UID.pour), 'users/alice/followers/morning_pour')));
 });

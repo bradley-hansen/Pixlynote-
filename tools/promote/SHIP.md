@@ -8,6 +8,11 @@ Nothing here has been deployed. Every step below needs Bradley's explicit Go.
   ctaLabel, ctaUrl, promotedAt, promotionTier, promotionAmount, promotionDurationHours, promoteSessionId, promotionEndedAt`).
 - New `promotions/{id}`: public read, admin/Worker write (promoted notes).
 - New `users/{u}/billing/{id}`: owner-only read (not Privileged Access delegates), admin/Worker write.
+- Showcase accounts never like or connect (t1022u): they cannot add themselves to `posts/{id}.likedBy`, change anyone's
+  `storyLikes`, grow their own `likedPostIds / likedNoteIds / likedStoryIds`, create or update a `followers/{showcase}`
+  edge (not even a private owner approving one), or send `connectRequests`. Removing an old like or edge still works.
+  Comment likes live inside each post's `comments` array, which any signed-in user may rewrite (existing finding), so
+  for comment likes the block is in the app only.
 Deploy: `firebase deploy --only firestore:rules --project pixlynote`
 
 ## 2. Worker (misty-frog-0c99)
@@ -27,3 +32,15 @@ Create the 10 accounts and set `isShowcase: true` with an admin tool (not run, n
 Showcase accounts stay in the database but are excluded from the @pixlynote User Base Metrics totals
 (Total / Personal / Business / Plus); a separate gray "Showcase" tile shows how many exist. A signed-in
 Showcase account never adds post views, note views, or promoted impressions. Client-only change (index.html).
+
+## Promote tiers and refunds (t1022u)
+- Tiers: $5 = 24 hours / at least 250 views; $25 = 3 days / 1,500; $100 = 7 days / 7,000; $500 = 30 days / 50,000.
+  In between: linear, whole hours under 2 days and whole days from 2 days up, views in steps of 50 (same code in the
+  Worker and the app; tests compare them). Placement: Explore from $25, CTA button from $100. Admin tier/exempt
+  settings are a later (Sunday) item and are not built.
+- NOTHING is refunded. No code calls the Stripe refunds API. The only make-good is the free extension (a promotion
+  keeps running at no extra cost until its guaranteed views are reached).
+  - Item deleted / made private before payment completed: the purchase is recorded in History as Paid with a
+    "Not started: ..." note; nothing is promoted and nothing is refunded.
+  - Two paid checkouts for the same item: the second is added on top (time and guaranteed views stack).
+  - `charge.refunded` is only recorded (display) if a refund is made by hand in the Stripe Dashboard.

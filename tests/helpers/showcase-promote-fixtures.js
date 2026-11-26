@@ -37,13 +37,13 @@ async function seedShowcaseAndPromos(page, opts) {
     window._pixlyPromos = new Map();
     if (o.promoteOther) {
       ingestPromotionDoc('post', 1764100000301, Object.assign(mk(1764100000301, 'kiln_and_co', 'New pottery drop this weekend', IMG2), {
-        isPromoted: true, promotedUntil: now + 5 * 86400000, targetImpressions: 7500, promotedImpressionsCount: 812,
+        isPromoted: true, promotedUntil: now + 5 * 86400000, targetImpressions: 7000, promotedImpressionsCount: 812,
         ctaLabel: 'Shop now', ctaUrl: 'https://example.com/shop', promotionTier: 'cta', promotedAt: now - 86400000, authorPrivate: false
       }));
     }
     if (o.promoteOwn) {
       ingestPromotionDoc('post', 3001, { id: 3001, author: o.owner, isPromoted: true, promotedUntil: now + 2 * 86400000 + 5 * 3600000,
-        targetImpressions: 7500, promotedImpressionsCount: 1234, ctaLabel: 'Learn more', ctaUrl: 'https://example.com', promotionTier: 'cta', promotedAt: now - 5 * 86400000 });
+        targetImpressions: 7000, promotedImpressionsCount: 1234, ctaLabel: 'Learn more', ctaUrl: 'https://example.com', promotionTier: 'cta', promotedAt: now - 5 * 86400000 });
     }
   }, { o, IMG, IMG2 });
 }
@@ -55,9 +55,9 @@ function billingFixture(now) {
   const day = 86400000;
   now = now || Date.now();
   return [
-    { id: 'cs_test_promo_100', data: { kind: 'promote', item: 'Promote post (7 days, at least 7,500 views)', amountCents: 10000, currency: 'usd', status: 'paid', createdAt: now - 2 * day, livemode: false } },
+    { id: 'cs_test_promo_100', data: { kind: 'promote', item: 'Promote post (7 days, at least 7,000 views)', amountCents: 10000, currency: 'usd', status: 'paid', createdAt: now - 2 * day, livemode: false } },
     { id: 'in_test_renew_1', data: { kind: 'subscription', item: 'Pixlynote subscription renewal', amountCents: 499, currency: 'usd', status: 'paid', createdAt: now - 9 * day, livemode: false } },
-    { id: 'cs_test_promo_5', data: { kind: 'promote', item: 'Promote note (24 hours, at least 250 views)', amountCents: 500, currency: 'usd', status: 'refunded', createdAt: now - 20 * day, livemode: false } },
+    { id: 'cs_test_promo_5', data: { kind: 'promote', item: 'Promote note (24 hours, at least 250 views)', amountCents: 500, currency: 'usd', status: 'paid', note: 'Not started: the item was deleted before payment completed', createdAt: now - 20 * day, livemode: false } },
     { id: 'in_test_fail_1', data: { kind: 'subscription', item: 'Pixlynote subscription renewal', amountCents: 499, currency: 'usd', status: 'failed', createdAt: now - 39 * day, livemode: false } },
     { id: 'cs_test_sub_1', data: { kind: 'subscription', item: 'Pixlynote subscription', amountCents: 499, currency: 'usd', status: 'paid', createdAt: now - 40 * day, livemode: false } }
   ];

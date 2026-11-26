@@ -2112,7 +2112,7 @@
           <div class="text-xs font-bold text-emerald-800">Delivery Guarantee</div>
           <p id="promote-guarantee-text" class="text-[11px] text-emerald-900 leading-snug mt-0.5"></p>
         </div>
-        <p class="text-[11px] text-neutral-500 leading-snug">Promote buys views only. It never buys likes, comments, or followers. Promoted posts are labeled "Promoted". A view is counted once per person per browser session. Payment is handled by Stripe.</p>
+        <p class="text-[11px] text-neutral-500 leading-snug">Promote buys views only. It never buys likes, comments, or followers. Promoted posts are labeled "Promoted". A view is counted once per person per browser session. All purchases are final: there are no refunds. If the guaranteed views aren't reached in time, the boost keeps running at no extra cost. Payment is handled by Stripe.</p>
         <p id="promote-error" class="hidden text-xs font-semibold text-rose-700"></p>
         <button type="button" id="btn-promote-checkout" onclick="startPromoteCheckout()" class="w-full py-3 text-sm font-bold text-white rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 active:scale-[0.99] transition shadow-sm cursor-pointer">Continue to secure checkout · $25</button>
       </div>
@@ -3834,7 +3834,7 @@
         </div>
         <div id="billing-history-status" class="hidden text-xs text-neutral-500 text-center py-6 px-4 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50"></div>
         <div id="billing-history-list" class="space-y-2" aria-live="polite"></div>
-        <p class="text-[10px] text-neutral-400 leading-snug">Only you can see this list. Need a receipt or a refund? Contact Pixlynote support with the date and amount.</p>
+        <p class="text-[10px] text-neutral-400 leading-snug">Only you can see this list. Need a receipt? Contact Pixlynote support with the date and amount.</p>
       </div>
 
       <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
@@ -9285,6 +9285,7 @@ function syncLikedStateToPosts() {
       const currentlyLiked = state.likedPostIds.has(strId);
       const newLiked = forceState !== null ? forceState : !currentlyLiked;
       if (forceState !== null && currentlyLiked === forceState) return;
+      if (newLiked && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return;
 
       if (!state.likedOrder) state.likedOrder = [];
       if (newLiked) {
@@ -12629,6 +12630,7 @@ function syncLikedStateToPosts() {
       const t = privacyNorm(target);
       if (!me) { privacyToast('Log in to request to connect'); return false; }
       if (!t || t === me) return false;
+      if ((typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return false;
       const fb = privateFs();
       if (!fb) { privacyToast('You need to be online to request to connect.'); return false; }
       window._connReqBusy = window._connReqBusy || {};
@@ -15474,6 +15476,7 @@ function syncLikedStateToPosts() {
       if (!comment) return;
       const target = replyId ? (comment.replies || []).find(r => String(r.id) === String(replyId)) : comment;
       if (!target) return;
+      if (!likedByHas(target.likedBy, likeMe()) && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return;
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
       const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
@@ -15725,6 +15728,7 @@ function syncLikedStateToPosts() {
       if (!comment) return;
       const target = replyId ? (comment.replies || []).find(r => String(r.id) === String(replyId)) : comment;
       if (!target) return;
+      if (!likedByHas(target.likedBy, likeMe()) && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return;
 
       const curU = normalizeUsername(state.currentUser && state.currentUser.username ? state.currentUser.username : 'bradley_hansen');
       const curAvatar = (state.currentUser && state.currentUser.avatar) || getPostAuthorAvatar({ author: curU });
@@ -16400,6 +16404,7 @@ function syncLikedStateToPosts() {
       if (!state.likedNoteOrder) state.likedNoteOrder = [];
 
       const currentlyLiked = state.likedNoteIds.has(numId) || state.likedNoteIds.has(strId);
+      if (!currentlyLiked && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return;
       if (currentlyLiked) {
         state.likedNoteIds.delete(numId);
         state.likedNoteIds.delete(strId);
@@ -21393,6 +21398,7 @@ function syncLikedStateToPosts() {
       if (!cleanU) return null;
       const myUsername = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'user';
       const myNorm = normalizeUsername(myUsername);
+      if (forcedState !== false && !(typeof isUserFollowingCreator === 'function' && isUserFollowingCreator(cleanU)) && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return null;
       if (myNorm && myNorm === cleanU) {
         if (typeof showToast === 'function') showToast("You cannot connect to your own account");
         return null;
@@ -33884,6 +33890,7 @@ function syncLikedStateToPosts() {
           const targetU = resolveStoryTargetUser(storyRef);
           const storyIdStr = String(storyRef.id || ('creator_' + targetU));
           const nowLiked = !storyRef.isLiked;
+          if (nowLiked && (typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked())) return;
           storyRef.isLiked = nowLiked;
           if (nowLiked) state.likedStoryIds.add(skey);
           else state.likedStoryIds.delete(skey);
@@ -37275,9 +37282,16 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return true;
     }
     window.showcaseShareBlocked = showcaseShareBlocked;
+    // Showcase accounts never like anything or connect with anyone (no fake engagement). Unlike / disconnect stay allowed.
+    function showcaseEngageBlocked() {
+      if (!activeAccountIsShowcase()) return false;
+      if (typeof showToast === 'function') showToast('Showcase accounts can\'t like posts or connect with people.');
+      return true;
+    }
+    window.showcaseEngageBlocked = showcaseEngageBlocked;
 
     // ---------- Promote: pricing (must match PROMOTE_ANCHORS in the Worker) ----------
-    var PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7500], [500, 720, 50000]];
+    var PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7000], [500, 720, 50000]];
     window.PROMOTE_ANCHORS = PROMOTE_ANCHORS;
     var PROMOTE_MIN = 5, PROMOTE_MAX = 500, PROMOTE_PRESETS = [5, 25, 100, 500];
     var PROMOTE_CTA_LABELS = ['Learn more', 'Shop now', 'Visit site', 'Book now', 'Sign up', 'Contact us'];
@@ -37288,7 +37302,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       for (let i = 0; i < PROMOTE_ANCHORS.length - 1; i++) { if (a <= PROMOTE_ANCHORS[i + 1][0]) { seg = i; break; } }
       const lo = PROMOTE_ANCHORS[seg], hi = PROMOTE_ANCHORS[seg + 1];
       const t = (a - lo[0]) / (hi[0] - lo[0]);
-      const durationHours = Math.round(lo[1] + t * (hi[1] - lo[1]));
+      // Whole hours under 2 days, whole days from 2 days up (so "5 days" is exactly 5 days). Same as the Worker.
+      const rawH = lo[1] + t * (hi[1] - lo[1]);
+      const durationHours = rawH < 48 ? Math.round(rawH) : Math.round(rawH / 24) * 24;
       const targetImpressions = Math.round((lo[2] + t * (hi[2] - lo[2])) / 50) * 50;
       const tier = a >= 100 ? 'cta' : (a >= 25 ? 'explore' : 'feed');
       return { amount: a, durationHours: durationHours, targetImpressions: targetImpressions, tier: tier };
@@ -37919,7 +37935,6 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       paid: ['Paid', '#ECFDF5', '#047857', '#A7F3D0'],
       trial: ['Free trial', '#EFF6FF', '#1D4ED8', '#BFDBFE'],
       pending: ['Pending', '#FFFBEB', '#B45309', '#FDE68A'],
-      refund_pending: ['Refund pending', '#FFFBEB', '#B45309', '#FDE68A'],
       refunded: ['Refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
       partially_refunded: ['Partly refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
       failed: ['Failed', '#FEF2F2', '#B91C1C', '#FECACA']
@@ -37948,7 +37963,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         item: String(d.item || (kind === 'promote' ? 'Promote' : 'Subscription')).slice(0, 140),
         amountCents: Number(d.amountCents) || 0, currency: String(d.currency || 'usd'),
         status: BILLING_STATUS[d.status] ? d.status : 'pending',
-        createdAt: billingMs(d.createdAt), livemode: d.livemode === true
+        createdAt: billingMs(d.createdAt), livemode: d.livemode === true,
+        note: String(d.note || '').slice(0, 140)
       };
     }
     window.normalizeBillingRecord = normalizeBillingRecord;
@@ -37963,6 +37979,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         + '<div class="min-w-0 flex-1">'
         + '<div class="billing-item text-xs font-bold text-neutral-900 leading-snug">' + billingEsc(r.item) + '</div>'
         + '<div class="billing-date text-[10px] text-neutral-500 mt-0.5">' + billingEsc(billingDate(r.createdAt)) + (r.livemode ? '' : ' \u00b7 Test mode') + '</div>'
+        + (r.note ? '<div class="billing-note text-[10px] text-neutral-500 mt-0.5">' + billingEsc(r.note) + '</div>' : '')
         + '</div>'
         + '<div class="text-right flex-shrink-0">'
         + '<div class="billing-amount text-xs font-bold text-neutral-900">' + billingEsc(billingAmount(r.amountCents, r.currency)) + '</div>'

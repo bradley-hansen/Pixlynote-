@@ -87,7 +87,7 @@ async function get(p, ip) {
   return { status: res.status, body: await res.json() };
 }
 function plan(amount) {
-  return { 5: [24, 250, 'feed'], 25: [72, 1500, 'explore'], 100: [168, 7500, 'cta'], 500: [720, 50000, 'cta'] }[amount];
+  return { 5: [24, 250, 'feed'], 25: [72, 1500, 'explore'], 100: [168, 7000, 'cta'], 500: [720, 50000, 'cta'] }[amount];
 }
 function paidSession(o) {
   o = o || {};
@@ -128,7 +128,6 @@ before(async () => {
         if (env.__stripeFail) return new Response(JSON.stringify({ error: { message: 'down' } }), { status: 500 });
         return new Response(JSON.stringify({ id: 'cs_test_new', url: 'https://checkout.stripe.com/c/pay/cs_test_new', livemode: false }), { status: 200 });
       }
-      if (u.endsWith('/v1/refunds')) return new Response(JSON.stringify({ id: 're_test_1', status: 'succeeded' }), { status: 200 });
       return new Response('{}', { status: 404 });
     }
     return realFetch(url, init);
@@ -164,6 +163,11 @@ t('pricing: the Worker and index.html use identical PROMOTE_ANCHORS', async () =
   assert.strictEqual(grab(fs.readFileSync(FILE, 'utf8')), grab(fs.readFileSync(INDEX, 'utf8')));
 });
 
+t('no refunds: the built Worker never calls the Stripe refunds API', async () => {
+  const src = fs.readFileSync(FILE, 'utf8');
+  assert.ok(!/stripePost\(env, "refunds"|\/v1\/refunds|promoteRefund/.test(src));
+});
+
 t('health reports promote and promote_webhook', async () => {
   const r = await get('/health');
   assert.strictEqual(r.body.promote, true);
@@ -174,7 +178,7 @@ t('checkout: the owner gets a Stripe Checkout URL with the plan in metadata; not
   const r = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 100, ctaLabel: 'Shop now', ctaUrl: 'https://example.com/shop', idToken: tokens.alice.idToken });
   assert.strictEqual(r.status, 200, JSON.stringify(r.body));
   assert.match(r.body.url, /^https:\/\/checkout\.stripe\.com\//);
-  assert.deepStrictEqual([r.body.plan.durationHours, r.body.plan.targetImpressions, r.body.plan.tier], [168, 7500, 'cta']);
+  assert.deepStrictEqual([r.body.plan.durationHours, r.body.plan.targetImpressions, r.body.plan.tier], [168, 7000, 'cta']);
   const call = stripeCalls.find((c) => c.url.endsWith('/v1/checkout/sessions'));
   const b = call.body;
   assert.strictEqual(b.get('mode'), 'payment');
@@ -183,7 +187,7 @@ t('checkout: the owner gets a Stripe Checkout URL with the plan in metadata; not
   assert.strictEqual(b.get('metadata[postId]'), 'p1');
   assert.strictEqual(b.get('metadata[amount]'), '100');
   assert.strictEqual(b.get('metadata[durationHours]'), '168');
-  assert.strictEqual(b.get('metadata[targetImpressions]'), '7500');
+  assert.strictEqual(b.get('metadata[targetImpressions]'), '7000');
   assert.strictEqual(b.get('metadata[ctaUrl]'), 'https://example.com/shop');
   assert.strictEqual(b.get('client_reference_id'), 'alice');
   assert.match(b.get('success_url'), /\?promote=success$/);
@@ -252,7 +256,7 @@ t('webhook: a paid session marks the post promoted with the server-computed plan
   assert.strictEqual(r.body.promoted, true);
   const d = await fsGet('posts/p1');
   assert.strictEqual(d.isPromoted, true);
-  assert.strictEqual(d.targetImpressions, 7500);
+  assert.strictEqual(d.targetImpressions, 7000);
   assert.strictEqual(d.promotedImpressionsCount, 0);
   assert.strictEqual(d.ctaLabel, 'Learn more');
   assert.strictEqual(d.ctaUrl, 'https://example.com/x');
@@ -263,12 +267,12 @@ t('webhook: a paid session marks the post promoted with the server-computed plan
   assert.strictEqual(stripeCalls.filter((c) => c.url.endsWith('/refunds')).length, 0);
 });
 
-t('webhook: replaying the same event is a no-op (no double write, no refund)', async () => {
+t('webhook: replaying the same event is a no-op (no double write)', async () => {
   const s = paidSession();
   assert.strictEqual((await webhook(s)).body.promoted, true);
   const r2 = await webhook(s);
   assert.strictEqual(r2.body.duplicate, true);
-  // Guard lost its row (e.g. retried after a crash between write and bookkeeping): still a duplicate, never a refund
+  // Guard lost its row (e.g. retried after a crash between write and bookkeeping): still a duplicate
   guard = makeGuard(worker.Guard);
   const r3 = await webhook(s);
   assert.strictEqual(r3.body.duplicate, true);
@@ -285,21 +289,43 @@ t('webhook: unpaid, non-promote, tampered or live sessions do nothing', async ()
   await notPromoted('posts/p1');
 });
 
-t('webhook: a post deleted (or made private) before payment completes is refunded, never re-created', async () => {
+t('webhook: NO refunds: a post deleted or made private before payment completes is recorded as paid with a note, never re-created', async () => {
   await fsDel('posts/p1');
-  const r = await webhook(paidSession());
+  const s1 = paidSession();
+  const r = await webhook(s1);
   assert.strictEqual(r.body.promoted, false);
-  assert.strictEqual(r.body.refunded, true);
+  assert.ok(!('refunded' in r.body));
   assert.strictEqual(await fsGet('posts/p1'), null, 'the deleted post must not come back');
+  const b1 = await fsGet('users/alice/billing/' + s1.id);
+  assert.strictEqual(b1.status, 'paid'); assert.match(b1.note, /Not started: the item was deleted/);
   await fsPut('users/alice', { username: 'alice', uid: tokens.alice.uid, isPrivate: true });
   await fsPut('posts/p1', { id: 'p1', author: 'alice', authorPrivate: true, caption: 'mine' });
-  const r2 = await webhook(paidSession());
+  const s2 = paidSession();
+  const r2 = await webhook(s2);
   assert.strictEqual(r2.body.reason, 'private_account');
-  assert.strictEqual(r2.body.refunded, true);
   await notPromoted('posts/p1');
-  const refunds = stripeCalls.filter((c) => c.url.endsWith('/refunds'));
-  assert.strictEqual(refunds.length, 2);
-  assert.match(refunds[0].body.get('payment_intent'), /^pi_test_/);
+  assert.match((await fsGet('users/alice/billing/' + s2.id)).note, /private/);
+  assert.strictEqual(stripeCalls.filter((c) => /refund/.test(c.url)).length, 0, 'no refund is ever requested');
+});
+
+t('webhook: two paid checkouts for the same post stack (more time + more views), nothing is lost or refunded', async () => {
+  const a1 = paidSession({ amount: 5 });
+  assert.strictEqual((await webhook(a1)).body.promoted, true);
+  await post('/promote/impression', { key: 'post_p1', sid: 'sess_stack_aaaa' }, '198.51.100.77');
+  const before = await fsGet('posts/p1');
+  const a2 = paidSession({ amount: 25 });
+  const r = await webhook(a2);
+  assert.strictEqual(r.body.extended, true, JSON.stringify(r.body));
+  const after = await fsGet('posts/p1');
+  assert.strictEqual(after.targetImpressions, 250 + 1500);
+  assert.ok(Math.abs(after.promotedUntil - (before.promotedUntil + 72 * 3600e3)) < 60e3, 'time is added on top');
+  assert.strictEqual(after.promotedImpressionsCount, 1, 'views already delivered are kept');
+  const st = await get('/promote/stats?key=post_p1');
+  assert.deepStrictEqual([st.body.count, st.body.target], [1, 1750]);
+  assert.match((await fsGet('users/alice/billing/' + a2.id)).note, /Added to the promotion already running/);
+  assert.strictEqual((await webhook(a2)).body.duplicate, true, 'replay of the second purchase is a no-op');
+  assert.strictEqual((await fsGet('posts/p1')).targetImpressions, 1750);
+  assert.strictEqual(stripeCalls.filter((c) => /refund/.test(c.url)).length, 0);
 });
 
 t('webhook: if the Firestore write fails the Worker returns 500 (Stripe retries) and nothing is promoted', async () => {
@@ -380,22 +406,13 @@ t('billing: a paid Promote writes one owner billing record (idempotent on retry)
   const rec = await fsGet('users/alice/billing/' + s.id);
   assert.ok(rec, 'billing record exists');
   assert.deepStrictEqual([rec.kind, rec.amountCents, rec.currency, rec.status, rec.source], ['promote', 10000, 'usd', 'paid', 'stripe_webhook']);
-  assert.match(rec.item, /Promote post \(7 days, at least 7,500 views\)/);
+  assert.match(rec.item, /Promote post \(7 days, at least 7,000 views\)/);
   assert.strictEqual(rec.livemode, false);
   await webhook(s);
   assert.strictEqual((await fsGet('users/alice/billing/' + s.id)).status, 'paid');
 });
 
-t('billing: a refunded (ineligible) Promote is recorded as refunded; the refund is idempotent', async () => {
-  await fsDel('posts/p1');
-  const s = paidSession();
-  await webhook(s);
-  assert.strictEqual((await fsGet('users/alice/billing/' + s.id)).status, 'refunded');
-  const refund = stripeCalls.find((c) => c.url.endsWith('/refunds'));
-  assert.ok(refund, 'refund requested');
-});
-
-t('billing: a subscription checkout is recorded; renewals and failures map back to the user; refunds update status', async () => {
+t('billing: a subscription checkout is recorded; renewals and failures map back to the user; Stripe-reported (manual) refunds update status for display', async () => {
   const sub = { id: 'cs_test_sub_abc', object: 'checkout.session', mode: 'subscription', payment_status: 'paid', amount_total: 499, currency: 'usd',
     client_reference_id: 'alice', customer: 'cus_test_alice', payment_intent: null, livemode: false, created: Math.floor(Date.now() / 1000), metadata: {} };
   const r = await rawEvent('checkout.session.completed', sub);

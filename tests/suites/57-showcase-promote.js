@@ -124,6 +124,53 @@ module.exports = {
       }
     },
     {
+      name: 'A Showcase account cannot like posts, notes, comments or stories, or connect with anyone; unliking still works',
+      accounts: ['personal'],
+      covers: ['handler:showcaseEngageBlocked'],
+      async run(ctx) {
+        const { page, a } = ctx;
+        await start(ctx, { promoteOwn: false, promoteOther: false });
+        const r = await page.evaluate(async () => {
+          const me = state.currentUser.username;
+          const post = getPostById(2123) || getPostById(1764100000201);
+          post.isLiked = false; post.likedBy = (post.likedBy || []).filter((u) => u !== me); if (state.likedPostIds) state.likedPostIds.delete(String(post.id));
+          window._exploreUserDir.users.set(me, Object.assign({ username: me, following: [], likedPostIds: [], likedNoteIds: [] }, window._exploreUserDir.users.get(me) || {}, { isShowcase: true }));
+          const before = { likes: post.likes || 0, isLiked: !!post.isLiked };
+          togglePostLike(post.id);
+          togglePostLike(post.id, true);
+          const afterPost = { isLiked: !!post.isLiked, likes: post.likes || 0 };
+          const note = getNoteById(9001);
+          let noteLiked = false;
+          if (note) { note.isLiked = false; if (state.likedNoteIds) { state.likedNoteIds.delete(9001); state.likedNoteIds.delete('9001'); } toggleLikeNote(9001); noteLiked = !!(state.likedNoteIds && (state.likedNoteIds.has(9001) || state.likedNoteIds.has('9001'))); }
+          const target = 'kiln_and_co';
+          const wasFollowing = isUserFollowingCreator(target);
+          applyLocalFollowToggle(target, true);
+          const followed = isUserFollowingCreator(target);
+          const req = await sendConnectRequest(target);
+          // An existing like can still be removed (cleanup), never added.
+          post.isLiked = true; post.likedBy = (post.likedBy || []).concat([me]); state.likedPostIds = state.likedPostIds || new Set(); state.likedPostIds.add(String(post.id));
+          togglePostLike(post.id);
+          const unliked = !post.isLiked;
+          return { before, afterPost, noteLiked, wasFollowing, followed, req, unliked, blockedFn: showcaseEngageBlocked() };
+        });
+        a.ok(!r.afterPost.isLiked && r.afterPost.likes === r.before.likes, 'Post like (tap and double-tap) is blocked');
+        a.ok(!r.noteLiked, 'Note like is blocked');
+        a.ok(!r.wasFollowing && !r.followed && r.req === false, 'Connect / follow and connect requests are blocked');
+        a.ok(r.unliked, 'Removing an existing like still works');
+        a.ok(r.blockedFn === true, 'Showcase engagement guard is on for Showcase accounts');
+        const regular = await page.evaluate(() => {
+          const me = state.currentUser.username;
+          window._exploreUserDir.users.set(me, Object.assign({}, window._exploreUserDir.users.get(me), { isShowcase: false }));
+          return showcaseEngageBlocked();
+        });
+        a.ok(regular === false, 'Regular accounts are not affected');
+        const src = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+        const guarded = ['function togglePostLike', 'function toggleLikeNote(', 'function toggleLikePostComment', 'function toggleLikeNoteComment', 'function applyLocalFollowToggle', 'async function sendConnectRequest']
+          .every((f) => { const i = src.indexOf(f); return i >= 0 && src.slice(i, i + 1400).includes('showcaseEngageBlocked()'); });
+        a.ok(guarded && /if \(nowLiked && \(typeof showcaseEngageBlocked === 'function' && showcaseEngageBlocked\(\)\)\) return;/.test(src), 'Every like / connect entry point (incl. story hearts and comment likes) is guarded');
+      }
+    },
+    {
       name: 'Showcase accounts cannot start DMs or share to people who never wrote first',
       accounts: ['personal'],
       covers: ['handler:showcaseDmBlocked', 'handler:showcaseShareBlocked'],
@@ -199,7 +246,7 @@ module.exports = {
             dur: t('promote-duration'), v: t('promote-views'), place: t('promote-placement'), g: t('promote-guarantee-text'), btn: t('btn-promote-checkout'),
             cta: !!cta && !cta.classList.contains('hidden') && cta.offsetParent !== null };
         });
-        const expect = { 5: ['24', '250', 'feed', '24 hours', '250'], 25: ['72', '1500', 'explore', '3 days', '1,500'], 100: ['168', '7500', 'cta', '7 days', '7,500'], 500: ['720', '50000', 'cta', '30 days', '50,000'] };
+        const expect = { 5: ['24', '250', 'feed', '24 hours', '250'], 25: ['72', '1500', 'explore', '3 days', '1,500'], 100: ['168', '7000', 'cta', '7 days', '7,000'], 500: ['720', '50000', 'cta', '30 days', '50,000'] };
         const r25 = await read();
         a.ok(r25.amount === '25', 'Modal opens at $25');
         for (const amt of [5, 25, 100, 500]) {
@@ -213,10 +260,11 @@ module.exports = {
         }
         await page.evaluate(() => { const s = document.getElementById('promote-amount-slider'); s.value = '60'; s.dispatchEvent(new Event('input', { bubbles: true })); });
         const mid = await read();
-        a.ok(mid.amount === '60' && Number(mid.hours) > 72 && Number(mid.hours) < 168 && Number(mid.views) > 1500 && Number(mid.views) < 7500, 'Slider in between interpolates');
+        a.ok(mid.amount === '60' && Number(mid.hours) > 72 && Number(mid.hours) < 168 && Number(mid.views) > 1500 && Number(mid.views) < 7000 && Number(mid.hours) % 24 === 0, 'Slider in between interpolates');
         const copy = await page.evaluate(() => document.getElementById('modal-promote').innerText);
         a.ok(/views only/i.test(copy) && /never buys likes, comments, or followers/i.test(copy), 'Modal says Promote buys views only');
         a.ok(!/guaranteed (likes|followers|comments)/i.test(copy), 'No promise of likes, comments or followers');
+        a.ok(/no refunds/i.test(copy) && /keeps running at no extra cost/i.test(copy) && !/refunded|money back/i.test(copy), 'Copy: all purchases final, no refunds; the free extension is the only make-good');
         const parity = await page.evaluate(() => JSON.stringify(window.PROMOTE_ANCHORS));
         const patch = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'promote', 'patch_worker.py'), 'utf8');
         const wa = (patch.match(/PROMOTE_ANCHORS\s*=\s*(\[\s*\[[^;]*\]\s*\])/) || [])[1] || '';
@@ -343,7 +391,7 @@ module.exports = {
       async run(ctx) {
         const { page, a } = ctx;
         await start(ctx);
-        await routeWorker(page, /\/promote\/stats/, () => ({ ok: true, found: true, count: 1300, target: 7500, active: true }));
+        await routeWorker(page, /\/promote\/stats/, () => ({ ok: true, found: true, count: 1300, target: 7000, active: true }));
         await page.evaluate(() => openPostDetailModal(3001));
         await page.waitForTimeout(150);
         const btn = await page.evaluate(() => (document.getElementById('btn-modal-promote-post') || {}).textContent || '');
@@ -359,7 +407,7 @@ module.exports = {
           bar: document.getElementById('promote-insights-bar').style.width
         }));
         a.ok(ins.open, 'Insights drawer opens');
-        a.ok(/1,300 \/ 7,500 views/.test(ins.views), 'Shows live delivered vs guaranteed views (from Worker stats)');
+        a.ok(/1,300 \/ 7,000 views/.test(ins.views), 'Shows live delivered vs guaranteed views (from Worker stats)');
         a.ok(ins.status === 'Active' && /2d \d+h left/.test(ins.time), 'Shows Active and time left');
         a.ok(/Learn more/.test(ins.cta) && /^\d+%$/.test(ins.bar), 'Shows the CTA and a progress bar');
         const states = await page.evaluate(() => {
@@ -377,17 +425,19 @@ module.exports = {
       }
     },
     {
-      name: 'Approved Promote tiers are locked in (t1007u): $5 24h/250+, $25 3 days, $100 7 days, $500 30 days/50,000+',
+      name: 'Approved Promote tiers (t1022u): $5 24h/250, $25 3 days/1,500, $100 7 days/7,000, $500 30 days/50,000',
       accounts: ['personal'],
       covers: [],
       async run(ctx) {
         const { page, a } = ctx;
         await start(ctx, { promoteOwn: false, promoteOther: false });
         const t = await page.evaluate(() => [5, 25, 100, 500, 4, 501].map((x) => promotePlan(x)));
-        a.ok(t[0].durationHours === 24 && t[0].targetImpressions >= 250 && t[0].targetImpressions <= 500 && t[0].tier === 'feed', '$5: 24 hours, 250-500 views guaranteed floor, main feed');
-        a.ok(t[1].durationHours === 72 && t[1].tier === 'explore', '$25: 3 days, adds Explore/Trending');
-        a.ok(t[2].durationHours === 168 && t[2].tier === 'cta', '$100: 7 days, Explore + CTA button');
-        a.ok(t[3].durationHours === 720 && t[3].targetImpressions >= 50000 && t[3].tier === 'cta', '$500: 30 days, 50,000+ views, Explore + CTA button');
+        a.ok(t[0].durationHours === 24 && t[0].targetImpressions === 250 && t[0].tier === 'feed', '$5: 24 hours, at least 250 views, main feed');
+        a.ok(t[1].durationHours === 72 && t[1].targetImpressions === 1500 && t[1].tier === 'explore', '$25: 3 days, at least 1,500 views, adds Explore/Trending');
+        a.ok(t[2].durationHours === 168 && t[2].targetImpressions === 7000 && t[2].tier === 'cta', '$100: 7 days, at least 7,000 views, Explore + CTA button');
+        a.ok(t[3].durationHours === 720 && t[3].targetImpressions === 50000 && t[3].tier === 'cta', '$500: 30 days, at least 50,000 views, Explore + CTA button');
+        const days = await page.evaluate(() => { for (let x = 5; x <= 500; x++) { const q = promotePlan(x); if (q.durationHours >= 48 && q.durationHours % 24) return x; if (q.targetImpressions % 50) return -x; } return 0; });
+        a.ok(days === 0, 'Between tiers: whole days from 2 days up, views in steps of 50');
         a.ok(t[4] === null && t[5] === null, 'Outside $5-$500 is refused');
         const mono = await page.evaluate(() => { let p = promotePlan(5); for (let x = 6; x <= 500; x++) { const q = promotePlan(x); if (q.durationHours < p.durationHours || q.targetImpressions < p.targetImpressions) return x; p = q; } return 0; });
         a.ok(mono === 0, 'Paying more never buys less time or fewer views');

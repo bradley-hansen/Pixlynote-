@@ -44,10 +44,20 @@ module.exports = {
         a.ok(r.open && r.title === 'History', 'History opens in the Account Center');
         a.ok(r.rows.length === 5, 'All 5 purchases are listed');
         a.ok(r.rows[0].id === 'cs_test_promo_100' && r.rows[4].id === 'cs_test_sub_1', 'Newest first');
-        a.ok(/Promote post \(7 days, at least 7,500 views\)/.test(r.rows[0].item) && r.rows[0].kind === 'promote', 'Promote campaign row shows the campaign');
+        a.ok(/Promote post \(7 days, at least 7,000 views\)/.test(r.rows[0].item) && r.rows[0].kind === 'promote', 'Promote campaign row shows the campaign');
         a.ok(r.rows[0].amount === '$100.00' && r.rows[1].amount === '$4.99', 'Amounts are formatted in dollars');
         a.ok(/^[A-Z][a-z]{2} \d{1,2}, \d{4}/.test(r.rows[0].date) && /Test mode/.test(r.rows[0].date), 'Date is shown and sandbox records say Test mode');
-        a.ok(r.rows[0].status === 'Paid' && r.rows[2].status === 'Refunded' && r.rows[3].status === 'Failed', 'Status is shown per purchase');
+        a.ok(r.rows[0].status === 'Paid' && r.rows[2].status === 'Paid' && r.rows[3].status === 'Failed', 'Status is shown per purchase');
+        const note = await page.evaluate(() => (document.querySelector('#billing-history-list .billing-row[data-billing-id="cs_test_promo_5"] .billing-note') || {}).textContent || '');
+        a.ok(/Not started/.test(note), 'A paid promotion that could not start shows why (no refund)');
+        const manual = await page.evaluate(async () => {
+          window.__pixlyBillingFixture = async () => [{ id: 'in_test_m', data: { kind: 'subscription', item: 'Pixlynote subscription', amountCents: 499, status: 'refunded', createdAt: Date.now() } }];
+          await loadBillingHistory(true);
+          const st = document.querySelector('#billing-history-list .billing-status');
+          return st && st.textContent;
+        });
+        a.ok(manual === 'Refunded', 'A refund Stripe reports (made by hand in Stripe) is shown, display only');
+        await page.evaluate(async (recs) => { window.__pixlyBillingFixture = async () => recs; await loadBillingHistory(true); }, recs);
         a.ok(r.rows.some((x) => x.kind === 'subscription' && /subscription/i.test(x.item)), 'Subscriptions are listed');
         await page.evaluate(() => { window.__pixlyBillingCalls = 0; const f = window.__pixlyBillingFixture; window.__pixlyBillingFixture = async (u) => { window.__pixlyBillingCalls++; return f(u); }; });
         await page.click('#btn-billing-history-refresh');
@@ -87,6 +97,9 @@ module.exports = {
         a.ok(/Only the account owner/.test(ro.msg) && !ro.called, 'Privileged Access (read-only) sessions cannot see billing history');
         const src = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
         a.ok(!/(setDoc|updateDoc|addDoc|deleteDoc)\([^;]*['"]billing['"]/.test(src), 'The app has no code path that writes billing records');
+        a.ok(!/\/v1\/refunds|refund_pending|promoteRefund/.test(src), 'The app has no refund code');
+        const patch = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'promote', 'patch_worker.py'), 'utf8');
+        a.ok(!/"refunds"|\/v1\/refunds|promoteRefund/.test(patch), 'The Worker patch never issues refunds');
         const rules = fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.rules'), 'utf8');
         a.ok(/match \/billing\/\{recordId\} \{\s*allow read: if ownsUser\(username\) \|\| isAdmin\(\);\s*allow write: if isAdmin\(\);/.test(rules), 'Rules: owner-only read, Worker/admin-only write');
       }

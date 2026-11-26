@@ -74,6 +74,23 @@ service cloud.firestore {
       return (request.resource.data.get('isShowcase', false) != true || resource.data.get('isShowcase', false) == true)
           && (request.resource.data.get('accountType', '') != 'showcase' || resource.data.get('accountType', '') == 'showcase');
     }
+    // Showcase accounts never like or connect with anyone (no fake engagement).
+    function userIsShowcase(u) {
+      let d = get(userPath(u)).data;
+      return d.get('isShowcase', false) == true || d.get('accountType', '') == 'showcase';
+    }
+    function notShowcase(u) { return !exists(userPath(u)) || !userIsShowcase(u); }
+    function actorNotShowcase() { return myName() == '__none__' || notShowcase(myName()); }
+    // On a Showcase account's own doc: its like lists may only shrink (unlike), never grow.
+    function listNotGrown(f) {
+      let before = resource.data.get(f, []);
+      let after = request.resource.data.get(f, []);
+      return !(after is list) || (before is list && before.hasAll(after));
+    }
+    function showcaseLikesNotGrown() {
+      return !(resource.data.get('isShowcase', false) == true || resource.data.get('accountType', '') == 'showcase')
+          || (listNotGrown('likedPostIds') && listNotGrown('likedNoteIds') && listNotGrown('likedStoryIds'));
+    }
     // Promote Post fields are written only by the Worker (service account, after a paid Stripe Checkout) or admin.
     function promoteFields() {
       return ['isPromoted', 'promotedUntil', 'targetImpressions', 'promotedImpressionsCount', 'ctaLabel', 'ctaUrl',
@@ -120,8 +137,11 @@ service cloud.firestore {
     }
     // posts/{id}.likedBy: arrayUnion(me) / arrayRemove(me) and nothing else in the same write.
     function postLikedByStep() {
+      let before = resource.data.get('likedBy', []);
+      let after = request.resource.data.get('likedBy', []);
       return changed().hasOnly(['likedBy'])
-          && likeListStep(resource.data.get('likedBy', []), request.resource.data.get('likedBy', []));
+          && (after == before || likeRemoves(before, after, myName())
+              || (likeAdds(before, after, myName()) && actorNotShowcase()));
     }
     // users/{owner}.storyLikes: one write may touch at most ONE story's list (no wiping or rewriting many at once).
     // Firestore rules cannot read a map key out of a diff, so the "only my own name changes" check that posts get
@@ -154,7 +174,7 @@ service cloud.firestore {
           && (
             (changed().hasOnly(['notifications', 'lastUpdated']) && notificationsAppend())
             || (changed().hasOnly(['storyComments', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)))
-            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)) && storyLikesStep())
+            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)) && storyLikesStep() && actorNotShowcase())
             || (changed().hasOnly(['privilegedAccessGranted', 'lastUpdated']) && onlySelfGrantedEntry())
             || (changed().hasOnly(['businessAssociates', 'lastUpdated']) && myName() != '__none__')
             || (changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
@@ -192,6 +212,7 @@ service cloud.firestore {
                         && !changed().hasAny(privilegeFields())
                         && privilegeUnchanged()
                         && showcaseNotAdded()
+                        && showcaseLikesNotGrown()
                         && !changed().hasAny(contentFields()))
                     // Sign-up on a username that only had a placeholder doc (no uid, never had a password).
                     || (realUser()
@@ -228,10 +249,12 @@ service cloud.firestore {
         allow read: if isPublicAccount(username) || canActAs(username) || approvedBy(username)
                     || myName() == follower || adminSeesPrivate();
         allow create: if (realUser() && request.resource.data.username == follower
-                          && ((canWriteAs(follower) && isPublicAccount(username)) || canWriteAs(username)))
+                          && ((canWriteAs(follower) && isPublicAccount(username)) || canWriteAs(username))
+                          && notShowcase(follower))
                       || isAdmin();
         allow update: if (realUser() && request.resource.data.username == follower
-                          && (canWriteAs(username) || canWriteAs(follower)))
+                          && (canWriteAs(username) || canWriteAs(follower))
+                          && notShowcase(follower))
                       || isAdmin();
         allow delete: if canWriteAs(username) || canWriteAs(follower) || isAdmin();
       }
@@ -241,7 +264,8 @@ service cloud.firestore {
         allow read: if canActAs(username) || canActAs(requester) || isAdmin();
         allow create, update: if canWriteAs(requester) && requester != username
           && request.resource.data.username == requester
-          && request.resource.data.keys().hasOnly(['username', 'fullName', 'avatar', 'requestedAt']);
+          && request.resource.data.keys().hasOnly(['username', 'fullName', 'avatar', 'requestedAt'])
+          && notShowcase(requester);
         allow delete: if canWriteAs(username) || canWriteAs(requester) || isAdmin();
       }
     }
