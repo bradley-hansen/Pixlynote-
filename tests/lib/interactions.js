@@ -162,7 +162,7 @@ async function reveal(page, h, item) {
     await page.evaluate(() => { if (typeof toggleNotificationsDropdown === 'function') toggleNotificationsDropdown(); });
     return;
   }
-  if (/^btn-ac-|^ac-|^modal-account|^form-ac-|^btn-switcher|^modal-switch|^modal-deactivate/.test(id) || /AccountCenter|AccountInfo|SecurityAccess|LoginActivity/.test(fn)) {
+  if (/^btn-ac-|^ac-|^modal-account|^form-ac-|^btn-switcher|^modal-switch|^modal-deactivate/.test(id) || /AccountCenter|AccountInfo|SecurityAccess|LoginActivity|PrivilegedInvite|PrivilegedAccess/.test(fn)) {
     await h.openOwnerMenu(page);
     await page.evaluate(() => {
       if (typeof toggleDrawerSettingsInfo === 'function') toggleDrawerSettingsInfo();
@@ -171,6 +171,13 @@ async function reveal(page, h, item) {
     });
     if (/btn-ac-download-data/.test(id)) {
       await page.evaluate(() => { if (typeof setAccountCenterView === 'function') setAccountCenterView('yourAccount'); });
+    }
+    if (/ac-priv|grantPrivileged|PrivilegedInvite|btn-ac-grant-privileged|btn-ac-tab-privileged/.test(id + fn + key)) {
+      await page.evaluate(() => {
+        const tab = document.getElementById('btn-ac-tab-privileged-access');
+        if (tab) tab.click();
+        if (typeof renderPrivilegedAccessView === 'function') renderPrivilegedAccessView();
+      });
     }
     return;
   }

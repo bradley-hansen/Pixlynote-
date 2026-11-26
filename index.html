@@ -612,7 +612,51 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .hide-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-</style>
+
+    body.privileged-read-only #privileged-readonly-banner { display: block !important; }
+    body.privileged-read-only #nav-btn-create,
+    body.privileged-read-only #btn-open-create-modal,
+    body.privileged-read-only #btn-profile-create-post,
+    body.privileged-read-only #btn-create-camera,
+    body.privileged-read-only #btn-submit-post,
+    body.privileged-read-only #btn-submit-story,
+    body.privileged-read-only #btn-highlight-submit,
+    body.privileged-read-only #btn-save-post-draft,
+    body.privileged-read-only #btn-edit-profile,
+    body.privileged-read-only #btn-profile-avatar-edit,
+    body.privileged-read-only #btn-save-edit-profile,
+    body.privileged-read-only #btn-ac-grant-privileged,
+    body.privileged-read-only .ac-priv-revoke-btn,
+    body.privileged-read-only .btn-like-post,
+    body.privileged-read-only .btn-save-post,
+    body.privileged-read-only .btn-like-explore-card,
+    body.privileged-read-only .feed-comment-form,
+    body.privileged-read-only #modal-comment-form,
+    body.privileged-read-only #note-composer-sheet,
+    body.privileged-read-only #btn-note-modal-like,
+    body.privileged-read-only #dm-send-form,
+    body.privileged-read-only #btn-dm-send,
+    body.privileged-read-only #btn-dm-photo,
+    body.privileged-read-only #btn-dm-new-chat,
+    body.privileged-read-only .explore-account-follow,
+    body.privileged-read-only #btn-user-profile-follow,
+    body.privileged-read-only #btn-user-profile-connect,
+    body.privileged-read-only #pixly-stripe-buy-btn,
+    body.privileged-read-only #pixly-stripe-business-buy-btn,
+    body.privileged-read-only stripe-buy-button,
+    body.privileged-read-only #btn-stripe-cancel-membership,
+    body.privileged-read-only #btn-stripe-billing-portal,
+    body.privileged-read-only #btn-confirm-cancel-membership,
+    body.privileged-read-only #btn-verification-paywall-subscribe,
+    body.privileged-read-only #form-edit-content,
+    body.privileged-read-only #form-ac-change-password,
+    body.privileged-read-only #btn-ac-tab-change-password,
+    body.privileged-read-only #btn-ac-deactivate-account,
+    body.privileged-read-only #btn-confirm-deactivate {
+      display: none !important;
+    }
+    #ac-priv-user-list { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
+  </style>
   <script async src="https://js.stripe.com/v3/buy-button.js"></script>
 </head>
 <body class="bg-neutral-50 text-neutral-900 min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
@@ -1052,6 +1096,9 @@
 
   <!-- MAIN APPLICATION VIEW (Hidden initially until login) -->
   <div id="main-view" class="hidden flex-1 flex flex-col min-h-screen relative" style="display: none;">
+    <div id="privileged-readonly-banner" class="hidden sticky top-0 z-[60] px-3 py-2 bg-indigo-700 text-white text-center text-[11px] font-semibold leading-snug" role="status">
+      Viewing with Privileged Access — read only
+    </div>
     <!-- Pull to Refresh Banner -->
     <div id="pull-refresh-indicator" class="hidden sticky top-14 z-20 bg-sky-500 text-white text-xs font-semibold py-2 px-4 text-center shadow-md transition-all flex items-center justify-center space-x-2">
       <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -3562,7 +3609,7 @@
             </div>
             <div class="text-left">
               <div class="text-xs font-bold text-neutral-900">Privileged Access</div>
-              <div class="text-[10px] text-neutral-500">Grant or manage account switching invites</div>
+              <div class="text-[10px] text-neutral-500">Grant or manage read-only account viewing invites</div>
             </div>
           </div>
           <svg class="w-4 h-4 text-neutral-400 group-hover:text-violet-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -4012,11 +4059,15 @@
         <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-1.5">
           <div class="text-xs font-bold text-indigo-950">Grant Privileged Access</div>
           <p class="text-[11px] text-indigo-800/80 leading-relaxed">
-            Invite a trusted account to switch into <span id="ac-priv-owner-handle" class="font-bold">@account</span> without your password. They must accept the invite from their notifications.
+            Invite a trusted account to view <span id="ac-priv-owner-handle" class="font-bold">@account</span> without your password. Access is read-only. They must accept the invite from their notifications. Pick the person from the userbase so you know it is the right account.
           </p>
-          <div class="flex items-center space-x-2 pt-1">
-            <input type="text" id="ac-priv-username-input" placeholder="Enter @username (e.g. grok_bot)" class="flex-1 px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <button type="button" id="btn-ac-grant-privileged" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0">
+          <div class="flex items-start space-x-2 pt-1">
+            <div class="relative flex-1 min-w-0" id="ac-priv-invite-picker">
+              <div id="ac-priv-selected-chip" class="hidden mb-1.5 flex items-center gap-2 px-2 py-1.5 rounded-xl bg-white border border-indigo-200"></div>
+              <input type="text" id="ac-priv-username-input" placeholder="Search by name or @username" autocomplete="off" aria-autocomplete="list" aria-controls="ac-priv-user-list" class="w-full px-3 py-2 text-xs rounded-xl border border-indigo-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <div id="ac-priv-user-list" class="hidden absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-y-auto rounded-xl border border-indigo-100 bg-white" role="listbox"></div>
+            </div>
+            <button type="button" id="btn-ac-grant-privileged" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
               Invite
             </button>
           </div>
@@ -5161,6 +5212,9 @@
       }
       // Account Center password change for a migrated account. { handled:false } for legacy accounts.
       async function changeAuthPassword(username, curPw, newPw) {
+        if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+          return { handled: true, ok: false, message: 'Privileged Access is read-only' };
+        }
         var fb = window.firebase;
         var n = normU(username);
         var user = currentAuthUser();
@@ -7096,6 +7150,12 @@
       return allow;
     }
     function interceptBusinessPlusCheckout(ev) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
+        return true;
+      }
       const user = state && state.currentUser;
       if (!user) return;
       const isBiz = user.accountType === 'business' || String(user.username || '').toLowerCase() === 'pixlynote';
@@ -9046,6 +9106,7 @@ function syncLikedStateToPosts() {
     }
 // Unified toggle function for all like buttons, hearts, modals, and double-taps
     function togglePostLike(postId, forceState = null) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (postId === undefined || postId === null) return;
       const strId = String(postId);
       const target = getPostById(postId);
@@ -9231,6 +9292,7 @@ function syncLikedStateToPosts() {
     };
 // --- Comprehensive Persistent Storage Controller (Likes, Notes, Saved, Profile) ---
     function persistState() {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       try {
         const curU = getActiveFirestoreUsername() || 'guest';
         const k = (base) => getAccountStorageKey(base, curU);
@@ -9401,6 +9463,7 @@ function syncLikedStateToPosts() {
     }
 
     function saveUserProfile() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       persistState();
     }
 
@@ -9441,6 +9504,7 @@ function syncLikedStateToPosts() {
 
     function writeFollowEdgeToCloud(targetU, nowFollowing) {
       try {
+        if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
         if (!state.isLoggedIn) return;
         const me = normalizeUsername((state.currentUser && state.currentUser.username) || '');
         const t = normalizeUsername(targetU || '');
@@ -12125,6 +12189,7 @@ function syncLikedStateToPosts() {
       return !!n && (_privacyLists[kind] || []).indexOf(n) !== -1;
     }
     function togglePrivacyUser(kind, username, shouldHave) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
       ensurePrivacyListsLoaded();
       const n = privacyNorm(username);
       const me = privacyOwner();
@@ -12148,6 +12213,7 @@ function syncLikedStateToPosts() {
 
     function isBlocked(username) { return listHas('blocks', username); }
     function blockUser(username) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const n = privacyNorm(username);
       const ok = togglePrivacyUser('blocks', username, true);
       return ok || isBlocked(n);
@@ -12383,6 +12449,7 @@ function syncLikedStateToPosts() {
       writeOutgoingRequests(me, o);
     }
     async function sendConnectRequest(target) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
       const me = privacyViewer();
       const t = privacyNorm(target);
       if (!me) { privacyToast('Log in to request to connect'); return false; }
@@ -14664,6 +14731,7 @@ function syncLikedStateToPosts() {
       document.querySelectorAll('.feed-comment-form').forEach(form => {
         form.addEventListener('submit', (e) => {
           e.preventDefault();
+          if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
           const postId = parseInt(form.dataset.postId, 10);
           const input = form.querySelector('.feed-comment-input');
           const text = input ? input.value.trim() : '';
@@ -15209,6 +15277,7 @@ function syncLikedStateToPosts() {
     window.closeNoteDetailModal = closeNoteDetailModal;
 
     function toggleLikeNoteComment(noteId, commentId, replyId = null) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const note = getNoteById(noteId);
       if (!note || !note.comments) return;
       const comment = note.comments.find(c => String(c.id) === String(commentId));
@@ -15371,6 +15440,7 @@ function syncLikedStateToPosts() {
     }
 
     function submitNoteModalComment() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!state.currentModalNoteId) return;
       const note = getNoteById(state.currentModalNoteId);
       const input = document.getElementById('note-modal-comment-input');
@@ -15458,6 +15528,7 @@ function syncLikedStateToPosts() {
     window.submitNoteModalComment = submitNoteModalComment;
 
     function toggleLikePostComment(postId, commentId, replyId = null) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const post = getPostById(postId);
       if (!post || !post.comments) return;
       const comment = post.comments.find(c => String(c.id) === String(commentId));
@@ -16126,6 +16197,7 @@ function syncLikedStateToPosts() {
 
         // Global toggle like for notes (Feed, Explore, Liked, Note Modal)
     function toggleLikeNote(noteId, btnEl) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (noteId === undefined || noteId === null) return;
       const note = getNoteById(noteId);
       if (!note) return;
@@ -18581,6 +18653,7 @@ function syncLikedStateToPosts() {
     window.isPostSaved = isPostSaved;
 
     function toggleSavePost(postId) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (postId === undefined || postId === null || postId === '') return;
       if (!state.savedPostIds) state.savedPostIds = new Set();
       const strId = String(postId);
@@ -18709,6 +18782,7 @@ function syncLikedStateToPosts() {
     window.confirmDeletePostConfirm = confirmDeletePostConfirm;
 
     function handleDeletePostAction(targetPostId) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       try {
         const pid = targetPostId || state.currentModalPostId;
         if (!pid) return;
@@ -18968,6 +19042,7 @@ function syncLikedStateToPosts() {
     // --- Direct Post Creation Controller (Single-Flight Mutex Guarded) ---
     let isCreatingPost = false;
     function handleCreatePostAction() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (isCreatingPost) {
         console.warn("Post creation already in progress. Ignoring duplicate call.");
         return;
@@ -20409,6 +20484,7 @@ function syncLikedStateToPosts() {
     window.openCreateCamera = openCreateCamera;
 
     function openCreatePostModal(mode = "post") {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       state.activeDraftId = null;
       const modal = document.getElementById('modal-create-post');
       if (modal) {
@@ -21111,6 +21187,7 @@ function syncLikedStateToPosts() {
     }
 
     function applyLocalFollowToggle(username, forcedState = null, meta = null) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return null;
       if (!username) return null;
       const cleanU = normalizeUsername(username);
       if (!cleanU) return null;
@@ -22208,6 +22285,7 @@ function syncLikedStateToPosts() {
       showModalEl('modal-verification-paywall');
     }
     function goToSubscriptionFromVerificationPaywall() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       closeAllVerificationModals();
       if (typeof closeEditProfileModal === 'function') { try { closeEditProfileModal(); } catch (e) {} }
       if (typeof closeAccountCenterModal === 'function') { try { closeAccountCenterModal(); } catch (e) {} }
@@ -26761,6 +26839,7 @@ function syncLikedStateToPosts() {
 
     function handleSendDirectMessage(e) {
       if (e && e.preventDefault) e.preventDefault();
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return false;
       const input = document.getElementById('dm-input-text');
       if (!input) return false;
       const text = input.value.trim();
@@ -26809,6 +26888,7 @@ function syncLikedStateToPosts() {
     window.handleSendDirectMessage = handleSendDirectMessage;
 
     function sendDmQuickReaction(emoji) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const currentIdx = (typeof state.activeDmThreadIndex === 'number' && state.messages[state.activeDmThreadIndex]) 
         ? state.activeDmThreadIndex 
         : 0;
@@ -26839,12 +26919,14 @@ function syncLikedStateToPosts() {
     window.sendDmQuickReaction = sendDmQuickReaction;
 
     function triggerDmPhotoChooser() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const fileInp = document.getElementById('dm-file-input');
       if (fileInp) fileInp.click();
     }
     window.triggerDmPhotoChooser = triggerDmPhotoChooser;
 
     function handleDmPhotoSelected(e) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const file = e.target.files && e.target.files[0];
       if (!file) return;
 
@@ -27238,6 +27320,7 @@ function syncLikedStateToPosts() {
     window.handleDmMobileBack = handleDmMobileBack;
 
     function persistDirectMessages() {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       window._lastLocalDmWriteTs = Date.now();
       let cleanDms = [];
       try {
@@ -27463,6 +27546,7 @@ function syncLikedStateToPosts() {
     }
 
     function sendDmShareToSelected() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!window._dmShareTarget || window._dmShareSelectedUsers.size === 0) return;
       const { type, id, item } = window._dmShareTarget;
       const noteInp = document.getElementById('dm-share-note-input');
@@ -27771,6 +27855,7 @@ function syncLikedStateToPosts() {
     window.cancelAccountDeactivation = cancelAccountDeactivation;
 
     function openDeactivateConfirmModal() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
       if (!curU) return;
       const handleEl = document.getElementById('deactivate-confirm-handle');
@@ -27793,6 +27878,7 @@ function syncLikedStateToPosts() {
     window.closeDeactivateConfirmModal = closeDeactivateConfirmModal;
 
     async function confirmDeactivateAccount() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!state.currentUser || !state.currentUser.username) return;
       const cleanU = (typeof normalizeUsername === 'function')
         ? normalizeUsername(state.currentUser.username)
@@ -28055,8 +28141,22 @@ function syncLikedStateToPosts() {
     window.disarmAuthCredentialForms = disarmAuthCredentialForms;
     window.armAuthCredentialForms = armAuthCredentialForms;
 
-    function performLogin(username, fullName, email, password = null, phone = null, accountType = null, switchSeedAcc = null) {
+    function performLogin(username, fullName, email, password = null, phone = null, accountType = null, switchSeedAcc = null, loginOpts = null) {
       const loginGen = (window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1);
+      const privilegedSwitch = !!(loginOpts && loginOpts.privilegedReadOnly);
+      const restorePrivileged = !!(loginOpts && loginOpts.restorePrivileged);
+      if (!privilegedSwitch && !restorePrivileged) {
+        if (typeof clearPrivilegedReadOnlySession === 'function') clearPrivilegedReadOnlySession();
+        else {
+          state.privilegedReadOnly = false;
+          state.privilegedOwner = '';
+          state.privilegedViewer = '';
+          try { sessionStorage.removeItem('pixly_priv_readonly_session'); } catch (e) {}
+        }
+      } else if (restorePrivileged) {
+        // Keep the stored session, but do not block persistState during login hydration.
+        state.privilegedReadOnly = false;
+      }
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
       const normTargetU = normalizeUsername(cleanUsername);
       const localDeact = getDeactivationRecord(cleanUsername);
@@ -28486,7 +28586,20 @@ function syncLikedStateToPosts() {
       const retWrap = document.getElementById('auth-return-session-wrap');
       if (retWrap) retWrap.classList.add('hidden');
       window._pixlyReturningSessionUser = null;
-      if (window._justReactivatedAccount && window._justReactivatedAccount === state.currentUser.username.toLowerCase()) {
+      if (privilegedSwitch && typeof setPrivilegedReadOnlySession === 'function') {
+        setPrivilegedReadOnlySession(normTargetU, loginOpts.viewer);
+        showToast('Viewing @' + normTargetU + ' with Privileged Access — read only');
+      } else if (restorePrivileged && typeof restorePrivilegedReadOnlySession === 'function') {
+        const restored = restorePrivilegedReadOnlySession(normTargetU);
+        if (!restored) {
+          if (window._justReactivatedAccount && window._justReactivatedAccount === state.currentUser.username.toLowerCase()) {
+            window._justReactivatedAccount = null;
+            showToast(`Welcome back, @${state.currentUser.username}! Account deletion has been canceled. ✓`);
+          } else {
+            showToast(`Welcome back, @${state.currentUser.username}!`);
+          }
+        }
+      } else if (window._justReactivatedAccount && window._justReactivatedAccount === state.currentUser.username.toLowerCase()) {
         window._justReactivatedAccount = null;
         showToast(`Welcome back, @${state.currentUser.username}! Account deletion has been canceled. ✓`);
       } else {
@@ -28506,6 +28619,7 @@ function syncLikedStateToPosts() {
     }
 
     function performLogout() {
+      if (typeof clearPrivilegedReadOnlySession === 'function') clearPrivilegedReadOnlySession();
       window._pixlyLoginGen = (window._pixlyLoginGen || 0) + 1;
       window._pixlyAuthUsername = '';
       if (typeof closeSwitchPasswordModal === 'function') closeSwitchPasswordModal();
@@ -29270,6 +29384,7 @@ function syncLikedStateToPosts() {
         if (pwForm) {
           pwForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
             const curPw = (document.getElementById('ac-pw-current') || {}).value || '';
             const newPw = (document.getElementById('ac-pw-new') || {}).value || '';
             const confPw = (document.getElementById('ac-pw-confirm') || {}).value || '';
@@ -32797,6 +32912,7 @@ function syncLikedStateToPosts() {
         if (editProfileForm) {
           editProfileForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
             const validated = (typeof validateEditProfileForm === 'function')
               ? validateEditProfileForm()
               : { ok: false, errors: [{ message: 'Profile validation is unavailable.', focusId: 'btn-save-edit-profile' }], values: {} };
@@ -33071,6 +33187,7 @@ function syncLikedStateToPosts() {
         if (modalCommentForm) {
           modalCommentForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
             const input = document.getElementById('modal-comment-input');
             const text = input ? input.value.trim() : '';
             if (!text || !state.currentModalPostId) return;
@@ -33735,6 +33852,7 @@ function syncLikedStateToPosts() {
         if (noteComposeForm) {
           noteComposeForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
             const input = document.getElementById('note-input-text');
             if (!input || !input.value.trim()) {
               showToast('Please enter a note to share');
@@ -34745,6 +34863,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return fields;
     }
     async function cancelStripeSubscriptionForAccount(username, kind) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) {
+        if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
+        return { ok: false, error: 'privileged_read_only' };
+      }
       const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
       const cur = (state && state.currentUser) || {};
       const sessionId = kind === 'business' ? cur.stripeBusinessSessionId : cur.stripeSessionId;
@@ -34848,6 +34970,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.applyPendingStripeSession = applyPendingStripeSession;
     const SUBSCRIPTION_PERSIST_FIELDS = ['isPlus', 'isVerified', 'isBusinessPlus', 'subscriptionStatus', 'stripeSessionId', 'stripeSubscriptionId', 'stripeCustomerId', 'stripeBusinessSessionId', 'stripeBusinessSubscriptionId', 'stripeCancelAtPeriodEnd', 'stripeCurrentPeriodEnd'];
     function persistCurrentUserSubscription() {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       if (!state || !state.currentUser) return;
       const curU = (typeof getActiveFirestoreUsername === 'function')
         ? getActiveFirestoreUsername()
@@ -34961,6 +35084,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return false;
     }
     function markStripePortalVisit() {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       try { sessionStorage.setItem('pixly_stripe_portal_visit', '1'); } catch (e) {}
       try { localStorage.setItem('pixly_stripe_portal_visit', '1'); } catch (e) {}
     }
@@ -34974,6 +35098,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       try { localStorage.removeItem('pixly_stripe_portal_visit'); } catch (e) {}
     }
     function fallbackToStripeBillingPortal(reason) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       markStripePortalVisit();
       try { window.open(STRIPE_BILLING_PORTAL_URL, '_blank', 'noopener,noreferrer'); } catch (e) {}
       if (typeof showToast === 'function') {
@@ -35094,6 +35219,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (btn) btn.disabled = false;
     }
     function openCancelMembershipConfirm() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const ids = currentMembershipIds();
       if (!ids.sessionId && !ids.subscriptionId) {
         if (typeof showToast === 'function') {
@@ -35115,6 +35241,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (m) { m.classList.remove('hidden'); m.style.display = 'flex'; }
     }
     async function confirmCancelMembership() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const ids = currentMembershipIds();
       const btn = document.getElementById('btn-confirm-cancel-membership');
       if (!ids.sessionId && !ids.subscriptionId) {
@@ -35603,6 +35730,260 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
 
 
+
+    // --- Privileged Access session (read-only while viewing as a granted account) ---
+    const PIXLY_PRIV_READONLY_KEY = 'pixly_priv_readonly_session';
+    function isPrivilegedReadOnly() {
+      return !!(state && state.privilegedReadOnly);
+    }
+    window.isPrivilegedReadOnly = isPrivilegedReadOnly;
+    function privilegedActionBlocked() {
+      if (!isPrivilegedReadOnly()) return false;
+      if (typeof showToast === 'function') showToast('Privileged Access is read-only');
+      return true;
+    }
+    window.privilegedActionBlocked = privilegedActionBlocked;
+    function applyPrivilegedReadOnlyUi() {
+      try {
+        const on = isPrivilegedReadOnly();
+        document.body.classList.toggle('privileged-read-only', on);
+        const bar = document.getElementById('privileged-readonly-banner');
+        if (bar) {
+          const owner = state.privilegedOwner || (state.currentUser && state.currentUser.username) || '';
+          bar.textContent = on
+            ? ('Viewing @' + String(owner).replace(/^@/, '') + ' with Privileged Access — read only. You can look around, but you cannot post, message, like, follow, or change settings.')
+            : 'Viewing with Privileged Access — read only';
+          if (on) { bar.classList.remove('hidden'); bar.style.display = 'block'; }
+          else { bar.classList.add('hidden'); bar.style.display = 'none'; }
+        }
+      } catch (e) {}
+    }
+    window.applyPrivilegedReadOnlyUi = applyPrivilegedReadOnlyUi;
+    function setPrivilegedReadOnlySession(owner, viewer) {
+      const o = (typeof normalizeUsername === 'function') ? normalizeUsername(owner) : String(owner || '').toLowerCase();
+      const v = (typeof normalizeUsername === 'function') ? normalizeUsername(viewer) : String(viewer || '').toLowerCase();
+      state.privilegedReadOnly = true;
+      state.privilegedOwner = o;
+      state.privilegedViewer = v;
+      try { sessionStorage.setItem(PIXLY_PRIV_READONLY_KEY, JSON.stringify({ owner: o, viewer: v })); } catch (e) {}
+      applyPrivilegedReadOnlyUi();
+    }
+    window.setPrivilegedReadOnlySession = setPrivilegedReadOnlySession;
+    function clearPrivilegedReadOnlySession() {
+      state.privilegedReadOnly = false;
+      state.privilegedOwner = '';
+      state.privilegedViewer = '';
+      try { sessionStorage.removeItem(PIXLY_PRIV_READONLY_KEY); } catch (e) {}
+      applyPrivilegedReadOnlyUi();
+    }
+    window.clearPrivilegedReadOnlySession = clearPrivilegedReadOnlySession;
+    function restorePrivilegedReadOnlySession(username) {
+      try {
+        const raw = sessionStorage.getItem(PIXLY_PRIV_READONLY_KEY);
+        if (!raw) { clearPrivilegedReadOnlySession(); return false; }
+        const rec = JSON.parse(raw);
+        const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase();
+        const owner = rec && rec.owner ? String(rec.owner).toLowerCase().replace(/^@/, '') : '';
+        if (rec && owner && owner === u && rec.viewer) {
+          setPrivilegedReadOnlySession(rec.owner, rec.viewer);
+          return true;
+        }
+      } catch (e) {}
+      clearPrivilegedReadOnlySession();
+      return false;
+    }
+    window.restorePrivilegedReadOnlySession = restorePrivilegedReadOnlySession;
+
+    function searchPrivilegedInviteCandidates(query) {
+      const me = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase();
+      const q = String(query || '').trim().replace(/^@/, '').toLowerCase();
+      const results = [];
+      const seen = new Set();
+      function add(c) {
+        const n = (typeof normalizeUsername === 'function')
+          ? normalizeUsername((c && (c.username || c.user)) || '')
+          : String((c && (c.username || c.user)) || '').toLowerCase().replace(/^@/, '');
+        if (!n || n === me || seen.has(n)) return;
+        if (c && c.deactivated === true) return;
+        if (typeof isSeedDemoUsername === 'function' && isSeedDemoUsername(n)) return;
+        const dir = window._exploreUserDir && window._exploreUserDir.users;
+        const rec = (dir && typeof dir.get === 'function') ? dir.get(n) : null;
+        if (rec && rec.deactivated === true) return;
+        const acc = {
+          username: n,
+          fullName: (rec && rec.fullName) || (c && (c.fullName || c.displayName || c.name)) || n,
+          avatar: (rec && rec.avatar) || (c && (c.avatar || c.photoURL)) || '',
+          accountType: (rec && rec.accountType) || (c && c.accountType) || 'personal'
+        };
+        if (q && typeof accountMatchesDmQuery === 'function' && !accountMatchesDmQuery(acc, q)) return;
+        if (q && typeof accountMatchesDmQuery !== 'function') {
+          const hay = (acc.username + ' ' + acc.fullName).toLowerCase();
+          if (hay.indexOf(q) === -1) return;
+        }
+        seen.add(n);
+        results.push(acc);
+      }
+      const dir = window._exploreUserDir && window._exploreUserDir.users;
+      if (dir && typeof dir.forEach === 'function') {
+        dir.forEach(function (rec, uname) { add(rec || { username: uname }); });
+      }
+      try {
+        if (window._pixlyAccounts && typeof window._pixlyAccounts === 'object') {
+          Object.keys(window._pixlyAccounts).forEach(function (k) { add(window._pixlyAccounts[k] || { username: k }); });
+        }
+      } catch (e) {}
+      try {
+        if (typeof getSessionAccounts === 'function') getSessionAccounts().forEach(add);
+      } catch (e) {}
+      results.sort(function (a, b) { return String(a.fullName).localeCompare(String(b.fullName)); });
+      return results;
+    }
+    window.searchPrivilegedInviteCandidates = searchPrivilegedInviteCandidates;
+    function lookupPrivilegedInviteUser(username) {
+      const n = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
+      if (!n) return null;
+      return searchPrivilegedInviteCandidates(n).find(function (a) { return a.username === n; }) || null;
+    }
+    window.lookupPrivilegedInviteUser = lookupPrivilegedInviteUser;
+    function paintPrivilegedInviteList(query) {
+      const list = document.getElementById('ac-priv-user-list');
+      if (!list) return;
+      const q = String(query || '').trim();
+      if (!q) {
+        list.innerHTML = '';
+        list.classList.add('hidden');
+        return;
+      }
+      const matches = searchPrivilegedInviteCandidates(q);
+      if (!matches.length) {
+        list.innerHTML = '<div class="p-2.5 text-[11px] text-neutral-500 text-center">No accounts found matching "' + (typeof escapeHtml === 'function' ? escapeHtml(q) : q) + '"</div>';
+        list.classList.remove('hidden');
+        return;
+      }
+      list.innerHTML = matches.slice(0, 12).map(function (c) {
+        const av = (typeof resolveDmAvatar === 'function') ? resolveDmAvatar(c.username, c.avatar) : (c.avatar || '');
+        const fallback = (typeof COMMUNITY_IMAGES !== 'undefined' && COMMUNITY_IMAGES[0]) ? COMMUNITY_IMAGES[0] : av;
+        return '<button type="button" class="w-full p-2 px-2.5 flex items-center gap-2.5 hover:bg-indigo-50 text-left cursor-pointer ac-priv-user-row" role="option" data-username="' + (typeof escapeHtml === 'function' ? escapeHtml(c.username) : c.username) + '" onclick="selectPrivilegedInviteUser(\'' + c.username.replace(/\\/g, '').replace(/'/g, '') + '\')">'
+          + '<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-neutral-200 bg-neutral-100">'
+          + '<img src="' + (av || fallback) + '" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.src=\'' + fallback + '\';">'
+          + '</div>'
+          + '<div class="min-w-0">'
+          + '<div class="font-bold text-xs text-neutral-900 truncate">' + (typeof escapeHtml === 'function' ? escapeHtml(c.fullName) : c.fullName) + '</div>'
+          + '<div class="text-[11px] text-neutral-500 truncate">@' + (typeof escapeHtml === 'function' ? escapeHtml(c.username) : c.username) + '</div>'
+          + '</div></button>';
+      }).join('');
+      list.classList.remove('hidden');
+    }
+    window.paintPrivilegedInviteList = paintPrivilegedInviteList;
+    function filterPrivilegedInviteUsers(query) {
+      window._privInviteSelected = null;
+      const chip = document.getElementById('ac-priv-selected-chip');
+      if (chip) { chip.classList.add('hidden'); chip.innerHTML = ''; }
+      const btn = document.getElementById('btn-ac-grant-privileged');
+      if (btn) btn.disabled = true;
+      const q = String(query || '');
+      paintPrivilegedInviteList(q);
+      if (typeof loadExploreUserDirectory === 'function') {
+        const token = (window._privSearchToken = (window._privSearchToken || 0) + 1);
+        loadExploreUserDirectory().then(function () {
+          if (token !== window._privSearchToken) return;
+          if (window._privInviteSelected) return;
+          paintPrivilegedInviteList(q);
+        }).catch(function () {});
+      }
+    }
+    window.filterPrivilegedInviteUsers = filterPrivilegedInviteUsers;
+    function selectPrivilegedInviteUser(username) {
+      const acc = lookupPrivilegedInviteUser(username);
+      if (!acc) {
+        if (typeof showToast === 'function') showToast('That account was not found in the userbase');
+        return;
+      }
+      window._privInviteSelected = acc;
+      const inp = document.getElementById('ac-priv-username-input');
+      if (inp) inp.value = '';
+      const list = document.getElementById('ac-priv-user-list');
+      if (list) { list.classList.add('hidden'); list.innerHTML = ''; }
+      const chip = document.getElementById('ac-priv-selected-chip');
+      if (chip) {
+        const av = (typeof resolveDmAvatar === 'function') ? resolveDmAvatar(acc.username, acc.avatar) : (acc.avatar || '');
+        chip.innerHTML = '<div class="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-indigo-100 bg-neutral-100"><img src="' + av + '" alt="" class="w-full h-full object-cover"></div>'
+          + '<div class="min-w-0 flex-1"><div class="font-bold text-xs text-neutral-900 truncate">' + (typeof escapeHtml === 'function' ? escapeHtml(acc.fullName) : acc.fullName) + '</div>'
+          + '<div class="text-[11px] text-indigo-800 truncate">@' + (typeof escapeHtml === 'function' ? escapeHtml(acc.username) : acc.username) + '</div></div>'
+          + '<button type="button" id="btn-ac-priv-clear-pick" class="p-1 text-neutral-400 hover:text-neutral-700 cursor-pointer" onclick="clearPrivilegedInviteUser()" aria-label="Clear selected account"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+        chip.classList.remove('hidden');
+        chip.style.display = 'flex';
+      }
+      const btn = document.getElementById('btn-ac-grant-privileged');
+      if (btn) btn.disabled = false;
+    }
+    window.selectPrivilegedInviteUser = selectPrivilegedInviteUser;
+    function clearPrivilegedInviteUser() {
+      window._privInviteSelected = null;
+      const chip = document.getElementById('ac-priv-selected-chip');
+      if (chip) { chip.classList.add('hidden'); chip.style.display = 'none'; chip.innerHTML = ''; }
+      const inp = document.getElementById('ac-priv-username-input');
+      if (inp) inp.value = '';
+      const list = document.getElementById('ac-priv-user-list');
+      if (list) { list.classList.add('hidden'); list.innerHTML = ''; }
+      const btn = document.getElementById('btn-ac-grant-privileged');
+      if (btn) btn.disabled = true;
+    }
+    window.clearPrivilegedInviteUser = clearPrivilegedInviteUser;
+
+    (function wirePrivilegedReadOnlySafetyNet() {
+      if (window._privReadOnlySafetyWired) return;
+      window._privReadOnlySafetyWired = true;
+      const ACTION_SEL = [
+        '#nav-btn-create', '#btn-open-create-modal', '#btn-profile-create-post', '#btn-create-camera',
+        '#btn-submit-post', '#btn-submit-story', '#btn-highlight-submit', '#btn-save-post-draft',
+        '#btn-edit-profile', '#btn-profile-avatar-edit', '#btn-save-edit-profile',
+        '#btn-ac-grant-privileged', '.ac-priv-revoke-btn',
+        '.btn-like-post', '.btn-save-post', '.btn-like-explore-card',
+        '#btn-note-modal-like', '#btn-dm-send', '#btn-dm-new-chat', '#btn-dm-photo',
+        '.explore-account-follow', '#btn-user-profile-follow', '#btn-user-profile-connect',
+        '#create-post-form', '#edit-profile-form', '#modal-comment-form', '#note-modal-comment-form',
+        '#note-compose-form', '#dm-send-form', '.feed-comment-form',
+        '#pixly-stripe-buy-btn', '#pixly-stripe-business-buy-btn', 'stripe-buy-button',
+        '#btn-stripe-cancel-membership', '#btn-stripe-billing-portal', '#btn-confirm-cancel-membership',
+        '#btn-verification-paywall-subscribe', '#form-edit-content', '#form-ac-change-password',
+        '#btn-ac-tab-change-password', '#btn-ac-deactivate-account', '#btn-confirm-deactivate'
+      ].join(',');
+      function isPrivilegedActionTarget(el) {
+        if (!el || !el.closest) return false;
+        if (el.closest(ACTION_SEL)) return true;
+        const host = (el.getAttribute && el.getAttribute('onclick')) ? el : (el.closest && el.closest('[onclick]'));
+        const oc = host && host.getAttribute ? (host.getAttribute('onclick') || '') : '';
+        if (!oc) return false;
+        return /togglePostLike|toggleSavePost|toggleLikeNote|applyLocalFollowToggle|sendConnectRequest|sendDmQuickReaction|handleSendDirectMessage|handleCreatePostAction|openCreatePostModal|openCreateCamera|handleDeletePostAction|blockUser|muteUser|submitNoteModalComment|grantPrivilegedAccessToUser|revokePrivilegedAccess|openCancelMembershipConfirm|confirmCancelMembership|markStripeCheckoutInitiated|markStripePortalVisit|goToSubscriptionFromVerificationPaywall|saveEditedContent|openDeactivateConfirmModal|confirmDeactivateAccount/.test(oc);
+      }
+      function blockIfNeeded(e) {
+        if (typeof isPrivilegedReadOnly !== 'function' || !isPrivilegedReadOnly()) return;
+        if (!isPrivilegedActionTarget(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
+      }
+      document.addEventListener('click', blockIfNeeded, true);
+      document.addEventListener('submit', blockIfNeeded, true);
+      document.addEventListener('change', function (e) {
+        if (typeof isPrivilegedReadOnly !== 'function' || !isPrivilegedReadOnly()) return;
+        if (e.target && e.target.id === 'dm-file-input') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof privilegedActionBlocked === 'function') privilegedActionBlocked();
+        }
+      }, true);
+    })();
+
+    try {
+      if (state && state.isLoggedIn && state.currentUser && typeof restorePrivilegedReadOnlySession === 'function') {
+        restorePrivilegedReadOnlySession(state.currentUser.username);
+      }
+    } catch (e) {}
+
     // --- Privileged Access & Password-Verified Account Switching Controller ---
     function getPrivilegedGrantedList(username) {
       const u = normalizeUsername(username || (state.currentUser && state.currentUser.username) || '');
@@ -35735,10 +36116,21 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.renderPrivilegedAccessView = renderPrivilegedAccessView;
 
     async function grantPrivilegedAccessToUser(rawUsername) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
-      const targetU = normalizeUsername(rawUsername);
+      const picked = (window._privInviteSelected && window._privInviteSelected.username) ? window._privInviteSelected : null;
+      const targetU = normalizeUsername((picked && picked.username) || rawUsername);
       if (!targetU) {
-        showToast('Enter a username to invite');
+        showToast('Pick a person from the list to invite');
+        return;
+      }
+      if (!picked || normalizeUsername(picked.username) !== targetU) {
+        showToast('Pick a person from the list so you know it is the right account');
+        return;
+      }
+      const existingUser = (typeof lookupPrivilegedInviteUser === 'function') ? lookupPrivilegedInviteUser(targetU) : picked;
+      if (!existingUser) {
+        showToast('That account was not found in the userbase');
         return;
       }
       if (targetU === curU) {
@@ -35771,13 +36163,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           read: false
         });
       }
-      const inp = document.getElementById('ac-priv-username-input');
-      if (inp) inp.value = '';
+      if (typeof clearPrivilegedInviteUser === 'function') clearPrivilegedInviteUser();
       showToast(`Privileged Access invite sent to @${targetU} ✓`);
       renderPrivilegedAccessView();
     }
 
     async function revokePrivilegedAccess(rawTarget) {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const curU = normalizeUsername((state.currentUser && state.currentUser.username) || '');
       const targetU = normalizeUsername(rawTarget);
       if (!curU || !targetU) return;
@@ -35915,7 +36307,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         }
         if (reqSeq !== _switchRequestSeq) return;
         if (verifiedByTarget) {
-          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc);
+          performLogin(acc.username, acc.fullName || '', acc.email || '', null, acc.phone || '', acc.accountType || 'personal', acc, { privilegedReadOnly: true, viewer: curU });
           return;
         }
       }
@@ -36002,11 +36394,35 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     (function wirePrivilegedAndSwitchModals() {
       const grantBtn = document.getElementById('btn-ac-grant-privileged');
       if (grantBtn) {
+        grantBtn.disabled = true;
         grantBtn.addEventListener('click', () => {
-          const inp = document.getElementById('ac-priv-username-input');
-          grantPrivilegedAccessToUser(inp ? inp.value : '');
+          grantPrivilegedAccessToUser((window._privInviteSelected && window._privInviteSelected.username) || '');
         });
       }
+      const privInp = document.getElementById('ac-priv-username-input');
+      if (privInp && !privInp.dataset.wired) {
+        privInp.dataset.wired = '1';
+        privInp.addEventListener('input', () => filterPrivilegedInviteUsers(privInp.value));
+        privInp.addEventListener('focus', () => filterPrivilegedInviteUsers(privInp.value));
+        privInp.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            const list = document.getElementById('ac-priv-user-list');
+            if (list) list.classList.add('hidden');
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const first = document.querySelector('#ac-priv-user-list .ac-priv-user-row');
+            if (first && first.getAttribute('data-username')) selectPrivilegedInviteUser(first.getAttribute('data-username'));
+          }
+        });
+      }
+      document.addEventListener('click', (e) => {
+        const picker = document.getElementById('ac-priv-invite-picker');
+        if (picker && !picker.contains(e.target)) {
+          const list = document.getElementById('ac-priv-user-list');
+          if (list) list.classList.add('hidden');
+        }
+      });
       const assocInviteBtn = document.getElementById('btn-ac-invite-associate');
       if (assocInviteBtn && !assocInviteBtn.dataset.wired) {
         assocInviteBtn.dataset.wired = '1';
@@ -36204,6 +36620,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.closeEditContentModal = closeEditContentModal;
 
     function saveEditedContent() {
+      if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       if (!isPlusUser()) {
         if (typeof showToast === 'function') showToast('Pixlynote Plus is required to edit content');
         if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
@@ -36320,6 +36737,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.updateSubscriptionModalUI = updateSubscriptionModalUI;
 
     function markStripeCheckoutInitiated(kind) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       const nowStr = String(Date.now());
       try { sessionStorage.setItem('pixly_stripe_checkout_initiated', nowStr); } catch (e) {}
       if (typeof safeLocalStorageSet === 'function') safeLocalStorageSet('pixly_stripe_checkout_initiated', nowStr);
@@ -36332,6 +36750,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.markStripeCheckoutInitiated = markStripeCheckoutInitiated;
     function wireStripeBuyButton(buyBtn, kind) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       if (!buyBtn || buyBtn.dataset.checkoutWired) return;
       buyBtn.dataset.checkoutWired = '1';
       if (kind === 'business') {
@@ -36352,6 +36771,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       });
     }
     function stampStripeBuyButton(buyBtn) {
+      if (typeof isPrivilegedReadOnly === 'function' && isPrivilegedReadOnly()) return;
       if (!buyBtn || !(state.currentUser && state.currentUser.username)) return;
       const cleanU = normalizeUsername(state.currentUser.username);
       if (cleanU) buyBtn.setAttribute('client-reference-id', cleanU);

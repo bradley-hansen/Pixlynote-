@@ -103,7 +103,7 @@ test('users: only the owner or admin can delete an account doc', async () => {
 });
 
 // ---- private contact data ----
-test('private: email/phone/DMs readable and writable by the owner only (plus admin and delegates)', async () => {
+test('private: email/phone/DMs readable by the owner, admin, and delegates; writable by the owner and admin only', async () => {
   await assertSucceeds(getDoc(doc(real(UID.brad), 'users/bradley_hansen/private/account')));
   await assertSucceeds(setDoc(doc(real(UID.brad), 'users/bradley_hansen/private/account'), { email: 'new@example.test' }, { merge: true }));
   await assertFails(getDoc(doc(real(UID.mallory), 'users/bradley_hansen/private/account')));
@@ -112,12 +112,15 @@ test('private: email/phone/DMs readable and writable by the owner only (plus adm
   await assertFails(setDoc(doc(real(UID.mallory), 'users/bradley_hansen/private/account'), { email: 'evil@example.test' }, { merge: true }));
   await assertSucceeds(getDoc(doc(real(UID.admin), 'users/bradley_hansen/private/account')));
   await assertSucceeds(getDoc(doc(real(UID.helper), 'users/bradley_hansen/private/account')));
+  await assertFails(setDoc(doc(real(UID.helper), 'users/bradley_hansen/private/account'), { email: 'helper@example.test' }, { merge: true }));
 });
 
 // ---- Privileged Access delegates ----
-test('delegates: a granted account can act for the owner but cannot change who is granted', async () => {
-  await assertSucceeds(updateDoc(doc(real(UID.helper), 'users/bradley_hansen'), { bio: 'by helper' }));
+test('delegates: a granted account can read as the owner but cannot write or change who is granted', async () => {
+  await assertSucceeds(getDoc(doc(real(UID.helper), 'users/bradley_hansen')));
+  await assertFails(updateDoc(doc(real(UID.helper), 'users/bradley_hansen'), { bio: 'by helper' }));
   await assertFails(updateDoc(doc(real(UID.helper), 'users/bradley_hansen'), { delegateUids: [UID.helper, UID.mallory] }));
+  await assertSucceeds(updateDoc(doc(real(UID.brad), 'users/bradley_hansen'), { bio: 'by owner', delegateUids: [UID.helper] }));
   await assertSucceeds(updateDoc(doc(real(UID.brad), 'users/bradley_hansen'), { delegateUids: [] }));
   await assertFails(updateDoc(doc(real(UID.helper), 'users/bradley_hansen'), { bio: 'revoked' }));
 });

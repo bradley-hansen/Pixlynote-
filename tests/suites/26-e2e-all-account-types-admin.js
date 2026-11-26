@@ -104,10 +104,16 @@ module.exports = {
         'el:#drawer-pixlynote-business-verifications',
         'el:#btn-ac-tab-privileged-access',
         'el:#ac-priv-username-input',
+        'el:#ac-priv-user-list',
+        'el:#ac-priv-selected-chip',
+        'el:#ac-priv-invite-picker',
         'el:#btn-ac-grant-privileged',
         'handler:toggleDrawerUserMetricsList',
         'handler:grantPrivilegedAccessToUser',
-        'handler:revokePrivilegedAccess'
+        'handler:revokePrivilegedAccess',
+        'handler:filterPrivilegedInviteUsers',
+        'handler:selectPrivilegedInviteUser',
+        'handler:clearPrivilegedInviteUser'
       ],
       async run(ctx) {
         const { page, h, a, account } = ctx;
@@ -142,7 +148,26 @@ module.exports = {
         await page.waitForTimeout(150);
         a.ok(await h.isVisible(page, '#ac-view-privileged-access'), 'Privileged Access view opens');
 
+        await page.evaluate(() => {
+          const users = (window._exploreUserDir && window._exploreUserDir.users) || new Map();
+          users.set('reg_personal', { username: 'reg_personal', fullName: 'Reg Personal', avatar: '', accountType: 'personal' });
+          window._exploreUserDir = Object.assign({}, window._exploreUserDir || {}, { users: users, at: Date.now() });
+        });
         await page.fill('#ac-priv-username-input', 'reg_personal');
+        await page.waitForTimeout(120);
+        const pickVisible = await page.evaluate(() => {
+          const list = document.getElementById('ac-priv-user-list');
+          const row = list && list.querySelector('.ac-priv-user-row[data-username="reg_personal"]');
+          return !!(list && !list.classList.contains('hidden') && row && (row.innerText || '').includes('Reg Personal') && (row.innerText || '').includes('@reg_personal'));
+        });
+        a.ok(pickVisible, 'Invite picklist shows Reg Personal and @reg_personal');
+        await page.click('#ac-priv-user-list .ac-priv-user-row[data-username="reg_personal"]');
+        await page.waitForTimeout(80);
+        const grantEnabled = await page.evaluate(() => {
+          const btn = document.getElementById('btn-ac-grant-privileged');
+          return !!(btn && !btn.disabled);
+        });
+        a.ok(grantEnabled, 'Invite is enabled only after picking a real user');
         await page.click('#btn-ac-grant-privileged');
         await page.waitForTimeout(150);
         const grantedText = await page.evaluate(() => (document.getElementById('ac-privileged-granted-list') || {}).innerText || '');
