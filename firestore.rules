@@ -366,6 +366,35 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // Admin Promote Settings (t1044u). Tiers: anyone may read (the app's Promote slider); only @pixlynote may write,
+    // and only a valid shape (the Worker re-validates and falls back to the defaults). The free (exempt) list is
+    // admin-only: the Worker reads it with its service account. Kept out of the admin catch-all below on purpose.
+    function promoteTierOk(t) {
+      return t is map && t.keys().hasOnly(['price', 'hours', 'views']) && t.keys().hasAll(['price', 'hours', 'views'])
+          && t.price is int && t.price >= 1 && t.price <= 10000
+          && t.hours is int && t.hours >= 1 && t.hours <= 8760 && (t.hours < 48 || t.hours % 24 == 0)
+          && t.views is int && t.views >= 50 && t.views <= 10000000 && t.views % 50 == 0;
+    }
+    function promoteStepOk(a, b) { return b.price > a.price && b.hours >= a.hours && b.views >= a.views; }
+    function promoteTiersOk(d) {
+      return d.keys().hasOnly(['tiers', 'updatedAt', 'updatedBy']) && d.tiers is list && d.tiers.size() == 4
+          && promoteTierOk(d.tiers[0]) && promoteTierOk(d.tiers[1]) && promoteTierOk(d.tiers[2]) && promoteTierOk(d.tiers[3])
+          && promoteStepOk(d.tiers[0], d.tiers[1]) && promoteStepOk(d.tiers[1], d.tiers[2]) && promoteStepOk(d.tiers[2], d.tiers[3]);
+    }
+    match /promoteSettings/tiers {
+      allow read: if true;
+      allow create, update: if isAdmin() && promoteTiersOk(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    match /promoteSettings/exempt {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['usernames', 'updatedAt', 'updatedBy'])
+                            && request.resource.data.usernames is list && request.resource.data.usernames.size() <= 200;
+    }
+    // Admin Promote Settings > Purchases: @pixlynote lists every account's billing records (read only).
+    match /{path=**}/billing/{recordId} {
+      allow read: if isAdmin();
+    }
     match /noteViews/{noteId} {
       allow read: if true;
       allow create, update: if request.resource.data.keys().hasOnly(['views']) && plusOneView();
@@ -374,7 +403,7 @@ service cloud.firestore {
     match /{collection}/{document=**} {
       // Admin tools only. posts/ and users/ have their own rules above (the admin bypass of private content is
       // a separate decision: adminSeesPrivate()).
-      allow read, write: if isAdmin() && !(collection in ['posts', 'users']);
+      allow read, write: if isAdmin() && !(collection in ['posts', 'users', 'promoteSettings']);
     }
   }
 }

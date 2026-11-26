@@ -18,6 +18,15 @@ Routes added
     The count lives in the Guard Durable Object and is written to Firestore every 10 views and at the end.
 - GET  /promote/stats?key= live {count, target, until, active} for the Insights drawer.
 
+Admin Promote Settings (t1044u)
+- Tiers: promoteSettings/tiers {tiers: [{price, hours, views} x4]} (public read, admin-only write). Checkout computes the
+  plan server-side from it (defaults PROMOTE_ANCHORS when the doc is missing or invalid; a Firestore error -> 502, no
+  checkout). The plan sold is stored per Stripe session (Guard billing_map "plan:<cs_id>"), so the webhook applies what
+  was paid for even if the tiers change before payment completes. Optional body.expect {durationHours,
+  targetImpressions}: if it no longer matches, 409 plan_changed (nothing charged).
+- Exempt: promoteSettings/exempt {usernames: [...]} (admin-only read/write). An exempt owner skips Stripe: the
+  promotion starts immediately (promoteSessionId free_<hex>, promotionAmount 0) and History gets a $0 "free" record.
+
 Billing History (t1007u): the same webhook writes one record per Stripe purchase to
 users/{username}/billing/{id} (read: owner only; write: Worker/admin only, see firestore.rules):
   {kind: "promote"|"subscription", item, amountCents, currency, status, createdAt, sessionId|invoiceId,
@@ -43,25 +52,65 @@ SNIPPET = r'''
 // ---------- Promote Post: Stripe Checkout, webhook, view counting (free tiers) ----------
 // Keep PROMOTE_ANCHORS identical to PROMOTE_ANCHORS in index.html (tests compare them).
 const PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7000], [500, 720, 50000]];
-const PROMOTE_MIN = 5, PROMOTE_MAX = 500;
+// Admin Promote Settings (t1044u): promoteSettings/tiers = {tiers: [{price, hours, views} x4]} overrides PROMOTE_ANCHORS
+// (written only by @pixlynote, see firestore.rules). Missing or invalid -> PROMOTE_ANCHORS. Placement follows the tiers:
+// Explore from the 2nd tier's price, the link button from the 3rd tier's price.
+// Keep promoteNormalizeTiers identical to the one in index.html (tests compare them).
+function promoteNormalizeTiers(list) {
+  if (!Array.isArray(list) || list.length !== 4) return null;
+  const out = [];
+  for (const t of list) {
+    if (!t || typeof t !== "object") return null;
+    const p = Number(t.price), h = Number(t.hours), v = Number(t.views);
+    if (!Number.isInteger(p) || !Number.isInteger(h) || !Number.isInteger(v)) return null;
+    if (p < 1 || p > 10000 || h < 1 || h > 8760 || v < 50 || v > 10000000 || v % 50 !== 0 || (h >= 48 && h % 24 !== 0)) return null;
+    out.push([p, h, v]);
+  }
+  for (let i = 1; i < out.length; i++) {
+    if (out[i][0] <= out[i - 1][0] || out[i][1] < out[i - 1][1] || out[i][2] < out[i - 1][2]) return null;
+  }
+  return out;
+}
 const PROMOTE_CTA_LABELS = ["Learn more", "Shop now", "Visit site", "Book now", "Sign up", "Contact us"];
 const PROMOTE_KEY_RE = /^(post|note)_[A-Za-z0-9_-]{1,64}$/;
 const PROMOTE_ITEM_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const PROMOTE_SID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const PROMOTE_FLUSH_EVERY = 10;
-function promotePlan(amount) {
+function promotePlan(amount, anchors) {
+  const A = anchors || PROMOTE_ANCHORS;
   const a = Math.round(Number(amount));
-  if (!Number.isFinite(a) || a < PROMOTE_MIN || a > PROMOTE_MAX) return null;
-  let seg = PROMOTE_ANCHORS.length - 2;
-  for (let i = 0; i < PROMOTE_ANCHORS.length - 1; i++) { if (a <= PROMOTE_ANCHORS[i + 1][0]) { seg = i; break; } }
-  const [a0, h0, v0] = PROMOTE_ANCHORS[seg], [a1, h1, v1] = PROMOTE_ANCHORS[seg + 1];
+  if (!Number.isFinite(a) || a < A[0][0] || a > A[A.length - 1][0]) return null;
+  let seg = A.length - 2;
+  for (let i = 0; i < A.length - 1; i++) { if (a <= A[i + 1][0]) { seg = i; break; } }
+  const [a0, h0, v0] = A[seg], [a1, h1, v1] = A[seg + 1];
   const t = (a - a0) / (a1 - a0);
   // Whole hours under 2 days, whole days from 2 days up (so "5 days" is exactly 5 days).
   const rawH = h0 + t * (h1 - h0);
   const durationHours = rawH < 48 ? Math.round(rawH) : Math.round(rawH / 24) * 24;
   const targetImpressions = Math.round((v0 + t * (v1 - v0)) / 50) * 50;
-  const tier = a >= 100 ? "cta" : (a >= 25 ? "explore" : "feed");
+  const tier = a >= A[2][0] ? "cta" : (a >= A[1][0] ? "explore" : "feed");
   return { amount: a, durationHours, targetImpressions, tier };
+}
+function promoteFsPlain(v) {
+  if (!v || typeof v !== "object") return undefined;
+  if ("arrayValue" in v) return ((v.arrayValue && v.arrayValue.values) || []).map(promoteFsPlain);
+  if ("mapValue" in v) { const o = {}; for (const [k, x] of Object.entries((v.mapValue && v.mapValue.fields) || {})) o[k] = promoteFsPlain(x); return o; }
+  return fsVal(v);
+}
+// Server-side tiers. Throws on a Firestore error so checkout fails safe (nobody is charged a price we couldn't check).
+async function promoteLoadAnchors(env) {
+  const d = await fsGetDocAdmin(env, "promoteSettings/tiers");
+  return (d && promoteNormalizeTiers(promoteFsPlain(d.tiers))) || PROMOTE_ANCHORS;
+}
+// Exempt list (promoteSettings/exempt.usernames, admin-only read/write): these accounts promote for free, no Stripe.
+async function promoteIsExempt(env, username) {
+  const d = await fsGetDocAdmin(env, "promoteSettings/exempt");
+  const list = d ? promoteFsPlain(d.usernames) : [];
+  return Array.isArray(list) && list.some((u) => normStripeUser(u) === username);
+}
+function promoteRandId() {
+  const b = new Uint8Array(12); crypto.getRandomValues(b);
+  return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 function promoteCleanCta(label, url, tier) {
   if (tier !== "cta") return { ctaLabel: "", ctaUrl: "" };
@@ -163,10 +212,7 @@ function promoteSiteBase(env) {
   return /^https:\/\//.test(b) || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(b) ? b : "https://pixlynote.com";
 }
 async function handlePromoteCheckout(req, env, cors, body) {
-  if (!promoteStripeKeyOk(env)) return json({ ok: false, error: "stripe_not_configured" }, 503, cors);
   if (!env.FIREBASE_SA_JSON && !env.AUTH_EMULATOR_BASE) return json({ ok: false, error: "auth_admin_unavailable" }, 503, cors);
-  // Fail safe: without the webhook secret a payment could never be applied (and nothing is refunded), so no checkout.
-  if (!env.STRIPE_WEBHOOK_SECRET) return json({ ok: false, error: "promote_unavailable" }, 503, cors);
   const ip = req.headers.get("CF-Connecting-IP") || "unknown";
   const rl = await env.GUARD.get(env.GUARD.idFromName("global")).hit([{ k: `promo:co:ip:${ip}`, limit: 20, win: HOUR }]);
   if (!rl.ok) return json({ ok: false, error: "rate_limited" }, 429, cors);
@@ -175,8 +221,15 @@ async function handlePromoteCheckout(req, env, cors, body) {
   const id = String(body.id == null ? "" : body.id);
   if (!USER_RE.test(username)) return json({ ok: false, error: "invalid_username" }, 400, cors);
   if (!kind || !PROMOTE_ITEM_RE.test(id)) return json({ ok: false, error: "invalid_item" }, 400, cors);
-  const plan = promotePlan(body.amount);
+  let anchors;
+  try { anchors = await promoteLoadAnchors(env); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
+  const plan = promotePlan(body.amount, anchors);
   if (!plan) return json({ ok: false, error: "invalid_amount" }, 400, cors);
+  // The app sends the plan it showed. If the tiers changed since, stop so nobody gets something other than what they saw.
+  const ex = body.expect;
+  if (ex && typeof ex === "object" && (Number(ex.durationHours) !== plan.durationHours || Number(ex.targetImpressions) !== plan.targetImpressions)) {
+    return json({ ok: false, error: "plan_changed", plan }, 409, cors);
+  }
   const uid = await verifyFirebaseIdToken(env, body.idToken);
   if (!uid) return json({ ok: false, error: "sign_in_required" }, 401, cors);
   let elig;
@@ -184,6 +237,12 @@ async function handlePromoteCheckout(req, env, cors, body) {
   if (elig.error) return json({ ok: false, error: elig.error }, elig.error === "not_found" || elig.error === "no_account" ? 404 : (elig.error === "already_promoted" ? 409 : 403), cors);
   if (!elig.uid || elig.uid !== uid) return json({ ok: false, error: "not_owner" }, 403, cors);
   const cta = promoteCleanCta(body.ctaLabel, body.ctaUrl, plan.tier);
+  let exempt;
+  try { exempt = await promoteIsExempt(env, username); } catch (e) { return json({ ok: false, error: "lookup_failed" }, 502, cors); }
+  if (exempt) return promoteStartFree(env, cors, username, kind, id, plan, cta);
+  if (!promoteStripeKeyOk(env)) return json({ ok: false, error: "stripe_not_configured" }, 503, cors);
+  // Fail safe: without the webhook secret a payment could never be applied (and nothing is refunded), so no checkout.
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ ok: false, error: "promote_unavailable" }, 503, cors);
   const days = plan.durationHours >= 48 ? Math.round(plan.durationHours / 24) + " days" : plan.durationHours + " hours";
   const meta = {
     purpose: "promote", username, kind, postId: id, amount: String(plan.amount), durationHours: String(plan.durationHours),
@@ -200,7 +259,38 @@ async function handlePromoteCheckout(req, env, cors, body) {
     payment_intent_data: { metadata: meta, description: `Pixlynote Promote ${kind} ${id}` },
   });
   if (!r.ok || !r.data || typeof r.data.url !== "string" || !/^https:\/\/checkout\.stripe\.com\//.test(r.data.url)) return json({ ok: false, error: "stripe_error" }, 502, cors);
+  // Remember the exact plan sold in this session: the webhook applies it even if an admin changes the tiers meanwhile.
+  if (typeof r.data.id === "string" && r.data.id) {
+    try { await env.GUARD.get(env.GUARD.idFromName("global")).billMapSet("plan:" + r.data.id, JSON.stringify(plan)); } catch (e) {}
+  }
   return json({ ok: true, url: r.data.url, plan, livemode: !!r.data.livemode }, 200, cors);
+}
+// Exempt accounts (Admin Promote Settings): no Stripe, the promotion starts now. Recorded in History as Free ($0).
+async function promoteStartFree(env, cors, username, kind, id, plan, cta) {
+  const sid = "free_" + promoteRandId();
+  const now = Date.now();
+  const until = now + plan.durationHours * HOUR * 1000;
+  const fields = {
+    isPromoted: true, promotedUntil: until, targetImpressions: plan.targetImpressions, promotedImpressionsCount: 0,
+    ctaLabel: cta.ctaLabel, ctaUrl: cta.ctaUrl, promotedAt: now, promotionTier: plan.tier, promotionAmount: 0,
+    promotionDurationHours: plan.durationHours, promoteSessionId: sid,
+  };
+  try {
+    if (kind === "post") {
+      if (!(await fsPatchExisting(env, promoteDocPath(kind, id), fields))) return json({ ok: false, error: "not_found" }, 404, cors);
+    } else {
+      await fsPatchDoc(env, promoteDocPath(kind, id), Object.assign({ kind: "note", noteId: id, author: username }, fields));
+    }
+  } catch (e) { return json({ ok: false, error: "write_failed" }, 502, cors); }
+  const key = kind + "_" + id;
+  await env.GUARD.get(env.GUARD.idFromName("global")).promoStart(key, sid, plan.targetImpressions, until);
+  let billing = true;
+  try {
+    const rec = promoteBillingRecord({ id: sid, currency: "usd", created: Math.floor(now / 1000), livemode: false }, plan, kind, id, "free", "Free: exempt account, no charge");
+    rec.amountCents = 0;
+    await billingUpsert(env, username, sid, rec);
+  } catch (e) { billing = false; }
+  return json({ ok: true, free: true, plan, key, billing }, 200, cors);
 }
 async function verifyStripeSignature(env, raw, header) {
   const secret = String(env.STRIPE_WEBHOOK_SECRET || "");
@@ -230,6 +320,7 @@ function promoteBillingRecord(s, plan, kind, id, status, note) {
   return {
     kind: "promote", item: `Promote ${kind} (${days}, at least ${plan.targetImpressions.toLocaleString("en-US")} views)`,
     itemKind: kind, itemId: id, amountCents: Number(s.amount_total) || plan.amount * 100, currency: String(s.currency || "usd").toLowerCase(),
+    tier: plan.tier, durationHours: plan.durationHours, targetImpressions: plan.targetImpressions,
     status, note: note || "", createdAt: (Number(s.created) || Math.floor(Date.now() / 1000)) * 1000, sessionId: s.id, paymentIntent: stripePi(s), livemode: !!s.livemode,
   };
 }
@@ -302,7 +393,13 @@ async function handleStripeWebhook(req, env, cors) {
   if (s.payment_status !== "paid") return json({ received: true, pending: true }, 200, cors);
   if (!promoteStripeKeyOk(env) || (s.livemode && env.PROMOTE_ALLOW_LIVE !== "on")) return json({ received: true, ignored: "livemode" }, 200, cors);
   const username = normStripeUser(m.username), kind = m.kind === "note" ? "note" : (m.kind === "post" ? "post" : ""), id = String(m.postId || "");
-  const plan = promotePlan(m.amount);
+  let plan;
+  try {
+    const sold = await env.GUARD.get(env.GUARD.idFromName("global")).billMapGet("plan:" + String(s.id || ""));
+    let p = null; try { p = sold ? JSON.parse(sold) : null; } catch (e) { p = null; }
+    plan = p && Number.isInteger(p.amount) && Number.isInteger(p.durationHours) && Number.isInteger(p.targetImpressions) && typeof p.tier === "string"
+      ? p : promotePlan(m.amount, await promoteLoadAnchors(env));
+  } catch (e) { return json({ error: "lookup_failed" }, 500, cors); }
   if (!USER_RE.test(username) || !kind || !PROMOTE_ITEM_RE.test(id) || !plan
       || normStripeUser(s.client_reference_id) !== username
       || Number(s.amount_total) !== plan.amount * 100 || String(s.currency || "").toLowerCase() !== "usd"

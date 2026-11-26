@@ -2048,6 +2048,108 @@
   </div>
 
 
+  <!-- ADMIN PROMOTE SETTINGS (@pixlynote only, t1044u). Read-only purchases list, tier values, free (exempt) accounts. -->
+  <div id="modal-admin-promote" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="admin-promote-title">
+    <div class="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div class="px-4 pt-4 pb-3 border-b border-neutral-100 flex items-center justify-between">
+        <div>
+          <h3 id="admin-promote-title" class="text-base font-bold text-neutral-900">Promote Settings</h3>
+          <p class="text-[11px] text-neutral-500">@pixlynote only · Stripe test mode · no refunds</p>
+        </div>
+        <button type="button" id="btn-close-admin-promote" onclick="closeAdminPromoteSettings()" class="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer" title="Close" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="px-4 pt-3 grid grid-cols-3 gap-1.5" role="tablist">
+        <button type="button" id="btn-admin-promote-tab-purchases" onclick="switchAdminPromoteTab('purchases')" class="admin-promote-tab py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer" role="tab">Purchases</button>
+        <button type="button" id="btn-admin-promote-tab-tiers" onclick="switchAdminPromoteTab('tiers')" class="admin-promote-tab py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer" role="tab">Tiers</button>
+        <button type="button" id="btn-admin-promote-tab-exempt" onclick="switchAdminPromoteTab('exempt')" class="admin-promote-tab py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer" role="tab">Free list</button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4">
+        <div id="admin-promote-view-purchases" class="space-y-2.5">
+          <div class="flex items-center gap-1.5">
+            <input type="search" id="admin-promote-filter" oninput="paintAdminPromotePurchases()" placeholder="Search @user, post or tier" class="flex-1 min-w-0 text-xs bg-white border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-violet-500" aria-label="Search purchases">
+            <select id="admin-promote-state-filter" onchange="paintAdminPromotePurchases()" class="text-xs bg-white border border-neutral-200 rounded-xl px-2 py-2 focus:outline-none focus:border-violet-500" aria-label="Filter by status">
+              <option value="all">All</option>
+              <option value="running">Running</option>
+              <option value="extension">Free extension</option>
+              <option value="completed">Completed</option>
+              <option value="not_started">Not started</option>
+              <option value="free">Free (exempt)</option>
+            </select>
+            <button type="button" id="btn-admin-promote-refresh" onclick="loadAdminPromotePurchases(true)" class="p-2 rounded-xl text-violet-600 hover:bg-violet-50 border border-neutral-200 transition cursor-pointer" title="Refresh purchases" aria-label="Refresh purchases">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+          <p id="admin-promote-summary" class="text-[11px] font-semibold text-neutral-600"></p>
+          <p id="admin-promote-status" class="hidden text-xs text-neutral-500 text-center py-4 bg-neutral-50 rounded-xl border border-neutral-100"></p>
+          <div id="admin-promote-purchases-list" class="space-y-2"></div>
+        </div>
+        <div id="admin-promote-view-tiers" class="hidden space-y-3">
+          <p class="text-[11px] text-neutral-500 leading-snug">Price, how long it runs, and guaranteed views for the four slider stops. Amounts in between scale smoothly. Explore placement starts at Tier 2 and the link button at Tier 3. The server checks every price against these values, and changes apply to the next purchase only.</p>
+          <div class="grid grid-cols-[3.2rem_1fr_1fr_1fr] gap-1.5 items-center text-[10px] font-semibold text-neutral-500 uppercase tracking-wide">
+            <span></span><span>Price ($)</span><span>Hours</span><span>Views</span>
+          </div>
+          <div id="admin-promote-tier-rows" class="space-y-2">
+            <div class="admin-promote-tier-row" data-tier="0">
+              <div class="grid grid-cols-[3.2rem_1fr_1fr_1fr] gap-1.5 items-center">
+                <span class="text-xs font-bold text-neutral-800">Tier 1</span>
+                <input type="number" id="admin-promote-tier-0-price" oninput="previewAdminPromoteTiers()" min="1" max="10000" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 1 price in dollars">
+                <input type="number" id="admin-promote-tier-0-hours" oninput="previewAdminPromoteTiers()" min="1" max="8760" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 1 duration in hours">
+                <input type="number" id="admin-promote-tier-0-views" oninput="previewAdminPromoteTiers()" min="50" max="10000000" step="50" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 1 guaranteed views">
+              </div>
+              <p id="admin-promote-tier-0-preview" class="admin-promote-tier-preview text-[10px] text-neutral-500 mt-0.5 pl-[3.6rem]"></p>
+            </div>
+            <div class="admin-promote-tier-row" data-tier="1">
+              <div class="grid grid-cols-[3.2rem_1fr_1fr_1fr] gap-1.5 items-center">
+                <span class="text-xs font-bold text-neutral-800">Tier 2</span>
+                <input type="number" id="admin-promote-tier-1-price" oninput="previewAdminPromoteTiers()" min="1" max="10000" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 2 price in dollars">
+                <input type="number" id="admin-promote-tier-1-hours" oninput="previewAdminPromoteTiers()" min="1" max="8760" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 2 duration in hours">
+                <input type="number" id="admin-promote-tier-1-views" oninput="previewAdminPromoteTiers()" min="50" max="10000000" step="50" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 2 guaranteed views">
+              </div>
+              <p id="admin-promote-tier-1-preview" class="admin-promote-tier-preview text-[10px] text-neutral-500 mt-0.5 pl-[3.6rem]"></p>
+            </div>
+            <div class="admin-promote-tier-row" data-tier="2">
+              <div class="grid grid-cols-[3.2rem_1fr_1fr_1fr] gap-1.5 items-center">
+                <span class="text-xs font-bold text-neutral-800">Tier 3</span>
+                <input type="number" id="admin-promote-tier-2-price" oninput="previewAdminPromoteTiers()" min="1" max="10000" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 3 price in dollars">
+                <input type="number" id="admin-promote-tier-2-hours" oninput="previewAdminPromoteTiers()" min="1" max="8760" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 3 duration in hours">
+                <input type="number" id="admin-promote-tier-2-views" oninput="previewAdminPromoteTiers()" min="50" max="10000000" step="50" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 3 guaranteed views">
+              </div>
+              <p id="admin-promote-tier-2-preview" class="admin-promote-tier-preview text-[10px] text-neutral-500 mt-0.5 pl-[3.6rem]"></p>
+            </div>
+            <div class="admin-promote-tier-row" data-tier="3">
+              <div class="grid grid-cols-[3.2rem_1fr_1fr_1fr] gap-1.5 items-center">
+                <span class="text-xs font-bold text-neutral-800">Tier 4</span>
+                <input type="number" id="admin-promote-tier-3-price" oninput="previewAdminPromoteTiers()" min="1" max="10000" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 4 price in dollars">
+                <input type="number" id="admin-promote-tier-3-hours" oninput="previewAdminPromoteTiers()" min="1" max="8760" step="1" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 4 duration in hours">
+                <input type="number" id="admin-promote-tier-3-views" oninput="previewAdminPromoteTiers()" min="50" max="10000000" step="50" inputmode="numeric" class="w-full text-xs bg-white border border-neutral-200 rounded-lg px-2 py-1.5" aria-label="Tier 4 guaranteed views">
+              </div>
+              <p id="admin-promote-tier-3-preview" class="admin-promote-tier-preview text-[10px] text-neutral-500 mt-0.5 pl-[3.6rem]"></p>
+            </div>
+          </div>
+          <p id="admin-promote-tiers-placement" class="text-[11px] font-semibold text-violet-700"></p>
+          <p class="text-[10px] text-neutral-500 leading-snug">Hours: under 48, or whole days (72 = 3 days). Views: steps of 50. Each tier must cost more than the one before, with at least as many hours and views.</p>
+          <p id="admin-promote-tiers-msg" class="hidden text-xs font-semibold"></p>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-admin-promote-tiers-reset" onclick="resetAdminPromoteTiers()" class="flex-1 py-2 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition cursor-pointer">Fill in defaults</button>
+            <button type="button" id="btn-admin-promote-tiers-save" onclick="saveAdminPromoteTiers()" class="flex-1 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white transition cursor-pointer">Save tiers</button>
+          </div>
+          <p id="admin-promote-tiers-source" class="text-[10px] text-neutral-400"></p>
+        </div>
+        <div id="admin-promote-view-exempt" class="hidden space-y-3">
+          <p class="text-[11px] text-neutral-500 leading-snug">Accounts on this list promote for free: they skip Stripe checkout and the promotion starts right away. The server checks this list, so nobody can add themselves.</p>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="admin-promote-exempt-input" placeholder="@username" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="31" class="flex-1 min-w-0 text-xs bg-white border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:border-violet-500" aria-label="Username to add">
+            <button type="button" id="btn-admin-promote-exempt-add" onclick="addAdminPromoteExempt()" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs font-bold text-white transition cursor-pointer">Add</button>
+          </div>
+          <p id="admin-promote-exempt-msg" class="hidden text-xs font-semibold"></p>
+          <div id="admin-promote-exempt-list" class="space-y-1.5"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PROMOTE POST MODAL ($5-$500). Views only: never likes, comments, or followers. -->
   <div id="modal-promote" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm items-end sm:items-center justify-center p-0 sm:p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="promote-title">
     <div class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -2072,7 +2174,7 @@
             <div id="promote-amount-label" class="text-2xl font-black text-neutral-900">$25</div>
           </div>
           <input type="range" id="promote-amount-slider" min="5" max="500" step="1" value="25" class="w-full accent-violet-600 cursor-pointer" aria-label="Promote budget in dollars">
-          <div class="flex justify-between text-[10px] text-neutral-400 mt-0.5"><span>$5</span><span>$500</span></div>
+          <div class="flex justify-between text-[10px] text-neutral-400 mt-0.5"><span id="promote-amount-min">$5</span><span id="promote-amount-max">$500</span></div>
           <div class="grid grid-cols-4 gap-2 mt-2.5" role="group" aria-label="Quick amounts">
             <button type="button" id="btn-promote-preset-5" data-amount="5" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$5</button>
             <button type="button" id="btn-promote-preset-25" data-amount="25" class="btn-promote-preset py-1.5 text-xs font-bold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition cursor-pointer">$25</button>
@@ -5517,7 +5619,8 @@
           increment,
           updateDoc,
           arrayUnion,
-          arrayRemove
+          arrayRemove,
+          collectionGroup
         } = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js");
 
         const firebaseConfig = {
@@ -5545,7 +5648,7 @@
           updatePassword, reauthenticateWithCredential, EmailAuthProvider,
           collection, doc, setDoc, getDoc, getDocs,
           query, where, orderBy, limit, startAfter, onSnapshot, deleteDoc, serverTimestamp, runTransaction, increment, updateDoc,
-          arrayUnion, arrayRemove
+          arrayUnion, arrayRemove, collectionGroup
         };
         // Database lockdown: split private fields out of users/{u} writes and merge them back for your own reads.
         if (typeof window.installPixlyDataGuard === 'function') window.installPixlyDataGuard(window.firebase);
@@ -34726,6 +34829,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           deactBox.classList.add('hidden');
         }
       }
+      const promoSetBox = document.getElementById('drawer-pixlynote-promote-settings');
+      if (promoSetBox) promoSetBox.classList.toggle('hidden', activeNormU !== 'pixlynote');
       const verifBox = document.getElementById('drawer-pixlynote-verifications');
       if (verifBox) {
         if (activeNormU === 'pixlynote') {
@@ -37290,26 +37395,87 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.showcaseEngageBlocked = showcaseEngageBlocked;
 
-    // ---------- Promote: pricing (must match PROMOTE_ANCHORS in the Worker) ----------
+    // ---------- Promote: pricing (defaults must match PROMOTE_ANCHORS in the Worker) ----------
     var PROMOTE_ANCHORS = [[5, 24, 250], [25, 72, 1500], [100, 168, 7000], [500, 720, 50000]];
     window.PROMOTE_ANCHORS = PROMOTE_ANCHORS;
-    var PROMOTE_MIN = 5, PROMOTE_MAX = 500, PROMOTE_PRESETS = [5, 25, 100, 500];
+    // Admin Promote Settings (t1044u): promoteSettings/tiers may override the defaults. The Worker reads the same doc
+    // and sets the real price server-side; the app only shows it. Explore starts at the 2nd tier, the link button at the 3rd.
+    var _promoteAnchors = PROMOTE_ANCHORS;
     var PROMOTE_CTA_LABELS = ['Learn more', 'Shop now', 'Visit site', 'Book now', 'Sign up', 'Contact us'];
-    function promotePlan(amount) {
+    // Keep promoteNormalizeTiers identical to the one in the Worker (tests compare them).
+    function promoteNormalizeTiers(list) {
+      if (!Array.isArray(list) || list.length !== 4) return null;
+      const out = [];
+      for (const t of list) {
+        if (!t || typeof t !== "object") return null;
+        const p = Number(t.price), h = Number(t.hours), v = Number(t.views);
+        if (!Number.isInteger(p) || !Number.isInteger(h) || !Number.isInteger(v)) return null;
+        if (p < 1 || p > 10000 || h < 1 || h > 8760 || v < 50 || v > 10000000 || v % 50 !== 0 || (h >= 48 && h % 24 !== 0)) return null;
+        out.push([p, h, v]);
+      }
+      for (let i = 1; i < out.length; i++) {
+        if (out[i][0] <= out[i - 1][0] || out[i][1] < out[i - 1][1] || out[i][2] < out[i - 1][2]) return null;
+      }
+      return out;
+    }
+    window.promoteNormalizeTiers = promoteNormalizeTiers;
+    function promoteAnchors() { return _promoteAnchors; }
+    window.promoteAnchors = promoteAnchors;
+    function promoteMin() { return _promoteAnchors[0][0]; }
+    function promoteMax() { return _promoteAnchors[_promoteAnchors.length - 1][0]; }
+    function promotePlan(amount, anchors) {
+      const A = anchors || _promoteAnchors;
       const a = Math.round(Number(amount));
-      if (!isFinite(a) || a < PROMOTE_MIN || a > PROMOTE_MAX) return null;
-      let seg = PROMOTE_ANCHORS.length - 2;
-      for (let i = 0; i < PROMOTE_ANCHORS.length - 1; i++) { if (a <= PROMOTE_ANCHORS[i + 1][0]) { seg = i; break; } }
-      const lo = PROMOTE_ANCHORS[seg], hi = PROMOTE_ANCHORS[seg + 1];
+      if (!isFinite(a) || a < A[0][0] || a > A[A.length - 1][0]) return null;
+      let seg = A.length - 2;
+      for (let i = 0; i < A.length - 1; i++) { if (a <= A[i + 1][0]) { seg = i; break; } }
+      const lo = A[seg], hi = A[seg + 1];
       const t = (a - lo[0]) / (hi[0] - lo[0]);
       // Whole hours under 2 days, whole days from 2 days up (so "5 days" is exactly 5 days). Same as the Worker.
       const rawH = lo[1] + t * (hi[1] - lo[1]);
       const durationHours = rawH < 48 ? Math.round(rawH) : Math.round(rawH / 24) * 24;
       const targetImpressions = Math.round((lo[2] + t * (hi[2] - lo[2])) / 50) * 50;
-      const tier = a >= 100 ? 'cta' : (a >= 25 ? 'explore' : 'feed');
+      const tier = a >= A[2][0] ? 'cta' : (a >= A[1][0] ? 'explore' : 'feed');
       return { amount: a, durationHours: durationHours, targetImpressions: targetImpressions, tier: tier };
     }
     window.promotePlan = promotePlan;
+    function applyPromoteTiers(list) {
+      const n = promoteNormalizeTiers(list);
+      _promoteAnchors = n || PROMOTE_ANCHORS;
+      paintPromoteBounds();
+      return !!n;
+    }
+    window.applyPromoteTiers = applyPromoteTiers;
+    let _promoteTiersAt = 0, _promoteTiersSaved = false;
+    // Anyone may read promoteSettings/tiers. On a read error the last known tiers stay (the Worker decides the price anyway).
+    async function loadPromoteTiers(force) {
+      if (!force && _promoteTiersAt && Date.now() - _promoteTiersAt < 60000) return _promoteAnchors;
+      const fb = window.firebase;
+      if (!window.firebaseReady || !fb || !fb.db || typeof fb.doc !== 'function' || typeof fb.getDoc !== 'function') return _promoteAnchors;
+      try {
+        const snap = await fb.getDoc(fb.doc(fb.db, 'promoteSettings', 'tiers'));
+        const d = snap && typeof snap.exists === 'function' && snap.exists() ? (snap.data() || {}) : null;
+        _promoteTiersSaved = applyPromoteTiers(d ? d.tiers : null);
+        _promoteTiersAt = Date.now();
+      } catch (e) {}
+      return _promoteAnchors;
+    }
+    window.loadPromoteTiers = loadPromoteTiers;
+    function promoteMoney(n) { return '$' + Number(n).toLocaleString('en-US'); }
+    function paintPromoteBounds() {
+      const A = _promoteAnchors;
+      const slider = document.getElementById('promote-amount-slider');
+      if (slider) { slider.min = String(A[0][0]); slider.max = String(A[A.length - 1][0]); }
+      const lo = document.getElementById('promote-amount-min'), hi = document.getElementById('promote-amount-max');
+      if (lo) lo.textContent = promoteMoney(A[0][0]);
+      if (hi) hi.textContent = promoteMoney(A[A.length - 1][0]);
+      ['btn-promote-preset-5', 'btn-promote-preset-25', 'btn-promote-preset-100', 'btn-promote-preset-500'].forEach(function (id, i) {
+        const b = document.getElementById(id);
+        if (b && A[i]) { b.setAttribute('data-amount', String(A[i][0])); b.textContent = promoteMoney(A[i][0]); }
+      });
+      const lock = document.getElementById('promote-cta-locked');
+      if (lock) lock.textContent = 'A button to your link is included at ' + promoteMoney(A[2][0]) + ' and up.';
+    }
     function promoteDurationLabel(h) {
       if (h < 48) return h + ' hours';
       const d = Math.round(h / 24);
@@ -37498,11 +37664,19 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       const url = document.getElementById('promote-cta-url');
       if (lab) lab.value = '';
       if (url) url.value = '';
-      setPromoteAmount(25);
+      paintPromoteBounds();
+      setPromoteAmount(_promoteAnchors[1][0]);
       const co = document.getElementById('btn-promote-checkout');
       if (co) { co.disabled = !!blocked; co.classList.toggle('opacity-50', !!blocked); }
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
+      // Pick up tier changes from Admin Promote Settings (keeps the amount the person chose when still in range).
+      const before = JSON.stringify(_promoteAnchors);
+      loadPromoteTiers(false).then(function () {
+        if (JSON.stringify(_promoteAnchors) === before || modal.classList.contains('hidden')) return;
+        const sl = document.getElementById('promote-amount-slider');
+        setPromoteAmount(sl ? sl.value : _promoteAnchors[1][0]);
+      });
       return true;
     }
     window.openPromoteModal = openPromoteModal;
@@ -37513,7 +37687,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.closePromoteModal = closePromoteModal;
     function setPromoteAmount(amount) {
-      const a = Math.min(PROMOTE_MAX, Math.max(PROMOTE_MIN, Math.round(Number(amount) || PROMOTE_MIN)));
+      const a = Math.min(promoteMax(), Math.max(promoteMin(), Math.round(Number(amount) || promoteMin())));
       const slider = document.getElementById('promote-amount-slider');
       if (slider && String(slider.value) !== String(a)) slider.value = String(a);
       paintPromotePlan(a);
@@ -37576,7 +37750,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (blocked) { promoteError(blocked); return false; }
       const slider = document.getElementById('promote-amount-slider');
       const plan = promotePlan(slider ? slider.value : 25);
-      if (!plan) { promoteError('Pick an amount from $5 to $500.'); return false; }
+      if (!plan) { promoteError('Pick an amount from ' + promoteMoney(promoteMin()) + ' to ' + promoteMoney(promoteMax()) + '.'); return false; }
       let ctaLabel = '', ctaUrl = '';
       if (plan.tier === 'cta') {
         const l = document.getElementById('promote-cta-label');
@@ -37611,10 +37785,26 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/promote/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: promoMe(), kind: tgt.kind, id: tgt.id, amount: plan.amount, ctaLabel: ctaLabel, ctaUrl: ctaUrl, idToken: idToken })
+          body: JSON.stringify({ username: promoMe(), kind: tgt.kind, id: tgt.id, amount: plan.amount, ctaLabel: ctaLabel, ctaUrl: ctaUrl, idToken: idToken,
+            expect: { durationHours: plan.durationHours, targetImpressions: plan.targetImpressions } })
         });
         data = await res.json().catch(() => null);
       } catch (e) { data = null; }
+      // Accounts on the admin's free list: the Worker started the promotion directly (no Stripe, no charge).
+      if (data && data.ok === true && data.free === true) {
+        _promoteCheckoutBusy = false;
+        if (btn) btn.disabled = false;
+        paintPromotePlan(plan.amount);
+        closePromoteModal();
+        if (typeof showToast === 'function') showToast('Promotion started. No charge: this account promotes for free.');
+        setTimeout(function () { loadPixlyPromotions(true); }, 1500);
+        return true;
+      }
+      if (data && data.error === 'plan_changed') {
+        done('Prices were just updated. Check the new details and try again. You weren\'t charged.');
+        loadPromoteTiers(true).then(function () { setPromoteAmount(plan.amount); });
+        return false;
+      }
       if (!data || data.ok !== true || typeof data.url !== 'string' || !/^https:\/\/checkout\.stripe\.com\//.test(data.url)) {
         const code = data && data.error;
         return done(PROMOTE_ERRORS[code] || 'Checkout isn\'t available right now. You weren\'t charged. Please try again later.');
@@ -37937,7 +38127,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       pending: ['Pending', '#FFFBEB', '#B45309', '#FDE68A'],
       refunded: ['Refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
       partially_refunded: ['Partly refunded', '#F3F4F6', '#4B5563', '#D1D5DB'],
-      failed: ['Failed', '#FEF2F2', '#B91C1C', '#FECACA']
+      failed: ['Failed', '#FEF2F2', '#B91C1C', '#FECACA'],
+      free: ['Free', '#F5F3FF', '#6D28D9', '#DDD6FE']
     };
     function billingEsc(v) {
       return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
@@ -38028,6 +38219,394 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return recs;
     }
     window.loadBillingHistory = loadBillingHistory;
+
+    // ---------- Admin Promote Settings (@pixlynote only; t1044u) ----------
+    // Purchases are read-only (users/*/billing records written by the Worker). Tier values live in promoteSettings/tiers
+    // and the free list in promoteSettings/exempt; Firestore rules let only @pixlynote write them, and the Worker
+    // enforces both server-side (price from the tiers, exempt accounts skip Stripe). Nothing here refunds anything.
+    function isPromoteAdmin() {
+      const u = state && state.currentUser && state.currentUser.username ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '';
+      return u === 'pixlynote' && !!state.isLoggedIn;
+    }
+    window.isPromoteAdmin = isPromoteAdmin;
+    let _apRows = [], _apLoadedAt = 0, _apSeq = 0, _apExempt = [];
+    function openAdminPromoteSettings(tab) {
+      if (!isPromoteAdmin()) return false;
+      const modal = document.getElementById('modal-admin-promote');
+      if (!modal) return false;
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      switchAdminPromoteTab(tab || 'purchases');
+      return true;
+    }
+    window.openAdminPromoteSettings = openAdminPromoteSettings;
+    function closeAdminPromoteSettings() {
+      const modal = document.getElementById('modal-admin-promote');
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+    }
+    window.closeAdminPromoteSettings = closeAdminPromoteSettings;
+    function switchAdminPromoteTab(tab) {
+      if (!isPromoteAdmin()) return false;
+      const t = tab === 'tiers' || tab === 'exempt' ? tab : 'purchases';
+      ['purchases', 'tiers', 'exempt'].forEach(function (k) {
+        const v = document.getElementById('admin-promote-view-' + k);
+        if (v) v.classList.toggle('hidden', k !== t);
+        const b = document.getElementById('btn-admin-promote-tab-' + k);
+        if (b) {
+          const on = k === t;
+          b.classList.toggle('bg-violet-600', on); b.classList.toggle('text-white', on); b.classList.toggle('border-violet-600', on);
+          b.classList.toggle('bg-white', !on); b.classList.toggle('text-neutral-700', !on); b.classList.toggle('border-neutral-200', !on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        }
+      });
+      const modal = document.getElementById('modal-admin-promote');
+      if (modal) modal.setAttribute('data-tab', t);
+      if (t === 'purchases') loadAdminPromotePurchases(!_apLoadedAt);
+      else if (t === 'tiers') loadAdminPromoteTiers();
+      else loadAdminPromoteExempt();
+      return true;
+    }
+    window.switchAdminPromoteTab = switchAdminPromoteTab;
+    function apMsg(id, text, ok) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text || '';
+      el.classList.toggle('hidden', !text);
+      el.classList.toggle('text-emerald-700', !!ok);
+      el.classList.toggle('text-rose-700', !ok);
+    }
+    function apFb(need) {
+      const fb = window.firebase;
+      if (!window.firebaseReady || !fb || !fb.db) return null;
+      for (const k of need) { if (typeof fb[k] !== 'function') return null; }
+      return fb;
+    }
+    function apBlockedWrite() {
+      if (!isPromoteAdmin()) return true;
+      return typeof privilegedActionBlocked === 'function' && privilegedActionBlocked() ? true : false;
+    }
+
+    // Purchases (read-only)
+    const AP_STATE = {
+      running: ['Running', '#ECFDF5', '#047857', '#A7F3D0'],
+      extension: ['Free extension running', '#FFFBEB', '#B45309', '#FDE68A'],
+      completed: ['Completed', '#F3F4F6', '#4B5563', '#D1D5DB'],
+      not_started: ['Not started', '#FEF2F2', '#B91C1C', '#FECACA']
+    };
+    function apTierLabel(t) { return t === 'cta' ? 'Explore + link button' : (t === 'explore' ? 'Explore' : (t === 'feed' ? 'Main feed' : '\u2014')); }
+    function adminPromoteRowModel(username, id, rec, doc, now) {
+      const r = rec || {};
+      const itemKind = r.itemKind === 'note' ? 'note' : 'post';
+      const itemId = String(r.itemId || '');
+      const sid = String(r.sessionId || id || '');
+      const current = !!(doc && doc.promoteSessionId && String(doc.promoteSessionId) === sid);
+      const m = /at least ([\d,]+) views/.exec(String(r.item || ''));
+      const recTarget = Number(r.targetImpressions) || (m ? Number(m[1].replace(/,/g, '')) : 0);
+      const target = current ? (Number(doc.targetImpressions) || recTarget) : recTarget;
+      const delivered = current ? (Number(doc.promotedImpressionsCount) || 0) : null;
+      const until = current ? promoNum(doc.promotedUntil) : 0;
+      let st;
+      if (/^Not started/.test(String(r.note || ''))) st = 'not_started';
+      else if (current && doc.isPromoted === true && now < until) st = 'running';
+      else if (current && doc.isPromoted === true && delivered < target) st = 'extension';
+      else st = 'completed';
+      const caption = doc ? String(itemKind === 'note' ? (doc.text || '') : (doc.caption || '')) : '';
+      return {
+        username: String(username || ''), id: String(id), itemKind: itemKind, itemId: itemId, caption: caption.slice(0, 80),
+        tier: r.tier || (current ? doc.promotionTier : '') || '', amountCents: Number(r.amountCents) || 0,
+        createdAt: billingMs(r.createdAt), payStatus: BILLING_STATUS[r.status] ? r.status : 'pending', livemode: r.livemode === true,
+        state: st, delivered: delivered, target: target, extension: st === 'extension', note: String(r.note || '').slice(0, 140)
+      };
+    }
+    window.adminPromoteRowModel = adminPromoteRowModel;
+    function adminPromoteRowHtml(x) {
+      const st = AP_STATE[x.state] || AP_STATE.completed;
+      const pay = BILLING_STATUS[x.payStatus] || BILLING_STATUS.pending;
+      const views = (x.delivered == null ? '\u2014' : x.delivered.toLocaleString('en-US')) + ' / ' + (x.target ? x.target.toLocaleString('en-US') : '\u2014') + ' views';
+      const pct = x.delivered != null && x.target ? Math.min(100, Math.round(x.delivered * 100 / x.target)) : 0;
+      const chip = (c, txt, cls) => '<span class="' + cls + ' inline-block text-[9px] font-semibold px-1.5 py-px rounded-full" style="background:' + c[1] + ';color:' + c[2] + ';border:1px solid ' + c[3] + '">' + billingEsc(txt) + '</span>';
+      return '<div class="admin-promote-row p-3 rounded-2xl border border-neutral-200 bg-white" data-username="' + billingEsc(x.username) + '" data-billing-id="' + billingEsc(x.id) + '" data-state="' + x.state + '" data-pay="' + x.payStatus + '">'
+        + '<div class="flex items-start justify-between gap-2">'
+        + '<div class="min-w-0">'
+        + '<div class="ap-user text-xs font-bold text-neutral-900">@' + billingEsc(x.username || '?') + '</div>'
+        + '<div class="ap-item text-[11px] text-neutral-600 leading-snug break-words">' + (x.itemKind === 'note' ? 'Note ' : 'Post ') + billingEsc(x.itemId || '?') + (x.caption ? ' \u00b7 \u201c' + billingEsc(x.caption) + '\u201d' : '') + '</div>'
+        + '<div class="ap-date text-[10px] text-neutral-500 mt-0.5">' + billingEsc(billingDate(x.createdAt)) + (x.livemode ? '' : ' \u00b7 Test mode') + '</div>'
+        + '</div>'
+        + '<div class="text-right flex-shrink-0">'
+        + '<div class="ap-amount text-xs font-bold text-neutral-900">' + billingEsc(billingAmount(x.amountCents, 'usd')) + '</div>'
+        + chip(pay, pay[0], 'ap-pay mt-1')
+        + '</div></div>'
+        + '<div class="mt-2 flex items-center justify-between gap-2 text-[10px]">'
+        + '<span class="ap-tier font-semibold text-violet-700">' + billingEsc(apTierLabel(x.tier)) + '</span>'
+        + chip(st, st[0], 'ap-state')
+        + '</div>'
+        + '<div class="mt-1.5 h-1.5 rounded-full bg-neutral-100 overflow-hidden"><div class="h-full bg-violet-500" style="width:' + pct + '%"></div></div>'
+        + '<div class="mt-1 flex items-center justify-between text-[10px] text-neutral-600"><span class="ap-views">' + views + '</span>'
+        + '<span class="ap-ext font-semibold ' + (x.extension ? 'text-amber-700' : 'text-neutral-400') + '">' + (x.extension ? 'Free extension: yes' : 'Free extension: no') + '</span></div>'
+        + (x.note ? '<div class="ap-note text-[10px] text-neutral-500 mt-1">' + billingEsc(x.note) + '</div>' : '')
+        + '</div>';
+    }
+    function adminPromoteFiltered() {
+      const q = String((document.getElementById('admin-promote-filter') || {}).value || '').trim().toLowerCase().replace(/^@/, '');
+      const f = String((document.getElementById('admin-promote-state-filter') || {}).value || 'all');
+      return _apRows.filter(function (x) {
+        if (f === 'free' ? x.payStatus !== 'free' : (f !== 'all' && x.state !== f)) return false;
+        if (!q) return true;
+        return [x.username, x.itemId, x.caption, apTierLabel(x.tier), x.id].some(function (v) { return String(v || '').toLowerCase().indexOf(q) !== -1; });
+      });
+    }
+    function paintAdminPromotePurchases(statusMsg) {
+      const list = document.getElementById('admin-promote-purchases-list');
+      const rows = adminPromoteFiltered();
+      if (list) list.innerHTML = rows.map(adminPromoteRowHtml).join('');
+      const msg = statusMsg != null ? statusMsg : (_apRows.length ? (rows.length ? '' : 'No purchases match this filter.') : 'No Promote purchases yet.');
+      const st = document.getElementById('admin-promote-status');
+      if (st) { st.textContent = msg; st.classList.toggle('hidden', !msg); }
+      const sum = document.getElementById('admin-promote-summary');
+      if (sum) {
+        const paidCents = _apRows.filter(function (x) { return x.payStatus === 'paid'; }).reduce(function (a, x) { return a + x.amountCents; }, 0);
+        const run = _apRows.filter(function (x) { return x.state === 'running'; }).length;
+        const ext = _apRows.filter(function (x) { return x.state === 'extension'; }).length;
+        sum.textContent = statusMsg != null && !_apRows.length ? '' : (_apRows.length + (_apRows.length === 1 ? ' purchase' : ' purchases') + ' \u00b7 ' + billingAmount(paidCents, 'usd') + ' paid \u00b7 '
+          + run + ' running \u00b7 ' + ext + ' on free extension' + (rows.length !== _apRows.length ? ' \u00b7 showing ' + rows.length : ''));
+      }
+      return rows.length;
+    }
+    window.paintAdminPromotePurchases = paintAdminPromotePurchases;
+    async function loadAdminPromotePurchases(force) {
+      if (!isPromoteAdmin()) return [];
+      if (!force && _apLoadedAt) { paintAdminPromotePurchases(); return _apRows; }
+      const seq = ++_apSeq;
+      const fb = apFb(['getDocs', 'collectionGroup', 'getDoc', 'doc']);
+      if (!fb) { _apRows = []; paintAdminPromotePurchases('Purchases aren\u2019t available right now. Check your connection and try Refresh.'); return []; }
+      paintAdminPromotePurchases('Loading\u2026');
+      let recs = [];
+      try {
+        const snap = await fb.getDocs(fb.collectionGroup(fb.db, 'billing'));
+        snap.forEach(function (d) {
+          const data = (d && typeof d.data === 'function' ? d.data() : null) || {};
+          if (data.kind !== 'promote') return;
+          const segs = String((d.ref && d.ref.path) || '').split('/');
+          recs.push({ id: d.id, username: segs[0] === 'users' && segs.length >= 4 ? segs[1] : '', data: data });
+        });
+      } catch (e) {
+        if (seq === _apSeq) { _apRows = []; paintAdminPromotePurchases('Couldn\u2019t load purchases. Try Refresh.'); }
+        return [];
+      }
+      const docs = {};
+      const keys = Array.from(new Set(recs.map(function (r) { return (r.data.itemKind === 'note' ? 'note' : 'post') + '|' + String(r.data.itemId || ''); })));
+      await Promise.all(keys.map(async function (k) {
+        const kind = k.split('|')[0], id = k.slice(kind.length + 1);
+        if (!id) return;
+        try {
+          const s = await fb.getDoc(kind === 'note' ? fb.doc(fb.db, 'promotions', 'note_' + id) : fb.doc(fb.db, 'posts', id));
+          docs[k] = s && typeof s.exists === 'function' && s.exists() ? (s.data() || null) : null;
+        } catch (e) { docs[k] = null; }
+      }));
+      if (seq !== _apSeq) return [];
+      const now = Date.now();
+      _apRows = recs.map(function (r) {
+        return adminPromoteRowModel(r.username, r.id, r.data, docs[(r.data.itemKind === 'note' ? 'note' : 'post') + '|' + String(r.data.itemId || '')], now);
+      }).sort(function (a, b) { return b.createdAt - a.createdAt; });
+      _apLoadedAt = now;
+      paintAdminPromotePurchases();
+      return _apRows;
+    }
+    window.loadAdminPromotePurchases = loadAdminPromotePurchases;
+
+    // Tier values
+    function promoteTierProblem(list) {
+      if (!Array.isArray(list) || list.length !== 4) return 'All four tiers are needed.';
+      for (let i = 0; i < 4; i++) {
+        const t = list[i] || {}, n = 'Tier ' + (i + 1) + ': ';
+        if (![t.price, t.hours, t.views].every(function (v) { return Number.isInteger(v); })) return n + 'use whole numbers.';
+        if (t.price < 1 || t.price > 10000) return n + 'price must be $1 to $10,000.';
+        if (t.hours < 1 || t.hours > 8760) return n + 'hours must be 1 to 8,760.';
+        if (t.hours >= 48 && t.hours % 24 !== 0) return n + '48 hours or more must be whole days (72, 96, ...).';
+        if (t.views < 50 || t.views > 10000000 || t.views % 50 !== 0) return n + 'views must be 50 to 10,000,000 in steps of 50.';
+        if (i > 0) {
+          const p = list[i - 1];
+          if (t.price <= p.price) return n + 'price must be higher than Tier ' + i + '.';
+          if (t.hours < p.hours) return n + 'hours can\u2019t be fewer than Tier ' + i + '.';
+          if (t.views < p.views) return n + 'views can\u2019t be fewer than Tier ' + i + '.';
+        }
+      }
+      return '';
+    }
+    window.promoteTierProblem = promoteTierProblem;
+    function readAdminPromoteTierInputs() {
+      const out = [];
+      for (let i = 0; i < 4; i++) {
+        const v = function (f) { const el = document.getElementById('admin-promote-tier-' + i + '-' + f); const s = el ? String(el.value).trim() : ''; return s === '' ? NaN : Number(s); };
+        out.push({ price: v('price'), hours: v('hours'), views: v('views') });
+      }
+      return out;
+    }
+    function fillAdminPromoteTierInputs(A) {
+      for (let i = 0; i < 4; i++) {
+        ['price', 'hours', 'views'].forEach(function (f, j) {
+          const el = document.getElementById('admin-promote-tier-' + i + '-' + f);
+          if (el && A[i]) el.value = String(A[i][j]);
+        });
+      }
+    }
+    function previewAdminPromoteTiers() {
+      const list = readAdminPromoteTierInputs();
+      const problem = promoteTierProblem(list);
+      const n = problem ? null : promoteNormalizeTiers(list);
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById('admin-promote-tier-' + i + '-preview');
+        if (!el) continue;
+        const t = list[i];
+        el.textContent = n
+          ? (promoteMoney(t.price) + ' \u00b7 ' + promoteDurationLabel(t.hours) + ' \u00b7 at least ' + t.views.toLocaleString('en-US') + ' views \u00b7 ' + promoteTierLabel(i >= 2 ? 'cta' : (i === 1 ? 'explore' : 'feed')))
+          : '';
+      }
+      const pl = document.getElementById('admin-promote-tiers-placement');
+      if (pl) pl.textContent = n ? ('Explore from ' + promoteMoney(n[1][0]) + ' \u00b7 link button from ' + promoteMoney(n[2][0])) : '';
+      apMsg('admin-promote-tiers-msg', problem, false);
+      const save = document.getElementById('btn-admin-promote-tiers-save');
+      if (save) { save.disabled = !!problem; save.classList.toggle('opacity-50', !!problem); }
+      return n;
+    }
+    window.previewAdminPromoteTiers = previewAdminPromoteTiers;
+    function paintAdminPromoteTierSource() {
+      const el = document.getElementById('admin-promote-tiers-source');
+      if (el) el.textContent = _promoteTiersSaved ? 'Using the saved tiers.' : 'Using the defaults ($5 / $25 / $100 / $500).';
+    }
+    async function loadAdminPromoteTiers() {
+      if (!isPromoteAdmin()) return null;
+      fillAdminPromoteTierInputs(_promoteAnchors);
+      previewAdminPromoteTiers();
+      await loadPromoteTiers(true);
+      fillAdminPromoteTierInputs(_promoteAnchors);
+      paintAdminPromoteTierSource();
+      return previewAdminPromoteTiers();
+    }
+    window.loadAdminPromoteTiers = loadAdminPromoteTiers;
+    function resetAdminPromoteTiers() {
+      fillAdminPromoteTierInputs(PROMOTE_ANCHORS);
+      if (previewAdminPromoteTiers()) apMsg('admin-promote-tiers-msg', 'Defaults filled in. Tap Save tiers to use them.', true);
+    }
+    window.resetAdminPromoteTiers = resetAdminPromoteTiers;
+    let _apSaving = false;
+    async function saveAdminPromoteTiers() {
+      if (apBlockedWrite() || _apSaving) return false;
+      const list = readAdminPromoteTierInputs();
+      const problem = promoteTierProblem(list);
+      const n = problem ? null : promoteNormalizeTiers(list);
+      if (!n) { apMsg('admin-promote-tiers-msg', problem || 'Check the tier values.', false); return false; }
+      const fb = apFb(['doc', 'setDoc']);
+      if (!fb) { apMsg('admin-promote-tiers-msg', 'Couldn\u2019t save. Check your connection and try again.', false); return false; }
+      _apSaving = true;
+      const btn = document.getElementById('btn-admin-promote-tiers-save');
+      if (btn) btn.disabled = true;
+      try {
+        const tiers = n.map(function (t) { return { price: t[0], hours: t[1], views: t[2] }; });
+        await fb.setDoc(fb.doc(fb.db, 'promoteSettings', 'tiers'), { tiers: tiers, updatedAt: Date.now(), updatedBy: 'pixlynote' });
+        _promoteTiersSaved = applyPromoteTiers(tiers);
+        _promoteTiersAt = Date.now();
+        paintAdminPromoteTierSource();
+        apMsg('admin-promote-tiers-msg', 'Saved. The new tiers apply to the next purchase.', true);
+        return true;
+      } catch (e) {
+        apMsg('admin-promote-tiers-msg', 'Couldn\u2019t save. Nothing changed. Try again.', false);
+        return false;
+      } finally {
+        _apSaving = false;
+        if (btn) btn.disabled = false;
+      }
+    }
+    window.saveAdminPromoteTiers = saveAdminPromoteTiers;
+
+    // Free (exempt) list
+    function paintAdminPromoteExempt() {
+      const list = document.getElementById('admin-promote-exempt-list');
+      if (!list) return;
+      list.innerHTML = _apExempt.length
+        ? _apExempt.map(function (u) {
+          return '<div class="admin-promote-exempt-row flex items-center justify-between px-3 py-2 rounded-xl border border-neutral-200 bg-white" data-username="' + billingEsc(u) + '">'
+            + '<span class="text-xs font-bold text-neutral-900">@' + billingEsc(u) + '</span>'
+            + '<button type="button" class="btn-admin-promote-exempt-remove text-[11px] font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded-lg hover:bg-rose-50 cursor-pointer" data-username="' + billingEsc(u) + '">Remove</button></div>';
+        }).join('')
+        : '<div class="text-[11px] text-neutral-500 text-center py-3 bg-neutral-50 rounded-xl border border-neutral-100">No free accounts. Everyone pays through Stripe.</div>';
+    }
+    async function loadAdminPromoteExempt() {
+      if (!isPromoteAdmin()) return [];
+      const fb = apFb(['doc', 'getDoc']);
+      if (!fb) { apMsg('admin-promote-exempt-msg', 'The free list isn\u2019t available right now.', false); return _apExempt; }
+      try {
+        const s = await fb.getDoc(fb.doc(fb.db, 'promoteSettings', 'exempt'));
+        const d = s && typeof s.exists === 'function' && s.exists() ? (s.data() || {}) : {};
+        _apExempt = (Array.isArray(d.usernames) ? d.usernames : []).map(function (u) { return String(u || '').toLowerCase().replace(/^@/, ''); })
+          .filter(function (u, i, a) { return /^[a-z0-9_.]{3,30}$/.test(u) && a.indexOf(u) === i; }).sort();
+        apMsg('admin-promote-exempt-msg', '', true);
+      } catch (e) { apMsg('admin-promote-exempt-msg', 'Couldn\u2019t load the free list. Try again.', false); }
+      paintAdminPromoteExempt();
+      return _apExempt;
+    }
+    window.loadAdminPromoteExempt = loadAdminPromoteExempt;
+    async function saveAdminPromoteExempt(next, okMsg) {
+      const fb = apFb(['doc', 'setDoc']);
+      if (!fb) { apMsg('admin-promote-exempt-msg', 'Couldn\u2019t save. Check your connection and try again.', false); return false; }
+      try {
+        await fb.setDoc(fb.doc(fb.db, 'promoteSettings', 'exempt'), { usernames: next, updatedAt: Date.now(), updatedBy: 'pixlynote' });
+        _apExempt = next.slice().sort();
+        paintAdminPromoteExempt();
+        apMsg('admin-promote-exempt-msg', okMsg, true);
+        return true;
+      } catch (e) {
+        apMsg('admin-promote-exempt-msg', 'Couldn\u2019t save. Nothing changed. Try again.', false);
+        return false;
+      }
+    }
+    async function addAdminPromoteExempt() {
+      if (apBlockedWrite() || _apSaving) return false;
+      const input = document.getElementById('admin-promote-exempt-input');
+      const u = String(input ? input.value : '').trim().toLowerCase().replace(/^@/, '');
+      if (!/^[a-z0-9_.]{3,30}$/.test(u)) { apMsg('admin-promote-exempt-msg', 'Enter a username like @name.', false); return false; }
+      if (_apExempt.indexOf(u) !== -1) { apMsg('admin-promote-exempt-msg', '@' + u + ' is already on the free list.', false); return false; }
+      if (_apExempt.length >= 200) { apMsg('admin-promote-exempt-msg', 'The free list is full (200 accounts).', false); return false; }
+      const fb = apFb(['doc', 'getDoc']);
+      if (!fb) { apMsg('admin-promote-exempt-msg', 'Couldn\u2019t check that account. Try again.', false); return false; }
+      _apSaving = true;
+      try {
+        let exists = false;
+        try { const s = await fb.getDoc(fb.doc(fb.db, 'users', u)); exists = !!(s && typeof s.exists === 'function' && s.exists()); } catch (e) { exists = false; }
+        if (!exists) { apMsg('admin-promote-exempt-msg', 'No account @' + u + '.', false); return false; }
+        const ok = await saveAdminPromoteExempt(_apExempt.concat([u]), '@' + u + ' now promotes for free.');
+        if (ok && input) input.value = '';
+        return ok;
+      } finally { _apSaving = false; }
+    }
+    window.addAdminPromoteExempt = addAdminPromoteExempt;
+    async function removeAdminPromoteExempt(username) {
+      if (apBlockedWrite() || _apSaving) return false;
+      const u = String(username || '').toLowerCase().replace(/^@/, '');
+      if (_apExempt.indexOf(u) === -1) return false;
+      _apSaving = true;
+      try { return await saveAdminPromoteExempt(_apExempt.filter(function (x) { return x !== u; }), '@' + u + ' removed. They pay through Stripe again.'); }
+      finally { _apSaving = false; }
+    }
+    window.removeAdminPromoteExempt = removeAdminPromoteExempt;
+    (function bindAdminPromoteUi() {
+      const bind = function () {
+        const list = document.getElementById('admin-promote-exempt-list');
+        if (list && !list._pxBound) {
+          list._pxBound = true;
+          list.addEventListener('click', function (e) {
+            const b = e.target && e.target.closest ? e.target.closest('.btn-admin-promote-exempt-remove') : null;
+            if (b) removeAdminPromoteExempt(b.getAttribute('data-username'));
+          });
+        }
+        const input = document.getElementById('admin-promote-exempt-input');
+        if (input && !input._pxBound) { input._pxBound = true; input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addAdminPromoteExempt(); } }); }
+        const m = document.getElementById('modal-admin-promote');
+        if (m && !m._pxBound) { m._pxBound = true; m.addEventListener('click', function (e) { if (e.target === m) closeAdminPromoteSettings(); }); }
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+      else bind();
+    })();
 
     // ---------- Wiring ----------
     (function bindPromoteUi() {
@@ -38289,6 +38868,24 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <svg id="drawer-metrics-list-chevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
           <div id="drawer-metrics-accounts-list" class="hidden mt-1.5 max-h-36 overflow-y-auto space-y-1 pr-0.5"></div>
+        </div>
+
+        <!-- @pixlynote-only Promote Settings Admin Card (t1044u): purchases, tier values, free (exempt) accounts -->
+        <div id="drawer-pixlynote-promote-settings" class="hidden mb-2 p-3.5 rounded-2xl bg-gradient-to-br from-fuchsia-50 via-violet-50/70 to-indigo-50 border border-fuchsia-200/80 shadow-2xs">
+          <div class="flex items-center space-x-2 mb-2">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-violet-600 text-white flex items-center justify-center shadow-2xs flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+            </div>
+            <div class="min-w-0">
+              <div class="font-extrabold text-xs text-neutral-900 leading-tight">Promote Settings</div>
+              <div class="text-[10px] font-medium text-fuchsia-700/90 leading-tight">Purchases, tier prices and free accounts</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" id="btn-drawer-admin-promote-purchases" onclick="openAdminPromoteSettings('purchases')" class="py-1.5 rounded-xl bg-white/80 hover:bg-white border border-fuchsia-100 text-[11px] font-bold text-fuchsia-700 transition cursor-pointer">Purchases</button>
+            <button type="button" id="btn-drawer-admin-promote-tiers" onclick="openAdminPromoteSettings('tiers')" class="py-1.5 rounded-xl bg-white/80 hover:bg-white border border-fuchsia-100 text-[11px] font-bold text-fuchsia-700 transition cursor-pointer">Tiers</button>
+            <button type="button" id="btn-drawer-admin-promote-exempt" onclick="openAdminPromoteSettings('exempt')" class="py-1.5 rounded-xl bg-white/80 hover:bg-white border border-fuchsia-100 text-[11px] font-bold text-fuchsia-700 transition cursor-pointer">Free list</button>
+          </div>
         </div>
 
         <!-- @pixlynote-only Pending Deactivations Admin Card -->

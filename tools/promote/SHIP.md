@@ -37,10 +37,27 @@ Showcase account never adds post views, note views, or promoted impressions. Cli
 - Tiers: $5 = 24 hours / at least 250 views; $25 = 3 days / 1,500; $100 = 7 days / 7,000; $500 = 30 days / 50,000.
   In between: linear, whole hours under 2 days and whole days from 2 days up, views in steps of 50 (same code in the
   Worker and the app; tests compare them). Placement: Explore from $25, CTA button from $100. Admin tier/exempt
-  settings are a later (Sunday) item and are not built.
+  settings: see "Admin Promote Settings" below.
 - NOTHING is refunded. No code calls the Stripe refunds API. The only make-good is the free extension (a promotion
   keeps running at no extra cost until its guaranteed views are reached).
   - Item deleted / made private before payment completed: the purchase is recorded in History as Paid with a
     "Not started: ..." note; nothing is promoted and nothing is refunded.
   - Two paid checkouts for the same item: the second is added on top (time and guaranteed views stack).
   - `charge.refunded` is only recorded (display) if a refund is made by hand in the Stripe Dashboard.
+
+## Admin Promote Settings (t1044u, branch grokbot/admin-promote-settings) - NOT deployed
+@pixlynote owner menu > Promote Settings: Purchases (read-only), Tiers, Free list.
+- Firestore data (written by @pixlynote in the app, nothing is seeded):
+  - `promoteSettings/tiers` = `{tiers: [{price, hours, views} x4], updatedAt, updatedBy}`. Public read. Missing or invalid =
+    the defaults ($5/24h/250, $25/72h/1,500, $100/168h/7,000, $500/720h/50,000). No doc needs creating to ship.
+  - `promoteSettings/exempt` = `{usernames: [...], updatedAt, updatedBy}`. Admin-only. Missing = nobody is exempt.
+- Rules: `promoteSettings/tiers` (public read, validated admin write), `promoteSettings/exempt` (admin only),
+  `/{path=**}/billing/{id}` admin read (collection-group list of purchases); `promoteSettings` removed from the admin
+  catch-all. Deploy: `firebase deploy --only firestore:rules --project pixlynote`.
+- Worker: rebuild with `python3 tools/promote/patch_worker.py ../worker/worker.phase2.js ../worker/worker.promote.js`
+  (includes the d5d5e67 webhook-secret guard). Same bindings and secrets as now; no new secret.
+  - Checkout price/duration/views come from `promoteSettings/tiers` (read with the service account); a Firestore error = 502, no checkout.
+  - The plan sold is stored per Stripe session, so a tier change while someone is paying never changes what they bought.
+  - Exempt accounts: no Stripe; the promotion starts at once (`promotionAmount: 0`, `promoteSessionId: free_<hex>`) and History gets a $0 "Free" record.
+- Order: worker first (the old app keeps working: `expect` is optional), then rules, then the site (main).
+  The new app on the old worker also works (exempt accounts would just go to Stripe).

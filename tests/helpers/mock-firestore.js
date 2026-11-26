@@ -34,9 +34,12 @@ function installPixlyMockFirestore(seed) {
     const parent = p.split('/').slice(0, -1).join('/');
     return parent === colPath;
   });
+  // collectionGroup(db, id): every doc whose parent collection is named id, at any depth.
+  const collectionGroup = (dbArg, id) => ({ path: '**/' + id, id, segs: [], isCol: true, isGroup: true });
+  const groupMembers = (id) => Object.keys(store.docs).filter((p) => { const s = p.split('/'); return s.length % 2 === 0 && s[s.length - 2] === id; });
   const runQuery = (q) => {
     const col = q.isQuery ? q.col : q;
-    let paths = childrenOf(col.path);
+    let paths = col.isGroup ? groupMembers(col.id) : childrenOf(col.path);
     (q.parts || []).forEach((w) => {
       paths = paths.filter((p) => {
         const v = (store.docs[p] || {})[w.f];
@@ -100,7 +103,7 @@ function installPixlyMockFirestore(seed) {
   };
   const api = {
     db: { __mock: true },
-    doc, collection, where, query,
+    doc, collection, collectionGroup, where, query,
     orderBy: noop, limit: noop, startAfter: noop,
     serverTimestamp: () => Date.now(),
     increment: (n) => n,

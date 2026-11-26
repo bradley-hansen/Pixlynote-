@@ -13,7 +13,8 @@ const { DatabaseSync } = require('node:sqlite');
 const WDIR = path.resolve(__dirname, '..', '..', '..', 'worker');
 const BASE_SRC = path.join(WDIR, 'worker.db-lockdown.js');
 const PHASE2 = path.join(WDIR, 'worker.phase2.js');
-const OUT = path.join(WDIR, 'worker.promote.js');
+// Built to a scratch file so a test run never overwrites worker.promote.js (the record of what is deployed).
+const OUT = path.join(WDIR, process.env.WORKER_PROMOTE_OUT || 'worker.promote.test-build.js');
 const PATCH2 = path.resolve(__dirname, '..', '..', 'tools', 'phase2', 'patch_worker.py');
 const PATCHP = path.resolve(__dirname, '..', '..', 'tools', 'promote', 'patch_worker.py');
 const INDEX = path.resolve(__dirname, '..', '..', 'index.html');
@@ -454,4 +455,132 @@ t('billing: unknown customers, unknown users, and live events write nothing', as
   assert.strictEqual((await rawEvent('charge.refunded', { id: 'ch_x', payment_intent: 'pi_unknown', amount: 100, amount_refunded: 100, livemode: false })).body.ignored, 'unknown_payment');
   assert.strictEqual(await fsGet('users/ghost_user/billing/cs_test_ghost'), null);
   assert.strictEqual(await fsGet('users/alice/billing/cs_live_x'), null);
+});
+
+// ---------- Admin Promote Settings (t1044u): tiers from promoteSettings/tiers, free (exempt) accounts ----------
+const CUSTOM = [{ price: 10, hours: 24, views: 300 }, { price: 30, hours: 72, views: 2000 }, { price: 120, hours: 168, views: 8000 }, { price: 600, hours: 720, views: 60000 }];
+const setTiers = (list) => fsPut('promoteSettings/tiers', { tiers: list, updatedAt: Date.now(), updatedBy: 'pixlynote' });
+const coBody = (o) => Object.assign({ username: 'alice', kind: 'post', id: 'p1', idToken: tokens.alice.idToken }, o);
+const coCall = () => stripeCalls.find((c) => c.url.endsWith('/v1/checkout/sessions'));
+
+t('admin tiers: the Worker and index.html share the same promoteNormalizeTiers', async () => {
+  const grab = (s) => { const m = s.match(/function promoteNormalizeTiers\(list\) \{[\s\S]*?\n\s*return out;\n\s*\}/); assert.ok(m, 'promoteNormalizeTiers present'); return m[0].replace(/\s+/g, ''); };
+  assert.strictEqual(grab(fs.readFileSync(FILE, 'utf8')), grab(fs.readFileSync(INDEX, 'utf8')));
+});
+
+t('admin tiers: checkout prices come from promoteSettings/tiers, computed server-side', async () => {
+  await setTiers(CUSTOM);
+  const low = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.strictEqual(low.status, 400); assert.strictEqual(low.body.error, 'invalid_amount', 'below the new Tier 1 price');
+  assert.strictEqual((await post('/promote/checkout', coBody({ amount: 601 }))).status, 400, 'above the new Tier 4 price');
+  const cases = [[10, 24, 300, 'feed'], [30, 72, 2000, 'explore'], [120, 168, 8000, 'cta'], [600, 720, 60000, 'cta'], [29, 72, 1900, 'feed']];
+  for (const [amount, h, v, tier] of cases) {
+    stripeCalls.length = 0;
+    const r = await post('/promote/checkout', coBody({ amount }));
+    assert.strictEqual(r.status, 200, amount + ' ' + JSON.stringify(r.body));
+    const b = coCall().body;
+    assert.strictEqual(b.get('line_items[0][price_data][unit_amount]'), String(amount * 100));
+    assert.deepStrictEqual([b.get('metadata[durationHours]'), b.get('metadata[targetImpressions]'), b.get('metadata[tier]')], [String(h), String(v), tier], 'amount ' + amount);
+  }
+  await notPromoted('posts/p1');
+});
+
+t('admin tiers: the browser cannot set the price, duration or views', async () => {
+  const r = await post('/promote/checkout', coBody({ amount: 25, unit_amount: 1, price: 1, durationHours: 9999, targetImpressions: 999999, tier: 'cta' }));
+  assert.strictEqual(r.status, 200);
+  const b = coCall().body;
+  assert.deepStrictEqual([b.get('line_items[0][price_data][unit_amount]'), b.get('metadata[durationHours]'), b.get('metadata[targetImpressions]'), b.get('metadata[tier]')], ['2500', '72', '1500', 'explore']);
+  stripeCalls.length = 0;
+  const stale = await post('/promote/checkout', coBody({ amount: 25, expect: { durationHours: 72, targetImpressions: 9999 } }));
+  assert.strictEqual(stale.status, 409); assert.strictEqual(stale.body.error, 'plan_changed');
+  assert.strictEqual(stale.body.plan.targetImpressions, 1500, 'returns the real plan');
+  assert.strictEqual(stripeCalls.length, 0, 'nothing is charged when the shown plan is out of date');
+  assert.strictEqual((await post('/promote/checkout', coBody({ amount: 25, expect: { durationHours: 72, targetImpressions: 1500 } }))).status, 200);
+});
+
+t('admin tiers: a missing or invalid config falls back to the defaults; a Firestore error fails safe', async () => {
+  await setTiers([{ price: 50, hours: 24, views: 250 }, { price: 25, hours: 72, views: 1500 }, { price: 100, hours: 168, views: 7000 }, { price: 500, hours: 720, views: 50000 }]);
+  let r = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.strictEqual(r.status, 200, 'invalid tiers -> defaults');
+  assert.strictEqual(coCall().body.get('metadata[targetImpressions]'), '250');
+  await setTiers([{ price: 5, hours: 50, views: 250 }, { price: 25, hours: 72, views: 1500 }, { price: 100, hours: 168, views: 7000 }, { price: 500, hours: 720, views: 50000 }]);
+  stripeCalls.length = 0;
+  r = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.strictEqual(coCall().body.get('metadata[durationHours]'), '24', '50 hours is not whole days -> defaults');
+  await fsDel('promoteSettings/tiers');
+  stripeCalls.length = 0;
+  r = await post('/promote/checkout', coBody({ amount: 100 }));
+  assert.strictEqual(coCall().body.get('metadata[targetImpressions]'), '7000', 'no config -> defaults');
+  stripeCalls.length = 0;
+  env.FIRESTORE_BASE = 'http://127.0.0.1:1';
+  r = await post('/promote/checkout', coBody({ amount: 25 }));
+  env.FIRESTORE_BASE = FS;
+  assert.strictEqual(r.status, 502); assert.strictEqual(r.body.error, 'lookup_failed');
+  assert.strictEqual(stripeCalls.length, 0, 'no checkout when the price cannot be checked');
+});
+
+t('admin tiers: a purchase keeps the plan it was sold with even if the tiers change before payment completes', async () => {
+  const r = await post('/promote/checkout', coBody({ amount: 25 }));
+  assert.strictEqual(r.status, 200);
+  const sid = 'cs_test_new'; // what the fake Stripe returned
+  await setTiers(CUSTOM); // admin edits the tiers while the buyer is on the Stripe page
+  const s = paidSession({ id: sid, amount: 25 });
+  const w = await webhook(s);
+  assert.strictEqual(w.body.promoted, true, JSON.stringify(w.body));
+  const d = await fsGet('posts/p1');
+  assert.deepStrictEqual([d.targetImpressions, d.promotionDurationHours, d.promotionTier], [1500, 72, 'explore']);
+  const bill = await fsGet('users/alice/billing/' + sid);
+  assert.deepStrictEqual([bill.status, bill.amountCents, bill.targetImpressions, bill.tier], ['paid', 2500, 1500, 'explore']);
+});
+
+t('admin tiers: a session the Worker has no record of is checked against the current tiers (tampering still rejected)', async () => {
+  await setTiers(CUSTOM);
+  assert.strictEqual((await webhook(paidSession({ amount: 25 }))).body.ignored, 'metadata_mismatch', '$25 is no longer a valid plan');
+  const ok = paidSession({ amount: 100, meta: { amount: '120', durationHours: '168', targetImpressions: '8000', tier: 'cta' }, amount_total: 12000 });
+  assert.strictEqual((await webhook(ok)).body.promoted, true);
+  assert.strictEqual((await fsGet('posts/p1')).targetImpressions, 8000);
+});
+
+t('exempt: an account on the free list skips Stripe and the promotion starts at once ($0 in History)', async () => {
+  await fsPut('promoteSettings/exempt', { usernames: ['@Alice'], updatedAt: 1, updatedBy: 'pixlynote' });
+  delete env.STRIPE_WEBHOOK_SECRET; env.STRIPE_SECRET_KEY = ''; // free promotions do not need Stripe at all
+  const r = await post('/promote/checkout', coBody({ amount: 100, ctaLabel: 'Shop now', ctaUrl: 'https://example.com/s' }));
+  assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  assert.strictEqual(r.body.free, true); assert.ok(!r.body.url);
+  assert.strictEqual(stripeCalls.length, 0, 'no Stripe call');
+  const d = await fsGet('posts/p1');
+  assert.strictEqual(d.isPromoted, true);
+  assert.deepStrictEqual([d.targetImpressions, d.promotionDurationHours, d.promotionTier, d.promotionAmount, d.ctaLabel], [7000, 168, 'cta', 0, 'Shop now']);
+  assert.match(d.promoteSessionId, /^free_[0-9a-f]{24}$/);
+  const row = await guard.promoGet('post_p1');
+  assert.strictEqual(row.target, 7000, 'view counting starts');
+  const bill = await fsGet('users/alice/billing/' + d.promoteSessionId);
+  assert.deepStrictEqual([bill.kind, bill.status, bill.amountCents, bill.itemId], ['promote', 'free', 0, 'p1']);
+  const again = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.strictEqual(again.status, 409, 'already running');
+});
+
+t('exempt: notes work too; the free list never lets anyone promote someone else\'s or a non-public item', async () => {
+  await fsPut('promoteSettings/exempt', { usernames: ['alice', 'bob'], updatedAt: 1, updatedBy: 'pixlynote' });
+  const n = await post('/promote/checkout', coBody({ kind: 'note', id: 'n1', amount: 5 }));
+  assert.strictEqual(n.body.free, true, JSON.stringify(n.body));
+  assert.strictEqual((await fsGet('promotions/note_n1')).isPromoted, true);
+  const other = await post('/promote/checkout', { username: 'bob', kind: 'post', id: 'p1', amount: 5, idToken: tokens.bob.idToken });
+  assert.strictEqual(other.status, 403);
+  const imp = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 5, idToken: tokens.bob.idToken });
+  assert.strictEqual(imp.body.error, 'not_owner', 'bob (exempt) cannot act as alice');
+  assert.strictEqual((await post('/promote/checkout', coBody({ id: 'p_cf', amount: 5 }))).body.error, 'not_public');
+  assert.strictEqual((await post('/promote/checkout', coBody({ amount: 5, idToken: 'x'.repeat(40) }))).status, 401);
+  await notPromoted('posts/p1');
+});
+
+t('exempt: an account not on the list (or removed from it) pays through Stripe', async () => {
+  await fsPut('promoteSettings/exempt', { usernames: ['bob'], updatedAt: 1, updatedBy: 'pixlynote' });
+  const r = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.strictEqual(r.status, 200); assert.ok(!r.body.free); assert.match(r.body.url, /^https:\/\/checkout\.stripe\.com\//);
+  await notPromoted('posts/p1');
+  await fsPut('promoteSettings/exempt', { usernames: 'alice' }); // malformed list -> nobody is exempt
+  stripeCalls.length = 0;
+  const r2 = await post('/promote/checkout', coBody({ amount: 5 }));
+  assert.ok(!r2.body.free); assert.strictEqual(stripeCalls.length, 1);
 });
