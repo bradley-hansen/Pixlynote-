@@ -135,6 +135,9 @@ module.exports = {
           togglePostLike(id);
           const after = state.likedPostIds && state.likedPostIds.has(id);
           const p = state.posts.find((x) => String(x.id) === id);
+          const probe = p ? Object.assign({}, p) : null;
+          state.posts = state.posts.filter((x) => String(x.id) !== id);
+          if (state.likedPostIds) state.likedPostIds.delete(id);
           return {
             ro: isPrivilegedReadOnly(), like: privilegedHasGrant('like'), comment: privilegedHasGrant('comment'),
             post: privilegedHasGrant('post'), dm: privilegedHasGrant('dm'), any: privilegedHasAnyGrant(),
@@ -142,7 +145,7 @@ module.exports = {
             blockedPost: privilegedActionBlocked('post'), blockedDm: privilegedActionBlocked('dm'), blockedEdit: privilegedActionBlocked('editProfile'),
             blockedPromote: privilegedActionBlocked('promote'), blockedBilling: privilegedActionBlocked('billing'), blockedDelete: privilegedActionBlocked('deletePost'),
             allowedLike: !privilegedActionBlocked('like'), allowedComment: !privilegedActionBlocked('comment'), blockedNoGrantArg: privilegedActionBlocked(),
-            likeWorked: before !== after, likeBy: p && p.likeDelegates ? p.likeDelegates[state.currentUser.username.toLowerCase()] : '',
+            likeWorked: before !== after, likeBy: probe && probe.likeDelegates ? probe.likeDelegates[state.currentUser.username.toLowerCase()] : '',
             createHidden: !shown('#nav-btn-create'), editHidden: !shown('#btn-edit-profile'),
             likeBtnShown: !document.querySelector('.btn-like-post') || shown('.btn-like-post'),
             commentFormShown: !document.querySelector('.feed-comment-form') || shown('.feed-comment-form'),
@@ -242,7 +245,7 @@ module.exports = {
           const note = (state.notes || []).find((n) => n.text === 'note from delegate');
           // Comment via the feed form.
           switchMainTab('feed'); renderFeed();
-          const cform = document.querySelector('.feed-comment-form');
+          const cform = Array.from(document.querySelectorAll('.feed-comment-form')).find((f) => /^\d+$/.test(String(f.dataset.postId || '')));
           let comment = null;
           if (cform) {
             const pid = parseInt(cform.dataset.postId, 10);
