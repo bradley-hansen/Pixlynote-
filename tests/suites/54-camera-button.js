@@ -10,6 +10,13 @@ const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'
 );
+async function pickPhoto(page, selector, file) {
+  await page.setInputFiles(selector, file);
+  // Camera/upload now opens the photo review step first; Next hands the photo to the wizard.
+  await page.waitForSelector('#photo-review-overlay:not(.hidden)', { timeout: 5000 });
+  await page.click('#btn-photo-review-next');
+}
+
 async function openCreate(page, mode) {
   await page.evaluate((m) => {
     if (typeof openCreatePostModal === 'function') openCreatePostModal(m || 'post');
@@ -98,7 +105,7 @@ module.exports = {
           await openCreate(page, mode);
           await page.evaluate(() => { if (typeof clearCreateWizardImage === 'function') clearCreateWizardImage(); });
           const before = await wizardPhoto(page);
-          await page.setInputFiles('#create-camera-upload', file);
+          await pickPhoto(page, '#create-camera-upload', file);
           await page.waitForFunction(() => {
             const s = (state && state.selectedCreateImage) || '';
             return typeof s === 'string' && s.indexOf('data:image') === 0;
@@ -115,11 +122,11 @@ module.exports = {
         // Same path as the library upload: both inputs update selectedCreateImage the same way.
         await openCreate(page, 'post');
         await page.evaluate(() => { if (typeof clearCreateWizardImage === 'function') clearCreateWizardImage(); });
-        await page.setInputFiles('#create-file-upload', { name: 'library.png', mimeType: 'image/png', buffer: TINY_PNG });
+        await pickPhoto(page, '#create-file-upload', { name: 'library.png', mimeType: 'image/png', buffer: TINY_PNG });
         await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').indexOf('data:image') === 0, null, { timeout: 5000 });
         const fromUpload = await wizardPhoto(page);
         await page.evaluate(() => { if (typeof clearCreateWizardImage === 'function') clearCreateWizardImage(); });
-        await page.setInputFiles('#create-camera-upload', file);
+        await pickPhoto(page, '#create-camera-upload', file);
         await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').indexOf('data:image') === 0, null, { timeout: 5000 });
         const fromCamera = await wizardPhoto(page);
         a.ok(fromUpload.selected.indexOf('data:image') === 0 && fromCamera.selected.indexOf('data:image') === 0,
@@ -136,7 +143,7 @@ module.exports = {
         await page.setViewportSize({ width: 390, height: 844 });
         await h.gotoMainTab(page, 'feed');
         await openCreate(page, 'post');
-        await page.setInputFiles('#create-file-upload', { name: 'keep-me.png', mimeType: 'image/png', buffer: TINY_PNG });
+        await pickPhoto(page, '#create-file-upload', { name: 'keep-me.png', mimeType: 'image/png', buffer: TINY_PNG });
         await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').indexOf('data:image') === 0, null, { timeout: 5000 });
         const before = await wizardPhoto(page);
 
@@ -192,7 +199,7 @@ module.exports = {
 
         // After those failures the library upload path still loads a photo.
         await page.evaluate(() => { if (typeof clearCreateWizardImage === 'function') clearCreateWizardImage(); });
-        await page.setInputFiles('#create-file-upload', { name: 'after-deny.png', mimeType: 'image/png', buffer: TINY_PNG });
+        await pickPhoto(page, '#create-file-upload', { name: 'after-deny.png', mimeType: 'image/png', buffer: TINY_PNG });
         await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').indexOf('data:image') === 0, null, { timeout: 5000 });
         const uploaded = await wizardPhoto(page);
         a.ok(uploaded.selected.indexOf('data:image') === 0, 'Upload photo from your phone still loads a photo after camera permission failure');

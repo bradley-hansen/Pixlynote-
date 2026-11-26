@@ -1,0 +1,376 @@
+'use strict';
+
+/**
+ * Photo review + Edit photo step after Camera or Upload photo from your phone.
+ * Filters, AI keyword mapping, Puppy ears (face library stubbed or blocked), and
+ * Next handing the edited photo to the Create wizard. Nothing is written to Firestore.
+ */
+
+async function makePhoto(page, w, h) {
+  const b64 = await page.evaluate(({ w, h }) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, '#ff3b30'); g.addColorStop(0.5, '#34c759'); g.addColorStop(1, '#007aff');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#ffcc00'; ctx.beginPath(); ctx.arc(w / 2, h / 2, Math.min(w, h) / 4, 0, Math.PI * 2); ctx.fill();
+    return c.toDataURL('image/png').split(',')[1];
+  }, { w, h });
+  return { name: 'sample-photo.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') };
+}
+
+async function openCreate(page, mode) {
+  await page.evaluate((m) => { if (typeof openCreatePostModal === 'function') openCreatePostModal(m); }, mode || 'post');
+  await page.waitForSelector('#modal-create-post:not(.hidden)', { timeout: 4000 });
+  await page.evaluate(() => { if (typeof clearCreateWizardImage === 'function') clearCreateWizardImage(); });
+}
+
+async function pickToReview(page, selector, file) {
+  await page.setInputFiles(selector, file);
+  await page.waitForSelector('#photo-review-overlay:not(.hidden)', { timeout: 5000 });
+  await page.waitForFunction(() => !!(window.pixlyPhotoEdit && window.pixlyPhotoEdit.original), null, { timeout: 5000 });
+}
+
+async function openEditor(page) {
+  await page.click('#btn-photo-review-edit');
+  await page.waitForSelector('#photo-edit-overlay:not(.hidden)', { timeout: 4000 });
+  await page.waitForFunction(() => {
+    const c = document.getElementById('photo-edit-canvas');
+    return c && c.width > 1 && c.dataset.filter;
+  }, null, { timeout: 5000 });
+}
+
+async function canvasStats(page) {
+  return page.evaluate(() => {
+    const c = document.getElementById('photo-edit-canvas');
+    const ctx = c.getContext('2d');
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let maxChroma = 0, sumR = 0, sumB = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4 * 37) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      maxChroma = Math.max(maxChroma, Math.max(r, g, b) - Math.min(r, g, b));
+      sumR += r; sumB += b; n++;
+    }
+    return { w: c.width, h: c.height, maxChroma, avgR: sumR / n, avgB: sumB / n, filter: c.dataset.filter, ears: c.dataset.ears };
+  });
+}
+
+function imgSize(page, src) {
+  return page.evaluate((s) => new Promise((res) => {
+    const i = new Image();
+    i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight });
+    i.onerror = () => res({ w: 0, h: 0 });
+    i.src = s;
+  }), src);
+}
+
+const FAKE_VISION_MODULE = `
+export const FilesetResolver = { forVisionTasks: async () => ({}) };
+export const FaceLandmarker = {
+  createFromOptions: async () => ({
+    detect: () => {
+      if (window.__fakeNoFace) return { faceLandmarks: [] };
+      const lm = [];
+      for (let i = 0; i < 478; i++) lm.push({ x: 0.5, y: 0.5, z: 0 });
+      lm[234] = { x: 0.3, y: 0.5, z: 0 };
+      lm[454] = { x: 0.7, y: 0.5, z: 0 };
+      lm[10] = { x: 0.5, y: 0.3, z: 0 };
+      lm[4] = { x: 0.5, y: 0.55, z: 0 };
+      lm[152] = { x: 0.5, y: 0.8, z: 0 };
+      window.__fakeDetectCalls = (window.__fakeDetectCalls || 0) + 1;
+      return { faceLandmarks: [lm] };
+    }
+  })
+};`;
+
+module.exports = {
+  name: 'Photo review and Edit photo',
+  tests: [
+    {
+      name: 'Photo editor: upload opens a full-screen review with back, pencil and Next; pencil opens Edit photo with tools, filters and dots',
+      accounts: ['personal'],
+      covers: [
+        'el:#btn-photo-review-back', 'el:#btn-photo-review-edit', 'el:#btn-photo-review-next',
+        'el:#btn-photo-edit-cancel', 'el:#btn-photo-edit-done',
+        'el:#btn-photo-tool-filter', 'el:#btn-photo-tool-ai', 'el:#btn-photo-tool-ears',
+        'handler:closePhotoReview', 'handler:openPhotoEditor', 'handler:setPhotoEditTool', 'handler:cancelPhotoEdit'
+      ],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        const file = await makePhoto(page, 300, 300);
+        await openCreate(page, 'post');
+        await pickToReview(page, '#create-file-upload', file);
+
+        const review = await page.evaluate(() => {
+          const ov = document.getElementById('photo-review-overlay');
+          const r = ov.getBoundingClientRect();
+          return {
+            full: r.width >= window.innerWidth - 1 && r.height >= window.innerHeight - 1,
+            img: (document.getElementById('photo-review-img').src || '').slice(0, 10),
+            back: !!document.getElementById('btn-photo-review-back'),
+            pencil: !!document.getElementById('btn-photo-review-edit'),
+            next: (document.getElementById('btn-photo-review-next').textContent || '').trim(),
+            wizardPhoto: state.selectedCreateImage || ''
+          };
+        });
+        a.ok(review.full, 'review step is full screen');
+        a.equal(review.img, 'data:image', 'review step shows the photo');
+        a.ok(review.back && review.pencil, 'review step has back arrow and pencil');
+        a.equal(review.next, 'Next', 'review step has a Next button');
+        a.equal(review.wizardPhoto, '', 'photo is not in the wizard until Next');
+
+        // Back discards the pick and leaves the wizard unchanged.
+        await page.click('#btn-photo-review-back');
+        a.ok(await page.evaluate(() => document.getElementById('photo-review-overlay').classList.contains('hidden')), 'back closes review');
+        a.equal(await page.evaluate(() => state.selectedCreateImage || ''), '', 'back leaves the wizard photo unchanged');
+        a.ok(await page.evaluate(() => !document.getElementById('modal-create-post').classList.contains('hidden')), 'Create modal is still open after back');
+
+        await pickToReview(page, '#create-file-upload', file);
+        await openEditor(page);
+        const edit = await page.evaluate(() => {
+          const txt = (id) => ((document.getElementById(id) || {}).textContent || '').replace(/\s+/g, ' ').trim();
+          const thumbs = Array.from(document.querySelectorAll('#photo-filter-row .photo-filter-thumb'));
+          return {
+            cancel: txt('btn-photo-edit-cancel'), done: txt('btn-photo-edit-done'),
+            tools: [txt('btn-photo-tool-filter'), txt('btn-photo-tool-ai'), txt('btn-photo-tool-ears')],
+            names: thumbs.map((t) => (t.querySelector('.photo-filter-name').textContent || '').trim()),
+            dots: document.querySelectorAll('#photo-filter-dots [data-dot]').length,
+            activeDot: (document.querySelector('#photo-filter-dots .bg-pink-400') || {}).getAttribute ? document.querySelector('#photo-filter-dots .bg-pink-400').getAttribute('data-dot') : '',
+            rowScrolls: getComputedStyle(document.getElementById('photo-filter-row')).overflowX
+          };
+        });
+        a.equal(edit.cancel, 'Cancel', 'Edit photo has Cancel');
+        a.equal(edit.done, 'Done', 'Edit photo has Done');
+        a.equal(JSON.stringify(edit.tools), JSON.stringify(['Filter', 'AI', 'Puppy ears']), 'tool row is Filter, AI, Puppy ears');
+        a.equal(edit.names[0], 'Original', 'first filter is Original');
+        a.ok(edit.names.length >= 9, 'Original plus about 8 filters: ' + edit.names.join(', '));
+        a.ok(edit.names.includes('Pixly Bloom'), 'brand purple-pink filter is present');
+        a.equal(edit.dots, edit.names.length, 'one dot per filter');
+        a.equal(edit.activeDot, 'original', 'dot shows the current filter');
+        a.equal(edit.rowScrolls, 'auto', 'filter row scrolls horizontally');
+        await page.waitForFunction(() => Array.from(document.querySelectorAll('#photo-filter-row img')).every((i) => (i.src || '').startsWith('data:image')), null, { timeout: 5000 });
+        a.ok(true, 'every filter thumbnail is a preview of the photo');
+
+        await page.click('#btn-photo-tool-ai');
+        a.ok(await page.evaluate(() => !document.getElementById('photo-edit-panel-ai').classList.contains('hidden')), 'AI tool opens its panel');
+        a.equal(await page.evaluate(() => document.getElementById('photo-ai-input').placeholder), 'Describe an edit…', 'AI box placeholder');
+        await page.click('#btn-photo-tool-filter');
+        a.ok(await page.evaluate(() => !document.getElementById('photo-edit-panel-filter').classList.contains('hidden')), 'Filter tool shows the filter row');
+        await page.click('#btn-photo-edit-cancel');
+        a.ok(await page.evaluate(() => document.getElementById('photo-edit-overlay').classList.contains('hidden')
+          && !document.getElementById('photo-review-overlay').classList.contains('hidden')), 'Cancel returns to review');
+        await page.click('#btn-photo-review-back');
+      }
+    },
+    {
+      name: 'Photo editor: a filter changes the photo, Done applies it, Cancel discards, and Original always recovers the photo',
+      accounts: ['personal'],
+      covers: ['handler:selectPhotoFilter', 'handler:donePhotoEdit', 'el:#btn-photo-edit-done', 'el:#btn-photo-edit-cancel'],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        const file = await makePhoto(page, 320, 240);
+        await openCreate(page, 'post');
+        await pickToReview(page, '#create-file-upload', file);
+        await openEditor(page);
+        const orig = await canvasStats(page);
+        a.ok(orig.maxChroma > 100, 'sample photo is colorful');
+
+        await page.click('#photo-filter-row .photo-filter-thumb[data-filter="ink"]');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'ink', null, { timeout: 4000 });
+        const ink = await canvasStats(page);
+        a.ok(ink.maxChroma <= 6, 'Ink makes the photo black and white: chroma ' + ink.maxChroma);
+        a.equal(await page.evaluate(() => document.querySelector('#photo-filter-dots .bg-pink-400').getAttribute('data-dot')), 'ink', 'dots follow the selected filter');
+
+        await page.evaluate(() => selectPhotoFilter('golden'));
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'golden', null, { timeout: 4000 });
+        const golden = await canvasStats(page);
+        a.ok(golden.avgR - golden.avgB > orig.avgR - orig.avgB, 'Golden Hour warms the photo');
+
+        await page.evaluate(() => selectPhotoFilter('bloom'));
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'bloom', null, { timeout: 4000 });
+        await page.click('#btn-photo-edit-done');
+        await page.waitForFunction(() => window.pixlyPhotoEdit.applied.filter === 'bloom', null, { timeout: 5000 });
+        const afterDone = await page.evaluate(() => ({
+          current: pixlyPhotoEdit.current, original: pixlyPhotoEdit.original,
+          review: document.getElementById('photo-review-img').src,
+          editHidden: document.getElementById('photo-edit-overlay').classList.contains('hidden')
+        }));
+        a.ok(afterDone.editHidden, 'Done returns to review');
+        a.ok(afterDone.current !== afterDone.original, 'Done applies the filter');
+        a.equal(afterDone.review, afterDone.current, 'review shows the edited photo');
+        a.ok(afterDone.current.startsWith('data:image/jpeg'), 'edited photo is a JPEG like the upload path');
+
+        // Cancel discards a new edit.
+        await openEditor(page);
+        a.equal(await page.evaluate(() => document.getElementById('photo-edit-canvas').dataset.filter), 'bloom', 'editor reopens with the applied filter');
+        await page.evaluate(() => selectPhotoFilter('frost'));
+        await page.click('#btn-photo-edit-cancel');
+        const afterCancel = await page.evaluate(() => ({ applied: pixlyPhotoEdit.applied.filter, current: pixlyPhotoEdit.current }));
+        a.equal(afterCancel.applied, 'bloom', 'Cancel keeps the previously applied filter');
+        a.equal(afterCancel.current, afterDone.current, 'Cancel leaves the photo unchanged');
+
+        // Original recovers the untouched photo.
+        await openEditor(page);
+        await page.evaluate(() => selectPhotoFilter('original'));
+        await page.click('#btn-photo-edit-done');
+        await page.waitForFunction(() => window.pixlyPhotoEdit.applied.filter === 'original', null, { timeout: 5000 });
+        const recovered = await page.evaluate(() => ({ current: pixlyPhotoEdit.current, original: pixlyPhotoEdit.original }));
+        a.equal(recovered.current, recovered.original, 'Original restores the exact original photo');
+        await page.click('#btn-photo-review-back');
+      }
+    },
+    {
+      name: 'Photo editor: AI box maps typed keywords to preset filters and shows a coming-soon note otherwise',
+      accounts: ['personal'],
+      covers: ['el:#photo-ai-form', 'el:#photo-ai-input', 'el:#btn-photo-ai-apply', 'handler:applyPhotoAiEdit'],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        const cases = await page.evaluate(() => {
+          const ask = ['make it warm', 'cooler please', 'brighten this', 'darker and moody', 'b&w', 'black and white', 'Black & White',
+            'vintage film look', 'studio lighting', 'more pink', 'purple vibes', 'add a dragon', '', 'warm but vintage'];
+          return ask.map((t) => [t, matchPhotoAiKeyword(t)]);
+        });
+        const want = {
+          'make it warm': 'golden', 'cooler please': 'frost', 'brighten this': 'daylight', 'darker and moody': 'midnight',
+          'b&w': 'ink', 'black and white': 'ink', 'Black & White': 'ink', 'vintage film look': 'retro', 'studio lighting': 'studio',
+          'more pink': 'bloom', 'purple vibes': 'bloom', 'add a dragon': null, '': null, 'warm but vintage': 'golden'
+        };
+        cases.forEach(([t, got]) => a.equal(got, want[t], `keyword "${t}" maps to ${want[t]}`));
+
+        const file = await makePhoto(page, 200, 200);
+        await openCreate(page, 'post');
+        await pickToReview(page, '#create-file-upload', file);
+        await openEditor(page);
+        await page.click('#btn-photo-tool-ai');
+        await page.fill('#photo-ai-input', 'make it black and white');
+        await page.click('#btn-photo-ai-apply');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.filter === 'ink', null, { timeout: 4000 });
+        a.ok(/Applied Ink/.test(await page.textContent('#photo-ai-note')), 'AI note names the applied filter');
+        a.ok((await canvasStats(page)).maxChroma <= 6, 'keyword edit really applies the filter');
+
+        await page.fill('#photo-ai-input', 'remove the background');
+        await page.press('#photo-ai-input', 'Enter');
+        await page.waitForTimeout(150);
+        a.ok(/coming soon/i.test(await page.textContent('#photo-ai-note')), 'unmatched text shows the coming-soon note');
+        a.equal(await page.evaluate(() => pixlyPhotoEdit.draft.filter), 'ink', 'unmatched text leaves the filter unchanged');
+        a.ok(await page.evaluate(() => !document.getElementById('photo-edit-overlay').classList.contains('hidden')), 'Enter does not leave the editor');
+        await page.click('#btn-photo-edit-cancel');
+        await page.click('#btn-photo-review-back');
+      }
+    },
+    {
+      name: 'Photo editor: Puppy ears fails safely when the face library cannot load',
+      accounts: ['personal'],
+      covers: ['el:#btn-photo-tool-ears', 'handler:setPhotoEditTool'],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(String(e)));
+        // The harness blocks every CDN, so the MediaPipe import fails like an offline phone.
+        const file = await makePhoto(page, 240, 240);
+        await openCreate(page, 'post');
+        await pickToReview(page, '#create-camera-upload', file);
+        await openEditor(page);
+        const before = await canvasStats(page);
+        await page.click('#btn-photo-tool-ears');
+        await page.waitForFunction(() => /could not load/i.test(document.getElementById('photo-ears-note').textContent || ''), null, { timeout: 30000 });
+        const after = await canvasStats(page);
+        a.equal(after.ears, '0', 'no ears drawn');
+        a.equal(after.avgR.toFixed(2), before.avgR.toFixed(2), 'photo is unchanged');
+        a.ok(/unchanged/i.test(await page.textContent('#photo-ears-note')), 'note says the photo is unchanged');
+        await page.click('#btn-photo-edit-done');
+        await page.waitForFunction(() => document.getElementById('photo-edit-overlay').classList.contains('hidden'), null, { timeout: 4000 });
+        a.equal(await page.evaluate(() => pixlyPhotoEdit.current === pixlyPhotoEdit.original), true, 'Done after a failed ears load keeps the original photo');
+        await page.click('#btn-photo-review-next');
+        await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').startsWith('data:image'), null, { timeout: 4000 });
+        a.ok(true, 'Next still hands the photo to the wizard');
+        a.equal(errors.length, 0, 'no page errors: ' + errors.join(' | '));
+      }
+    },
+    {
+      name: 'Photo editor: Puppy ears draws ears for a found face, toggles off, and notes when no face is found',
+      accounts: ['personal'],
+      covers: ['el:#btn-photo-tool-ears'],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        await page.route(/cdn\.jsdelivr\.net\/npm\/@mediapipe\/tasks-vision@[^/]+\/vision_bundle\.mjs/, (route) => route.fulfill({
+          status: 200, contentType: 'application/javascript', body: FAKE_VISION_MODULE,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
+        }));
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(String(e)));
+        const file = await makePhoto(page, 300, 300);
+        await openCreate(page, 'post');
+        await pickToReview(page, '#create-file-upload', file);
+        await openEditor(page);
+        const before = await canvasStats(page);
+        await page.click('#btn-photo-tool-ears');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '1', null, { timeout: 8000 });
+        const withEars = await canvasStats(page);
+        a.ok(Math.abs(withEars.avgR - before.avgR) > 1, 'ears and nose are drawn onto the photo');
+        a.ok(/added/i.test(await page.textContent('#photo-ears-note')), 'note says ears were added');
+        await page.click('#btn-photo-tool-ears');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '0', null, { timeout: 4000 });
+        a.equal((await canvasStats(page)).avgR.toFixed(2), before.avgR.toFixed(2), 'tapping again removes the ears');
+
+        await page.evaluate(() => { window.__fakeNoFace = true; });
+        await page.click('#btn-photo-tool-ears');
+        await page.waitForFunction(() => /No face found/i.test(document.getElementById('photo-ears-note').textContent || ''), null, { timeout: 4000 });
+        a.equal((await canvasStats(page)).ears, '0', 'no face leaves the photo unchanged');
+
+        await page.evaluate(() => { window.__fakeNoFace = false; });
+        await page.click('#btn-photo-tool-ears');
+        await page.waitForFunction(() => document.getElementById('photo-edit-canvas').dataset.ears === '1', null, { timeout: 4000 });
+        await page.click('#btn-photo-edit-done');
+        await page.waitForFunction(() => !!(pixlyPhotoEdit.applied.faces && pixlyPhotoEdit.applied.faces.length), null, { timeout: 4000 });
+        a.ok(await page.evaluate(() => pixlyPhotoEdit.current !== pixlyPhotoEdit.original), 'Done applies the puppy ears');
+        a.equal(errors.length, 0, 'no page errors: ' + errors.join(' | '));
+        await page.click('#btn-photo-review-back');
+      }
+    },
+    {
+      name: 'Photo editor: Next passes the edited photo to the wizard for Grid Post, Story and Highlight, at a sane size',
+      accounts: ['personal'],
+      covers: ['el:#btn-photo-review-next', 'handler:photoReviewNext', 'el:#create-preview-img'],
+      async run({ page, h, a }) {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await h.gotoMainTab(page, 'feed');
+        const big = await makePhoto(page, 1600, 1200);
+        for (const mode of ['post', 'story', 'highlight']) {
+          await openCreate(page, mode);
+          await pickToReview(page, mode === 'story' ? '#create-camera-upload' : '#create-file-upload', big);
+          await openEditor(page);
+          await page.evaluate(() => selectPhotoFilter('retro'));
+          await page.click('#btn-photo-edit-done');
+          await page.waitForFunction(() => pixlyPhotoEdit.applied.filter === 'retro', null, { timeout: 5000 });
+          const edited = await page.evaluate(() => ({ current: pixlyPhotoEdit.current, original: pixlyPhotoEdit.original }));
+          await page.click('#btn-photo-review-next');
+          await page.waitForFunction(() => ((state && state.selectedCreateImage) || '').startsWith('data:image'), null, { timeout: 5000 });
+          const wiz = await page.evaluate(() => ({
+            mode: state.createWizardMode,
+            selected: state.selectedCreateImage,
+            preview: document.getElementById('create-preview-img').src,
+            reviewHidden: document.getElementById('photo-review-overlay').classList.contains('hidden'),
+            badge: !document.getElementById('upload-status-badge').classList.contains('hidden')
+          }));
+          a.equal(wiz.mode, mode, mode + ': wizard mode kept');
+          a.ok(wiz.reviewHidden, mode + ': Next closes review');
+          a.equal(wiz.selected, edited.current, mode + ': wizard photo is the edited photo');
+          a.ok(wiz.selected !== edited.original, mode + ': wizard photo is not the unedited original');
+          a.equal(wiz.preview, edited.current, mode + ': preview shows the edited photo');
+          a.ok(wiz.badge, mode + ': selected-photo badge is shown');
+          const size = await imgSize(page, wiz.selected);
+          a.ok(size.w <= 800 && size.h <= 800 && size.w > 0, mode + ': edited photo stays within 800px: ' + JSON.stringify(size));
+          a.ok(wiz.selected.startsWith('data:image/jpeg'), mode + ': edited photo is a JPEG');
+          await page.evaluate(() => { if (typeof closeCreatePostModal === 'function') closeCreatePostModal(); });
+        }
+      }
+    }
+  ]
+};

@@ -2276,6 +2276,67 @@
     </div>
   </div>
 
+  <!-- PHOTO REVIEW + EDIT PHOTO (after Camera or Upload photo from your phone) -->
+  <div id="photo-review-overlay" class="hidden fixed inset-0 bg-neutral-950 text-white flex-col" style="display: none; z-index: 70;" role="dialog" aria-modal="true" aria-label="Review photo">
+    <div class="flex items-center justify-between px-3 py-3">
+      <button type="button" id="btn-photo-review-back" onclick="closePhotoReview()" aria-label="Back" class="p-2 rounded-full hover:bg-white/10 transition cursor-pointer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <span class="text-sm font-semibold text-white/80">Review photo</span>
+      <button type="button" id="btn-photo-review-edit" onclick="openPhotoEditor()" aria-label="Edit photo" class="p-2 rounded-full bg-white/10 hover:bg-white/20 transition cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4l10.5-10.5a2.5 2.5 0 00-3.536-3.536L4 16.5V20z"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 min-h-0 flex items-center justify-center px-3">
+      <img id="photo-review-img" alt="Photo to post" class="max-w-full max-h-full object-contain rounded-xl">
+    </div>
+    <div id="photo-review-note" class="hidden text-center text-xs text-amber-200 px-4 pt-2"></div>
+    <div class="p-4 pb-6">
+      <button type="button" id="btn-photo-review-next" onclick="photoReviewNext()" class="w-full py-3.5 rounded-full text-base font-bold text-white bg-gradient-to-r from-violet-600 to-pink-500 hover:opacity-95 active:opacity-90 shadow-lg transition cursor-pointer">Next</button>
+    </div>
+  </div>
+
+  <div id="photo-edit-overlay" class="hidden fixed inset-0 bg-neutral-950 text-white flex-col" style="display: none; z-index: 71;" role="dialog" aria-modal="true" aria-label="Edit photo">
+    <div class="flex items-center justify-between px-3 py-3">
+      <button type="button" id="btn-photo-edit-cancel" onclick="cancelPhotoEdit()" class="px-2 py-1 text-sm font-semibold text-white/85 hover:text-white cursor-pointer">Cancel</button>
+      <span class="text-sm font-bold">Edit photo</span>
+      <button type="button" id="btn-photo-edit-done" onclick="donePhotoEdit()" class="px-3 py-1 text-sm font-bold rounded-full bg-gradient-to-r from-violet-600 to-pink-500 cursor-pointer">Done</button>
+    </div>
+    <div class="flex-1 min-h-0 flex items-center justify-center px-3">
+      <canvas id="photo-edit-canvas" class="max-w-full max-h-full object-contain rounded-xl" style="max-width: 100%; max-height: 100%;"></canvas>
+    </div>
+    <div class="px-3 pt-3 min-h-[132px]">
+      <div id="photo-edit-panel-filter">
+        <div id="photo-filter-row" class="flex gap-3 overflow-x-auto pb-1" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;"></div>
+        <div id="photo-filter-dots" class="flex items-center justify-center gap-1.5 pt-2" aria-hidden="true"></div>
+      </div>
+      <div id="photo-edit-panel-ai" class="hidden">
+        <form id="photo-ai-form" onsubmit="applyPhotoAiEdit(event)" class="flex items-center gap-2">
+          <input type="text" id="photo-ai-input" placeholder="Describe an edit…" autocomplete="off" maxlength="200" class="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-white/10 border border-white/15 text-sm text-white placeholder-white/50 focus:outline-none focus:border-pink-400">
+          <button type="submit" id="btn-photo-ai-apply" class="px-4 py-2.5 rounded-full text-sm font-bold bg-gradient-to-r from-violet-600 to-pink-500 cursor-pointer">Apply</button>
+        </form>
+        <div id="photo-ai-note" class="text-xs text-white/70 pt-2 px-1">Try warm, cool, bright, dark, b&amp;w, vintage, studio or pink.</div>
+      </div>
+      <div id="photo-edit-panel-ears" class="hidden">
+        <div id="photo-ears-note" class="text-xs text-white/75 text-center pt-2 px-2">Tap Puppy ears to add ears to the face in your photo.</div>
+      </div>
+    </div>
+    <div class="flex items-stretch justify-around border-t border-white/10 px-2 pt-2 pb-5">
+      <button type="button" id="btn-photo-tool-filter" onclick="setPhotoEditTool('filter')" class="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="9" r="5" stroke-width="1.8"/><circle cx="15" cy="9" r="5" stroke-width="1.8"/><circle cx="12" cy="15" r="5" stroke-width="1.8"/></svg>
+        <span>Filter</span>
+      </button>
+      <button type="button" id="btn-photo-tool-ai" onclick="setPhotoEditTool('ai')" class="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3zM18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></svg>
+        <span>AI</span>
+      </button>
+      <button type="button" id="btn-photo-tool-ears" onclick="setPhotoEditTool('ears')" class="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-[11px] font-semibold cursor-pointer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 4c-2.5 0-4 3-4 6.5 0 1.6.9 2.5 2 2.5M17 4c2.5 0 4 3 4 6.5 0 1.6-.9 2.5-2 2.5M7 4c1.5 0 2.5 1.6 2.6 3.3M17 4c-1.5 0-2.5 1.6-2.6 3.3M6 13.5C6 18 8.7 21 12 21s6-3 6-7.5S15.3 7 12 7s-6 2-6 6.5z"/><ellipse cx="12" cy="15.5" rx="1.6" ry="1.1" fill="currentColor"/></svg>
+        <span>Puppy ears</span>
+      </button>
+    </div>
+  </div>
+
   <!-- MODAL 3: STORY VIEWER -->
   <div id="modal-story-viewer" class="hidden fixed inset-0 z-50 bg-black/95 items-center justify-center" style="display: none;">
     <div class="relative w-full max-w-sm h-full max-h-[85vh] bg-neutral-900 rounded-2xl overflow-hidden flex flex-col justify-between p-4 shadow-2xl">
@@ -19656,6 +19717,519 @@ function syncLikedStateToPosts() {
     }
     window.suggestCaptionsWithGemini = suggestCaptionsWithGemini;
 
+    // =========================================================================
+    // PHOTO REVIEW + EDIT PHOTO (Filter, AI keywords, Puppy ears)
+    // Shown after Camera or Upload photo from your phone. Every edit is
+    // re-rendered from the untouched original, so the original is always
+    // recoverable, and any failure leaves the photo unchanged.
+    // =========================================================================
+    const PIXLY_PHOTO_MAX_DIM = 800;
+    const PIXLY_PHOTO_JPEG_QUALITY = 0.82;
+    const PIXLY_PHOTO_FILTERS = [
+      { id: 'original', name: 'Original', p: {} },
+      { id: 'golden', name: 'Golden Hour', p: { brightness: 1.05, contrast: 1.05, saturate: 1.18, tint: [255, 168, 76, 0.16] } },
+      { id: 'frost', name: 'Frost', p: { brightness: 1.04, contrast: 1.02, saturate: 0.88, tint: [92, 164, 255, 0.17] } },
+      { id: 'daylight', name: 'Daylight', p: { brightness: 1.2, contrast: 1.03, saturate: 1.06 } },
+      { id: 'midnight', name: 'Midnight', p: { brightness: 0.72, contrast: 1.16, saturate: 0.85, tint: [36, 40, 110, 0.14] } },
+      { id: 'ink', name: 'Ink', p: { grayscale: 1, contrast: 1.2 } },
+      { id: 'retro', name: 'Retro Reel', p: { sepia: 0.55, contrast: 0.9, brightness: 1.05, saturate: 0.85, fade: 0.1 } },
+      { id: 'studio', name: 'Studio', p: { brightness: 1.06, contrast: 1.24, saturate: 1.08 } },
+      { id: 'bloom', name: 'Pixly Bloom', p: { brightness: 1.05, contrast: 1.04, saturate: 1.1, gradient: [[139, 92, 246], [236, 72, 153], 0.26] } }
+    ];
+    window.PIXLY_PHOTO_FILTERS = PIXLY_PHOTO_FILTERS;
+    const PIXLY_AI_EDIT_RULES = [
+      { filter: 'ink', re: /\b(b\s*&\s*w|b\/w|bw|black\s*(?:and|&|n)\s*white|black-and-white|grayscale|greyscale|gray|grey|mono|monochrome|noir)\b/i },
+      { filter: 'golden', re: /\b(warm|warmer|warmth|sunny|sunset|golden|gold|summer|cozy)\b/i },
+      { filter: 'frost', re: /\b(cool|cooler|cold|colder|icy|ice|frost|frosty|blue|winter)\b/i },
+      { filter: 'daylight', re: /\b(bright|brighter|brighten|lighten|lighter|light|sunlit|airy|exposure)\b/i },
+      { filter: 'midnight', re: /\b(dark|darker|darken|moody|night|dim|shadowy)\b/i },
+      { filter: 'retro', re: /\b(vintage|retro|old|older|film|faded|fade|sepia|nostalgic|70s|80s|90s)\b/i },
+      { filter: 'studio', re: /\b(studio|crisp|sharp|clean|pro|professional|contrast|punchy)\b/i },
+      { filter: 'bloom', re: /\b(pink|purple|violet|magenta|pixly|pixlynote|brand|bloom|dreamy)\b/i }
+    ];
+    const pixlyPhotoEdit = {
+      original: '', current: '', name: '', onNext: null,
+      applied: { filter: 'original', faces: null },
+      draft: { filter: 'original', faces: null },
+      tool: 'filter', renderToken: 0, earsBusy: false
+    };
+    window.pixlyPhotoEdit = pixlyPhotoEdit;
+
+    function pixlyFilterById(id) {
+      return PIXLY_PHOTO_FILTERS.find((f) => f.id === id) || PIXLY_PHOTO_FILTERS[0];
+    }
+    function matchPhotoAiKeyword(text) {
+      const t = String(text || '');
+      if (!t.trim()) return null;
+      let best = null;
+      PIXLY_AI_EDIT_RULES.forEach((rule) => {
+        const m = rule.re.exec(t);
+        if (m && (best === null || m.index < best.index)) best = { index: m.index, filter: rule.filter };
+      });
+      return best ? best.filter : null;
+    }
+    window.matchPhotoAiKeyword = matchPhotoAiKeyword;
+
+    function pixlyApplyFilterPixels(ctx, w, h, params) {
+      const p = params || {};
+      if (!Object.keys(p).length) return;
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const d = imgData.data;
+      const br = p.brightness == null ? 1 : p.brightness;
+      const ct = p.contrast == null ? 1 : p.contrast;
+      const sat = p.saturate == null ? 1 : p.saturate;
+      const gray = p.grayscale || 0;
+      const sep = p.sepia || 0;
+      const fade = p.fade || 0;
+      const tint = p.tint || null;
+      const grad = p.gradient || null;
+      for (let y = 0; y < h; y++) {
+        let gr = 0, gg = 0, gb = 0, ga = 0;
+        if (grad) {
+          const t = h > 1 ? y / (h - 1) : 0;
+          gr = grad[0][0] + (grad[1][0] - grad[0][0]) * t;
+          gg = grad[0][1] + (grad[1][1] - grad[0][1]) * t;
+          gb = grad[0][2] + (grad[1][2] - grad[0][2]) * t;
+          ga = grad[2];
+        }
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          let r = d[i] * br, g = d[i + 1] * br, b = d[i + 2] * br;
+          r = (r - 128) * ct + 128; g = (g - 128) * ct + 128; b = (b - 128) * ct + 128;
+          let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          r = lum + (r - lum) * sat; g = lum + (g - lum) * sat; b = lum + (b - lum) * sat;
+          if (gray) {
+            lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            r += (lum - r) * gray; g += (lum - g) * gray; b += (lum - b) * gray;
+          }
+          if (sep) {
+            const sr = 0.393 * r + 0.769 * g + 0.189 * b;
+            const sg = 0.349 * r + 0.686 * g + 0.168 * b;
+            const sb = 0.272 * r + 0.534 * g + 0.131 * b;
+            r += (sr - r) * sep; g += (sg - g) * sep; b += (sb - b) * sep;
+          }
+          if (tint) {
+            r += (tint[0] - r) * tint[3]; g += (tint[1] - g) * tint[3]; b += (tint[2] - b) * tint[3];
+          }
+          if (ga) {
+            r += (gr - r) * ga; g += (gg - g) * ga; b += (gb - b) * ga;
+          }
+          if (fade) {
+            r = r * (1 - fade) + 128 * fade; g = g * (1 - fade) + 128 * fade; b = b * (1 - fade) + 128 * fade;
+          }
+          d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+          d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+          d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    // faces: [{ left:{x,y}, right:{x,y}, top:{x,y}, nose:{x,y}, chin:{x,y} }] in 0..1 image coords
+    function pixlyDrawPuppyEars(ctx, w, h, faces) {
+      (faces || []).forEach((f) => {
+        if (!f || !f.left || !f.right || !f.top || !f.nose) return;
+        const L = { x: f.left.x * w, y: f.left.y * h };
+        const R = { x: f.right.x * w, y: f.right.y * h };
+        const T = { x: f.top.x * w, y: f.top.y * h };
+        const N = { x: f.nose.x * w, y: f.nose.y * h };
+        const faceW = Math.hypot(R.x - L.x, R.y - L.y);
+        if (!(faceW > 4)) return;
+        const ang = Math.atan2(R.y - L.y, R.x - L.x);
+        const ux = Math.cos(ang), uy = Math.sin(ang);      // across the face
+        const px = Math.sin(ang), py = -Math.cos(ang);     // up from the face
+        // Floppy ears: attached at the top sides of the head, hanging down and flaring out.
+        const earW = faceW * 0.32, earH = faceW * 0.66;
+        [-1, 1].forEach((side) => {
+          const ax = T.x + ux * side * faceW * 0.44 + px * faceW * 0.06;
+          const ay = T.y + uy * side * faceW * 0.44 + py * faceW * 0.06;
+          ctx.save();
+          ctx.translate(ax, ay);
+          ctx.rotate(ang - side * 0.38);
+          ctx.fillStyle = '#7a4a24';
+          ctx.strokeStyle = '#4a2a10';
+          ctx.lineWidth = Math.max(2, faceW * 0.015);
+          ctx.beginPath();
+          ctx.ellipse(0, earH * 0.42, earW / 2, earH / 2, 0, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#9c6236';
+          ctx.beginPath();
+          ctx.ellipse(-side * earW * 0.06, earH * 0.5, earW * 0.26, earH * 0.34, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+        ctx.save();
+        ctx.translate(N.x, N.y);
+        ctx.rotate(ang);
+        ctx.fillStyle = '#1b1b1f';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, faceW * 0.1, faceW * 0.07, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath();
+        ctx.ellipse(-faceW * 0.03, -faceW * 0.025, faceW * 0.028, faceW * 0.016, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    function pixlyLoadImage(src) {
+      return new Promise((resolve, reject) => {
+        try {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('image load failed'));
+          img.src = src;
+        } catch (e) { reject(e); }
+      });
+    }
+
+    // Draws src with the edits onto canvas (created when not given). Returns the canvas.
+    async function pixlyRenderPhotoToCanvas(src, edits, canvas, maxDim) {
+      const img = await pixlyLoadImage(src);
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const cap = maxDim || PIXLY_PHOTO_MAX_DIM;
+      if (w > cap || h > cap) {
+        if (w >= h) { h = Math.round(h * cap / w); w = cap; } else { w = Math.round(w * cap / h); h = cap; }
+      }
+      w = Math.max(1, w); h = Math.max(1, h);
+      const c = canvas || document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, w, h);
+      const e = edits || {};
+      pixlyApplyFilterPixels(ctx, w, h, pixlyFilterById(e.filter).p);
+      if (e.faces && e.faces.length) pixlyDrawPuppyEars(ctx, w, h, e.faces);
+      return c;
+    }
+
+    // Returns a JPEG data URL of the edited photo, or null on any failure.
+    async function renderPhotoEdit(src, edits) {
+      try {
+        const e = edits || {};
+        if ((!e.filter || e.filter === 'original') && !(e.faces && e.faces.length)) return src;
+        const c = await pixlyRenderPhotoToCanvas(src, e);
+        return c.toDataURL('image/jpeg', PIXLY_PHOTO_JPEG_QUALITY);
+      } catch (err) {
+        return null;
+      }
+    }
+    window.renderPhotoEdit = renderPhotoEdit;
+
+    function pixlyShowOverlay(id, show) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (show) { el.classList.remove('hidden'); el.style.display = 'flex'; }
+      else { el.classList.add('hidden'); el.style.display = 'none'; }
+    }
+    function pixlySetNote(id, text) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text || '';
+      if (id === 'photo-review-note') el.classList.toggle('hidden', !text);
+    }
+
+    function openPhotoReview(dataUrl, opts) {
+      try {
+        if (!dataUrl) return false;
+        const o = opts || {};
+        pixlyPhotoEdit.original = dataUrl;
+        pixlyPhotoEdit.current = dataUrl;
+        pixlyPhotoEdit.name = o.name || '';
+        pixlyPhotoEdit.onNext = typeof o.onNext === 'function' ? o.onNext : null;
+        pixlyPhotoEdit.applied = { filter: 'original', faces: null };
+        pixlyPhotoEdit.draft = { filter: 'original', faces: null };
+        pixlyPhotoEdit.renderToken++;
+        const img = document.getElementById('photo-review-img');
+        if (img) img.src = dataUrl;
+        pixlySetNote('photo-review-note', '');
+        pixlyShowOverlay('photo-edit-overlay', false);
+        pixlyShowOverlay('photo-review-overlay', true);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    window.openPhotoReview = openPhotoReview;
+
+    function pixlyResetPhotoInputs() {
+      ['create-file-upload', 'create-camera-upload'].forEach((id) => {
+        const inp = document.getElementById(id);
+        if (inp) { try { inp.value = ''; } catch (e) {} }
+      });
+    }
+
+    function closePhotoReview() {
+      try {
+        pixlyPhotoEdit.renderToken++;
+        pixlyShowOverlay('photo-edit-overlay', false);
+        pixlyShowOverlay('photo-review-overlay', false);
+        pixlyPhotoEdit.onNext = null;
+        pixlyResetPhotoInputs();
+      } catch (e) {}
+    }
+    window.closePhotoReview = closePhotoReview;
+
+    function photoReviewNext() {
+      try {
+        const finalUrl = pixlyPhotoEdit.current || pixlyPhotoEdit.original;
+        const cb = pixlyPhotoEdit.onNext;
+        pixlyShowOverlay('photo-edit-overlay', false);
+        pixlyShowOverlay('photo-review-overlay', false);
+        pixlyPhotoEdit.onNext = null;
+        if (finalUrl && cb) cb(finalUrl);
+      } catch (e) {}
+    }
+    window.photoReviewNext = photoReviewNext;
+
+    async function pixlyRefreshEditCanvas() {
+      const token = ++pixlyPhotoEdit.renderToken;
+      const canvas = document.getElementById('photo-edit-canvas');
+      if (!canvas || !pixlyPhotoEdit.original) return;
+      try {
+        const off = await pixlyRenderPhotoToCanvas(pixlyPhotoEdit.original, pixlyPhotoEdit.draft);
+        if (token !== pixlyPhotoEdit.renderToken) return;
+        canvas.width = off.width; canvas.height = off.height;
+        canvas.getContext('2d').drawImage(off, 0, 0);
+        canvas.dataset.filter = pixlyPhotoEdit.draft.filter || 'original';
+        canvas.dataset.ears = (pixlyPhotoEdit.draft.faces && pixlyPhotoEdit.draft.faces.length) ? '1' : '0';
+      } catch (e) {}
+    }
+
+    function pixlyRenderFilterDots() {
+      const dots = document.getElementById('photo-filter-dots');
+      if (!dots) return;
+      const cur = pixlyPhotoEdit.draft.filter || 'original';
+      dots.innerHTML = PIXLY_PHOTO_FILTERS.map((f) => {
+        const on = f.id === cur;
+        return `<span data-dot="${f.id}" class="${on ? 'w-4 bg-pink-400' : 'w-1.5 bg-white/30'} h-1.5 rounded-full transition-all"></span>`;
+      }).join('');
+    }
+
+    function pixlyMarkSelectedFilter() {
+      const cur = pixlyPhotoEdit.draft.filter || 'original';
+      document.querySelectorAll('#photo-filter-row .photo-filter-thumb').forEach((btn) => {
+        const on = btn.getAttribute('data-filter') === cur;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        const box = btn.querySelector('.photo-filter-box');
+        if (box) box.className = 'photo-filter-box w-16 h-16 rounded-xl overflow-hidden border-2 ' + (on ? 'border-pink-400' : 'border-transparent');
+        const label = btn.querySelector('.photo-filter-name');
+        if (label) label.className = 'photo-filter-name text-[11px] whitespace-nowrap ' + (on ? 'text-white font-bold' : 'text-white/70 font-medium');
+      });
+      pixlyRenderFilterDots();
+    }
+
+    async function pixlyBuildFilterRow() {
+      const row = document.getElementById('photo-filter-row');
+      if (!row) return;
+      row.innerHTML = PIXLY_PHOTO_FILTERS.map((f) => `
+        <button type="button" class="photo-filter-thumb flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer" style="scroll-snap-align: center;" data-filter="${f.id}" onclick="selectPhotoFilter('${f.id}')" aria-label="${f.name} filter">
+          <span class="photo-filter-box w-16 h-16 rounded-xl overflow-hidden border-2 border-transparent"><img class="w-full h-full object-cover bg-white/10" alt=""></span>
+          <span class="photo-filter-name text-[11px] whitespace-nowrap text-white/70 font-medium">${f.name}</span>
+        </button>`).join('');
+      pixlyMarkSelectedFilter();
+      const src = pixlyPhotoEdit.original;
+      if (!src) return;
+      for (const f of PIXLY_PHOTO_FILTERS) {
+        try {
+          const c = await pixlyRenderPhotoToCanvas(src, { filter: f.id }, null, 96);
+          if (src !== pixlyPhotoEdit.original) return;
+          const img = row.querySelector(`.photo-filter-thumb[data-filter="${f.id}"] img`);
+          if (img) img.src = c.toDataURL('image/jpeg', 0.7);
+        } catch (e) {}
+      }
+    }
+
+    function setPhotoEditTool(tool) {
+      try {
+        const t = ['filter', 'ai', 'ears'].includes(tool) ? tool : 'filter';
+        pixlyPhotoEdit.tool = t;
+        ['filter', 'ai', 'ears'].forEach((k) => {
+          const panel = document.getElementById('photo-edit-panel-' + k);
+          if (panel) panel.classList.toggle('hidden', k !== t);
+          const btn = document.getElementById('btn-photo-tool-' + k);
+          if (btn) {
+            btn.classList.toggle('bg-white/15', k === t);
+            btn.classList.toggle('text-pink-300', k === t);
+            btn.setAttribute('aria-pressed', k === t ? 'true' : 'false');
+          }
+        });
+        if (t === 'ai') {
+          const inp = document.getElementById('photo-ai-input');
+          if (inp) { try { inp.focus(); } catch (e) {} }
+        }
+        if (t === 'ears') togglePuppyEars();
+      } catch (e) {}
+    }
+    window.setPhotoEditTool = setPhotoEditTool;
+
+    function openPhotoEditor() {
+      try {
+        if (!pixlyPhotoEdit.original) return;
+        pixlyPhotoEdit.draft = {
+          filter: pixlyPhotoEdit.applied.filter || 'original',
+          faces: pixlyPhotoEdit.applied.faces ? pixlyPhotoEdit.applied.faces.slice() : null
+        };
+        const inp = document.getElementById('photo-ai-input');
+        if (inp) inp.value = '';
+        pixlySetNote('photo-ai-note', 'Try warm, cool, bright, dark, b&w, vintage, studio or pink.');
+        pixlySetNote('photo-ears-note', 'Tap Puppy ears to add ears to the face in your photo.');
+        pixlyShowOverlay('photo-edit-overlay', true);
+        pixlyPhotoEdit.tool = 'filter';
+        ['filter', 'ai', 'ears'].forEach((k) => {
+          const panel = document.getElementById('photo-edit-panel-' + k);
+          if (panel) panel.classList.toggle('hidden', k !== 'filter');
+          const btn = document.getElementById('btn-photo-tool-' + k);
+          if (btn) {
+            btn.classList.toggle('bg-white/15', k === 'filter');
+            btn.classList.toggle('text-pink-300', k === 'filter');
+          }
+        });
+        pixlyBuildFilterRow();
+        pixlyRefreshEditCanvas();
+      } catch (e) {}
+    }
+    window.openPhotoEditor = openPhotoEditor;
+
+    function selectPhotoFilter(id) {
+      try {
+        pixlyPhotoEdit.draft.filter = pixlyFilterById(id).id;
+        pixlyMarkSelectedFilter();
+        const btn = document.querySelector(`#photo-filter-row .photo-filter-thumb[data-filter="${pixlyPhotoEdit.draft.filter}"]`);
+        if (btn && btn.scrollIntoView) { try { btn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch (e) {} }
+        return pixlyRefreshEditCanvas();
+      } catch (e) {}
+    }
+    window.selectPhotoFilter = selectPhotoFilter;
+
+    function applyPhotoAiEdit(ev) {
+      try { if (ev && ev.preventDefault) ev.preventDefault(); } catch (e) {}
+      try {
+        const inp = document.getElementById('photo-ai-input');
+        const text = inp ? inp.value : '';
+        const match = matchPhotoAiKeyword(text);
+        if (!match) {
+          pixlySetNote('photo-ai-note', String(text || '').trim()
+            ? 'AI edits are coming soon ✨ For now, try warm, cool, bright, dark, b&w, vintage, studio or pink.'
+            : 'Describe an edit, like “make it warm” or “vintage”.');
+          return null;
+        }
+        selectPhotoFilter(match);
+        pixlySetNote('photo-ai-note', 'Applied ' + pixlyFilterById(match).name + ' ✨');
+        return match;
+      } catch (e) {
+        return null;
+      }
+    }
+    window.applyPhotoAiEdit = applyPhotoAiEdit;
+
+    let pixlyFaceLandmarkerPromise = null;
+    const PIXLY_MEDIAPIPE_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3';
+    const PIXLY_FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+    function loadPixlyFaceLandmarker() {
+      if (pixlyFaceLandmarkerPromise) return pixlyFaceLandmarkerPromise;
+      const load = (async () => {
+        const vision = await import(PIXLY_MEDIAPIPE_BASE + '/vision_bundle.mjs');
+        const fileset = await vision.FilesetResolver.forVisionTasks(PIXLY_MEDIAPIPE_BASE + '/wasm');
+        return vision.FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: PIXLY_FACE_MODEL, delegate: 'CPU' },
+          runningMode: 'IMAGE',
+          numFaces: 4
+        });
+      })();
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('face library timed out')), 25000));
+      pixlyFaceLandmarkerPromise = Promise.race([load, timeout]).catch((e) => {
+        pixlyFaceLandmarkerPromise = null;
+        throw e;
+      });
+      return pixlyFaceLandmarkerPromise;
+    }
+
+    async function detectPuppyEarFaces(src) {
+      const landmarker = await loadPixlyFaceLandmarker();
+      const img = await pixlyLoadImage(src);
+      const result = landmarker.detect(img);
+      const list = (result && result.faceLandmarks) || [];
+      return list.map((lm) => {
+        const pick = (i) => (lm && lm[i] ? { x: lm[i].x, y: lm[i].y } : null);
+        return { left: pick(234), right: pick(454), top: pick(10), nose: pick(4), chin: pick(152) };
+      }).filter((f) => f.left && f.right && f.top && f.nose);
+    }
+
+    async function togglePuppyEars() {
+      try {
+        if (pixlyPhotoEdit.earsBusy) return;
+        if (pixlyPhotoEdit.draft.faces && pixlyPhotoEdit.draft.faces.length) {
+          pixlyPhotoEdit.draft.faces = null;
+          pixlySetNote('photo-ears-note', 'Puppy ears removed. Tap Puppy ears again to add them back.');
+          await pixlyRefreshEditCanvas();
+          return;
+        }
+        const src = pixlyPhotoEdit.original;
+        if (!src) return;
+        pixlyPhotoEdit.earsBusy = true;
+        pixlySetNote('photo-ears-note', 'Finding the face… 🐶');
+        let faces = [];
+        try {
+          faces = await detectPuppyEarFaces(src);
+        } catch (e) {
+          pixlyPhotoEdit.earsBusy = false;
+          pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
+          return;
+        }
+        pixlyPhotoEdit.earsBusy = false;
+        if (src !== pixlyPhotoEdit.original) return;
+        if (!faces.length) {
+          pixlySetNote('photo-ears-note', 'No face found for puppy ears. Your photo is unchanged.');
+          return;
+        }
+        pixlyPhotoEdit.draft.faces = faces;
+        pixlySetNote('photo-ears-note', 'Puppy ears added 🐶 Tap Puppy ears again to remove them.');
+        await pixlyRefreshEditCanvas();
+      } catch (e) {
+        pixlyPhotoEdit.earsBusy = false;
+        pixlySetNote('photo-ears-note', 'Puppy ears could not load right now. Your photo is unchanged.');
+      }
+    }
+    window.togglePuppyEars = togglePuppyEars;
+
+    function cancelPhotoEdit() {
+      try {
+        pixlyPhotoEdit.renderToken++;
+        pixlyPhotoEdit.draft = {
+          filter: pixlyPhotoEdit.applied.filter || 'original',
+          faces: pixlyPhotoEdit.applied.faces ? pixlyPhotoEdit.applied.faces.slice() : null
+        };
+        pixlyShowOverlay('photo-edit-overlay', false);
+      } catch (e) {}
+    }
+    window.cancelPhotoEdit = cancelPhotoEdit;
+
+    async function donePhotoEdit() {
+      try {
+        const draft = {
+          filter: pixlyPhotoEdit.draft.filter || 'original',
+          faces: pixlyPhotoEdit.draft.faces ? pixlyPhotoEdit.draft.faces.slice() : null
+        };
+        const src = pixlyPhotoEdit.original;
+        const out = await renderPhotoEdit(src, draft);
+        if (src !== pixlyPhotoEdit.original) return;
+        pixlyShowOverlay('photo-edit-overlay', false);
+        if (!out) {
+          pixlySetNote('photo-review-note', 'That edit could not be applied. Your photo is unchanged.');
+          return;
+        }
+        pixlyPhotoEdit.applied = draft;
+        pixlyPhotoEdit.current = out;
+        const img = document.getElementById('photo-review-img');
+        if (img) img.src = out;
+        pixlySetNote('photo-review-note', '');
+      } catch (e) {
+        pixlyShowOverlay('photo-edit-overlay', false);
+      }
+    }
+    window.donePhotoEdit = donePhotoEdit;
+
     function openCreateCamera() {
       try {
         const inp = document.getElementById('create-camera-upload');
@@ -31371,27 +31945,40 @@ function syncLikedStateToPosts() {
           if (!file) return;
           showToast('Loading photo into creation wizard...');
           compressImage(file, (dataUrl) => {
-            state.selectedCreateImage = dataUrl;
-            if (createPreviewImg) {
-              createPreviewImg.src = dataUrl;
-            }
-            if (uploadBadge) {
-              uploadBadge.textContent = `✓ Selected: ${file.name || 'Photo from device'}`;
-              uploadBadge.classList.remove('hidden');
-            }
-            if (createPreviewBox) {
-              createPreviewBox.classList.remove('border-neutral-300');
-              createPreviewBox.classList.add('border-sky-500', 'ring-2', 'ring-sky-200');
-            }
-            // De-select preset thumbnails
-            const thumbs = document.getElementById('preset-thumbs');
-            if (thumbs) {
-              thumbs.querySelectorAll('.select-preset-img').forEach(t => {
-                t.className = "aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition select-preset-img border-transparent hover:border-neutral-300";
-              });
-            }
-            showToast('Photo loaded into creation wizard! 📸✨');
+            let reviewing = false;
+            try {
+              if (typeof openPhotoReview === 'function') {
+                reviewing = openPhotoReview(dataUrl, {
+                  name: file.name || '',
+                  onNext: (finalUrl) => applyPostImageToWizard(finalUrl, file)
+                });
+              }
+            } catch (e) { reviewing = false; }
+            if (!reviewing) applyPostImageToWizard(dataUrl, file);
           }, 800);
+        }
+
+        function applyPostImageToWizard(dataUrl, file) {
+          state.selectedCreateImage = dataUrl;
+          if (createPreviewImg) {
+            createPreviewImg.src = dataUrl;
+          }
+          if (uploadBadge) {
+            uploadBadge.textContent = `✓ Selected: ${file.name || 'Photo from device'}`;
+            uploadBadge.classList.remove('hidden');
+          }
+          if (createPreviewBox) {
+            createPreviewBox.classList.remove('border-neutral-300');
+            createPreviewBox.classList.add('border-sky-500', 'ring-2', 'ring-sky-200');
+          }
+          // De-select preset thumbnails
+          const thumbs = document.getElementById('preset-thumbs');
+          if (thumbs) {
+            thumbs.querySelectorAll('.select-preset-img').forEach(t => {
+              t.className = "aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition select-preset-img border-transparent hover:border-neutral-300";
+            });
+          }
+          showToast('Photo loaded into creation wizard! 📸✨');
         }
 
         if (createFileInput) {
