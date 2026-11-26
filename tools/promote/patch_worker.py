@@ -165,6 +165,8 @@ function promoteSiteBase(env) {
 async function handlePromoteCheckout(req, env, cors, body) {
   if (!promoteStripeKeyOk(env)) return json({ ok: false, error: "stripe_not_configured" }, 503, cors);
   if (!env.FIREBASE_SA_JSON && !env.AUTH_EMULATOR_BASE) return json({ ok: false, error: "auth_admin_unavailable" }, 503, cors);
+  // Fail safe: without the webhook secret a payment could never be applied (and nothing is refunded), so no checkout.
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ ok: false, error: "promote_unavailable" }, 503, cors);
   const ip = req.headers.get("CF-Connecting-IP") || "unknown";
   const rl = await env.GUARD.get(env.GUARD.idFromName("global")).hit([{ k: `promo:co:ip:${ip}`, limit: 20, win: HOUR }]);
   if (!rl.ok) return json({ ok: false, error: "rate_limited" }, 429, cors);
@@ -412,7 +414,7 @@ s = s.replace(needle, SNIPPET + "\nexport default {")
 
 # Health flag
 rep('sync_subscription: !!(env.FIREBASE_SA_JSON || env.AUTH_EMULATOR_BASE) }, 200, cors);',
-    'sync_subscription: !!(env.FIREBASE_SA_JSON || env.AUTH_EMULATOR_BASE), promote: promoteStripeKeyOk(env) && !!(env.FIREBASE_SA_JSON || env.AUTH_EMULATOR_BASE), promote_webhook: !!env.STRIPE_WEBHOOK_SECRET }, 200, cors);')
+    'sync_subscription: !!(env.FIREBASE_SA_JSON || env.AUTH_EMULATOR_BASE), promote: promoteStripeKeyOk(env) && !!(env.FIREBASE_SA_JSON || env.AUTH_EMULATOR_BASE) && !!env.STRIPE_WEBHOOK_SECRET, promote_webhook: !!env.STRIPE_WEBHOOK_SECRET }, 200, cors);')
 
 # GET stats (before the POST-only gate)
 rep('      if (req.method === "GET" && path === "/business-verification/status") {',

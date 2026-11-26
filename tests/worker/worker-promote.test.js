@@ -227,6 +227,19 @@ t('checkout: private accounts, Close Friends items and missing posts cannot be p
   assert.strictEqual(stripeCalls.length, 0);
 });
 
+t('fail safe: without STRIPE_WEBHOOK_SECRET there is no checkout, webhooks are rejected, nothing is promoted', async () => {
+  delete env.STRIPE_WEBHOOK_SECRET;
+  const r = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 5, idToken: tokens.alice.idToken });
+  assert.strictEqual(r.status, 503); assert.strictEqual(r.body.error, 'promote_unavailable'); assert.ok(!r.body.url);
+  assert.strictEqual(stripeCalls.length, 0, 'no Stripe session is created');
+  const h = await get('/health');
+  assert.strictEqual(h.body.promote, false); assert.strictEqual(h.body.promote_webhook, false);
+  const raw = JSON.stringify({ type: 'checkout.session.completed', data: { object: paidSession() } });
+  const res = await worker.default.fetch(new Request('https://worker.test/stripe/webhook', { method: 'POST', headers: { 'Stripe-Signature': 't=1,v1=00' }, body: raw }), env);
+  assert.strictEqual(res.status, 503);
+  await notPromoted('posts/p1');
+});
+
 t('checkout: a live Stripe key is refused unless PROMOTE_ALLOW_LIVE=on; a Stripe outage returns an error, not a URL', async () => {
   env.STRIPE_SECRET_KEY = 'sk_live_fake';
   const r = await post('/promote/checkout', { username: 'alice', kind: 'post', id: 'p1', amount: 5, idToken: tokens.alice.idToken });
