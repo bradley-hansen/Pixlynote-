@@ -102,6 +102,158 @@ module.exports = {
         });
 
       }
+    },
+    {
+      name: 'Subscription modal header stays fully visible on mobile viewports and in a short overlay',
+      accounts: ['business'],
+      covers: ['el:#modal-subscription', 'handler:openSubscriptionModal', 'handler:updateSubscriptionModalUI'],
+      async run(ctx) {
+        const { page, h, a } = ctx;
+
+        async function measureAt(width, height, shortOverlay) {
+          await page.setViewportSize({ width, height });
+          return page.evaluate((short) => {
+            state.currentUser = Object.assign({}, state.currentUser, {
+              accountType: 'business',
+              isBusinessPlus: false,
+              businessVerificationStatus: '',
+              businessVerificationLegacyExempt: false
+            });
+            if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+            if (typeof updateBusinessPlusCheckoutGate === 'function') updateBusinessPlusCheckoutGate();
+            const overlay = document.getElementById('modal-subscription');
+            if (short) {
+              overlay.style.bottom = 'auto';
+              overlay.style.top = '0px';
+              overlay.style.height = '400px';
+            }
+            const card = overlay && overlay.firstElementChild;
+            const header = card && card.firstElementChild;
+            const title = header && header.querySelector('h3');
+            const or = overlay.getBoundingClientRect();
+            const cr = card.getBoundingClientRect();
+            const hr = header.getBoundingClientRect();
+            const padTop = parseFloat(getComputedStyle(overlay).paddingTop) || 0;
+            const padBottom = parseFloat(getComputedStyle(overlay).paddingBottom) || 0;
+            const out = {
+              subOpen: !!(overlay && !overlay.classList.contains('hidden') && getComputedStyle(overlay).display !== 'none'),
+              title: title ? String(title.textContent || '').trim() : '',
+              headerTop: hr.top,
+              headerBottom: hr.bottom,
+              headerHeight: hr.height,
+              headerScrollHeight: header.scrollHeight,
+              cardTop: cr.top,
+              cardBottom: cr.bottom,
+              overlayTop: or.top,
+              overlayBottom: or.bottom,
+              padTop,
+              padBottom,
+              maxHeight: getComputedStyle(card).maxHeight,
+              headerClipped: hr.top < Math.max(0, or.top) - 0.5 || hr.bottom > or.bottom + 0.5 || hr.top < -0.5,
+              cardOverflows: cr.top < or.top - 0.5 || cr.bottom > or.bottom + 0.5,
+              headerShrunk: hr.height + 1 < header.scrollHeight,
+              headerWithinPad: hr.top + 0.5 >= or.top + padTop
+            };
+            if (short) {
+              overlay.style.bottom = '';
+              overlay.style.top = '';
+              overlay.style.height = '';
+            }
+            if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal();
+            return out;
+          }, !!shortOverlay);
+        }
+
+        const at390 = await measureAt(390, 844, false);
+        const at360 = await measureAt(360, 740, false);
+        const short = await measureAt(390, 844, true);
+        await page.setViewportSize({ width: 390, height: 844 });
+
+        for (const [label, r] of [['390x844', at390], ['360x740', at360], ['short 400px overlay', short]]) {
+          a.ok(r.subOpen, label + ': subscription modal opens');
+          a.equal(r.title, 'Pixlynote Subscription', label + ': header title is present');
+          a.ok(!r.headerClipped, label + ': header is not clipped: ' + JSON.stringify(r));
+          a.ok(!r.cardOverflows, label + ': card stays inside the overlay: ' + JSON.stringify({ cardTop: r.cardTop, cardBottom: r.cardBottom, overlayTop: r.overlayTop, overlayBottom: r.overlayBottom }));
+          a.ok(!r.headerShrunk, label + ': header is not flex-shrunk');
+          a.ok(r.headerWithinPad, label + ': header sits below the overlay padding');
+        }
+        a.ok(short.headerTop >= 0 && short.headerBottom <= 400, 'short overlay: header stays inside the 400px overlay');
+      }
+    },
+    {
+      name: 'Open application shows the verification form on top and returns to the subscription modal when it is closed or submitted',
+      accounts: ['business'],
+      covers: ['el:#btn-subscription-open-business-verification', 'el:#business-plus-verification-gate', 'el:#modal-business-verification', 'el:#btn-close-business-verification', 'handler:openBusinessVerificationModal', 'handler:closeBusinessVerificationModal', 'handler:submitBusinessVerificationApplication'],
+      async run(ctx) {
+        const { page, a } = ctx;
+
+        const flow = await page.evaluate(async () => {
+          function isOpen(id) {
+            const el = document.getElementById(id);
+            return !!(el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none');
+          }
+          function hitIn(id) {
+            const root = document.getElementById(id);
+            const title = root && root.querySelector('h3');
+            if (!title) return { title: '', hitIn: false };
+            const r = title.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(10, Math.max(1, r.height / 2)));
+            return { title: String(title.textContent || '').trim(), hitIn: !!(hit && root.contains(hit)), titleTop: r.top };
+          }
+          state.currentUser = Object.assign({}, state.currentUser, {
+            accountType: 'business',
+            isBusinessPlus: false,
+            businessVerificationStatus: '',
+            businessVerificationLegacyExempt: false
+          });
+          if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
+          if (typeof updateBusinessPlusCheckoutGate === 'function') updateBusinessPlusCheckoutGate();
+          const gate = document.getElementById('business-plus-verification-gate');
+          const gateOpen = !!(gate && !gate.classList.contains('hidden') && gate.style.display !== 'none');
+          const before = { sub: isOpen('modal-subscription'), app: isOpen('modal-business-verification'), gateOpen };
+
+          const btn = document.getElementById('btn-subscription-open-business-verification');
+          if (btn) btn.click();
+          const afterTap = Object.assign({ sub: isOpen('modal-subscription'), app: isOpen('modal-business-verification') }, hitIn('modal-business-verification'));
+
+          const closeBtn = document.getElementById('btn-close-business-verification');
+          if (closeBtn) closeBtn.click();
+          const afterClose = { sub: isOpen('modal-subscription'), app: isOpen('modal-business-verification'), fromCheckout: !!window._businessVerificationFromCheckout };
+
+          if (btn) btn.click();
+          document.getElementById('bizver-legal-name').value = 'Brand LLC';
+          document.getElementById('bizver-dba-name').value = 'Brand';
+          document.getElementById('bizver-entity-type').value = 'llc';
+          document.getElementById('bizver-country').value = 'US';
+          document.getElementById('bizver-rep-name').value = 'Jane Doe';
+          document.getElementById('bizver-rep-title').value = 'Owner';
+          const bin = new Uint8Array([37, 80, 68, 70, 45, 49]);
+          const file = new File([bin], 'articles.pdf', { type: 'application/pdf' });
+          const idFile = new File([bin], 'id.png', { type: 'image/png' });
+          const dt1 = new DataTransfer(); dt1.items.add(file);
+          const dt2 = new DataTransfer(); dt2.items.add(idFile);
+          document.getElementById('bizver-file-articles').files = dt1.files;
+          document.getElementById('bizver-file-photo-id').files = dt2.files;
+          const ok = await submitBusinessVerificationApplication();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const afterSubmit = { ok, sub: isOpen('modal-subscription'), app: isOpen('modal-business-verification'), fromCheckout: !!window._businessVerificationFromCheckout };
+
+          if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal();
+          if (typeof closeBusinessVerificationModal === 'function') closeBusinessVerificationModal();
+          return { before, afterTap, afterClose, afterSubmit };
+        });
+
+        a.ok(flow.before.sub && !flow.before.app && flow.before.gateOpen, 'Gate is shown in the open subscription modal');
+        a.ok(flow.afterTap.app, 'Open application opens the verification form');
+        a.ok(!flow.afterTap.sub, 'Open application hides the subscription modal so the form is visible');
+        a.equal(flow.afterTap.title, 'Business verification application', 'Verification title is present');
+        a.ok(flow.afterTap.hitIn, 'The verification title is on top, not covered by the subscription modal');
+        a.ok(flow.afterTap.titleTop >= 0, 'Verification header is not clipped');
+        a.ok(flow.afterClose.sub && !flow.afterClose.app, 'Closing the application returns to the subscription modal');
+        a.ok(!flow.afterClose.fromCheckout, 'fromCheckout flag is cleared after close');
+        a.ok(flow.afterSubmit.ok, 'Application submit succeeds');
+        a.ok(flow.afterSubmit.sub && !flow.afterSubmit.app, 'Submitting the application returns to the subscription modal');
+      }
     }
   ]
 };
