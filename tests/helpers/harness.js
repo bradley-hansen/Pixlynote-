@@ -226,6 +226,29 @@ async function attachRoutes(context, port, writeLog) {
 const INIT_SCRIPT = `
   window.__PIXLY_REGRESSION = true;
   window.__pixlyDeleteCalls = [];
+  // Listener audit: record which addEventListener bindings on elements with an id actually fire
+  // (key listener:#id:event, same as tests/lib/inventory.js). A recorder is added right after the
+  // app's own listener, so it only records; it never changes what the app does.
+  (function () {
+    try {
+      var fired = new Set();
+      var recorders = new Map();
+      var origAdd = EventTarget.prototype.addEventListener;
+      EventTarget.prototype.addEventListener = function (type, fn, opts) {
+        var out = origAdd.apply(this, arguments);
+        try {
+          if (this && this.nodeType === 1 && this.id && typeof type === 'string') {
+            var key = 'listener:#' + this.id + ':' + type;
+            var rec = recorders.get(key);
+            if (!rec) { rec = function () { fired.add(key); }; recorders.set(key, rec); }
+            origAdd.call(this, type, rec);
+          }
+        } catch (e) {}
+        return out;
+      };
+      window.__firedListenersTake = function () { var a = Array.from(fired); fired.clear(); return a; };
+    } catch (e) {}
+  })();
 `;
 
 async function installAppStubs(page) {
