@@ -7703,6 +7703,8 @@ function saveAccountLikes(username) {
         if (state.likedNoteOrder) {
           localStorage.setItem('pixly_liked_note_order_' + u, JSON.stringify(state.likedNoteOrder));
         }
+        localStorage.setItem('pixly_liked_post_at_' + u, JSON.stringify(parseLikeTimeMap(state.likedPostAt)));
+        localStorage.setItem('pixly_liked_note_at_' + u, JSON.stringify(parseLikeTimeMap(state.likedNoteAt)));
         if (state.likedStoryIds) {
           localStorage.setItem('pixly_liked_stories_' + u, JSON.stringify(Array.from(state.likedStoryIds).map(String)));
         }
@@ -7768,6 +7770,15 @@ function saveAccountLikes(username) {
         }
       } catch(e) {}
       state.likedNoteOrder = Array.isArray(noteOrder) ? noteOrder.map(String) : Array.from(state.likedNoteIds);
+
+      try {
+        state.likedPostAt = parseLikeTimeMap(JSON.parse(localStorage.getItem('pixly_liked_post_at_' + u) || 'null'));
+      } catch (e) { state.likedPostAt = {}; }
+      try {
+        state.likedNoteAt = parseLikeTimeMap(JSON.parse(localStorage.getItem('pixly_liked_note_at_' + u) || 'null'));
+      } catch (e) { state.likedNoteAt = {}; }
+      state.likedOrder = likedIdsNewestFirst(state.likedPostIds, state.likedOrder, state.likedPostAt);
+      state.likedNoteOrder = likedIdsNewestFirst(state.likedNoteIds, state.likedNoteOrder, state.likedNoteAt);
 
       let likedStories = [];
       try {
@@ -9421,7 +9432,119 @@ function syncLikedStateToPosts() {
       }
       syncAllLikesToFirestore();
     }
-// Unified toggle function for all like buttons, hearts, modals, and double-taps
+// Liked Photos / Liked Notes: newest likes first, ordered by the like's time (not the post's).
+    // Firestore arrayUnion appends, so users/{me}.likedPostIds / likedNoteIds are oldest-first.
+    function likeTimesKey(kind) { return kind === 'note' ? 'likedNoteAt' : 'likedPostAt'; }
+    function ensureLikeTimeMap(kind) {
+      const key = likeTimesKey(kind);
+      if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
+      return state[key];
+    }
+    function rememberLikeTime(kind, id, ts) {
+      const map = ensureLikeTimeMap(kind);
+      const n = Number(ts);
+      map[String(id)] = (Number.isFinite(n) && n > 0) ? n : Date.now();
+    }
+    function forgetLikeTime(kind, id) {
+      const map = ensureLikeTimeMap(kind);
+      delete map[String(id)];
+    }
+    function pruneLikeTimes(kind, idSet) {
+      const src = ensureLikeTimeMap(kind);
+      const next = {};
+      Object.keys(src).forEach((id) => {
+        if (idSet && (idSet.has(id) || idSet.has(Number(id)))) {
+          const n = Number(src[id]);
+          if (Number.isFinite(n) && n > 0) next[id] = n;
+        }
+      });
+      state[likeTimesKey(kind)] = next;
+      return next;
+    }
+    function parseLikeTimeMap(raw) {
+      const next = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return next;
+      Object.keys(raw).forEach((id) => {
+        const n = Number(raw[id]);
+        if (id !== undefined && id !== null && String(id) !== '' && Number.isFinite(n) && n > 0) next[String(id)] = n;
+      });
+      return next;
+    }
+    // Build a newest-first id list from the like set, any saved order, and like-time map.
+    // A likedOrder that matches the id-set insertion order (Firestore arrayUnion) is oldest-first and is reversed.
+    function likedIdsNewestFirst(idSet, storedOrder, times) {
+      const ids = [];
+      const seen = new Set();
+      (idSet ? Array.from(idSet) : []).forEach((id) => {
+        const s = String(id);
+        if (s && !seen.has(s)) { seen.add(s); ids.push(s); }
+      });
+      const order = [];
+      const seenOrder = new Set();
+      (Array.isArray(storedOrder) ? storedOrder : []).forEach((id) => {
+        const s = String(id);
+        if (s && !seenOrder.has(s) && (seen.has(s) || (idSet && (idSet.has(s) || idSet.has(Number(s)))))) {
+          seenOrder.add(s);
+          order.push(s);
+        }
+      });
+      const t = times || {};
+      const hasTimes = ids.some((id) => Number(t[id]) > 0);
+      if (hasTimes) {
+        return ids.slice().sort((a, b) => {
+          const ta = Number(t[a]) || 0;
+          const tb = Number(t[b]) || 0;
+          if (tb !== ta) return tb - ta;
+          const ia = order.indexOf(a);
+          const ib = order.indexOf(b);
+          if (ia !== -1 && ib !== -1) return ia - ib;
+          if (ia !== -1) return -1;
+          if (ib !== -1) return 1;
+          return 0;
+        });
+      }
+      if (order.length && order.join('\0') === ids.join('\0')) return order.slice().reverse();
+      if (order.length) {
+        const rest = ids.filter((id) => !seenOrder.has(id));
+        return order.concat(rest);
+      }
+      return ids.slice().reverse();
+    }
+    function applyRemoteLikeOrder(kind, remoteIds, localOrder) {
+      const idSet = kind === 'note' ? state.likedNoteIds : state.likedPostIds;
+      const times = pruneLikeTimes(kind, idSet);
+      const remoteNewest = Array.isArray(remoteIds) ? remoteIds.map(String).slice().reverse() : [];
+      const local = Array.isArray(localOrder)
+        ? localOrder.map(String)
+        : ((kind === 'note' ? state.likedNoteOrder : state.likedOrder) || []);
+      const merged = [];
+      const seen = new Set();
+      local.concat(remoteNewest).forEach((id) => {
+        const s = String(id);
+        if (s && !seen.has(s) && idSet && (idSet.has(s) || idSet.has(Number(s)))) { seen.add(s); merged.push(s); }
+      });
+      const newest = likedIdsNewestFirst(idSet, merged, times);
+      if (kind === 'note') state.likedNoteOrder = newest;
+      else state.likedOrder = newest;
+      return newest;
+    }
+    function likedDelegateUsername(item) {
+      if (!item || !item.likeDelegates || typeof item.likeDelegates !== 'object') return '';
+      const me = (typeof normalizeUsername === 'function')
+        ? normalizeUsername((state.currentUser && state.currentUser.username) || '')
+        : String((state.currentUser && state.currentUser.username) || '').toLowerCase().replace(/^@/, '');
+      if (!me) return '';
+      const raw = item.likeDelegates[me] || item.likeDelegates[String(me)] || '';
+      return String(raw || '').toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '');
+    }
+    window.likedIdsNewestFirst = likedIdsNewestFirst;
+    window.applyRemoteLikeOrder = applyRemoteLikeOrder;
+    window.likedDelegateUsername = likedDelegateUsername;
+    window.rememberLikeTime = rememberLikeTime;
+    window.forgetLikeTime = forgetLikeTime;
+    window.parseLikeTimeMap = parseLikeTimeMap;
+
+    // Unified toggle function for all like buttons, hearts, modals, and double-taps
     function togglePostLike(postId, forceState = null) {
       if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked('like')) return;
       if (postId === undefined || postId === null) return;
@@ -9442,10 +9565,12 @@ function syncLikedStateToPosts() {
       if (!state.likedOrder) state.likedOrder = [];
       if (newLiked) {
         state.likedPostIds.add(strId);
-        state.likedOrder = [strId, ...state.likedOrder.filter(id => id !== strId)];
+        state.likedOrder = [strId, ...state.likedOrder.filter(id => String(id) !== strId)];
+        rememberLikeTime('post', strId);
       } else {
         state.likedPostIds.delete(strId);
-        state.likedOrder = state.likedOrder.filter(id => id !== strId);
+        state.likedOrder = state.likedOrder.filter(id => String(id) !== strId);
+        forgetLikeTime('post', strId);
       }
 
       // The count is computed from the set of likers (never +1 / -1 on a stored counter)
@@ -9557,15 +9682,22 @@ function syncLikedStateToPosts() {
         const before = new Set(Array.from(state.likedPostIds).map(String));
         remoteIds.forEach(id => state.likedPostIds.add(id));
         applyQueuedLikeIntents('post', state.likedPostIds);
-        state.likedOrder = Array.from(new Set([...Array.from(state.likedOrder || state.likedPostIds), ...remoteIds].map(String))).filter(id => state.likedPostIds.has(id));
+        if (typeof likeMe === 'function' && window._likeIntents) {
+          window._likeIntents.forEach(it => {
+            if (it.kind !== 'post' || it.who !== likeMe()) return;
+            if (it.liked) rememberLikeTime('post', it.id); else forgetLikeTime('post', it.id);
+          });
+        }
+        applyRemoteLikeOrder('post', remoteIds);
         window.pendingLikesSync = false;
         const remoteSet = new Set(remoteIds);
         before.forEach(id => { if (state.likedPostIds.has(id) && !remoteSet.has(id)) queueLikeWrite('post', id, true, { cloud: false }); });
         flushLikeIntents();
       } else {
-        // Authoritative sync from Firestore so unliked items stay unliked and stale IDs don't reappear
+        // Authoritative sync from Firestore so unliked items stay unliked and stale IDs don't reappear.
+        // arrayUnion is oldest-first; rebuild likedOrder newest-first by like time.
         state.likedPostIds = new Set(remoteIds);
-        state.likedOrder = Array.from(new Set(remoteIds));
+        applyRemoteLikeOrder('post', remoteIds);
       }
       syncLikedStateToPosts();
       try {
@@ -9592,14 +9724,20 @@ function syncLikedStateToPosts() {
         const beforeNotes = new Set(Array.from(state.likedNoteIds).map(String));
         remoteNoteIds.forEach(id => state.likedNoteIds.add(id));
         applyQueuedLikeIntents('note', state.likedNoteIds);
-        state.likedNoteOrder = Array.from(new Set([...Array.from(state.likedNoteOrder || state.likedNoteIds).map(String), ...remoteNoteIds])).filter(id => state.likedNoteIds.has(id));
+        if (typeof likeMe === 'function' && window._likeIntents) {
+          window._likeIntents.forEach(it => {
+            if (it.kind !== 'note' || it.who !== likeMe()) return;
+            if (it.liked) rememberLikeTime('note', it.id); else forgetLikeTime('note', it.id);
+          });
+        }
+        applyRemoteLikeOrder('note', remoteNoteIds);
         window.pendingLikesSync = false;
         const remoteNoteSet = new Set(remoteNoteIds);
         beforeNotes.forEach(id => { if (state.likedNoteIds.has(id) && !remoteNoteSet.has(id)) queueLikeWrite('note', id, true); });
         flushLikeIntents();
       } else {
         state.likedNoteIds = new Set(remoteNoteIds);
-        state.likedNoteOrder = Array.from(new Set(remoteNoteIds));
+        applyRemoteLikeOrder('note', remoteNoteIds);
       }
       syncLikedStateToPosts();
       try {
@@ -10694,8 +10832,11 @@ function syncLikedStateToPosts() {
       deletedNoteIds: new Set(),
       likedPostIds: new Set(),
       likedOrder: [],
+      likedPostAt: {},
       deletedPostIds: new Set(),
       likedNoteIds: new Set(),
+      likedNoteOrder: [],
+      likedNoteAt: {},
       likedStoryIds: new Set(),
       activeStory: null,
       activeStoryTimer: null,
@@ -15968,6 +16109,7 @@ function syncLikedStateToPosts() {
         likeSyncLocalLikedBy(note, false);
         recountLike('note', note);
         state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
+        forgetLikeTime('note', strId);
         showToast('Unliked note');
         if (noteAuthor && noteAuthor !== curU) {
           removeNotificationForUser(noteAuthor, 'like_note', curU, note.id);
@@ -15978,9 +16120,8 @@ function syncLikedStateToPosts() {
         note.isLiked = true;
         likeSyncLocalLikedBy(note, true);
         recountLike('note', note);
-        if (!state.likedNoteOrder.includes(strId)) {
-          state.likedNoteOrder.unshift(strId);
-        }
+        state.likedNoteOrder = [strId, ...state.likedNoteOrder.filter(id => String(id) !== strId)];
+        rememberLikeTime('note', strId);
         showToast('Liked note! Saved to profile ❤️');
         if (noteAuthor && noteAuthor !== curU) {
           const likerAvatar = getNoteAuthorAvatar({ author: curU });
@@ -16577,6 +16718,7 @@ function syncLikedStateToPosts() {
         likeSyncLocalLikedBy(note, false);
         recountLike('note', note);
         state.likedNoteOrder = state.likedNoteOrder.filter(id => String(id) !== strId && id !== numId);
+        forgetLikeTime('note', strId);
         showToast('Unliked note');
         const _unlikeAuthor = normalizeUsername(note.author);
         if (_unlikeAuthor && _unlikeAuthor !== normalizeUsername((state.currentUser && state.currentUser.username) || '')) {
@@ -16588,9 +16730,8 @@ function syncLikedStateToPosts() {
         note.isLiked = true;
         likeSyncLocalLikedBy(note, true);
         recountLike('note', note);
-        if (!state.likedNoteOrder.includes(strId)) {
-          state.likedNoteOrder.unshift(strId);
-        }
+        state.likedNoteOrder = [strId, ...state.likedNoteOrder.filter(id => String(id) !== strId)];
+        rememberLikeTime('note', strId);
         showToast('Liked note! Saved to profile ❤️');
       }
 
@@ -16650,12 +16791,15 @@ function syncLikedStateToPosts() {
       });
       state.likedPostIds = normalizedLikedSet;
 
-      // 1. Liked Posts - Ordered from MOST RECENT to furthest away
+      // 1. Liked Posts - newest likes first (by the like's time, not the post's)
+      if (!state.likedOrder) state.likedOrder = [];
+      state.likedOrder = likedIdsNewestFirst(state.likedPostIds, state.likedOrder, state.likedPostAt);
       const likedPosts = [];
       const seenIds = new Set();
       const allCandidateIds = Array.from(state.likedOrder || []);
       state.likedPostIds.forEach(strId => {
-        if (!allCandidateIds.includes(strId)) allCandidateIds.push(strId);
+        const s = String(strId);
+        if (!allCandidateIds.includes(s)) allCandidateIds.push(s);
       });
 
       for (const pid of allCandidateIds) {
@@ -16698,8 +16842,11 @@ function syncLikedStateToPosts() {
           </div>
         `;
       } else {
-        likesGrid.innerHTML = likedPosts.map(post => `
-          <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer liked-grid-item transition shadow-xs hover:shadow-md" data-post-id="${post.id}">
+        likesGrid.innerHTML = likedPosts.map(post => {
+          const delU = (typeof likedDelegateUsername === 'function') ? likedDelegateUsername(post) : '';
+          const delBadge = (delU && typeof privilegedDelegateBadgeHtml === 'function') ? privilegedDelegateBadgeHtml(delU) : '';
+          return `
+          <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer liked-grid-item transition shadow-xs hover:shadow-md" data-post-id="${post.id}"${delU ? ` data-liked-by-delegate="${(typeof escapeHtml === 'function' ? escapeHtml(delU) : delU)}"` : ''}>
             <img src="${post.image}" alt="Liked picture" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-3 text-white font-bold text-xs">
               <div class="flex items-center space-x-1">
@@ -16707,15 +16854,17 @@ function syncLikedStateToPosts() {
                 <span>${postLikeCount(post)}</span>
               </div>
             </div>
-            <div class="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
+            <div class="absolute bottom-1.5 left-1.5 ${delBadge ? 'right-16' : 'right-1.5'} flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
               <div class="flex items-center space-x-1 min-w-0">
                 <img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-white/40" onerror="this.src=COMMUNITY_IMAGES[0]">
                 <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>${authorStatusBadgesHtml(post.author)}
               </div>
-              <span class="text-rose-400 font-bold">❤️</span>
+              ${delBadge ? '' : '<span class="text-rose-400 font-bold">❤️</span>'}
             </div>
+            ${delBadge ? `<div class="absolute bottom-1.5 right-1 z-[2] pointer-events-none liked-grid-delegate">${delBadge}</div>` : ''}
           </div>
-        `).join('');
+        `;
+        }).join('');
 
         likesGrid.querySelectorAll('.liked-grid-item').forEach(item => {
           item.addEventListener('click', () => {
@@ -16727,6 +16876,7 @@ function syncLikedStateToPosts() {
       // 2. Liked Notes - Exact ID-mapped lookup & interactive cards
       if (!state.likedNoteIds) state.likedNoteIds = new Set();
       if (!state.likedNoteOrder) state.likedNoteOrder = [];
+      state.likedNoteOrder = likedIdsNewestFirst(state.likedNoteIds, state.likedNoteOrder, state.likedNoteAt);
 
       const candidateNoteIds = Array.from(state.likedNoteOrder);
       state.likedNoteIds.forEach(id => {
@@ -29070,8 +29220,10 @@ function syncLikedStateToPosts() {
       state.replies = [];
       state.likedPostIds = new Set();
       state.likedOrder = [];
+      state.likedPostAt = {};
       state.likedNoteIds = new Set();
       state.likedNoteOrder = [];
+      state.likedNoteAt = {};
       state.likedStoryIds = new Set();
       state.savedPostIds = new Set();
       state.savedNoteIds = new Set();
@@ -36636,6 +36788,24 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.hasAcceptedPrivilegedAccess = hasAcceptedPrivilegedAccess;
 
+    // Grants shown on the delegate's own Privileged Access screen ("You can: Like").
+    function receivedPrivilegedGrants(ownerU, viewerU, entry) {
+      const owner = normalizeUsername(ownerU);
+      const viewer = normalizeUsername(viewerU);
+      if (window.__PIXLY_REGRESSION === true && typeof window.__pixlyPrivTargetDoc === 'function') {
+        try {
+          const d = window.__pixlyPrivTargetDoc(owner);
+          if (d && typeof privilegedGrantsFromOwnerDoc === 'function') return privilegedGrantsFromOwnerDoc(d, viewer);
+        } catch (e) {}
+      }
+      const granted = getPrivilegedGrantedList(owner);
+      const row = (granted || []).find((g) => normalizeUsername(g && g.username) === viewer);
+      if (row && Object.prototype.hasOwnProperty.call(row, 'grants')) return normalizePrivilegedGrants(row.grants);
+      if (entry && Object.prototype.hasOwnProperty.call(entry, 'grants')) return normalizePrivilegedGrants(entry.grants);
+      return [];
+    }
+    window.receivedPrivilegedGrants = receivedPrivilegedGrants;
+
     // Grant picker: one checkbox per action the owner may allow. All off = read only (the default).
     function privilegedGrantChecksHtml(selected, cls) {
       const sel = normalizePrivilegedGrants(selected);
@@ -36698,6 +36868,26 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               safeLocalStorageSet('pixly_priv_accounts_' + curU, JSON.stringify(d.privilegedAccounts));
             }
           }
+          const receivedPreview = getPrivilegedAccountsList(curU).filter((a) => a && a.status === 'accepted');
+          let receivedChanged = false;
+          for (const r of receivedPreview) {
+            try {
+              const oSnap = await getDoc(doc(db, 'users', normalizeUsername(r.username)));
+              if (oSnap.exists()) {
+                r.grants = privilegedGrantsFromOwnerDoc(oSnap.data() || {}, curU);
+                receivedChanged = true;
+              }
+            } catch (e) {}
+          }
+          if (receivedChanged) {
+            const byOwner = {};
+            receivedPreview.forEach((r) => { byOwner[normalizeUsername(r.username)] = r.grants; });
+            const merged = getPrivilegedAccountsList(curU).map((a) => {
+              const key = normalizeUsername(a && a.username);
+              return (key in byOwner) ? Object.assign({}, a, { grants: byOwner[key] }) : a;
+            });
+            savePrivilegedAccountsList(curU, merged);
+          }
         } catch(e) {}
       }
 
@@ -36759,15 +36949,20 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (received.length === 0) {
           receivedEl.innerHTML = '<div class="p-3 rounded-xl border border-neutral-200 bg-neutral-50 text-[11px] text-neutral-500 text-center">No privileged accounts accepted yet.</div>';
         } else {
-          receivedEl.innerHTML = received.map(r => `
-            <div class="flex items-center justify-between p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40">
+          receivedEl.innerHTML = received.map(r => {
+            const gs = receivedPrivilegedGrants(r.username, curU, r);
+            const grantLine = gs.length ? ('You can: ' + gs.map(privilegedGrantLabel).join(', ')) : 'Read only';
+            return `
+            <div class="flex items-center justify-between p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 ac-priv-received-row" data-username="${escapeHtml(r.username)}">
               <div class="min-w-0">
                 <div class="text-xs font-bold text-neutral-900 truncate">@${escapeHtml(r.username)}</div>
                 <div class="text-[10px] text-indigo-700 font-semibold">Privileged Access Active</div>
+                <div class="ac-priv-received-grants text-[10px] text-neutral-500">${escapeHtml(grantLine)}</div>
               </div>
               <button type="button" class="ac-priv-switch-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition cursor-pointer" data-username="${escapeHtml(r.username)}">Switch</button>
             </div>
-          `).join('');
+          `;
+          }).join('');
           receivedEl.querySelectorAll('.ac-priv-switch-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               const targetU = btn.dataset.username;
@@ -36928,7 +37123,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           avatar: notif.fromAvatar || '',
           accountType: notif.fromAccountType || 'personal',
           status: 'accepted',
-          acceptedAt: Date.now()
+          acceptedAt: Date.now(),
+          grants: receivedPrivilegedGrants(ownerU, curU, null)
         };
         const existingIdx = privList.findIndex(a => normalizeUsername(a.username) === ownerU);
         if (existingIdx === -1) privList.unshift(entry);
