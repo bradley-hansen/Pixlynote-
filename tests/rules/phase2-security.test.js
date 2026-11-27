@@ -95,6 +95,47 @@ test('Privileged Access: others cannot rewrite privilegedAccounts; the invited a
   await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/alice'), { privilegedAccessGranted: [{ username: 'mallory', status: 'accepted' }] }));
 });
 
+test('Privileged Access: a same-size swap of someone else\'s grant entry is denied; only your own entry may change', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users/alice'), {
+      privilegedAccessGranted: [
+        { username: 'mallory', status: 'pending' },
+        { username: 'bradley_hansen', status: 'accepted' }
+      ]
+    }, { merge: true });
+  });
+  // Swap mallory for private_pat, keep the other entry (same list size).
+  await assertFails(updateDoc(doc(real(UID.mallory), 'users/alice'), { privilegedAccessGranted: [
+    { username: 'private_pat', status: 'pending' },
+    { username: 'bradley_hansen', status: 'accepted' }
+  ] }));
+  // Accept your own invite while wiping the other person (size drops by 1, but the diff includes them).
+  await assertFails(updateDoc(doc(real(UID.mallory), 'users/alice'), { privilegedAccessGranted: [
+    { username: 'mallory', status: 'accepted' }
+  ] }));
+  // Accept your own invite, leave the other entry alone.
+  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/alice'), { privilegedAccessGranted: [
+    { username: 'mallory', status: 'accepted' },
+    { username: 'bradley_hansen', status: 'accepted' }
+  ] }));
+  // Decline: remove only yourself.
+  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/alice'), { privilegedAccessGranted: [
+    { username: 'bradley_hansen', status: 'accepted' }
+  ] }));
+});
+
+test('storyComments: a no-op write is denied; adding a comment on one story is allowed', async () => {
+  const existing = { s1: [{ id: 1, user: 'alice', text: 'hi' }] };
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users/alice'), { storyComments: existing }, { merge: true });
+  });
+  await assertFails(updateDoc(doc(real(UID.mallory), 'users/alice'), { storyComments: existing, lastUpdated: 99 }));
+  await assertFails(updateDoc(doc(real(UID.mallory), 'users/alice'), { lastUpdated: 99 }));
+  await assertSucceeds(updateDoc(doc(real(UID.mallory), 'users/alice'), {
+    storyComments: { s1: [{ id: 1, user: 'alice', text: 'hi' }, { id: 2, user: 'mallory', text: 'nice' }] }
+  }));
+});
+
 test('close friends: only the owner can read the full list; a member can only read their own edge', async () => {
   await assertSucceeds(getDoc(doc(real(UID.brad), 'closeFriends/bradley_hansen')));
   await assertFails(getDoc(doc(real(UID.alice), 'closeFriends/bradley_hansen')));

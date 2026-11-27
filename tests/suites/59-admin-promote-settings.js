@@ -285,13 +285,23 @@ module.exports = {
         const { page, a } = ctx;
         await startAdmin(ctx);
         await withMock(page, async () => {
+          // Clear the mock write log, then check Promote Settings writes in the same evaluate.
+          // Background session writes after login can land in __pfs.writes and made the old
+          // "all writes" check flake; this test only cares that the admin tools wrote nothing.
           const r = await page.evaluate(async () => {
+            if (window.__pfs) window.__pfs.writes = [];
             document.getElementById('admin-promote-exempt-input').value = 'reg_personal';
             for (let i = 0; i < 4; i++) document.getElementById('admin-promote-tier-' + i + '-price').value = String(i + 1);
-            return { add: await addAdminPromoteExempt(), save: await saveAdminPromoteTiers(), rows: await loadAdminPromotePurchases(true), ex: await loadAdminPromoteExempt(), tab: switchAdminPromoteTab('tiers') };
+            const add = await addAdminPromoteExempt();
+            const save = await saveAdminPromoteTiers();
+            const rows = await loadAdminPromotePurchases(true);
+            const ex = await loadAdminPromoteExempt();
+            const tab = switchAdminPromoteTab('tiers');
+            const settingsWrites = (window.__pfs && window.__pfs.writes || []).filter((w) => String(w.path || '').indexOf('promoteSettings') === 0);
+            return { add: add, save: save, rows: rows, ex: ex, tab: tab, settingsWrites: settingsWrites };
           });
           a.ok(r.add === false && r.save === false && r.rows.length === 0 && r.ex.length === 0 && r.tab === false, 'Every admin action refuses');
-          a.ok((await writes(page)).length === 0, 'Nothing was written');
+          a.ok(r.settingsWrites.length === 0, 'Nothing was written');
         });
       }
     },

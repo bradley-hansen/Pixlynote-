@@ -153,6 +153,37 @@ test('comment: the comment grant covers the owner\'s commentsMap only', async ()
   await assertFails(updateDoc(ref(real(UID.ro), 'users/owner'), { commentsMap: { p_other: [{ id: 2 }] } }));
 });
 
+test('comment: a delegate with the comment grant may reply as the owner, stamped', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'posts/p_other'), { comments: [{ id: 1, user: 'mallory', text: 'hi', replies: [] }] });
+  });
+  await assertSucceeds(updateDoc(ref(real(UID.del), 'posts/p_other'), { comments: [
+    { id: 1, user: 'mallory', text: 'hi', replies: [{ id: 2, user: 'owner', text: 'yo', delegatedBy: 'del' }] }
+  ] }));
+});
+test('comment: a reply as the owner without the grant, stamp, or by a stranger is denied', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'posts/p_other'), { comments: [{ id: 1, user: 'mallory', text: 'hi', replies: [] }] });
+  });
+  await assertFails(updateDoc(ref(real(UID.ro), 'posts/p_other'), { comments: [
+    { id: 1, user: 'mallory', text: 'hi', replies: [{ id: 2, user: 'owner', text: 'yo', delegatedBy: 'ro' }] }
+  ] }));
+  await assertFails(updateDoc(ref(real(UID.del), 'posts/p_other'), { comments: [
+    { id: 1, user: 'mallory', text: 'hi', replies: [{ id: 2, user: 'owner', text: 'yo' }] }
+  ] }));
+  await assertFails(updateDoc(ref(real(UID.mallory), 'posts/p_other'), { comments: [
+    { id: 1, user: 'mallory', text: 'hi', replies: [{ id: 2, user: 'owner', text: 'yo', delegatedBy: 'mallory' }] }
+  ] }));
+});
+test('comment: a reply in your own name still works', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'posts/p_other'), { comments: [{ id: 1, user: 'other', text: 'hi', replies: [] }] });
+  });
+  await assertSucceeds(updateDoc(ref(real(UID.mallory), 'posts/p_other'), { comments: [
+    { id: 1, user: 'other', text: 'hi', replies: [{ id: 2, user: 'mallory', text: 'yo' }] }
+  ] }));
+});
+
 // ---------- Send DMs ----------
 test('dm: a delegate with the dm grant may change only the owner\'s DMs', async () => {
   await assertSucceeds(updateDoc(ref(real(UID.del), 'users/owner/private/account'), { dms: [{ user: 'x', chat: [{ text: 'hi', delegatedBy: 'del' }] }], lastDmUpdated: 1 }));

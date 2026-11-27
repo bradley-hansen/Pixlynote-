@@ -172,6 +172,17 @@ service cloud.firestore {
       let after = request.resource.data.get('storyLikes', {});
       return after is map && before is map && after.diff(before).affectedKeys().size() <= 1;
     }
+    // A viewer may change exactly one story's comment list (add a comment). A no-op write
+    // (same map, or only lastUpdated) is denied. Firestore rules cannot read a map key out of
+    // a diff, so this cannot also check the list contents the way posts.comments can.
+    function storyCommentsStep() {
+      let before = resource.data.get('storyComments', {});
+      let after = request.resource.data.get('storyComments', {});
+      // after != before denies a true no-op. size() <= 1 blocks a multi-story rewrite.
+      // (map.diff can report a nested list key as changed even when values are equal, so
+      // do not use size() == 1 alone.)
+      return after is map && before is map && after != before && after.diff(before).affectedKeys().size() <= 1;
+    }
     function onlySelfPrivilegedAccounts() {
       let before = resource.data.get('privilegedAccounts', []);
       let after = request.resource.data.get('privilegedAccounts', []);
@@ -180,12 +191,22 @@ service cloud.firestore {
           && !after.hasAny([myName()]);
     }
     // The only entries that differ are ones for this signed-in account (accept / decline).
+    // A same-size swap of someone else's entry, or wiping another person while changing your own,
+    // is denied. (The old size-only check missed those.)
+    function grantEntryIsMe(e) {
+      return e is map && e.get('username', '') == myName();
+    }
+    function grantDiffOnlyMe(entries) {
+      return entries.size() == 0
+          || (entries.size() == 1 && grantEntryIsMe(entries[0]))
+          || (entries.size() == 2 && grantEntryIsMe(entries[0]) && grantEntryIsMe(entries[1]));
+    }
     function onlySelfGrantedEntry() {
       let before = resource.data.get('privilegedAccessGranted', []);
       let after = request.resource.data.get('privilegedAccessGranted', []);
       return before is list && after is list
-          && before.size() - after.size() <= 1
-          && after.size() - before.size() <= 1;
+          && grantDiffOnlyMe(before.removeAll(after))
+          && grantDiffOnlyMe(after.removeAll(before));
     }
     // `username` is passed in: a function declared at this level cannot see the {username} of the match below it.
     // (Before this fix the storyComments and storyLikes branches always errored and were denied.)
@@ -193,12 +214,14 @@ service cloud.firestore {
       return realUser() && !changed().hasAny(privilegeFields()) && !changed().hasAny(privateFields())
           && !changed().hasAny(contentFields())
           && (
-            (changed().hasOnly(['notifications', 'lastUpdated']) && notificationsAppend())
-            || (changed().hasOnly(['storyComments', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)))
-            || (changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)) && storyLikesStep() && actorNotShowcase())
-            || (changed().hasOnly(['privilegedAccessGranted', 'lastUpdated']) && onlySelfGrantedEntry())
-            || (changed().hasOnly(['businessAssociates', 'lastUpdated']) && myName() != '__none__')
-            || (changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
+            // hasOnly is a subset check: without hasAny on the primary field, a lastUpdated-only
+            // or true no-op write (empty changed()) would match every branch below.
+            (changed().hasAny(['notifications']) && changed().hasOnly(['notifications', 'lastUpdated']) && notificationsAppend())
+            || (changed().hasAny(['storyComments']) && changed().hasOnly(['storyComments', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)) && storyCommentsStep())
+            || (changed().hasAny(['storyLikes']) && changed().hasOnly(['storyLikes', 'lastUpdated']) && (isPublicAccount(username) || approvedBy(username) || canWriteAs(username)) && storyLikesStep() && actorNotShowcase())
+            || (changed().hasAny(['privilegedAccessGranted']) && changed().hasOnly(['privilegedAccessGranted', 'lastUpdated']) && onlySelfGrantedEntry())
+            || (changed().hasAny(['businessAssociates']) && changed().hasOnly(['businessAssociates', 'lastUpdated']) && myName() != '__none__')
+            || (changed().hasAny(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar']) && changed().hasOnly(['associatedBusiness', 'associatedBusinessUsername', 'associatedBusinessFullName', 'associatedBusinessAvatar', 'lastUpdated']) && myName() != '__none__')
           );
     }
     // A delegate's write to the owner's public doc: only what the matching grant covers.
@@ -237,14 +260,48 @@ service cloud.firestore {
               && ad.diff(bd).affectedKeys().hasOnly([before.removeAll(after)[0]]))
           );
     }
-    // posts/{id}.comments: a new comment in someone else's name needs that account's 'comment' grant and must
-    // name the delegate. Comments in your own name work as before.
+    // A new comment or reply in someone else's name needs that account's 'comment' grant and must
+    // name the delegate. Comments and replies in your own name (or with no user field, as older
+    // clients wrote) work as before.
+    function commentAuthorOk(c) {
+      return c is map && (c.get('user', '') == '' || c.get('user', '') == myName()
+          || (delegateMay(c.get('user', ''), 'comment') && stampedByMe(c)));
+    }
+    // Same number of top-level comments, exactly one of them changed, and that change is one new reply.
+    function looksLikeReplyAdd(b, a) {
+      let removed = b.removeAll(a);
+      let added = a.removeAll(b);
+      let br = removed.size() == 1 && removed[0] is map ? removed[0].get('replies', []) : [];
+      let ar = added.size() == 1 && added[0] is map ? added[0].get('replies', []) : [];
+      return a.size() == b.size()
+          && removed.size() == 1 && added.size() == 1
+          && added[0] is map && removed[0] is map
+          && ar is list && (br is list ? ar.size() == br.size() + 1 : ar.size() == 1);
+    }
+    function commentReplyAddOk(b, a) {
+      let removed = b.removeAll(a);
+      let added = a.removeAll(b);
+      return looksLikeReplyAdd(b, a)
+          && removed.size() == 1 && added.size() == 1
+          && added[0] is map && removed[0] is map
+          && added[0].get('id', 0) == removed[0].get('id', 0)
+          && added[0].get('user', '') == removed[0].get('user', '')
+          && added[0].get('text', '') == removed[0].get('text', '')
+          && replyGrewByOne(removed[0].get('replies', []), added[0].get('replies', []));
+    }
+    function replyGrewByOne(br, ar) {
+      let bReplies = br is list ? br : [];
+      let aReplies = ar is list ? ar : [];
+      return aReplies.size() == bReplies.size() + 1
+          && (bReplies.size() == 0 || aReplies.hasAll(bReplies))
+          && commentAuthorOk(aReplies[aReplies.size() - 1]);
+    }
     function commentGrowthOk() {
       let b = resource.data.get('comments', []);
       let a = request.resource.data.get('comments', []);
-      return !(a is list) || !(b is list) || a.size() != b.size() + 1 || !(a[a.size() - 1] is map)
-          || a[a.size() - 1].get('user', '') == '' || a[a.size() - 1].get('user', '') == myName()
-          || (delegateMay(a[a.size() - 1].get('user', ''), 'comment') && stampedByMe(a[a.size() - 1]));
+      return !(a is list) || !(b is list)
+          || (looksLikeReplyAdd(b, a) && commentReplyAddOk(b, a))
+          || (!looksLikeReplyAdd(b, a) && (a.size() != b.size() + 1 || commentAuthorOk(a[a.size() - 1])));
     }
     // users/{u}/content/profile: a delegate with the 'note' grant adds exactly one note (at the top), stamped.
     function delegateNoteAdd() {
