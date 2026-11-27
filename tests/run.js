@@ -45,6 +45,7 @@ function expandTests(suites, inventory) {
         name: t.name,
         accounts,
         covers: t.covers || [],
+        knownBug: t.knownBug || '',
         run: t.run
       });
     }
@@ -84,8 +85,12 @@ async function main() {
   const grep = grepArg ? grepArg.slice('--grep='.length) : (process.argv.includes('--grep') ? process.argv[process.argv.indexOf('--grep') + 1] : '');
   const html = fs.readFileSync(INDEX, 'utf8');
   const inventory = buildInventory(html);
-  const suites = loadSuites();
-  const tests = expandTests(suites, inventory);
+  // --suite=70- runs only suite files whose name starts with that prefix (no inventory sweep, no coverage check).
+  const suiteArg = process.argv.find((a) => a.startsWith('--suite='));
+  const suitePrefix = suiteArg ? suiteArg.slice('--suite='.length) : '';
+  const allSuites = loadSuites();
+  const suites = suitePrefix ? allSuites.filter((s) => s.file.startsWith(suitePrefix)) : allSuites;
+  const tests = suitePrefix ? expandTests(suites, []) : expandTests(suites, inventory);
 
   if (listOnly) {
     console.log('Inventory items:', inventory.length);
@@ -113,15 +118,35 @@ async function main() {
     if (grep && !name.includes(grep) && !(test.name && test.name.includes(grep))) {
       return;
     }
+    await page.evaluate(() => { if (window.__firedListenersTake) window.__firedListenersTake(); }).catch(() => {});
+    const takeFired = () => page.evaluate(() => (window.__firedListenersTake ? window.__firedListenersTake() : [])).catch(() => []);
     try {
       await test.run({ page, h, a: makeAssert(), account, accountKey, inventory });
       (test.covers || []).forEach((k) => covered.add(k));
       if (test.inventoryItem) covered.add(test.inventoryItem.key);
-      const rec = { name, suite: test.suite, account: accountKey, ok: true, ms: Date.now() - started };
+      const rec = { name, suite: test.suite, account: accountKey, ok: true, ms: Date.now() - started, sweep: !!test.inventoryItem, fired: await takeFired() };
+      if (test.knownBug) {
+        // Expected-fail test passed: the bug looks fixed. Report it so the knownBug flag gets removed.
+        rec.xpass = true;
+        rec.knownBug = test.knownBug;
+        results.push(rec);
+        console.log('XPASS ' + name + '  (known bug appears fixed; remove knownBug: ' + test.knownBug + ')');
+        return;
+      }
       results.push(rec);
       console.log('PASS  ' + name);
     } catch (err) {
-      const rec = { name, suite: test.suite, account: accountKey, ok: false, ms: Date.now() - started, error: String(err && err.stack || err).split('\n').slice(0, 6).join('\n') };
+      if (test.knownBug) {
+        // Expected failure: a confirmed product bug awaiting approval to fix. Does not fail the run.
+        (test.covers || []).forEach((k) => covered.add(k));
+        const rec = { name, suite: test.suite, account: accountKey, ok: true, xfail: true, knownBug: test.knownBug, ms: Date.now() - started, sweep: !!test.inventoryItem, fired: await takeFired(), error: String(err && err.message || err).split('\n')[0] };
+        results.push(rec);
+        console.log('XFAIL ' + name);
+        console.log('      known bug: ' + test.knownBug);
+        console.log('      ' + rec.error);
+        return;
+      }
+      const rec = { name, suite: test.suite, account: accountKey, ok: false, ms: Date.now() - started, sweep: !!test.inventoryItem, fired: await takeFired(), error: String(err && err.stack || err).split('\n').slice(0, 6).join('\n') };
       results.push(rec);
       console.log('FAIL  ' + name);
       console.log('      ' + String(err && err.message || err));
@@ -161,7 +186,7 @@ async function main() {
     }
   } finally {
     // Coverage check as its own named test
-    const missing = inventory.map((i) => i.key).filter((k) => !attempted.has(k));
+    const missing = suitePrefix ? [] : inventory.map((i) => i.key).filter((k) => !attempted.has(k));
     const uncoveredPass = inventory.map((i) => i.key).filter((k) => attempted.has(k) && !covered.has(k));
     const covName = 'Coverage: every interactive element in index.html has a test';
     if (missing.length === 0) {
@@ -196,8 +221,18 @@ async function main() {
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.filter((r) => !r.ok);
+  const xfails = results.filter((r) => r.xfail);
+  const xpasses = results.filter((r) => r.xpass);
   console.log('');
-  console.log(passed + '/' + results.length + ' passed');
+  console.log(passed + '/' + results.length + ' passed' + (xfails.length || xpasses.length ? ' (' + xfails.length + ' expected-fail known bugs, ' + xpasses.length + ' known bugs now passing)' : ''));
+  if (xfails.length) {
+    console.log('Known bugs (expected-fail, awaiting approval to fix):');
+    xfails.forEach((f) => console.log(' - ' + f.name + ': ' + f.knownBug));
+  }
+  if (xpasses.length) {
+    console.log('Known bugs that now pass (remove the knownBug flag):');
+    xpasses.forEach((f) => console.log(' - ' + f.name));
+  }
   if (failed.length) {
     console.log('Failures:');
     failed.forEach((f) => console.log(' - ' + f.name + ': ' + (f.error || '').split('\n')[0]));
@@ -210,7 +245,11 @@ async function main() {
     total: results.length,
     passed,
     failed: failed.map((f) => ({ name: f.name, error: f.error })),
-    uncoveredAttempted: inventory.filter((i) => attempted.has(i.key) && !covered.has(i.key)).map((i) => i.key)
+    knownBugs: xfails.map((f) => ({ name: f.name, knownBug: f.knownBug, error: f.error })),
+    knownBugsNowPassing: xpasses.map((f) => ({ name: f.name, knownBug: f.knownBug })),
+    uncoveredAttempted: inventory.filter((i) => attempted.has(i.key) && !covered.has(i.key)).map((i) => i.key),
+    // Every test result with the listeners that fired while it ran (used by tests/tools/interaction-inventory.js).
+    results: results.map((r) => ({ name: r.name, suite: r.suite, account: r.account, ok: r.ok, xfail: !!r.xfail, xpass: !!r.xpass, sweep: !!r.sweep, fired: r.fired || [] }))
   }, null, 2));
 
   process.exit(failed.length ? 1 : 0);
