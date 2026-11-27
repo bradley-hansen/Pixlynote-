@@ -16844,7 +16844,25 @@ function syncLikedStateToPosts() {
       } else {
         likesGrid.innerHTML = likedPosts.map(post => {
           const delU = (typeof likedDelegateUsername === 'function') ? likedDelegateUsername(post) : '';
-          const delBadge = (delU && typeof privilegedDelegateBadgeHtml === 'function') ? privilegedDelegateBadgeHtml(delU) : '';
+          const delAvatar = (delU && typeof privilegedDelegateAvatarOnlyHtml === 'function') ? privilegedDelegateAvatarOnlyHtml(delU) : '';
+          const showcaseHtml = (delAvatar && typeof isShowcaseAccount === 'function' && isShowcaseAccount(post.author) && typeof showcasePillHtml === 'function') ? showcasePillHtml('xs') : '';
+          const ownerAv = `<img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="liked-grid-owner-avatar w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-white/40" onerror="this.src=COMMUNITY_IMAGES[0]">`;
+          // Delegate like strip, left to right: owner avatar, Showcase tag (showcase photos only), heart, delegate avatar.
+          // Ordinary likes keep the existing strip (owner avatar, @handle, badges, heart) and get no delegate avatar.
+          const strip = delAvatar
+            ? `<div class="absolute bottom-1 left-1 right-1 liked-grid-strip flex items-center flex-nowrap gap-0.5 pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1 py-[3px] rounded backdrop-blur-xs">
+              ${ownerAv}
+              ${showcaseHtml}
+              <span class="liked-grid-heart text-[10px] leading-none text-rose-400 font-bold ml-auto flex-shrink-0">❤️</span>
+              <div class="pointer-events-auto liked-grid-delegate flex-shrink-0">${delAvatar}</div>
+            </div>`
+            : `<div class="absolute bottom-1.5 left-1.5 right-1.5 liked-grid-strip flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
+              <div class="flex items-center space-x-1 min-w-0">
+                ${ownerAv}
+                <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>${authorStatusBadgesHtml(post.author)}
+              </div>
+              <span class="liked-grid-heart text-rose-400 font-bold">❤️</span>
+            </div>`;
           return `
           <div class="aspect-square relative group overflow-hidden bg-neutral-100 rounded-lg cursor-pointer liked-grid-item transition shadow-xs hover:shadow-md" data-post-id="${post.id}"${delU ? ` data-liked-by-delegate="${(typeof escapeHtml === 'function' ? escapeHtml(delU) : delU)}"` : ''}>
             <img src="${post.image}" alt="Liked picture" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
@@ -16854,14 +16872,7 @@ function syncLikedStateToPosts() {
                 <span>${postLikeCount(post)}</span>
               </div>
             </div>
-            <div class="absolute bottom-1.5 left-1.5 ${delBadge ? 'right-16' : 'right-1.5'} flex items-center justify-between pointer-events-none text-[9px] text-white font-medium bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
-              <div class="flex items-center space-x-1 min-w-0">
-                <img src="${getPostAuthorAvatar(post)}" alt="${post.author}" class="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-white/40" onerror="this.src=COMMUNITY_IMAGES[0]">
-                <span class="truncate max-w-[65%] font-semibold">@${post.author}</span>${authorStatusBadgesHtml(post.author)}
-              </div>
-              ${delBadge ? '' : '<span class="text-rose-400 font-bold">❤️</span>'}
-            </div>
-            ${delBadge ? `<div class="absolute bottom-1.5 right-1 z-[2] pointer-events-none liked-grid-delegate">${delBadge}</div>` : ''}
+            ${strip}
           </div>
         `;
         }).join('');
@@ -36415,6 +36426,20 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         + '<img src="' + esc(privilegedDelegateAvatar(u)) + '" alt="">by @' + esc(u) + '</span>';
     }
     window.privilegedDelegateBadgeHtml = privilegedDelegateBadgeHtml;
+    // Liked Photos grid tile: only the delegate's circular avatar (no "by @handle" text).
+    // Tooltip and aria-label keep "Done by @handle with Privileged Access". The opened photo
+    // still uses privilegedLikeDelegatesHtml for the "Liked for @x · by @handle" message.
+    function privilegedDelegateAvatarOnlyHtml(itemOrName) {
+      const raw = (itemOrName && typeof itemOrName === 'object') ? itemOrName.delegatedBy : itemOrName;
+      const u = String(raw || '').toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_.]/g, '');
+      if (!u) return '';
+      const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (x) { return String(x); };
+      const label = 'Done by @' + esc(u) + ' with Privileged Access';
+      return '<span class="liked-grid-delegate-avatar inline-block flex-shrink-0" role="img" title="' + label + '" aria-label="' + label + '" data-delegate="' + esc(u) + '">'
+        + '<img src="' + esc(privilegedDelegateAvatar(u)) + '" alt="" class="w-[18px] h-[18px] rounded-full object-cover border border-white shadow-sm block">'
+        + '</span>';
+    }
+    window.privilegedDelegateAvatarOnlyHtml = privilegedDelegateAvatarOnlyHtml;
     // Likes a delegate made for an account: "Liked for @owner  [avatar] by @delegate".
     function privilegedLikeDelegatesHtml(item) {
       const map = item && item.likeDelegates && typeof item.likeDelegates === 'object' ? item.likeDelegates : null;
@@ -38027,8 +38052,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     window.isShowcaseAccount = isShowcaseAccount;
     function showcasePillHtml(size) {
       const big = size === 'lg';
-      return '<span class="showcase-pill inline-flex items-center flex-shrink-0 rounded-full font-semibold uppercase tracking-wide '
-        + (big ? 'text-[10px] px-2 py-0.5' : 'text-[9px] px-1.5 py-px') + '" '
+      const xs = size === 'xs';
+      const cls = big ? 'text-[10px] px-2 py-0.5 tracking-wide' : (xs ? 'text-[8px] px-1 py-px' : 'text-[9px] px-1.5 py-px tracking-wide');
+      return '<span class="showcase-pill inline-flex items-center flex-shrink-0 rounded-full font-semibold uppercase '
+        + cls + '" '
         + 'style="background:#F3F4F6;color:#6B7280;border:1px solid #D1D5DB;line-height:1.2" '
         + 'title="' + SHOWCASE_DISCLOSURE + '" aria-label="Showcase account" data-showcase-pill="1">Showcase</span>';
     }

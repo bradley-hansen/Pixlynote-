@@ -5,8 +5,12 @@
  *  1. Profile Likes (Liked Photos and Liked Notes) show the newest likes first,
  *     ordered by the like's time (not the post's), including after a Firestore
  *     arrayUnion snapshot (oldest-first).
- *  2. A Liked Photos grid tile for a delegate like shows the "by @handle"
- *     badge with the delegate's avatar.
+ *  2. A Liked Photos grid tile for a delegate like shows a bottom strip, left
+ *     to right: the photo owner's avatar, the Showcase tag (Showcase photos
+ *     only), the heart, and the delegate's circular avatar (no "by @handle"
+ *     text), with tooltip/aria-label "Done by @handle with Privileged Access".
+ *     Ordinary likes keep the existing strip (no delegate avatar). Opening
+ *     the photo still shows the "Liked for @x · by @handle" message.
  *  3. The delegate's own Privileged Access screen lists the grants they have
  *     been given (e.g. "You can: Like").
  * Nothing is written to production Firestore (the harness blocks it).
@@ -68,20 +72,69 @@ function collectLikeOrder(page) {
       });
     }
     const firstTile = grid && grid.querySelector('.liked-grid-item, [data-post-id]');
-    const badge = firstTile && firstTile.querySelector('.liked-grid-delegate .pixly-delegate-badge, .pixly-delegate-badge');
+    function tileDelegateInfo(el) {
+      const strip = el && el.querySelector('.liked-grid-strip');
+      const wrap = el && el.querySelector('.liked-grid-delegate');
+      const labeled = wrap && (wrap.querySelector('[aria-label], [title]') || wrap);
+      const stripOrder = [];
+      if (strip) {
+        strip.querySelectorAll(':scope > *').forEach((node) => {
+          if (node.classList.contains('liked-grid-delegate') || node.querySelector('.liked-grid-delegate-avatar')) stripOrder.push('delegate');
+          else if (node.classList.contains('liked-grid-heart') || (node.textContent || '').indexOf('\u2764\ufe0f') !== -1) stripOrder.push('heart');
+          else if (node.classList.contains('showcase-pill') || node.getAttribute('data-showcase-pill') || node.querySelector('[data-showcase-pill], .showcase-pill')) stripOrder.push('showcase');
+          else if (node.classList.contains('liked-grid-owner-avatar') || (node.tagName === 'IMG' && node.classList.contains('liked-grid-owner-avatar'))) stripOrder.push('owner');
+          else if (node.querySelector && node.querySelector('.liked-grid-owner-avatar')) stripOrder.push('owner-group');
+        });
+      }
+      const handleSpan = strip && Array.from(strip.querySelectorAll('span')).find((sp) => /^@/.test((sp.textContent || '').trim()));
+      return {
+        text: strip ? (strip.textContent || '').replace(/\s+/g, ' ').trim() : (wrap ? (wrap.textContent || '').replace(/\s+/g, ' ').trim() : ''),
+        hasImg: !!(wrap && wrap.querySelector('img') && wrap.querySelector('img').getAttribute('src')),
+        label: labeled ? (labeled.getAttribute('aria-label') || labeled.getAttribute('title') || '') : '',
+        hasHeart: !!(strip && strip.querySelector('.liked-grid-heart')),
+        hasShowcase: !!(strip && strip.querySelector('[data-showcase-pill], .showcase-pill')),
+        hasAuthorHandle: !!(handleSpan),
+        stripOrder
+      };
+    }
+    const badge = firstTile ? tileDelegateInfo(firstTile) : { text: '', hasImg: false, label: '' };
     return {
       postIds,
       noteIds,
       firstPostId: postIds[0] || '',
       firstNoteId: noteIds[0] || '',
       firstDelegate: firstTile ? (firstTile.getAttribute('data-liked-by-delegate') || '') : '',
-      firstBadgeText: badge ? (badge.textContent || '').replace(/\s+/g, ' ').trim() : '',
-      firstBadgeHasImg: !!(badge && badge.querySelector('img')),
-      tilesWithBadge: grid ? Array.from(grid.querySelectorAll('[data-liked-by-delegate]')).map((el) => ({
-        id: el.getAttribute('data-post-id'),
-        by: el.getAttribute('data-liked-by-delegate'),
-        text: ((el.querySelector('.pixly-delegate-badge') || {}).textContent || '').replace(/\s+/g, ' ').trim()
-      })) : []
+      firstBadgeText: badge.text,
+      firstBadgeHasImg: badge.hasImg,
+      firstBadgeLabel: badge.label,
+      tilesWithBadge: grid ? Array.from(grid.querySelectorAll('[data-liked-by-delegate]')).map((el) => {
+        const info = tileDelegateInfo(el);
+        return {
+          id: el.getAttribute('data-post-id'),
+          by: el.getAttribute('data-liked-by-delegate'),
+          text: info.text,
+          hasImg: info.hasImg,
+          label: info.label,
+          hasHeart: info.hasHeart,
+          hasShowcase: info.hasShowcase,
+          hasAuthorHandle: info.hasAuthorHandle,
+          stripOrder: info.stripOrder
+        };
+      }) : [],
+      tiles: grid ? Array.from(grid.querySelectorAll('.liked-grid-item, [data-post-id]')).map((el) => {
+        const info = tileDelegateInfo(el);
+        return {
+          id: el.getAttribute('data-post-id'),
+          by: el.getAttribute('data-liked-by-delegate') || '',
+          text: info.text,
+          hasImg: info.hasImg,
+          label: info.label,
+          hasHeart: info.hasHeart,
+          hasShowcase: info.hasShowcase,
+          hasAuthorHandle: info.hasAuthorHandle,
+          stripOrder: info.stripOrder
+        };
+      }) : []
     };
   });
 }
@@ -168,12 +221,16 @@ module.exports = {
       }
     },
     {
-      name: 'Delegate likes: Liked Photos grid tile shows the by @handle badge with avatar, and the new like is first',
+      name: 'Delegate likes: Liked Photos grid tile shows only the delegate avatar, and opening the photo shows Liked for / by',
       accounts: ALL_ACCOUNT_KEYS,
       covers: [
         'el:#likes-grid',
-        'handler:privilegedDelegateBadgeHtml',
+        'el:#modal-like-delegates',
+        'handler:privilegedDelegateAvatarOnlyHtml',
+        'handler:privilegedLikeDelegatesHtml',
         'handler:likedDelegateUsername',
+        'handler:isShowcaseAccount',
+        'handler:showcasePillHtml',
         'handler:renderLikes',
         'handler:togglePostLike'
       ],
@@ -190,6 +247,12 @@ module.exports = {
           togglePostLike(olderId);
         }, { olderId });
         await page.evaluate(({ owner, viewer, newerId }) => {
+          const post = (typeof getPostById === 'function') ? getPostById(newerId) : (state.posts || []).find((p) => String(p.id) === String(newerId));
+          const author = post && post.author;
+          if (author) {
+            window._remoteUserProfilesCache = window._remoteUserProfilesCache || {};
+            window._remoteUserProfilesCache[author] = Object.assign({}, window._remoteUserProfilesCache[author] || {}, { username: author, isShowcase: true });
+          }
           savePrivilegedAccountsList(viewer.username, [{ username: owner.username, status: 'accepted' }]);
           const acc = { username: owner.username, fullName: owner.fullName, email: '', phone: '', accountType: owner.accountType || 'personal' };
           performLogin(acc.username, acc.fullName, '', null, '', acc.accountType, acc, { privilegedReadOnly: true, viewer: viewer.username, grants: ['like'] });
@@ -199,17 +262,32 @@ module.exports = {
         const order = await collectLikeOrder(page);
         a.ok(order.postIds.indexOf(newerId) !== -1 && order.postIds.indexOf(olderId) !== -1, 'both likes appear: ' + JSON.stringify(order.postIds));
         a.ok(order.postIds.indexOf(newerId) < order.postIds.indexOf(olderId), 'delegate like is first (newest): ' + JSON.stringify(order.postIds));
-        const tile = order.tilesWithBadge.find((t) => t.id === newerId);
+        const tile = (order.tiles || order.tilesWithBadge).find((t) => t.id === newerId);
         a.ok(tile, 'newest grid tile is marked as a delegate like: ' + JSON.stringify(order.tilesWithBadge));
-        a.equal(tile && tile.by, viewer.username, 'badge names the delegate @' + viewer.username + ': ' + JSON.stringify(tile));
-        a.ok(tile && tile.text.indexOf('by @' + viewer.username) !== -1, 'grid badge text is by @' + viewer.username + ': ' + JSON.stringify(tile));
-        const badgeImg = await page.evaluate((id) => {
-          const el = document.querySelector('.liked-grid-item[data-post-id="' + id + '"] .pixly-delegate-badge img, [data-post-id="' + id + '"] .liked-grid-delegate img');
-          return !!(el && el.getAttribute('src'));
-        }, newerId);
-        a.ok(badgeImg, 'delegate badge includes the delegate avatar');
+        a.equal(tile && tile.by, viewer.username, 'tile names the delegate @' + viewer.username + ': ' + JSON.stringify(tile));
+        a.ok(tile && tile.hasImg, 'grid tile shows the delegate avatar: ' + JSON.stringify(tile));
+        a.ok(tile && tile.hasHeart, 'delegate like strip includes the heart: ' + JSON.stringify(tile));
+        a.ok(tile && tile.hasShowcase, 'Showcase photo shows the Showcase tag on the strip: ' + JSON.stringify(tile));
+        a.ok(tile && !tile.hasAuthorHandle, 'delegate like strip has no @handle text: ' + JSON.stringify(tile));
+        a.ok(tile && (!tile.text || tile.text.indexOf('by @') === -1), 'grid tile has no by @handle text: ' + JSON.stringify(tile));
+        a.equal(tile && tile.label, 'Done by @' + viewer.username + ' with Privileged Access', 'avatar tooltip/aria-label: ' + JSON.stringify(tile));
+        a.equal(JSON.stringify(tile && tile.stripOrder), JSON.stringify(['owner', 'showcase', 'heart', 'delegate']), 'delegate Showcase strip order is owner, Showcase, heart, delegate avatar: ' + JSON.stringify(tile && tile.stripOrder));
+        const older = (order.tiles || []).find((t) => t.id === olderId);
+        a.ok(older, 'the earlier owner like is still in the grid: ' + JSON.stringify(order.tiles));
+        a.ok(older && !older.by && !older.hasImg, 'ordinary like has no delegate avatar: ' + JSON.stringify(older));
+        a.ok(older && older.hasHeart, 'ordinary like still shows the heart: ' + JSON.stringify(older));
+        a.ok(older && older.hasAuthorHandle, 'ordinary like still shows the owner @handle: ' + JSON.stringify(older));
+        a.ok(older && !older.hasShowcase, 'ordinary non-Showcase like has no Showcase tag on its own: ' + JSON.stringify(older));
         const olderHasBadge = order.tilesWithBadge.some((t) => t.id === olderId);
-        a.ok(!olderHasBadge, 'the earlier owner like has no delegate badge: ' + JSON.stringify(order.tilesWithBadge));
+        a.ok(!olderHasBadge, 'the earlier owner like has no delegate avatar: ' + JSON.stringify(order.tilesWithBadge));
+        await page.evaluate((id) => { if (typeof openPostDetailModal === 'function') openPostDetailModal(id); }, newerId);
+        const likedBy = await page.evaluate(() => {
+          const el = document.getElementById('modal-like-delegates');
+          return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        });
+        a.ok(likedBy.indexOf('Liked for @' + account.username) !== -1, 'opened photo shows Liked for @' + account.username + ': ' + likedBy);
+        a.ok(likedBy.indexOf('by @' + viewer.username) !== -1, 'opened photo shows by @' + viewer.username + ': ' + likedBy);
+        await page.evaluate(() => { try { if (typeof closePostDetailModal === 'function') closePostDetailModal(); } catch (e) {} });
         await page.evaluate(() => { try { clearPrivilegedReadOnlySession(); } catch (e) {} });
       }
     },
