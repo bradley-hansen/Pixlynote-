@@ -7020,38 +7020,61 @@
     async function sendBusinessVerificationEmailCode() {
       const email = ((document.getElementById('bizver-domain-email') || {}).value || '').trim();
       const status = document.getElementById('bizver-email-status');
+      const wrap = document.getElementById('bizver-email-code-wrap');
       if (!email || !isValidSupportEmail(email).ok || isValidSupportEmail(email).empty) {
         if (status) { status.textContent = 'Enter a valid business email first.'; status.classList.remove('hidden'); }
         return;
       }
-      const wrap = document.getElementById('bizver-email-code-wrap');
-      if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
-      const base = PIXLYNOTE_API_ENDPOINT;
+      const btn = document.getElementById('btn-bizver-send-email-code');
+      const resend = document.getElementById('btn-bizver-resend-email-code');
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+      if (resend) { resend.disabled = true; resend.textContent = 'Sending...'; }
       try {
-        await fetch(base + '/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'signup_code', to: email, username: (state.currentUser && state.currentUser.username) || '' })
-        });
-      } catch (e) {}
-      if (status) { status.textContent = 'Code sent. Check your email.'; status.classList.remove('hidden'); }
-      window._bizverEmailState = { email: email.toLowerCase(), verified: false, codeSent: true };
+        const username = (state.currentUser && state.currentUser.username) || '';
+        const post = (typeof postSignupVerify === 'function') ? postSignupVerify : window.postSignupVerify;
+        const r = await (typeof post === 'function' ? post('/email', { type: 'signup_code', to: email, username }) : Promise.resolve({ ok: false, data: { error: 'offline' } }));
+        if (!r || !r.ok || (r.data && r.data.error) || (r.data && r.data.sent === false)) {
+          const err = (r && r.data && r.data.error) || '';
+          const msg = err === 'email_taken'
+            ? 'This email is already on another Pixlynote account.'
+            : (err === 'rate_limited'
+              ? 'Too many codes sent. Please try again later.'
+              : "Couldn't send the code. Please try again.");
+          if (status) { status.textContent = msg; status.classList.remove('hidden'); }
+          return;
+        }
+        if (wrap) { wrap.classList.remove('hidden'); wrap.style.display = ''; }
+        if (status) { status.textContent = 'Code sent. Check your email.'; status.classList.remove('hidden'); }
+        window._bizverEmailState = { email: email.toLowerCase(), verified: false, codeSent: true };
+        const inp = document.getElementById('bizver-email-code');
+        if (inp) { inp.value = ''; inp.focus(); }
+      } catch (e) {
+        if (status) { status.textContent = "Couldn't send the code. Please try again."; status.classList.remove('hidden'); }
+      } finally {
+        if (btn) { btn.textContent = 'Send code'; btn.disabled = false; }
+        if (resend) { resend.textContent = 'Resend'; resend.disabled = false; }
+      }
     }
     async function verifyBusinessVerificationEmailCode() {
       const email = ((document.getElementById('bizver-domain-email') || {}).value || '').trim();
       const code = ((document.getElementById('bizver-email-code') || {}).value || '').trim();
       const status = document.getElementById('bizver-email-status');
       try {
-        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/email/signup-verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: email, code: code })
-        });
-        const data = await res.json().catch(function () { return {}; });
-        if (data && data.valid) {
+        const post = (typeof postSignupVerify === 'function') ? postSignupVerify : window.postSignupVerify;
+        const r = await (typeof post === 'function' ? post('/email/signup-verify', { to: email, code: code }) : Promise.resolve({ ok: false, data: { valid: false } }));
+        if (r && r.data && r.data.valid === true) {
           window._bizverEmailState = { email: email.toLowerCase(), verified: true, codeSent: true };
           if (status) { status.textContent = 'Email verified.'; status.classList.remove('hidden'); }
-        } else if (status) { status.textContent = 'That code was not valid.'; status.classList.remove('hidden'); }
+          return;
+        }
+        const err = (r && r.data && r.data.error) || '';
+        let msg = 'That code was not valid.';
+        if (err === 'rate_limited') msg = 'Too many attempts. Please wait a bit and try again.';
+        else if (err === 'expired') msg = 'That code has expired. Please request a new one.';
+        else if (!r || !r.ok || (err && err !== 'wrong_code' && err !== 'invalid_request')) {
+          msg = 'Could not verify the code.';
+        }
+        if (status) { status.textContent = msg; status.classList.remove('hidden'); }
       } catch (e) {
         if (status) { status.textContent = 'Could not verify the code.'; status.classList.remove('hidden'); }
       }
