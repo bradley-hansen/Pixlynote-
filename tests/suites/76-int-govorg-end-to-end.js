@@ -459,6 +459,11 @@ module.exports = {
               await openFromEditProfile(page, h, type, false);
               let ui = await formUi(page);
               a.ok(ui.paywallOpen && !ui.modalOpen, type + ' tab without Plus opens the paywall, not the form');
+              const xVisible = await page.waitForSelector('#btn-close-verification-paywall', { state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+              if (!xVisible) {
+                const diag = await page.evaluate(() => { const m = document.getElementById('modal-verification-paywall'); const b = document.getElementById('btn-close-verification-paywall'); const r = b.getBoundingClientRect(); return { cls: m.className, display: m.style.display, computed: getComputedStyle(m).display, btn: [r.width, r.height], editOpen: !!document.querySelector('#modal-edit-profile:not(.hidden)') }; });
+                throw new Error(type + ': the paywall X never became tappable after the paywall opened: ' + JSON.stringify(diag));
+              }
               await page.click('#btn-close-verification-paywall');
               await page.waitForTimeout(150);
               a.ok(!(await formUi(page)).paywallOpen, 'The paywall X closes it');
