@@ -466,6 +466,7 @@ module.exports = {
         await page.click('#btn-signup-verify-email-code');
         await page.waitForTimeout(150);
 
+        await h.acceptSignupTos(page);
         await page.click('#btn-signup-to-step2');
         await page.waitForSelector('#signup-step-2:not(.hidden)', { timeout: 3000 });
         await page.fill('#signup-bio', 'Small-batch coffee roasted daily.');
@@ -869,6 +870,7 @@ module.exports = {
         await page.fill('#signup-email-code', VERIFY_CODE);
         await page.click('#btn-signup-verify-email-code');
         await page.waitForTimeout(150);
+        await h.acceptSignupTos(page);
         await page.click('#btn-signup-to-step2');
         await page.waitForSelector('#signup-step-2:not(.hidden)', { timeout: 3000 });
         await page.click('#btn-signup-complete');
