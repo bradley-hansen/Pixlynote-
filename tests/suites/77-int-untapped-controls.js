@@ -117,6 +117,7 @@ module.exports = {
         await page.fill('#signup-email-code', VERIFY_CODE);
         await tap('#btn-signup-verify-email-code');
         await page.waitForTimeout(300);
+        await h.acceptSignupTos(page);
         await tap('#btn-signup-direct-submit');
         await page.waitForTimeout(600);
         const r = await page.evaluate(() => ({ loggedIn: !!state.isLoggedIn, u: state.currentUser && state.currentUser.username, bio: state.currentUser && state.currentUser.bio, type: state.currentUser && state.currentUser.accountType }));

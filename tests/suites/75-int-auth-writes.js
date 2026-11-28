@@ -51,6 +51,7 @@ module.exports = {
             await nf.tap(page, 'btn-signup-send-email-code', 300);
             await nf.setValue(page, 'signup-email-code', VERIFY_CODE);
             await nf.tap(page, 'btn-signup-verify-email-code', 300);
+            await h.acceptSignupTos(page);
             await page.evaluate(() => { window.__intToasts = []; if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState(); });
             await page.evaluate(() => {
               const btn = document.getElementById('btn-signup-direct-submit');
