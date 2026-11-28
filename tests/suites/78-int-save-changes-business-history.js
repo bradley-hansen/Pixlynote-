@@ -76,6 +76,8 @@ module.exports = {
           await page.evaluate(() => { openAccountCenterModal(); setAccountCenterView('accountInfo'); });
           await page.waitForTimeout(150);
           await page.click('#btn-ac-info-tab-business');
+          // An earlier suite may have left the tab's filter on Verification; this test looks at All changes.
+          await page.selectOption('#ac-business-history-field', 'all').catch(() => {});
           // The tab loads its list asynchronously, so wait for the entry instead of a fixed pause.
           await page.waitForFunction(() => document.querySelectorAll('#ac-business-history-list .ac-business-history-entry').length > 0, null, { timeout: 5000 }).catch(() => {});
           const rows = await page.evaluate(() => Array.from(document.querySelectorAll('#ac-business-history-list .ac-business-history-entry')).map((x) => x.textContent.replace(/\s+/g, ' ')));
