@@ -316,6 +316,18 @@ service cloud.firestore {
       let keys = resource == null ? request.resource.data.keys() : changed();
       return keys.hasOnly(['dms', 'lastDmUpdated']);
     }
+    // Legacy Terms 30+30 (worker-owned fields). While users/{u} is disabled for not accepting the Terms
+    // (deactivationReason 'terms'), the owner can only lift it by recording consent in the same write;
+    // otherwise it stays disabled with the same reason and Day 60 date. tosNoticeAt / termsDisabledAt /
+    // termsRemindersSent are set by the worker (admin) and the owner may change them only when accepting.
+    function termsHoldOk() {
+      let d = request.resource.data;
+      return (changed().hasAny(['tosAcceptedAt']) && d.get('tosAcceptedAt', 0) is number && d.get('tosAcceptedAt', 0) > 0)
+          || (!changed().hasAny(['tosNoticeAt', 'termsDisabledAt', 'termsRemindersSent'])
+              && (resource.data.get('deactivationReason', '') != 'terms'
+                  || (d.get('deactivated', false) == true && d.get('deactivationReason', '') == 'terms'
+                      && d.get('scheduledDeletionAt', 0) == resource.data.get('scheduledDeletionAt', 0))));
+    }
     // Contact, credential, DM and session fields live in users/{u}/private/account, never on the public doc.
     function privateFields() {
       return ['email', 'phone', 'dms', 'lastDmUpdated', 'loginActivityLog', 'otherSessions', 'sessionRevokedAt',
@@ -350,7 +362,8 @@ service cloud.firestore {
                         && privilegeUnchanged()
                         && showcaseNotAdded()
                         && showcaseLikesNotGrown()
-                        && !changed().hasAny(contentFields()))
+                        && !changed().hasAny(contentFields())
+                        && termsHoldOk())
                     // Sign-up on a username that only had a placeholder doc (no uid, never had a password).
                     || (realUser()
                         && resource.data.get('uid', '') == ''

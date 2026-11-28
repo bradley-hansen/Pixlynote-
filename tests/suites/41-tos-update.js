@@ -14,7 +14,8 @@ const HEADINGS = [
   '6. GOVERNMENT & ORGANIZATION VERIFICATION',
   '7. INTELLECTUAL PROPERTY OWNERSHIP',
   '8. LIMITATION OF LIABILITY',
-  '9. SERVICE AVAILABILITY, MODIFICATION & DISCONTINUATION'
+  '9. SERVICE AVAILABILITY, MODIFICATION & DISCONTINUATION',
+  '10. CHANGES TO THESE TERMS'
 ];
 
 const SECTION_9_TEXT = 'Pixlynote reserves the right, at its sole discretion, to modify, suspend, or permanently discontinue the platform, or any feature or subscription tier thereof, at any time, for any reason (including operational, financial, or legal reasons), with or without prior notice. Digital AssetPro LLC (doing business as Pixlynote) shall not be liable to you or any third party for any modification, suspension, or discontinuation of the Service. In the event of a permanent shutdown, active recurring subscriptions will be canceled to prevent future charges, and any unearned subscription fees or data export windows will be handled in accordance with applicable law.';
@@ -40,7 +41,7 @@ module.exports = {
   name: 'Terms of Service update',
   tests: [
     {
-      name: 'ToS update: Unit: source has headings 1-9 in order, exact section 9 text, footer, and November 23, 2026',
+      name: 'ToS update: Unit: source has headings 1-10 in order, exact section 9 text, footer, and November 28, 2026',
       accounts: ['personal'],
       covers: ['el:#policy-section-tos', 'el:#modal-terms-policies'],
       async run(ctx) {
@@ -52,7 +53,7 @@ module.exports = {
         const re = /<h4[^>]*>([^<]+)<\/h4>/g;
         let m;
         while ((m = re.exec(tos))) headings.push(decode(m[1]).replace(/\s+/g, ' ').trim());
-        a.equal(headings.length, 9, 'ToS has exactly 9 section headings: ' + JSON.stringify(headings));
+        a.equal(headings.length, 10, 'ToS has exactly 10 section headings: ' + JSON.stringify(headings));
         HEADINGS.forEach((want, i) => {
           a.equal(headings[i], want, 'Heading ' + (i + 1) + ' is ' + want);
         });
@@ -60,7 +61,7 @@ module.exports = {
         const pMatch = tos.match(pRe);
         a.ok(pMatch, 'Section 9 body paragraph is present');
         a.equal(decode(pMatch[1]).replace(/\s+/g, ' ').trim(), SECTION_9_TEXT, 'Section 9 body text is exact');
-        a.ok(/Last updated:\s*November 23, 2026/.test(html), 'Last updated November 23, 2026 is in the file');
+        a.ok(/Last updated:\s*November 28, 2026/.test(html), 'Last updated November 28, 2026 is in the file');
         a.ok(/Digital AssetPro LLC d\/b\/a Pixlynote/.test(html), 'Footer uses Digital AssetPro LLC d/b/a Pixlynote');
         a.ok(!/Pixlynote Inc\./.test(html), 'Pixlynote Inc. is no longer in index.html');
         a.ok(/Canceling stops future charges and is not a refund/.test(tos)
@@ -69,7 +70,7 @@ module.exports = {
       }
     },
     {
-      name: 'ToS update: E2E: modal shows headings 1-9 in order, exact section 9 text, footer, and date',
+      name: 'ToS update: E2E: modal shows headings 1-10 in order, exact section 9 text, footer, and date',
       accounts: ['personal'],
       covers: ['el:#modal-terms-policies', 'el:#policy-section-tos', 'el:#btn-policy-tab-tos', 'handler:openTermsPoliciesModal', 'handler:switchPolicyTab', 'handler:closeTermsPoliciesModal'],
       async run(ctx) {
@@ -91,12 +92,12 @@ module.exports = {
           };
         });
         a.ok(got.open, 'Terms & Policies modal opens on the ToS tab');
-        a.equal(got.headings.length, 9, 'Rendered ToS has 9 headings: ' + JSON.stringify(got.headings));
+        a.equal(got.headings.length, 10, 'Rendered ToS has 10 headings: ' + JSON.stringify(got.headings));
         HEADINGS.forEach((want, i) => {
           a.equal(got.headings[i], want, 'Rendered heading ' + (i + 1) + ' is ' + want);
         });
         a.equal(got.section9, SECTION_9_TEXT, 'Rendered section 9 text is exact');
-        a.ok(/November 23, 2026/.test(got.footer) || /November 23, 2026/.test(got.modalText), 'Modal shows Last updated November 23, 2026');
+        a.ok(/November 28, 2026/.test(got.footer) || /November 28, 2026/.test(got.modalText), 'Modal shows Last updated November 28, 2026');
         a.ok(/Digital AssetPro LLC d\/b\/a Pixlynote/.test(got.footer) || /Digital AssetPro LLC d\/b\/a Pixlynote/.test(got.modalText), 'Modal footer shows Digital AssetPro LLC d/b/a Pixlynote');
         a.ok(!/Pixlynote Inc\./.test(got.modalText), 'Modal no longer says Pixlynote Inc.');
 

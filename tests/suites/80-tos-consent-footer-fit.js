@@ -280,7 +280,7 @@ module.exports = {
             await page.click('#btn-tos-consent-agree');
             a.ok(await waitModal(page, false), tag + ': the modal closes after a successful save');
             const doc = await mockDoc(page, 'users/' + account.username);
-            a.ok(doc && doc.tosAcceptedAt && doc.tosVersion === '2026-11-23', tag + ': consent was recorded');
+            a.ok(doc && doc.tosAcceptedAt && doc.tosVersion === '2026-11-28', tag + ': consent was recorded');
             await page.evaluate((u) => {
               try { window.__pfs.docs['users/' + u] = { username: u, accountType: 'personal' }; } catch (e) {}
               localStorage.removeItem('pixly_tos_consent_' + u);

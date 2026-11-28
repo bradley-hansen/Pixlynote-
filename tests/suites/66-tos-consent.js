@@ -118,7 +118,7 @@ module.exports = {
         a.ok(info.same, 'The panel text is exactly the Terms of Service text in Terms & Policies');
         a.ok(info.hasAcceptance, 'Section 1 (Acceptance of Terms) is shown');
         a.ok(info.overflow, 'The panel scrolls (the Terms are longer than the panel)');
-        a.ok(/November 23, 2026/.test(info.updated), 'Last updated date is shown: ' + info.updated);
+        a.ok(/November 28, 2026/.test(info.updated), 'Last updated date is shown: ' + info.updated);
         a.ok(await cbDisabled(page, '#signup-tos-checkbox'), 'Checkbox is disabled before scrolling');
         await page.evaluate(() => { const p = document.getElementById('signup-tos-panel'); p.scrollTop = Math.floor(p.scrollHeight / 2); p.dispatchEvent(new Event('scroll')); });
         a.ok(await cbDisabled(page, '#signup-tos-checkbox'), 'Checkbox stays disabled when only halfway down');
@@ -192,9 +192,9 @@ module.exports = {
           await page.waitForTimeout(500);
           const doc = await mockDoc(page, 'users/' + uname);
           a.ok(doc && typeof doc.tosAcceptedAt === 'number' && doc.tosAcceptedAt >= before - 5000, 'The new account doc has tosAcceptedAt: ' + JSON.stringify(doc && { at: doc.tosAcceptedAt }));
-          a.equal(doc.tosVersion, '2026-11-23', 'The new account doc has tosVersion');
+          a.equal(doc.tosVersion, '2026-11-28', 'The new account doc has tosVersion');
           const local = await page.evaluate((u) => ({ rec: JSON.parse(localStorage.getItem('pixly_account_' + u) || '{}'), proof: JSON.parse(localStorage.getItem('pixly_tos_consent_' + u) || 'null') }), uname);
-          a.ok(local.rec.tosAcceptedAt && local.rec.tosVersion === '2026-11-23', 'The local account record carries the consent');
+          a.ok(local.rec.tosAcceptedAt && local.rec.tosVersion === '2026-11-28', 'The local account record carries the consent');
           a.ok(local.proof && local.proof.tosAcceptedAt, 'Local proof of consent is stored');
           a.ok(!(await modalOpen(page)), 'No consent modal appears for an account that just agreed');
           a.ok(!(await page.evaluate(() => window.pixlySignupTos.isAccepted())), 'The sign-up form is reset for the next person');
@@ -216,7 +216,7 @@ module.exports = {
           await page.waitForFunction((u) => !!(window.state && state.isLoggedIn && state.currentUser && String(state.currentUser.username).toLowerCase() === u), uname, { timeout: 8000 });
           await page.waitForTimeout(400);
           const doc = await mockDoc(page, 'users/' + uname);
-          a.ok(doc && doc.tosAcceptedAt && doc.tosVersion === '2026-11-23', 'Quick sign up recorded the consent');
+          a.ok(doc && doc.tosAcceptedAt && doc.tosVersion === '2026-11-28', 'Quick sign up recorded the consent');
         } finally {
           await page.evaluate(uninstallPixlyMockFirestore);
         }
@@ -286,7 +286,7 @@ module.exports = {
           a.ok(await waitModal(page, false), 'The modal closes after the save succeeds');
           const doc = await mockDoc(page, 'users/' + me);
           a.ok(typeof doc.tosAcceptedAt === 'number' && doc.tosAcceptedAt >= before - 2000, 'tosAcceptedAt saved on the user doc');
-          a.equal(doc.tosVersion, '2026-11-23', 'tosVersion saved on the user doc');
+          a.equal(doc.tosVersion, '2026-11-28', 'tosVersion saved on the user doc');
           const writes = (await mockWrites(page)).filter((w) => w.path === 'users/' + me && w.data && 'tosAcceptedAt' in w.data);
           a.equal(writes.length, 1, 'Exactly one consent write to the account doc');
           a.equal(Object.keys(writes[0].data).sort().join(','), 'tosAcceptedAt,tosVersion', 'Only the two consent fields are written');

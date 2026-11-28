@@ -4063,6 +4063,27 @@
           <p class="text-[10px] text-neutral-400 px-1">When on, visitors see an Email or Call button next to Message on your profile.</p>
         </div>
         <div id="ac-info-panel-details" class="space-y-4">
+        <div id="ac-standing-card" data-state="loading" aria-live="polite" class="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+          <div id="ac-standing-status" class="flex items-start space-x-2.5 px-4 py-3 bg-neutral-50">
+            <span id="ac-standing-icon" aria-hidden="true" class="mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[11px] font-black bg-neutral-200 text-neutral-500">&hellip;</span>
+            <p id="ac-standing-text" class="text-xs font-bold text-neutral-700 leading-snug">Checking your account standing&hellip;</p>
+          </div>
+          <div class="divide-y divide-neutral-100">
+            <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+              <span class="font-semibold text-neutral-500">Last login</span>
+              <span id="ac-standing-last-login" class="font-semibold text-neutral-900 text-right ml-4">&hellip;</span>
+            </div>
+            <div class="flex items-center justify-between px-4 py-2.5 text-xs">
+              <span class="font-semibold text-neutral-500">Terms accepted</span>
+              <span id="ac-standing-terms" class="font-semibold text-neutral-900 text-right ml-4">&hellip;</span>
+            </div>
+          </div>
+          <div id="ac-standing-actions" class="hidden px-4 pb-3 pt-1">
+            <button type="button" id="btn-ac-standing-agree" class="hidden w-full py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient shadow-md shadow-pink-500/25 hover:opacity-95 cursor-pointer">Review &amp; agree to the Terms</button>
+            <button type="button" id="btn-ac-standing-retry" class="hidden w-full py-2.5 px-4 text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl cursor-pointer">Try again</button>
+          </div>
+          <p id="ac-standing-note" class="px-4 py-2.5 text-[10px] leading-snug text-neutral-500 border-t border-neutral-100">Accounts with no login for 3 years may become eligible for disablement. Logging in keeps your account active.</p>
+        </div>
         <div class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
           <div class="flex items-center justify-between px-4 py-3 text-xs">
             <span class="font-semibold text-neutral-500">@username</span>
@@ -25771,11 +25792,118 @@ function syncLikedStateToPosts() {
         }
         const pnl = document.getElementById('ac-info-panel-' + t); if (pnl) pnl.classList.toggle('hidden', t !== tab);
       });
+      if (tab === 'details' && window.pixlyStanding) window.pixlyStanding.refresh();
       if (tab === 'contact') renderContactPrefsPanel();
       if (tab === 'history') { renderProfileHistoryPanel(); loadProfileHistory(); }
       if (tab === 'business') { renderBusinessHistoryPanel(); loadProfileHistory(); }
     }
     window.setAccountInfoTab = setAccountInfoTab;
+
+    // ---- Account standing card (Account Info > Details) ----
+    // Reads users/{u} (tosAcceptedAt, deactivated, deactivationReason, scheduledDeletionAt) and the owner-only
+    // users/{u}/private/account (lastLoginAt). It only says "good standing" after both reads succeed.
+    (function () {
+      let gen = 0;
+      const $ = (id) => document.getElementById(id);
+      const STYLES = {
+        loading: ['bg-neutral-50', 'bg-neutral-200 text-neutral-500', '\u2026', 'text-neutral-700'],
+        good: ['bg-emerald-50', 'bg-emerald-500 text-white', '\u2713', 'text-emerald-800'],
+        action: ['bg-amber-50', 'bg-amber-500 text-white', '!', 'text-amber-900'],
+        bad: ['bg-rose-50', 'bg-rose-500 text-white', '!', 'text-rose-800'],
+        error: ['bg-rose-50', 'bg-rose-100 text-rose-600', '\u00d7', 'text-rose-800']
+      };
+      function fmtDateTime(ms) {
+        try { return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }); } catch (e) { return String(new Date(ms)); }
+      }
+      function fmtDate(ms) {
+        try { return new Date(ms).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return String(new Date(ms)); }
+      }
+      function paint(state_, text, lastLogin, terms, opts) {
+        const card = $('ac-standing-card');
+        if (!card) return;
+        const s = STYLES[state_ === 'disabled' ? 'bad' : state_] || STYLES.loading;
+        card.setAttribute('data-state', state_);
+        const st = $('ac-standing-status');
+        if (st) st.className = 'flex items-start space-x-2.5 px-4 py-3 ' + s[0];
+        const ic = $('ac-standing-icon');
+        if (ic) { ic.className = 'mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[11px] font-black ' + s[1]; ic.textContent = s[2]; }
+        const tx = $('ac-standing-text');
+        if (tx) { tx.className = 'text-xs font-bold leading-snug ' + s[3]; tx.textContent = text; }
+        const ll = $('ac-standing-last-login'); if (ll) ll.textContent = lastLogin;
+        const tm = $('ac-standing-terms'); if (tm) tm.textContent = terms;
+        const agree = $('btn-ac-standing-agree'), retry = $('btn-ac-standing-retry'), actions = $('ac-standing-actions');
+        const showAgree = !!(opts && opts.agree), showRetry = !!(opts && opts.retry);
+        if (agree) agree.classList.toggle('hidden', !showAgree);
+        if (retry) retry.classList.toggle('hidden', !showRetry);
+        if (actions) actions.classList.toggle('hidden', !(showAgree || showRetry));
+      }
+      function currentU() {
+        return (state.isLoggedIn && state.currentUser && state.currentUser.username)
+          ? String(state.currentUser.username).trim().toLowerCase().replace(/^@/, '') : '';
+      }
+      function waitReady(ms) {
+        return new Promise((resolve) => {
+          if (window.firebaseReady && window.firebase && window.firebase.getDoc) return resolve(true);
+          let done = false;
+          (window._onFirebaseReadyQueue = window._onFirebaseReadyQueue || []).push(() => { if (!done) { done = true; resolve(true); } });
+          setTimeout(() => { if (!done) { done = true; resolve(false); } }, ms);
+        });
+      }
+      const ERR_TEXT = "Couldn't load your account standing. Check your connection and try again.";
+      async function refresh() {
+        const my = ++gen;
+        const u = currentU();
+        paint('loading', 'Checking your account standing\u2026', '\u2026', '\u2026');
+        if (!u) { paint('error', 'Sign in to see your account standing.', '-', '-'); return 'error'; }
+        const ready = await waitReady(8000);
+        if (my !== gen) return 'stale';
+        if (!ready) { paint('error', ERR_TEXT, '-', '-', { retry: true }); return 'error'; }
+        let d, priv;
+        try {
+          const fb = window.firebase;
+          const [snap, psnap] = await Promise.all([
+            fb.getDoc(fb.doc(fb.db, 'users', u)),
+            fb.getDoc(fb.doc(fb.db, 'users', u, 'private', 'account'))
+          ]);
+          if (!snap || !snap.exists()) throw new Error('missing user doc');
+          d = snap.data() || {};
+          priv = (psnap && psnap.exists()) ? (psnap.data() || {}) : {};
+        } catch (e) {
+          if (my !== gen) return 'stale';
+          paint('error', ERR_TEXT, '-', '-', { retry: true });
+          return 'error';
+        }
+        if (my !== gen || currentU() !== u) return 'stale';
+        const lastLoginAt = Number(priv.lastLoginAt) || 0;
+        const lastTxt = lastLoginAt ? fmtDateTime(lastLoginAt) : 'Not recorded yet';
+        const accepted = Number(d.tosAcceptedAt) || 0;
+        const termsTxt = accepted ? fmtDate(accepted) : 'Terms not yet accepted';
+        const canAgree = !accepted && !state.privilegedReadOnly && !!window.pixlyTos;
+        if (d.deactivated === true) {
+          const del = Number(d.scheduledDeletionAt) || 0;
+          const when = del ? ' It is scheduled for permanent deletion on ' + fmtDate(del) + '.' : '';
+          const text = d.deactivationReason === 'terms'
+            ? 'Your account is disabled and hidden because the updated Terms of Service were not accepted.' + when
+            : 'Your account is deactivated and hidden from public view.' + when;
+          paint('disabled', text, lastTxt, termsTxt, { agree: canAgree });
+          return 'disabled';
+        }
+        if (!accepted) {
+          paint('action', 'Action needed: accept the Terms of Service to keep your account active.', lastTxt, termsTxt, { agree: canAgree });
+          return 'action';
+        }
+        paint('good', 'Your account is active and in good standing', lastTxt, termsTxt);
+        return 'good';
+      }
+      document.addEventListener('click', (e) => {
+        const t = e.target && e.target.closest ? e.target.closest('#btn-ac-standing-agree, #btn-ac-standing-retry') : null;
+        if (!t) return;
+        if (t.id === 'btn-ac-standing-retry') { refresh(); return; }
+        const u = currentU();
+        if (u && window.pixlyTos && !state.privilegedReadOnly) window.pixlyTos.show(u);
+      });
+      window.pixlyStanding = { refresh };
+    })();
     function openContactPreferences() {
       window._acInfoNextTab = 'contact';
       if (typeof openAccountCenterModal === 'function') openAccountCenterModal();
@@ -28937,6 +29065,41 @@ function syncLikedStateToPosts() {
     }
     window.cancelAccountDeactivation = cancelAccountDeactivation;
 
+    // Mirror a deactivation that was already saved to users/{u} into the local caches the app reads
+    // (hidden from feeds, login checks, admin pending list). Never writes to Firestore.
+    function markAccountDeactivatedLocally(username, rec) {
+      const normU = (typeof normalizeUsername === 'function')
+        ? normalizeUsername(username)
+        : String(username || '').trim().toLowerCase().replace(/^@/, '');
+      if (!normU || !rec) return false;
+      const fields = {
+        deactivated: true,
+        deactivatedAt: rec.deactivatedAt || Date.now(),
+        scheduledDeletionAt: rec.scheduledDeletionAt || null,
+        deactivationReason: rec.deactivationReason || null
+      };
+      const map = getDeactivatedAccountsMap();
+      map[normU] = Object.assign({ username: normU }, map[normU] || {}, fields);
+      saveDeactivatedAccountsMap(map);
+      try {
+        const storedRaw = localStorage.getItem('pixly_account_' + normU);
+        if (storedRaw) {
+          const acc = JSON.parse(storedRaw);
+          if (acc) localStorage.setItem('pixly_account_' + normU, JSON.stringify(Object.assign(acc, fields)));
+        }
+      } catch(e) {}
+      try {
+        const accts = JSON.parse(localStorage.getItem('pixly_accounts') || '{}');
+        if (accts && accts[normU]) {
+          Object.assign(accts[normU], fields);
+          localStorage.setItem('pixly_accounts', JSON.stringify(accts));
+        }
+      } catch(e) {}
+      if (window._pixlyAccounts && window._pixlyAccounts[normU]) Object.assign(window._pixlyAccounts[normU], fields);
+      return true;
+    }
+    window.markAccountDeactivatedLocally = markAccountDeactivatedLocally;
+
     function openDeactivateConfirmModal() {
       if (typeof privilegedActionBlocked === 'function' && privilegedActionBlocked()) return;
       const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : '';
@@ -29243,7 +29406,9 @@ function syncLikedStateToPosts() {
       const cleanUsername = (username || "user").trim().replace(/^@/, '');
       const normTargetU = normalizeUsername(cleanUsername);
       const localDeact = getDeactivationRecord(cleanUsername);
-      if (localDeact && localDeact.deactivated) {
+      // Disabled for not accepting the updated Terms: signing in does NOT restore it. The Terms hold screen
+      // (pixlyTos.checkAfterLogin) offers Review Terms & Restore; the scheduled deletion is run by the worker.
+      if (localDeact && localDeact.deactivated && localDeact.deactivationReason !== 'terms') {
         if (localDeact.scheduledDeletionAt && Date.now() >= localDeact.scheduledDeletionAt) {
           permanentlyDeleteAccount(cleanUsername);
           showToast(`@${cleanUsername} was permanently deleted after 30 days of inactivity.`);
@@ -29705,12 +29870,51 @@ function syncLikedStateToPosts() {
           else setTimeout(runPending, 0);
         }
       } catch (e) {}
+      // Account standing: record the sign-in time (private doc, owner-only) unless this is a privileged read-only view.
+      if (!(loginOpts && (loginOpts.privilegedReadOnly || loginOpts.restorePrivileged)) && !state.privilegedReadOnly) {
+        try { recordLastLoginAt(cleanUsername); } catch (eLl) {}
+      }
       // Terms of Service: an account that has never agreed gets the blocking consent modal once.
       try { if (window.pixlyTos) window.pixlyTos.checkAfterLogin(cleanUsername, loginOpts); } catch (eTos) {}
     }
 
+    // Writes users/{u}/private/account.lastLoginAt (merge). Waits for Firebase, retries once (Auth can lag a
+    // fresh sign-in), and never touches the UI: the Account standing card reads the saved value, so a failed
+    // write shows the previous time or "Not recorded yet", never a made-up one.
+    const LAST_LOGIN_THROTTLE_MS = 5 * 60 * 1000;
+    window._pixlyLastLoginWrite = window._pixlyLastLoginWrite || {};
+    function recordLastLoginAt(username) {
+      const u = String(username || '').trim().toLowerCase().replace(/^@/, '');
+      if (!u) return Promise.resolve(false);
+      const at = Date.now();
+      const gen = window._pixlyLoginGen || 0;
+      const prev = window._pixlyLastLoginWrite[u];
+      if (prev && prev.ok && at - prev.at < LAST_LOGIN_THROTTLE_MS) return Promise.resolve(true);
+      const attempt = () => {
+        const fb = window.firebase;
+        if (!(window.firebaseReady && fb && fb.db && fb.doc && fb.setDoc)) return Promise.reject(new Error('Firebase unavailable'));
+        return fb.setDoc(fb.doc(fb.db, 'users', u, 'private', 'account'), { lastLoginAt: at }, { merge: true });
+      };
+      const run = () => attempt()
+        .catch(() => new Promise((res) => setTimeout(res, 4000)).then(() => {
+          const cur = (state.currentUser && state.currentUser.username) ? String(state.currentUser.username).toLowerCase().replace(/^@/, '') : '';
+          // A newer sign-in (another account, a privileged view, or a re-login) owns lastLoginAt now.
+          if (cur !== u || (window._pixlyLoginGen || 0) !== gen || state.privilegedReadOnly) throw new Error('superseded');
+          return attempt();
+        }))
+        .then(() => { window._pixlyLastLoginWrite[u] = { at, ok: true }; return true; })
+        .catch((e) => { window._pixlyLastLoginWrite[u] = { at, ok: false, error: String((e && (e.code || e.message)) || e) }; return false; });
+      if (window.firebaseReady && window.firebase && window.firebase.setDoc) return run();
+      return new Promise((resolve) => {
+        let done = false;
+        (window._onFirebaseReadyQueue = window._onFirebaseReadyQueue || []).push(() => { if (!done) { done = true; resolve(run()); } });
+        setTimeout(() => { if (!done) { done = true; window._pixlyLastLoginWrite[u] = { at, ok: false, error: 'firebase-not-ready' }; resolve(false); } }, 15000);
+      });
+    }
+    window.recordLastLoginAt = recordLastLoginAt;
+
     function performLogout() {
-      try { if (window.pixlyTos) window.pixlyTos.hide(); } catch (eTos) {}
+      try { if (window.pixlyTos) { if (window.pixlyTos.hideHold) window.pixlyTos.hideHold(); window.pixlyTos.hide(); } } catch (eTos) {}
       if (typeof clearPrivilegedReadOnlySession === 'function') clearPrivilegedReadOnlySession();
       if (window.pixlyOwnerSessions && typeof window.pixlyOwnerSessions.clearAll === 'function') {
         try { window.pixlyOwnerSessions.clearAll().catch(function () {}); } catch (e) {}
@@ -33013,7 +33217,7 @@ function syncLikedStateToPosts() {
           // Authenticated successfully!
           const targetUsername = isBradley ? 'bradley_hansen' : (isPixlynote ? 'pixlynote' : (matchedAccount ? matchedAccount.username : u));
           const pendingDeactRec = getDeactivationRecord(targetUsername);
-          if (pendingDeactRec && pendingDeactRec.deactivated) {
+          if (pendingDeactRec && pendingDeactRec.deactivated && pendingDeactRec.deactivationReason !== 'terms') {
             if (pendingDeactRec.scheduledDeletionAt && Date.now() >= pendingDeactRec.scheduledDeletionAt) {
               permanentlyDeleteAccount(targetUsername);
               showToast(`@${targetUsername} was permanently deleted after 30 days of inactivity.`);
@@ -35953,7 +36157,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (!d.deactivated) return;
         const deactivatedAt = Number(d.deactivatedAt) || now;
         const scheduledDeletionAt = Number(d.scheduledDeletionAt) || (deactivatedAt + PIXLY_DEACTIVATION_WINDOW_MS);
-        if (now >= scheduledDeletionAt) {
+        // Terms-disabled accounts are deleted by the worker (it also cancels Stripe at period end and purges
+        // verification records), so the admin drawer only lists them.
+        if (now >= scheduledDeletionAt && d.deactivationReason !== 'terms') {
           permanentlyDeleteAccount(u);
           return;
         }
@@ -35962,7 +36168,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           fullName: d.fullName || u,
           accountType: (d.accountType === 'business' || u === 'pixlynote' || u === 'digitalassetpro') ? 'business' : 'personal',
           deactivatedAt,
-          scheduledDeletionAt
+          scheduledDeletionAt,
+          reason: d.deactivationReason || ''
         });
       };
 
@@ -35984,7 +36191,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       } catch(e) {}
 
       // 2. Live Firestore check
+      let cloudStatus = 'skipped';
       if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.collection && window.firebase.getDocs) {
+        cloudStatus = 'ok';
         try {
           const { db, collection, getDocs } = window.firebase;
           const snap = await getDocs(collection(db, 'users'));
@@ -36001,6 +36210,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             }
           });
         } catch(e) {
+          cloudStatus = 'error';
           console.warn("Pending deactivations Firestore read notice:", e);
         }
       }
@@ -36009,21 +36219,33 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (countEl) countEl.textContent = String(items.length);
 
       if (listEl) {
+        // Never present a device-only list as the full picture when the cloud read failed.
+        const cloudNote = cloudStatus === 'error'
+          ? '<div id="pending-deactivations-cloud-error" role="alert" class="text-[10px] font-semibold text-rose-700 text-center py-1.5 px-2 bg-rose-50 rounded-xl border border-rose-200">Couldn\'t load deactivated accounts from the cloud. Showing this device only. Tap Refresh to try again.</div>'
+          : '';
         if (items.length === 0) {
-          listEl.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">No pending deactivations</div>';
+          listEl.innerHTML = cloudNote + (cloudStatus === 'error' ? '' : '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-rose-100/70">No pending deactivations</div>');
         } else {
           const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          listEl.innerHTML = items.map(item => {
+          const REASONS = {
+            terms: { label: 'Terms not accepted', cls: 'bg-amber-100 text-amber-800', verb: 'Disabled' },
+            declined_terms: { label: 'Declined Terms', cls: 'bg-violet-100 text-violet-700', verb: 'Requested' }
+          };
+          listEl.innerHTML = cloudNote + items.map(item => {
             const msLeft = Math.max(0, item.scheduledDeletionAt - now);
+            const overdue = msLeft <= 0;
             const daysLeft = Math.max(1, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
             const reqDate = new Date(item.deactivatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const delDate = new Date(item.scheduledDeletionAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const r = REASONS[item.reason] || { label: 'Self-deactivated', cls: 'bg-neutral-100 text-neutral-600', verb: 'Requested' };
             return `
-              <div class="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/90 border border-rose-100/80 text-[11px]">
+              <div class="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/90 border border-rose-100/80 text-[11px]" data-pending-user="${esc(item.username)}" data-reason="${esc(item.reason || 'self')}">
                 <div class="min-w-0 truncate">
-                  <div class="font-bold text-neutral-900 truncate">@${esc(item.username)}</div>
-                  <div class="text-[9px] text-neutral-500">Requested ${esc(reqDate)} · ${item.accountType === 'business' ? 'Business' : 'Personal'}</div>
+                  <div class="flex items-center gap-1 min-w-0"><span class="font-bold text-neutral-900 truncate">@${esc(item.username)}</span><span class="pending-deact-reason flex-shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-full ${r.cls}">${esc(r.label)}</span></div>
+                  <div class="text-[9px] text-neutral-500">${r.verb} ${esc(reqDate)} · ${item.accountType === 'business' ? 'Business' : 'Personal'}</div>
+                  <div class="pending-deact-date text-[9px] font-semibold text-rose-600">Deletes ${esc(delDate)}</div>
                 </div>
-                <span class="ml-2 flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">${daysLeft}d left</span>
+                <span class="pending-deact-countdown ml-2 flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">${overdue ? 'Deletion due' : daysLeft + 'd left'}</span>
               </div>
             `;
           }).join('');
@@ -40635,13 +40857,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
             <span class="text-xl">📜</span>
             <div>
               <h3 class="text-base font-bold text-neutral-900">2. Terms of Service & User Agreement</h3>
-              <p class="text-[11px] text-neutral-400">Last updated: November 23, 2026 · Rules governing account usage, intellectual property, and platform liability</p>
+              <p class="text-[11px] text-neutral-400">Last updated: November 28, 2026 · Rules governing account usage, intellectual property, and platform liability</p>
             </div>
           </div>
 
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">1. ACCEPTANCE OF TERMS</h4>
             <p>By creating an account, browsing content, or accessing Pixlynote, you enter into a legally binding agreement and agree to comply with these Terms of Service. If you do not agree, do not access or use the platform.</p>
+            <p>If you created an account before November 28, 2026, you must affirmatively accept these Terms within 30 days of notice to continue using Pixlynote. If you do not accept within 30 days, your account will be disabled and hidden from public view. You may sign back in within 30 days after your account is disabled to accept these Terms and restore your account; if you do not, your account and its content will be permanently deleted after that 30-day disabled period. You may decline these Terms and permanently delete your account at any time without accepting.</p>
           </div>
 
           <div class="space-y-2">
@@ -40683,6 +40906,11 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <div class="space-y-2">
             <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">9. SERVICE AVAILABILITY, MODIFICATION &amp; DISCONTINUATION</h4>
             <p>Pixlynote reserves the right, at its sole discretion, to modify, suspend, or permanently discontinue the platform, or any feature or subscription tier thereof, at any time, for any reason (including operational, financial, or legal reasons), with or without prior notice. Digital AssetPro LLC (doing business as Pixlynote) shall not be liable to you or any third party for any modification, suspension, or discontinuation of the Service. In the event of a permanent shutdown, active recurring subscriptions will be canceled to prevent future charges, and any unearned subscription fees or data export windows will be handled in accordance with applicable law.</p>
+          </div>
+
+          <div class="space-y-2">
+            <h4 class="font-bold text-xs text-neutral-900 uppercase tracking-wide">10. CHANGES TO THESE TERMS</h4>
+            <p>Digital AssetPro LLC (doing business as Pixlynote) may update these Terms of Service from time to time. When we make material changes, we will update the "Last updated" date at the top of this page and notify registered users by email at least 30 days before the changes take effect. Your continued use of Pixlynote after the effective date constitutes your agreement to the updated Terms. If you do not agree to the updated Terms, you must stop using Pixlynote and may deactivate or delete your account from Account Center before the changes take effect.</p>
           </div>
         </section>
 
@@ -40787,7 +41015,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       <!-- Modal Footer -->
       <div class="p-4 border-t border-neutral-200 bg-neutral-50/90 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
         <div class="text-[11px] text-neutral-500">
-          Last updated: November 23, 2026 · Digital AssetPro LLC d/b/a Pixlynote
+          Last updated: November 28, 2026 · Digital AssetPro LLC d/b/a Pixlynote
         </div>
         <button type="button" onclick="closeTermsPoliciesModal()" class="w-full sm:w-auto py-2 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
           Close Terms & Policies
@@ -40849,7 +41077,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         grid-template-areas:
-          "hint hint"
+          "hint decline"
           "check btns"
           "error error";
         align-items: center;
@@ -40860,13 +41088,43 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       #tos-consent-footer > label { grid-area: check; margin: 0; }
       #tos-consent-error { grid-area: error; }
       #tos-consent-footer .tos-consent-btns { grid-area: btns; }
+      #tos-consent-footer .tos-consent-decline { grid-area: decline; justify-self: end; font-size: 10px; line-height: 15px; }
+      /* Only shown while the checkbox and buttons are hidden, so it takes their row. */
+      #tos-consent-decline-confirm { grid-row: 2; grid-column: 1 / -1; }
     }
+    /* While the decline confirmation is open it replaces the checkbox and Agree/Log out rows. */
+    #tos-consent-footer.tos-declining > label,
+    #tos-consent-footer.tos-declining .tos-consent-btns,
+    #tos-consent-footer.tos-declining .tos-consent-decline { display: none !important; }
   </style>
+  <!-- Day 30-60 hold for legacy accounts that did not accept the updated Terms: same Account Deactivated screen + countdown. -->
+  <div id="terms-hold-screen" role="dialog" aria-modal="true" aria-labelledby="terms-hold-title" style="z-index: 999; display: none;" class="hidden fixed inset-0 bg-neutral-100 overflow-y-auto">
+    <div class="min-h-full w-full max-w-md mx-auto px-4 pb-8 space-y-3" style="padding-top: calc(20px + env(safe-area-inset-top, 0px));">
+      <div id="terms-hold-card" class="bg-white rounded-3xl border border-rose-200 shadow-xl p-5 text-center space-y-3">
+        <div class="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-xl" aria-hidden="true">&#128274;</div>
+        <h2 id="terms-hold-title" class="text-lg font-black text-neutral-900">Account Deactivated</h2>
+        <p id="terms-hold-text" class="text-xs leading-relaxed text-neutral-600">Your account is currently disabled because the updated Terms of Service were not accepted within 30 days of notice. Review and accept the Terms to restore your account.</p>
+        <p id="terms-hold-sub-note" class="hidden rounded-xl bg-neutral-50 border border-neutral-200 px-3 py-2 text-[11px] leading-snug text-neutral-600">Your paid subscription was set to cancel at the end of its current period and will not renew. No refund is issued. If it has ended by the time you restore your account, you'll need to resubscribe.</p>
+        <button type="button" id="btn-terms-hold-restore" class="w-full py-3 px-4 text-white font-bold text-sm rounded-xl story-gradient shadow-md shadow-pink-500/25 hover:opacity-95 cursor-pointer">Review Terms &amp; Restore</button>
+        <button type="button" id="btn-terms-hold-delete" class="text-[11px] font-semibold text-rose-600 hover:text-rose-800 underline underline-offset-2 cursor-pointer">Or permanently delete account</button>
+      </div>
+      <div id="terms-hold-profile" class="bg-white rounded-3xl border border-neutral-200 shadow-sm overflow-hidden">
+        <div class="h-16 bg-gradient-to-r from-neutral-200 to-neutral-300"></div>
+        <div class="px-4 pb-4 -mt-7">
+          <div id="terms-hold-avatar" class="w-14 h-14 rounded-full border-4 border-white bg-neutral-300 text-white font-black text-lg flex items-center justify-center grayscale" aria-hidden="true"></div>
+          <p id="terms-hold-handle" class="mt-1 text-sm font-bold text-neutral-500"></p>
+          <div id="terms-hold-banner" role="status" class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-900"></div>
+        </div>
+      </div>
+      <p class="text-center"><button type="button" id="btn-terms-hold-logout" class="text-[11px] font-semibold text-neutral-500 hover:text-neutral-800 cursor-pointer">Log out</button></p>
+    </div>
+  </div>
   <div id="tos-consent-modal" role="dialog" aria-modal="true" aria-labelledby="tos-consent-title" style="z-index: 1000; display: none;" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
     <div id="tos-consent-card" class="relative bg-white rounded-3xl border border-neutral-200 shadow-2xl w-full max-w-md flex flex-col overflow-hidden min-h-0">
       <div id="tos-consent-head" class="border-b border-neutral-200 bg-neutral-50/90">
         <h2 id="tos-consent-title" class="text-base font-black text-neutral-900">Terms of Service</h2>
         <p class="text-[11px] text-neutral-500 mt-0.5">Please read and agree to continue using Pixlynote. <span id="tos-consent-updated"></span></p>
+        <p id="tos-consent-hold-note" role="status" class="hidden mt-1.5 text-[11px] font-semibold text-rose-700">Your account is disabled and hidden because the Terms were not accepted. Agree to restore it.</p>
       </div>
       <div id="tos-consent-panel" tabindex="0" role="region" aria-label="Terms of Service" class="flex-1 min-h-0 overflow-y-auto text-[11px] leading-relaxed text-neutral-600 space-y-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-300"></div>
       <div id="tos-consent-footer">
@@ -40880,6 +41138,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           <button type="button" id="btn-tos-consent-logout" class="px-4 py-2.5 text-xs font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">Log out</button>
           <button type="button" id="btn-tos-consent-agree" disabled class="flex-1 py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient transition shadow-md shadow-pink-500/25 opacity-50 cursor-not-allowed">Agree</button>
         </div>
+        <button type="button" id="btn-tos-consent-decline" class="tos-consent-decline self-center text-[11px] font-semibold text-rose-600 hover:text-rose-800 underline underline-offset-2 cursor-pointer">Decline and delete my account</button>
+        <div id="tos-consent-decline-confirm" role="alertdialog" aria-labelledby="tos-consent-decline-text" class="hidden rounded-xl border border-rose-200 bg-rose-50 p-2.5 space-y-2">
+          <p id="tos-consent-decline-text" class="text-[11px] leading-snug text-rose-800">Delete your account without accepting? It will be deactivated and hidden now and permanently deleted after 30 days. Signing back in before then cancels the deletion.</p>
+          <div class="flex items-center space-x-2">
+            <button type="button" id="btn-tos-consent-decline-cancel" class="px-3 py-2 text-[11px] font-semibold text-neutral-700 bg-white border border-neutral-200 hover:bg-neutral-50 rounded-lg cursor-pointer">Keep my account</button>
+            <button type="button" id="btn-tos-consent-decline-confirm" class="flex-1 py-2 px-3 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer">Yes, delete my account</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -40891,7 +41157,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
   // Bump PIXLY_TOS_VERSION whenever that text changes. It is recorded with each consent (tosVersion), but a
   // consented account is NEVER prompted again: only an account with no tosAcceptedAt sees the modal.
   (function () {
-    window.PIXLY_TOS_VERSION = '2026-11-23';
+    window.PIXLY_TOS_VERSION = '2026-11-28';
     var LOCAL_PREFIX = 'pixly_tos_consent_';
     var READY_WAIT_MS = 8000;
 
@@ -40967,6 +41233,13 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     var modal = $('tos-consent-modal'), mPanel = $('tos-consent-panel'), mCb = $('tos-consent-checkbox');
     var mAgree = $('btn-tos-consent-agree'), mLogout = $('btn-tos-consent-logout'), mErr = $('tos-consent-error');
     var mGate = null, mUser = '', saving = false, checkGen = 0;
+    var holdEl = $('terms-hold-screen'), holdUser = '', holdInfo = {};
+    var mDecline = $('btn-tos-consent-decline'), mDeclineBox = $('tos-consent-decline-confirm');
+    var mDeclineYes = $('btn-tos-consent-decline-confirm'), mDeclineNo = $('btn-tos-consent-decline-cancel');
+    var mFooter = $('tos-consent-footer'), declining = false;
+    var DAY_MS = 24 * 60 * 60 * 1000, HOLD_WINDOW_MS = 30 * DAY_MS;
+    function modalOpen() { return !!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')); }
+    function holdOpen() { return !!(holdEl && holdEl.style.display !== 'none' && !holdEl.classList.contains('hidden')); }
 
     function syncAgree() {
       var ok = !!(mGate && mGate.reached && mCb.checked && !saving);
@@ -41028,7 +41301,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     var lockedEls = [], lockObserver = null, prevBodyOverflow = '';
     function lockNewChildren() {
       Array.prototype.slice.call(document.body.children).forEach(function (el) {
-        if (el === modal || el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.id === 'toast' || el.hasAttribute('inert')) return;
+        if (el === modal || (el === holdEl && !modalOpen()) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.id === 'toast' || el.hasAttribute('inert')) return;
         el.setAttribute('inert', '');
         lockedEls.push(el);
       });
@@ -41060,8 +41333,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       checkGen++;
       mUser = '';
       saving = false;
+      setDeclineOpen(false);
       stopViewportWatch();
       if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+      if (holdOpen()) { holdEl.removeAttribute('inert'); return; }
       setBackgroundInert(false);
     }
     function show(u) {
@@ -41077,10 +41352,14 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         mErr.textContent = 'The Terms of Service could not be loaded. Please refresh the page or log out.';
         mErr.classList.remove('hidden');
       }
+      setDeclineOpen(false);
+      var holdNote = $('tos-consent-hold-note');
+      if (holdNote) holdNote.classList.toggle('hidden', !holdInfo[mUser]);
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
       startViewportWatch();
       setBackgroundInert(true);
+      if (holdOpen()) holdEl.setAttribute('inert', '');
       setTimeout(function () { mGate.check(); try { mAgree.blur(); } catch (e) {} }, 0);
     }
 
@@ -41092,12 +41371,27 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       return "Couldn't save your agreement. Please try again.";
     }
 
-    async function save(u, at, ver) {
+    function fbOrThrow() {
       var fb = window.firebase;
       if (!(window.firebaseReady && fb && fb.db && fb.doc && fb.setDoc)) {
         var err = new Error('Firebase unavailable'); err.code = 'unavailable'; throw err;
       }
-      await fb.setDoc(fb.doc(fb.db, 'users', u), { tosAcceptedAt: at, tosVersion: ver }, { merge: true });
+      return fb;
+    }
+    async function save(u, at, ver) {
+      var fb = fbOrThrow();
+      var data = { tosAcceptedAt: at, tosVersion: ver };
+      if (holdInfo[u]) {
+        // Agree on a Terms-disabled account restores it in the same write (all or nothing).
+        data.deactivated = false;
+        data.deactivatedAt = null;
+        data.scheduledDeletionAt = null;
+        data.deactivationReason = null;
+        data.termsDisabledAt = null;
+        data.deletionRequestedAt = null;
+        data.lastUpdated = at;
+      }
+      await fb.setDoc(fb.doc(fb.db, 'users', u), data, { merge: true });
     }
 
     async function agree() {
@@ -41119,6 +41413,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         return;
       }
       if (mUser !== u) return;
+      var restored = !!holdInfo[u];
       rememberLocal(u, at, ver);
       try {
         if (window.state && state.currentUser && normU(state.currentUser.username) === u) {
@@ -41126,9 +41421,137 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           state.currentUser.tosVersion = ver;
         }
       } catch (e) {}
+      if (restored) {
+        delete holdInfo[u];
+        // The cloud doc is already restored (awaited above); this clears the local caches the feed and login read.
+        if (typeof window.cancelAccountDeactivation === 'function') { try { window.cancelAccountDeactivation(u); } catch (e) {} }
+        hideHold();
+      }
       hide();
-      if (typeof showToast === 'function') showToast('Thanks, you have agreed to the Terms of Service \u2713');
+      if (typeof window.pixlyStanding === 'object' && window.pixlyStanding.refresh) window.pixlyStanding.refresh();
+      if (typeof showToast === 'function') {
+        showToast(restored ? 'Your account is restored and visible again. Thanks for accepting the Terms \u2713' : 'Thanks, you have agreed to the Terms of Service \u2713');
+      }
     }
+
+    // ---- Decline and delete (promised in Section 1) ----
+    function setDeclineOpen(on) {
+      declining = !!on;
+      if (mFooter) mFooter.classList.toggle('tos-declining', declining);
+      if (mDeclineBox) mDeclineBox.classList.toggle('hidden', !declining);
+      if (mDeclineYes) { mDeclineYes.disabled = false; mDeclineYes.textContent = 'Yes, delete my account'; }
+      if (mDeclineNo) mDeclineNo.disabled = false;
+    }
+    function fmtDate(ms) {
+      try { return new Date(ms).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; }
+    }
+    function resolveEmail(u) {
+      try {
+        if (window.state && state.currentUser && normU(state.currentUser.username) === u && state.currentUser.email && String(state.currentUser.email).indexOf('@') > 0) return String(state.currentUser.email).trim();
+        if (typeof window.resolveUserEmailForSecurity === 'function') return window.resolveUserEmailForSecurity(u) || '';
+      } catch (e) {}
+      return '';
+    }
+    async function confirmDecline() {
+      if (saving || !mUser) return;
+      var u = mUser, now = Date.now(), hold = holdInfo[u];
+      // A Terms-disabled account keeps its Day 60 date and 'terms' reason; a first-time decline gets the usual 30 days.
+      var deletionAt = (hold && hold.deletionAt) ? hold.deletionAt : now + HOLD_WINDOW_MS;
+      var rec = {
+        deactivated: true,
+        deactivatedAt: (hold && hold.disabledAt) ? hold.disabledAt : now,
+        scheduledDeletionAt: deletionAt,
+        deactivationReason: hold ? 'terms' : 'declined_terms',
+        deletionRequestedAt: now,
+        lastUpdated: now
+      };
+      saving = true;
+      mErr.classList.add('hidden');
+      mDeclineYes.disabled = true;
+      mDeclineNo.disabled = true;
+      mDeclineYes.textContent = 'Deleting\u2026';
+      try {
+        var fb = fbOrThrow();
+        await fb.setDoc(fb.doc(fb.db, 'users', u), rec, { merge: true });
+      } catch (e) {
+        if (mUser !== u) return;
+        saving = false;
+        mDeclineYes.disabled = false;
+        mDeclineNo.disabled = false;
+        mDeclineYes.textContent = 'Yes, delete my account';
+        var code = String((e && e.code) || '') + ' ' + String((e && e.message) || '');
+        mErr.textContent = /permission/i.test(code)
+          ? "Couldn't delete your account: permission denied. Your account was not changed. Please log out, sign back in, and try again."
+          : (/unavailable|network|offline|deadline|failed-precondition/i.test(code)
+            ? "Couldn't delete your account: no connection. Your account was not changed. Check your internet and try again."
+            : "Couldn't delete your account. Your account was not changed. Please try again.");
+        mErr.classList.remove('hidden');
+        return;
+      }
+      if (typeof window.markAccountDeactivatedLocally === 'function') { try { window.markAccountDeactivatedLocally(u, rec); } catch (e) {} }
+      var email = resolveEmail(u), emailSent = false;
+      if (email && typeof window.sendPixlynoteEmail === 'function') {
+        try { await window.sendPixlynoteEmail('deactivation', { to: email, username: u, deletionAt: deletionAt }); emailSent = true; } catch (e) {}
+      }
+      delete holdInfo[u];
+      hideHold();
+      hide();
+      if (typeof performLogout === 'function') { try { performLogout(); } catch (e) {} }
+      if (typeof showToast === 'function') {
+        showToast('@' + u + ' is deactivated, hidden, and scheduled for permanent deletion by ' + fmtDate(deletionAt) + '.' + (emailSent ? ' Confirmation sent to ' + email + '.' : '') + ' Signing back in before then cancels it.');
+      }
+    }
+    if (mDecline) mDecline.addEventListener('click', function () { if (!saving) { mErr.classList.add('hidden'); setDeclineOpen(true); } });
+    if (mDeclineNo) mDeclineNo.addEventListener('click', function () { if (!saving) setDeclineOpen(false); });
+    if (mDeclineYes) mDeclineYes.addEventListener('click', confirmDecline);
+
+    // ---- Day 30-60 Terms hold screen ----
+    function holdDeletionAt(info) {
+      if (info.deletionAt) return info.deletionAt;
+      return (info.disabledAt || Date.now()) + HOLD_WINDOW_MS;
+    }
+    function showHold(u) {
+      if (!holdEl) return;
+      var info = holdInfo[u] || {};
+      holdUser = u;
+      var deletionAt = holdDeletionAt(info);
+      var days = Math.max(0, Math.ceil((deletionAt - Date.now()) / DAY_MS));
+      var av = $('terms-hold-avatar'), handle = $('terms-hold-handle'), banner = $('terms-hold-banner');
+      if (av) av.textContent = (u.charAt(0) || '?').toUpperCase();
+      var subNote = $('terms-hold-sub-note');
+      if (subNote) subNote.classList.toggle('hidden', !info.subCanceled);
+      if (handle) handle.textContent = '@' + u;
+      if (banner) {
+        banner.textContent = days > 0
+          ? 'This account has been temporarily disabled because the updated Terms of Service were not accepted, and it is hidden from public view. It will be permanently deleted in ' + days + ' day' + (days === 1 ? '' : 's') + ' (' + fmtDate(deletionAt) + ') unless the Terms are accepted.'
+          : 'This account has been temporarily disabled because the updated Terms of Service were not accepted, and it is hidden from public view. It is due for permanent deletion now unless the Terms are accepted.';
+      }
+      holdEl.classList.remove('hidden');
+      holdEl.style.display = 'block';
+      holdEl.removeAttribute('inert');
+      setBackgroundInert(true);
+      if (typeof showToast === 'function') showToast('Restricted: @' + u + ' is disabled until the updated Terms are accepted.');
+    }
+    function hideHold() {
+      holdUser = '';
+      if (!holdEl) return;
+      holdEl.classList.add('hidden');
+      holdEl.style.display = 'none';
+      holdEl.removeAttribute('inert');
+      if (!modalOpen()) setBackgroundInert(false);
+    }
+    var hRestore = $('btn-terms-hold-restore'), hDelete = $('btn-terms-hold-delete'), hLogout = $('btn-terms-hold-logout');
+    if (hRestore) hRestore.addEventListener('click', function () { if (holdUser) show(holdUser); });
+    if (hDelete) hDelete.addEventListener('click', function () {
+      if (!holdUser) return;
+      show(holdUser);
+      setDeclineOpen(true);
+    });
+    if (hLogout) hLogout.addEventListener('click', function () {
+      hideHold();
+      hide();
+      if (typeof performLogout === 'function') performLogout();
+    });
 
     if (mAgree) mAgree.addEventListener('click', agree);
     if (mLogout) mLogout.addEventListener('click', function () {
@@ -41154,9 +41577,17 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       try {
         var fb = window.firebase;
         var snap = await fb.getDoc(fb.doc(fb.db, 'users', u));
+        delete holdInfo[u];
         if (snap && snap.exists()) {
           var d = snap.data() || {};
           if (hasConsent(d)) { rememberLocal(u, d.tosAcceptedAt, d.tosVersion || ''); return false; }
+          if (d.deactivated === true && d.deactivationReason === 'terms') {
+            holdInfo[u] = {
+              disabledAt: Number(d.termsDisabledAt || d.deactivatedAt) || 0,
+              deletionAt: Number(d.scheduledDeletionAt) || 0,
+              subCanceled: !!(d.stripeCancelAtPeriodEnd || d.subscriptionStatus === 'cancel_at_period_end' || d.termsSubscriptionCanceledAt)
+            };
+          }
         }
         return true;
       } catch (e) { return false; }
@@ -41170,7 +41601,9 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     function checkAfterLogin(username, loginOpts) {
       var u = normU(username);
       if (modal && mUser === u && window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
+      if (holdOpen() && holdUser === u) return Promise.resolve(true);
       var gen = ++checkGen;
+      if (holdOpen() && holdUser !== u) hideHold();
       if (modal && mUser && mUser !== u) hide();
       checkGen = gen;
       if (!u) return Promise.resolve(false);
@@ -41180,7 +41613,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (!need) return false;
         var cur = (window.state && state.currentUser && state.isLoggedIn) ? normU(state.currentUser.username) : '';
         if (cur !== u || privilegedView(null)) return false;
-        show(u);
+        if (holdInfo[u]) showHold(u); else show(u);
         return true;
       });
     }
@@ -41192,6 +41625,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
         if (!(window.state && state.isLoggedIn && state.currentUser && state.currentUser.username)) return Promise.resolve(false);
         if (privilegedView(null)) return Promise.resolve(false);
         if (window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
+        if (holdOpen()) return Promise.resolve(true);
         var now = Date.now();
         if (!force && now - lastRecheck < 3000) return Promise.resolve(false);
         lastRecheck = now;
@@ -41210,6 +41644,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       hide: hide,
       syncViewport: syncModalViewport,
       isOpen: function () { return !!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')); },
+      isHoldOpen: holdOpen,
+      hideHold: hideHold,
       rememberLocal: rememberLocal,
       forgetLocal: forgetLocal,
       readLocal: readLocal

@@ -86,7 +86,7 @@ module.exports = {
           };
         });
         a.ok(t.open, 'Terms & policies modal opens');
-        a.ok(/November 23, 2026/.test(t.text), 'Last updated November 23, 2026 is shown');
+        a.ok(/November 28, 2026/.test(t.text), 'Last updated November 28, 2026 is shown');
         a.ok(/Stripe/.test(t.text) && /Business Plus/.test(t.text), 'Stripe subscriptions and Business Plus are described');
         a.ok(/Twilio/.test(t.text) && /sign-in verification/i.test(t.text), 'Twilio SMS phone verification is described');
         a.ok(!/optional\/for 2FA/i.test(t.text) && !/2FA and account recovery/i.test(t.text), 'Stale optional/2FA phone wording is gone');
