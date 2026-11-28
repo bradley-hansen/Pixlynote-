@@ -76,7 +76,8 @@ module.exports = {
           await page.evaluate(() => { openAccountCenterModal(); setAccountCenterView('accountInfo'); });
           await page.waitForTimeout(150);
           await page.click('#btn-ac-info-tab-business');
-          await page.waitForTimeout(100);
+          // The tab loads its list asynchronously, so wait for the entry instead of a fixed pause.
+          await page.waitForFunction(() => document.querySelectorAll('#ac-business-history-list .ac-business-history-entry').length > 0, null, { timeout: 5000 }).catch(() => {});
           const rows = await page.evaluate(() => Array.from(document.querySelectorAll('#ac-business-history-list .ac-business-history-entry')).map((x) => x.textContent.replace(/\s+/g, ' ')));
           a.ok(rows.length === 1 && /Start DBA/.test(rows[0]) && /Tapped DBA/.test(rows[0]), 'The tab shows the one change: ' + JSON.stringify(rows));
         });
