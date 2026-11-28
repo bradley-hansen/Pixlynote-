@@ -532,6 +532,7 @@ module.exports = {
             await page.evaluate(() => openVerificationRequestModal('organization'));
             await page.fill('#verification-entity-name', 'Harbor Civic League');
             await page.fill('#verification-official-email', GOV_EMAIL);
+            await page.fill('#verification-org-ein', '');
             await page.click('#btn-verification-send-email-code');
             await page.waitForTimeout(300);
             await page.fill('#verification-email-code', GOOD_CODE);
@@ -545,6 +546,7 @@ module.exports = {
             await page.waitForTimeout(500);
             const ui = await formUi(page);
             a.equal((await fsWrites(page)).length, 0, 'The mock rejected every write');
+            if (/EIN|format|required|enter|must use/i.test(ui.status) && !/pending review/i.test(ui.status)) throw new Error('PRECONDITION (not the bug): submit was stopped by form validation, not by the save: "' + ui.status + '"');
             if (!/pending review/i.test(ui.status) && !ui.statusIsError) throw new Error('PRECONDITION (not the bug): submit ended with an unexpected message: "' + ui.status + '"');
             a.ok(!/pending review/i.test(ui.status) && ui.userStatus !== 'pending', 'Must not say Pending review or mark the account pending when nothing was saved, got "' + ui.status + '" / ' + ui.userStatus);
             a.ok(ui.statusIsError, 'A failed save shows a red error');
