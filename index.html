@@ -40801,21 +40801,82 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
   <!-- ========================================================================= -->
   <!-- TERMS OF SERVICE CONSENT (blocking, shown once to a signed-in account that has never agreed) -->
   <!-- ========================================================================= -->
-  <div id="tos-consent-modal" role="dialog" aria-modal="true" aria-labelledby="tos-consent-title" style="z-index: 1000; display: none;" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
-    <div class="relative bg-white rounded-3xl border border-neutral-200 shadow-2xl w-full max-w-md max-h-[94vh] flex flex-col overflow-hidden">
-      <div class="p-4 border-b border-neutral-200 bg-neutral-50/90">
+  <style id="tos-consent-fit-css">
+    /* Keep the one-time Terms modal fully on screen, including above a mobile browser toolbar.
+       100vh falls back for older browsers; 100dvh tracks the dynamic viewport; --tos-vvh is set
+       from visualViewport (the visible area on Android Chrome when the bottom bar is showing). */
+    #tos-consent-modal {
+      position: fixed;
+      inset: 0;
+      box-sizing: border-box;
+      height: 100vh;
+      max-height: 100vh;
+      height: 100dvh;
+      max-height: 100dvh;
+      height: var(--tos-vvh, 100dvh);
+      max-height: var(--tos-vvh, 100dvh);
+      padding: 12px;
+      /* Keep the header a little below the browser address bar / notch. */
+      padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    }
+    #tos-consent-card {
+      box-sizing: border-box;
+      min-height: 0;
+      height: 100%;
+      max-height: calc(100vh - 32px);
+      max-height: calc(100dvh - 32px);
+      max-height: calc(var(--tos-vvh, 100dvh) - 32px - env(safe-area-inset-top, 0px));
+      max-height: 100%;
+    }
+    #tos-consent-head { flex-shrink: 0; padding: 1rem; }
+    #tos-consent-panel { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 1rem; }
+    #tos-consent-footer {
+      flex-shrink: 0;
+      padding: 1rem;
+      padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      border-top: 1px solid #e5e5e5;
+      background-color: rgb(250 250 250 / 0.9);
+    }
+    @media (max-height: 420px) and (orientation: landscape) {
+      #tos-consent-head { padding: 0.5rem 1rem; }
+      #tos-consent-panel { padding: 0.5rem 1rem; }
+      #tos-consent-footer {
+        padding: 0.5rem 1rem;
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          "hint hint"
+          "check btns"
+          "error error";
+        align-items: center;
+        column-gap: 0.75rem;
+        row-gap: 0.4rem;
+      }
+      #tos-consent-hint { grid-area: hint; }
+      #tos-consent-footer > label { grid-area: check; margin: 0; }
+      #tos-consent-error { grid-area: error; }
+      #tos-consent-footer .tos-consent-btns { grid-area: btns; }
+    }
+  </style>
+  <div id="tos-consent-modal" role="dialog" aria-modal="true" aria-labelledby="tos-consent-title" style="z-index: 1000; display: none;" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+    <div id="tos-consent-card" class="relative bg-white rounded-3xl border border-neutral-200 shadow-2xl w-full max-w-md flex flex-col overflow-hidden min-h-0">
+      <div id="tos-consent-head" class="border-b border-neutral-200 bg-neutral-50/90">
         <h2 id="tos-consent-title" class="text-base font-black text-neutral-900">Terms of Service</h2>
         <p class="text-[11px] text-neutral-500 mt-0.5">Please read and agree to continue using Pixlynote. <span id="tos-consent-updated"></span></p>
       </div>
-      <div id="tos-consent-panel" tabindex="0" role="region" aria-label="Terms of Service" class="flex-1 min-h-0 overflow-y-auto p-4 text-[11px] leading-relaxed text-neutral-600 space-y-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-300"></div>
-      <div class="p-4 border-t border-neutral-200 bg-neutral-50/90 space-y-2.5">
+      <div id="tos-consent-panel" tabindex="0" role="region" aria-label="Terms of Service" class="flex-1 min-h-0 overflow-y-auto text-[11px] leading-relaxed text-neutral-600 space-y-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-300"></div>
+      <div id="tos-consent-footer">
         <p id="tos-consent-hint" class="text-[10px] text-neutral-400">Scroll to the end of the Terms to turn on the checkbox.</p>
         <label for="tos-consent-checkbox" class="flex items-start space-x-2 text-xs text-neutral-800">
           <input type="checkbox" id="tos-consent-checkbox" disabled class="mt-0.5 w-4 h-4 rounded border-neutral-300 accent-violet-600 disabled:opacity-40">
           <span>I agree to the Terms of Service</span>
         </label>
         <p id="tos-consent-error" role="alert" class="hidden text-[11px] font-semibold text-rose-600"></p>
-        <div class="flex items-center space-x-2">
+        <div class="tos-consent-btns flex items-center space-x-2">
           <button type="button" id="btn-tos-consent-logout" class="px-4 py-2.5 text-xs font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">Log out</button>
           <button type="button" id="btn-tos-consent-agree" disabled class="flex-1 py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient transition shadow-md shadow-pink-500/25 opacity-50 cursor-not-allowed">Agree</button>
         </div>
@@ -40921,6 +40982,49 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
     // Everything behind the modal (the app, the welcome screen, every other modal, drawers, menus) is made inert, so it can't be
     // clicked, tabbed to, or read by a screen reader. New elements added behind it while it is open are locked too.
+    function readVisibleBox() {
+      if (window.__pixlyTosVisibleBox && typeof window.__pixlyTosVisibleBox.height === 'number' && window.__pixlyTosVisibleBox.height > 0) {
+        return { height: window.__pixlyTosVisibleBox.height, top: window.__pixlyTosVisibleBox.top || 0 };
+      }
+      var vv = window.visualViewport;
+      if (vv && typeof vv.height === 'number' && vv.height > 0) {
+        return { height: vv.height, top: vv.offsetTop || 0 };
+      }
+      return { height: window.innerHeight, top: 0 };
+    }
+    function syncModalViewport() {
+      if (!modal) return;
+      var box = readVisibleBox();
+      modal.style.setProperty('--tos-vvh', box.height + 'px');
+      modal.style.top = box.top + 'px';
+      modal.style.height = box.height + 'px';
+      modal.style.maxHeight = box.height + 'px';
+      modal.style.bottom = 'auto';
+    }
+    function onViewportChange() {
+      if (modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')) syncModalViewport();
+    }
+    var watchingViewport = false;
+    function startViewportWatch() {
+      syncModalViewport();
+      if (watchingViewport) return;
+      watchingViewport = true;
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onViewportChange);
+        window.visualViewport.addEventListener('scroll', onViewportChange);
+      }
+      window.addEventListener('resize', onViewportChange);
+    }
+    function stopViewportWatch() {
+      if (!watchingViewport) return;
+      watchingViewport = false;
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', onViewportChange);
+        window.visualViewport.removeEventListener('scroll', onViewportChange);
+      }
+      window.removeEventListener('resize', onViewportChange);
+    }
+
     var lockedEls = [], lockObserver = null, prevBodyOverflow = '';
     function lockNewChildren() {
       Array.prototype.slice.call(document.body.children).forEach(function (el) {
@@ -40956,6 +41060,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       checkGen++;
       mUser = '';
       saving = false;
+      stopViewportWatch();
       if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
       setBackgroundInert(false);
     }
@@ -40974,6 +41079,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       }
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
+      startViewportWatch();
       setBackgroundInert(true);
       setTimeout(function () { mGate.check(); try { mAgree.blur(); } catch (e) {} }, 0);
     }
@@ -41102,6 +41208,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       recheck: recheck,
       show: show,
       hide: hide,
+      syncViewport: syncModalViewport,
       isOpen: function () { return !!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')); },
       rememberLocal: rememberLocal,
       forgetLocal: forgetLocal,
