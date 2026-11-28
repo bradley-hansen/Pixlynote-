@@ -139,6 +139,14 @@ function mockWorker(req) {
   if (/\/email/i.test(pathPart)) {
     return { ok: true, debug_code: VERIFY_CODE };
   }
+  if (/\/sync-subscription/i.test(pathPart)) {
+    // Default: the live Worker saved it. Tests that need a failure override window.fetch.
+    const dec = String(json.action || 'sync');
+    return { ok: true, applied: true, fields: { username: json.username || '', isBusinessPlus: dec !== 'cancel' } };
+  }
+  if (/\/business-verification\/pending-count/i.test(pathPart)) {
+    return { ok: true, pending: 1 };
+  }
   if (/verify-stripe-session/i.test(pathPart)) {
     return { valid: false, status: 'unpaid' };
   }

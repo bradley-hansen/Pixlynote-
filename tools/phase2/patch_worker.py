@@ -41,7 +41,11 @@ function plusFieldsFromSession(body, username, sessionId) {
   const pub = { username };
   const priv = {};
   if (plan === "business" || body.is_business) {
-    pub.isBusinessPlus = body.plus_active !== false && body.verified !== false && !body.canceled;
+    // Business sessions are never "verified" (that flag is Plus-only). A paid or no-payment-required (free / $0)
+    // Business Checkout Session whose subscription is still alive turns Business Plus on.
+    const bizPaid = body.status === "complete" && (body.payment_status === "paid" || body.payment_status === "no_payment_required");
+    const bizAlive = body.mode !== "subscription" || ["active", "trialing", "past_due"].includes(body.subscription_status);
+    pub.isBusinessPlus = bizPaid && bizAlive && !body.canceled;
     pub.businessPlusUpdatedAt = now;
     if (sessionId) pub.stripeBusinessSessionId = sessionId;
     if (body.subscription_id) priv.stripeBusinessSubscriptionId = body.subscription_id;
@@ -91,15 +95,71 @@ async function handleSyncSubscription(req, env, cors, body) {
   const sessionBody = Object.assign({}, verified.body);
   if (action === "cancel") { sessionBody.canceled = true; sessionBody.plus_active = false; }
   if (action === "cancel_at_period_end") { sessionBody.cancel_at_period_end = true; }
+  // A session that is neither a Plus nor a Business Plus purchase must never touch membership flags.
+  if (action !== "cancel" && !sessionBody.plan) return json({ ok: false, error: "not_a_membership_purchase" }, 422, cors);
   try {
+    // A free / $0 Business Plus activation gets a $0 History record (written first, so a failure changes nothing).
+    let billing = false;
+    if (action === "activate" && sessionBody.plan === "business" && businessSessionIsFree(sessionBody)) {
+      await fsPatchDoc(env, "users/" + encodeURIComponent(username) + "/billing/" + encodeURIComponent(sessionId), {
+        kind: "subscription", item: "Business Plus (free)", amountCents: 0,
+        currency: String(sessionBody.currency || "usd").toLowerCase(), status: "free",
+        note: "Free: no payment required",
+        createdAt: (Number(sessionBody.created) || Math.floor(Date.now() / 1000)) * 1000,
+        sessionId: sessionId, livemode: !!sessionBody.livemode, source: "sync_free", updatedAt: Date.now(),
+      });
+      billing = true;
+    }
     const pub = await applySubscriptionWrite(env, username, sessionBody, sessionId);
-    return json({ ok: true, applied: true, fields: pub }, 200, cors);
+    return json({ ok: true, applied: true, fields: pub, billing }, 200, cors);
   } catch (e) {
     return json({ ok: false, error: "write_failed" }, 502, cors);
   }
 }
+function businessSessionIsFree(b) {
+  const alive = b.mode !== "subscription" || ["active", "trialing", "past_due"].includes(b.subscription_status);
+  return b.status === "complete" && alive && !b.canceled && (b.payment_status === "no_payment_required" || b.amount_total === 0);
+}
+// Count only: how many Business verification applications are waiting for a decision. No names, no details.
+// Public on purpose (the admin menu shows it before the admin token is typed); everything else stays behind ADMIN_TOKEN.
+async function handleBusinessVerificationPendingCount(req, env, cors) {
+  const origin = req.headers.get("Origin") || "";
+  if (!originAllowed(origin, env)) return json({ ok: false, error: "origin_not_allowed" }, 403, cors);
+  const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+  const rl = await env.GUARD.get(env.GUARD.idFromName("global")).hit([{ k: `bizcount:ip:${ip}`, limit: 60, win: 600 }]);
+  if (!rl.ok) return json({ ok: false, error: "rate_limited" }, 429, cors);
+  const bucket = r2Bucket(env);
+  if (!bucket) return json({ ok: false, error: "storage_not_configured" }, 503, cors);
+  try {
+    let pending = 0, cursor, pages = 0;
+    do {
+      const listed = await bucket.list({ prefix: "business-verify/", limit: 500, cursor });
+      for (const obj of (listed && listed.objects) || []) {
+        if (!obj.key || !obj.key.endsWith("/meta.json")) continue;
+        const got = await bucket.get(obj.key);
+        if (!got) continue;
+        let meta; try { meta = await got.json(); } catch (e) { continue; }
+        if (meta && meta.status === "pending") pending++;
+      }
+      cursor = listed && listed.truncated ? listed.cursor : undefined;
+      pages++;
+    } while (cursor && pages < 10);
+    return json({ ok: true, pending }, 200, cors);
+  } catch (e) {
+    return json({ ok: false, error: "count_failed" }, 502, cors);
+  }
+}
 
 '''
+
+rep(
+    "    price_ids, plan,\n",
+    "    price_ids, plan, created: s.created || null, amount_total: typeof s.amount_total === \"number\" ? s.amount_total : null, currency: s.currency || \"usd\",\n"
+)
+rep(
+    "      if (req.method === \"GET\" && path === \"/business-verification/status\") {",
+    "      if (req.method === \"GET\" && path === \"/business-verification/pending-count\") return handleBusinessVerificationPendingCount(req, env, cors);\n      if (req.method === \"GET\" && path === \"/business-verification/status\") {"
+)
 
 # Insert before the fetch handler / after reset password section
 rep(

@@ -534,9 +534,9 @@ module.exports = {
         a.ok(saved.cancelCalls.some((c) => c.kind === 'plus' && c.username), 'Save calls the Worker to cancel the Plus subscription');
         a.ok(saved.subModalOpen && saved.bizBtnId === 'buy_btn_1UdKTrFSVMbdmupTOj95P7R5' && !saved.bizBtnHidden, 'Business Plus checkout (buy_btn_1UdKTrFSVMbdmupTOj95P7R5) is offered after save');
 
-        const restored = await page.evaluate(() => {
+        const restored = await page.evaluate(async () => {
           const u = state.currentUser;
-          if (typeof applyBusinessPlusVerification === 'function') applyBusinessPlusVerification(u.username, 'cs_test_abcdefghijklmnopqrstuvwxyz');
+          if (typeof applyBusinessPlusVerification === 'function') await applyBusinessPlusVerification(u.username, 'cs_test_abcdefghijklmnopqrstuvwxyz');
           return {
             isBusinessPlus: u.isBusinessPlus === true,
             isPlus: u.isPlus === true,

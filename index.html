@@ -7448,8 +7448,46 @@
     window.showAdminRefreshedAt = showAdminRefreshedAt;
     window.showBusinessVerificationAdminTokenError = showBusinessVerificationAdminTokenError;
     window.syncBusinessVerificationAdminLoadBtn = syncBusinessVerificationAdminLoadBtn;
+    // The green number is how many Business applications are still Pending Review. The Worker's count-only route needs
+    // no token (it returns just a number); names and details, and Approve / More Info / Reject, still need the admin token.
+    // A failed fetch shows a dash and a message, never a made-up 0.
+    function paintBusinessVerificationCount(n, errMsg) {
+      const el = document.getElementById('business-verification-admin-count');
+      const err = document.getElementById('business-verification-count-error');
+      const ok = Number.isInteger(n) && n >= 0;
+      if (el) {
+        el.textContent = ok ? String(n) : '\u2013';
+        el.setAttribute('title', ok ? (n + ' pending application' + (n === 1 ? '' : 's')) : 'Count unavailable');
+        el.setAttribute('data-count-state', ok ? 'ok' : 'error');
+      }
+      if (err) {
+        err.textContent = ok ? '' : (errMsg || "Couldn't load the pending count. Tap refresh to try again.");
+        err.classList.toggle('hidden', ok);
+      }
+      window._bizVerPendingCount = ok ? n : null;
+    }
+    async function refreshBusinessVerificationPendingCount() {
+      const seq = (window._bizVerCountSeq = (window._bizVerCountSeq || 0) + 1);
+      try {
+        const res = await fetch(PIXLYNOTE_API_ENDPOINT + '/business-verification/pending-count', { headers: { 'Accept': 'application/json' } });
+        const data = await res.json().catch(function () { return null; });
+        if (seq !== window._bizVerCountSeq) return null;
+        if (!res.ok || !data || data.ok !== true || !Number.isInteger(data.pending) || data.pending < 0) {
+          paintBusinessVerificationCount(null);
+          return null;
+        }
+        paintBusinessVerificationCount(data.pending);
+        return data.pending;
+      } catch (e) {
+        if (seq === window._bizVerCountSeq) paintBusinessVerificationCount(null);
+        return null;
+      }
+    }
+    window.paintBusinessVerificationCount = paintBusinessVerificationCount;
+    window.refreshBusinessVerificationPendingCount = refreshBusinessVerificationPendingCount;
     async function refreshBusinessVerificationAdmin(manualRefresh) {
       if (manualRefresh === undefined) manualRefresh = false;
+      if (manualRefresh) refreshBusinessVerificationPendingCount();
       const list = document.getElementById('drawer-business-verification-list');
       const count = document.getElementById('business-verification-admin-count');
       const btn = document.getElementById('btn-refresh-business-verifications');
@@ -7486,7 +7524,8 @@
           return;
         }
         const apps = (data && data.applications) || [];
-        if (count) count.textContent = String(apps.length);
+        window._bizVerCountSeq = (window._bizVerCountSeq || 0) + 1; // the loaded list is the newest truth
+        paintBusinessVerificationCount(apps.filter(function (app) { return normalizeBusinessVerificationStatus(app && app.status) === 'pending'; }).length);
         showAdminRefreshedAt('business-verification-admin-refreshed', Date.now());
         if (!list) return;
         if (!apps.length) {
@@ -35524,6 +35563,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       if (verifBox) {
         if (activeNormU === 'pixlynote') {
           verifBox.classList.remove('hidden');
+          if (typeof refreshBusinessVerificationPendingCount === 'function') refreshBusinessVerificationPendingCount();
           if (typeof refreshVerificationRequests === 'function') {
             refreshVerificationRequests(false);
           }
@@ -36002,7 +36042,8 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
           } catch (e) {}
           return false;
         }
-        applyBusinessPlusVerification(username, pendingSid);
+        const bizSaved = await applyBusinessPlusVerification(username, pendingSid);
+        if (!bizSaved) return false; // keep the pending session so the next sign-in retries the save
         try { localStorage.removeItem('pixly_pending_stripe_kind'); } catch (e) {}
         return true;
       }
@@ -36399,23 +36440,44 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
     }
     window.applyStripeSubscriptionCancellation = applyStripeSubscriptionCancellation;
 
-    function applyBusinessPlusVerification(username, sessionId) {
-      if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return;
+    // Business Plus is on only after the Worker confirms it saved isBusinessPlus:true for this paid or free Stripe session.
+    // If the save fails nothing changes on screen, the pending session stays queued so the next sign-in retries it,
+    // and the toast says so. The toast only promises the green check when it is really showing (approved application).
+    const BIZ_PLUS_TOAST_BADGE = 'Business Plus activated! Green badge enabled \u2713';
+    const BIZ_PLUS_TOAST_PENDING = 'Business Plus is active. The green check appears after your application is approved.';
+    const BIZ_PLUS_TOAST_SAVE_FAILED = "We couldn't save Business Plus. Nothing was changed. Try again, or contact support@pixlynote.com.";
+    window.BIZ_PLUS_TOAST_BADGE = BIZ_PLUS_TOAST_BADGE;
+    window.BIZ_PLUS_TOAST_PENDING = BIZ_PLUS_TOAST_PENDING;
+    window.BIZ_PLUS_TOAST_SAVE_FAILED = BIZ_PLUS_TOAST_SAVE_FAILED;
+    async function applyBusinessPlusVerification(username, sessionId) {
+      if (!username || !sessionId || !/^cs_(test|live)_[A-Za-z0-9_]{10,}$/.test(String(sessionId).trim())) return false;
       const cleanU = normalizeUsername(username);
-      if (!cleanU) return;
-      if (state.currentUser && normalizeUsername(state.currentUser.username) === cleanU) {
+      if (!cleanU) return false;
+      let res = null;
+      try { res = await syncSubscriptionWithWorker({ username: cleanU, session_id: sessionId, action: 'activate' }); } catch (e) { res = null; }
+      const saved = !!(res && res.ok === true && res.data && res.data.applied === true && res.data.fields && res.data.fields.isBusinessPlus === true);
+      if (!saved) {
+        window._lastBusinessPlusSaveError = (res && res.data && res.data.error) || (res && res.error) || 'save_failed';
+        if (typeof showToast === 'function') showToast(BIZ_PLUS_TOAST_SAVE_FAILED);
+        return false;
+      }
+      window._lastBusinessPlusSaveError = '';
+      const isCurrent = !!(state.currentUser && normalizeUsername(state.currentUser.username) === cleanU);
+      if (isCurrent) {
         state.currentUser.isBusinessPlus = true;
         state.currentUser.stripeBusinessSessionId = sessionId;
       }
       const stripeIdFields = applyStripeIdsFromSessionData(window._lastStripeSessionData && window._lastStripeSessionData.session_id === sessionId ? window._lastStripeSessionData : null, 'business');
       if (typeof syncGovOrgVerificationWithSubscription === 'function') syncGovOrgVerificationWithSubscription(cleanU);
       try { localStorage.removeItem('pixly_pending_stripe_session'); } catch(e) {}
+      if (isCurrent) persistCurrentUserSubscription();
       if (typeof renderProfile === 'function') renderProfile();
       if (typeof renderNotes === 'function') renderNotes();
       if (typeof renderFeed === 'function') renderFeed();
       if (typeof updateSubscriptionModalUI === 'function') updateSubscriptionModalUI();
-      queueSubscriptionSync({ username: cleanU, session_id: sessionId, action: 'activate' });
-      if (typeof showToast === 'function') showToast('Business Plus activated! Green badge enabled ✓');
+      const badgeShown = typeof isBusinessPlusShown === 'function' && isBusinessPlusShown(isCurrent ? state.currentUser : cleanU) === true;
+      if (typeof showToast === 'function') showToast(badgeShown ? BIZ_PLUS_TOAST_BADGE : BIZ_PLUS_TOAST_PENDING);
+      return true;
     }
     window.applyBusinessPlusVerification = applyBusinessPlusVerification;
 
@@ -38100,7 +38162,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               try { localStorage.setItem('pixly_pending_stripe_session', token); } catch (e) {}
               clearCheckoutMarkers();
               clearStripeReturnQuery();
-              applyBusinessPlusVerification(forUser, token);
+              await applyBusinessPlusVerification(forUser, token);
             } else if (plan === 'plus' && stripeSessionGrantsPlus(data, forUser)) {
               try { localStorage.setItem('pixly_pending_stripe_session', token); } catch (e) {}
               clearCheckoutMarkers();
@@ -40101,9 +40163,10 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               <div>
                 <div class="flex items-center space-x-1.5">
                   <span class="font-extrabold text-xs text-neutral-900 leading-tight">Business Verification</span>
-                  <span id="business-verification-admin-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0</span>
+                  <span id="business-verification-admin-count" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800" title="Pending applications">\u2013</span>
                 </div>
                 <div class="text-[10px] font-medium text-slate-600 leading-tight">Manual review only — no auto-approval</div>
+                <div id="business-verification-count-error" class="hidden text-[10px] font-semibold text-rose-600 leading-tight" role="alert"></div>
                 <div id="business-verification-admin-refreshed" class="hidden text-[10px] font-medium text-slate-500 leading-tight"></div>
               </div>
               <button type="button" id="btn-refresh-business-verifications" onclick="refreshBusinessVerificationAdmin(true)" class="p-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-white/80 transition cursor-pointer flex-shrink-0" title="Refresh business verifications">
@@ -40119,7 +40182,7 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
               <div id="business-verification-admin-token-error" class="hidden mt-1 text-[10px] font-semibold text-rose-600 leading-tight" role="alert"></div>
             </div>
             <div id="drawer-business-verification-list" class="max-h-56 overflow-y-auto space-y-1.5 pr-0.5">
-              <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No business verification applications</div>
+              <div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Enter the admin token to load applications. It is kept in this session only.</div>
             </div>
           </div>
 

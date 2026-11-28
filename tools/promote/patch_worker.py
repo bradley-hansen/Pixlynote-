@@ -356,6 +356,9 @@ async function handleBillingEvent(env, cors, type, o) {
       if (!USER_RE.test(username) || !(await fsGetDocAdmin(env, "users/" + encodeURIComponent(username)))) return json({ received: true, ignored: "unknown_user" }, 200, cors);
       const cust = typeof o.customer === "string" ? o.customer : (o.customer && o.customer.id) || "";
       if (cust) await guard.billMapSet("cus:" + cust, username);
+      // /sync-subscription already wrote a "Business Plus (free)" $0 record for this session: keep it.
+      const priorBilling = await fsGetDocAdmin(env, "users/" + encodeURIComponent(username) + "/billing/" + encodeURIComponent(o.id));
+      if (priorBilling && fsVal(priorBilling.status) === "free") return json({ received: true, billing: true, kept: "free" }, 200, cors);
       const status = o.payment_status === "paid" ? "paid" : (o.payment_status === "no_payment_required" ? "trial" : "pending");
       await billingUpsert(env, username, o.id, { kind: "subscription", item: "Pixlynote subscription", amountCents: Number(o.amount_total) || 0,
         currency: String(o.currency || "usd").toLowerCase(), status, createdAt: (Number(o.created) || Math.floor(Date.now() / 1000)) * 1000,

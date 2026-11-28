@@ -48,7 +48,7 @@ module.exports = {
       covers: ['el:#pixly-stripe-business-buy-btn', 'el:#sub-business-plus-box', 'el:#sub-business-active-pill'],
       async run(ctx) {
         const { page, a, account } = ctx;
-        const info = await page.evaluate(() => {
+        const info = await page.evaluate(async () => {
           if (typeof openSubscriptionModal === 'function') openSubscriptionModal();
           const plusBtn = document.getElementById('pixly-stripe-buy-btn');
           const bizBtn = document.getElementById('pixly-stripe-business-buy-btn');
@@ -66,7 +66,7 @@ module.exports = {
             isBusinessPlus: !!(state.currentUser && state.currentUser.isBusinessPlus)
           };
           if (isBiz && typeof applyBusinessPlusVerification === 'function') {
-            applyBusinessPlusVerification(state.currentUser.username, 'cs_test_businessplus1234567890');
+            await applyBusinessPlusVerification(state.currentUser.username, 'cs_test_businessplus1234567890');
           }
           const html = (typeof creatorStatusBadgesHtml === 'function' && state.currentUser)
             ? creatorStatusBadgesHtml(state.currentUser)
