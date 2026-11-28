@@ -318,12 +318,13 @@ service cloud.firestore {
     }
     // Legacy Terms 30+30 (worker-owned fields). While users/{u} is disabled for not accepting the Terms
     // (deactivationReason 'terms'), the owner can only lift it by recording consent in the same write;
-    // otherwise it stays disabled with the same reason and Day 60 date. tosNoticeAt / termsDisabledAt /
-    // termsRemindersSent are set by the worker (admin) and the owner may change them only when accepting.
+    // otherwise it stays disabled with the same reason and Day 60 date. The worker-owned fields (notice date, per-day
+    // email flags, Day 30 subscription-cancel record, error notes) are admin-only unless the owner is accepting, so an owner
+    // can't fake "already canceled" or "already emailed" to dodge the nightly sweep.
     function termsHoldOk() {
       let d = request.resource.data;
       return (changed().hasAny(['tosAcceptedAt']) && d.get('tosAcceptedAt', 0) is number && d.get('tosAcceptedAt', 0) > 0)
-          || (!changed().hasAny(['tosNoticeAt', 'termsDisabledAt', 'termsRemindersSent'])
+          || (!changed().hasAny(['tosNoticeAt', 'termsDisabledAt', 'termsEmailsSent', 'termsSubscriptionCanceledAt', 'termsStripeCancelError', 'termsPurgeError'])
               && (resource.data.get('deactivationReason', '') != 'terms'
                   || (d.get('deactivated', false) == true && d.get('deactivationReason', '') == 'terms'
                       && d.get('scheduledDeletionAt', 0) == resource.data.get('scheduledDeletionAt', 0))));

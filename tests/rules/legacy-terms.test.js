@@ -1,7 +1,7 @@
 'use strict';
 // Legacy Terms 30+30 (branch legacy-terms-standing-nov28). Rules emulator only, never production.
 // users/{u} with deactivationReason 'terms' (set by the worker on Day 30) stays disabled unless the owner records
-// consent in the same write. Worker fields tosNoticeAt / termsDisabledAt / termsRemindersSent are admin-only
+// consent in the same write. Worker fields tosNoticeAt / termsDisabledAt / termsEmailsSent / termsSubscriptionCanceledAt are admin-only
 // except when the owner is accepting. users/{u}/private/account.lastLoginAt is owner-only (existing private rules).
 const { test, before, after, beforeEach } = require('node:test');
 const fs = require('fs');
@@ -90,8 +90,10 @@ test('legacy terms: the worker/admin can record the Day 30 subscription cancel o
 
 test('legacy terms: the owner cannot edit the worker fields unless accepting', async () => {
   await assertFails(updateDoc(doc(real(UID.legacy), 'users/legacy'), { tosNoticeAt: Date.now() + 365 * DAY }));
-  await assertFails(updateDoc(doc(real(UID.legacy), 'users/legacy'), { termsRemindersSent: [23, 30, 53] }));
+  await assertFails(updateDoc(doc(real(UID.legacy), 'users/legacy'), { termsEmailsSent: { d23: 1, d30: 1, d53: 1 } }));
   await assertFails(updateDoc(doc(real(UID.held), 'users/held'), { termsDisabledAt: null }));
+  await assertFails(updateDoc(doc(real(UID.legacy), 'users/legacy'), { termsSubscriptionCanceledAt: Date.now() }));
+  await assertFails(updateDoc(doc(real(UID.legacy), 'users/legacy'), { termsPurgeError: 'x' }));
   await assertSucceeds(updateDoc(doc(real(UID.legacy), 'users/legacy'), { tosAcceptedAt: Date.now(), tosVersion: '2026-11-28', tosNoticeAt: null }));
 });
 
@@ -107,7 +109,7 @@ test('legacy terms: decline from the modal (deactivate with declined_terms) is a
 });
 
 test('legacy terms: the worker/admin can set and clear the hold and notice fields', async () => {
-  await assertSucceeds(updateDoc(doc(real(UID.admin), 'users/legacy'), { tosNoticeAt: Date.now(), termsRemindersSent: [23] }));
+  await assertSucceeds(updateDoc(doc(real(UID.admin), 'users/legacy'), { tosNoticeAt: Date.now(), termsEmailsSent: { d23: Date.now() } }));
   await assertSucceeds(updateDoc(doc(real(UID.admin), 'users/legacy'), { deactivated: true, deactivationReason: 'terms', termsDisabledAt: Date.now(), scheduledDeletionAt: Date.now() + 30 * DAY }));
 });
 
