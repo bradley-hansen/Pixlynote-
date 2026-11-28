@@ -3966,19 +3966,39 @@
           <button type="button" id="btn-ac-info-tab-business" onclick="setAccountInfoTab('business')" class="hidden py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Business History</button>
         </div>
         <div id="ac-info-panel-business" class="hidden space-y-3">
-          <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Changes you save to your business details in Edit profile are listed here, newest first. Only you can see this tab. The last 20 changes per item are kept.</p>
+          <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Changes you save to your business details in Edit profile, and your Business verification applications, are listed here, newest first. Only you can see this tab. The last 20 changes per item are kept. Tax IDs show only their last 4 digits, and documents show only the file name and size.</p>
           <label for="ac-business-history-field" class="block text-[11px] font-bold text-neutral-700 px-1">Show</label>
           <select id="ac-business-history-field" onchange="renderBusinessHistoryPanel()" class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-300">
-            <option value="all">All business changes</option>
-            <option value="dbaName">DBA / Trade Name</option>
-            <option value="businessIndustry">Industry / Category</option>
-            <option value="businessStreet">Street address</option>
-            <option value="businessCity">City</option>
-            <option value="businessState">State</option>
-            <option value="businessPostal">ZIP</option>
-            <option value="businessAddressVisibility">Address visibility</option>
-            <option value="businessHours">Hours of operation</option>
-            <option value="businessSupportEmail">Support email</option>
+            <option value="all">All changes</option>
+            <optgroup label="Business details">
+              <option value="business">Business detail changes</option>
+              <option value="dbaName">DBA / Trade Name</option>
+              <option value="businessIndustry">Industry / Category</option>
+              <option value="businessStreet">Street address</option>
+              <option value="businessCity">City</option>
+              <option value="businessState">State</option>
+              <option value="businessPostal">ZIP</option>
+              <option value="businessAddressVisibility">Address visibility</option>
+              <option value="businessHours">Hours of operation</option>
+              <option value="businessSupportEmail">Support email</option>
+            </optgroup>
+            <optgroup label="Verification">
+              <option value="verification">Verification changes</option>
+              <option value="verifLegalName">Legal Business Name</option>
+              <option value="verifDbaName">DBA / Trade Name (verification)</option>
+              <option value="verifEntityType">Entity Type</option>
+              <option value="verifCountry">Country</option>
+              <option value="verifTaxId">EIN / Federal TIN</option>
+              <option value="verifRegistrationNumber">State / Local Registration Number</option>
+              <option value="verifArticles">Articles / Certificate document</option>
+              <option value="verifTaxLetter">IRS CP 575 / W-9 document</option>
+              <option value="verifAddressProof">Utility bill / bank statement document</option>
+              <option value="verifDomainEmail">Business email</option>
+              <option value="verifTrademark">Trademark Registration Number</option>
+              <option value="verifRepName">Authorized representative: Full legal name</option>
+              <option value="verifRepTitle">Authorized representative: Title</option>
+              <option value="verifPhotoId">Government-issued photo ID</option>
+            </optgroup>
           </select>
           <div id="ac-business-history-list" class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden" aria-live="polite"></div>
         </div>
@@ -7296,6 +7316,21 @@
       if (!articles || !articles[0]) { setBusinessVerificationFormStatus('Upload Articles of Organization / Incorporation or a Certificate of Good Standing.', true); return false; }
       if (!photoId || !photoId[0]) { setBusinessVerificationFormStatus('Upload a government-issued photo ID.', true); return false; }
       const files = [articles[0], taxLetter && taxLetter[0], addressProof && addressProof[0], photoId[0]].filter(Boolean);
+      // Business History > Verification: what was submitted, captured now (the form is cleared after a successful submit).
+      // Documents are recorded as file name + size only; the tax ID is masked inside the history helpers.
+      const _optLabel = function (id, val) {
+        const sel = document.getElementById(id);
+        const o = sel && Array.prototype.find.call(sel.options || [], function (x) { return x.value === val; });
+        return o ? String(o.textContent || '').trim() : String(val || '');
+      };
+      const historySubmitted = {
+        legal: legal, dba: dba || user.dbaName || '', entityTypeLabel: _optLabel('bizver-entity-type', entityType), countryLabel: _optLabel('bizver-country', country),
+        taxId: taxId, reg: reg, trademark: trademark, repName: repName, repTitle: repTitle, domainEmail: domainEmail,
+        articlesDoc: (typeof verificationDocForHistory === 'function') ? verificationDocForHistory(articles[0]) : '',
+        taxLetterDoc: (typeof verificationDocForHistory === 'function') ? verificationDocForHistory(taxLetter && taxLetter[0]) : '',
+        addressProofDoc: (typeof verificationDocForHistory === 'function') ? verificationDocForHistory(addressProof && addressProof[0]) : '',
+        photoIdDoc: (typeof verificationDocForHistory === 'function') ? verificationDocForHistory(photoId[0]) : ''
+      };
       for (let i = 0; i < files.length; i++) {
         if (fileTooLarge(files[i])) { setBusinessVerificationFormStatus('Each file must be 10 MB or smaller.', true); return false; }
       }
@@ -7344,6 +7379,7 @@
           return false;
         }
         applyBusinessVerificationPublicStatus(user, 'pending', { submittedAt: data.submittedAt || Date.now(), updatedAt: Date.now() });
+        try { if (typeof logVerificationSubmitHistory === 'function') logVerificationSubmitHistory(historySubmitted); } catch (hErr) {}
         window._lastBizVerEinCheck = data.einCheck || null;
         clearBusinessVerificationSensitiveFields();
         setBusinessVerificationFormStatus('Application submitted and pending review. You can continue to Business Plus checkout.', false);
@@ -25824,6 +25860,22 @@ function syncLikedStateToPosts() {
       businessHours: 'Hours of operation', businessSupportEmail: 'Support email'
     };
     window.BUSINESS_HISTORY_FIELDS = BUSINESS_HISTORY_FIELDS;
+    // Verification section: Business verification application fields, stored in the same profileHistory/{u}.business map
+    // under verif* keys (so the same rules, cap and rename/merge handling apply). Documents: file name + size only. EIN: last 4 only.
+    const VERIFICATION_HISTORY_FIELDS = ['verifLegalName', 'verifDbaName', 'verifEntityType', 'verifCountry', 'verifTaxId',
+      'verifRegistrationNumber', 'verifArticles', 'verifTaxLetter', 'verifAddressProof', 'verifDomainEmail', 'verifTrademark',
+      'verifRepName', 'verifRepTitle', 'verifPhotoId'];
+    const VERIFICATION_HISTORY_LABELS = {
+      verifLegalName: 'Legal Business Name', verifDbaName: 'DBA / Trade Name', verifEntityType: 'Entity Type', verifCountry: 'Country',
+      verifTaxId: 'EIN / Federal TIN', verifRegistrationNumber: 'State / Local Registration Number',
+      verifArticles: 'Articles/Certificate document', verifTaxLetter: 'IRS CP 575/W-9 document',
+      verifAddressProof: 'Utility bill/bank statement document', verifDomainEmail: 'Business email',
+      verifTrademark: 'Trademark Registration Number', verifRepName: 'Authorized representative: Full legal name',
+      verifRepTitle: 'Authorized representative: Title', verifPhotoId: 'Government-issued photo ID'
+    };
+    const VERIFICATION_DOC_FIELDS = ['verifArticles', 'verifTaxLetter', 'verifAddressProof', 'verifPhotoId'];
+    const BUSINESS_HISTORY_ALL_FIELDS = BUSINESS_HISTORY_FIELDS.concat(VERIFICATION_HISTORY_FIELDS);
+    window.VERIFICATION_HISTORY_FIELDS = VERIFICATION_HISTORY_FIELDS;
     function businessHistoryTabAllowed() {
       return !!(contactOwnerKey() && typeof isBusinessProfileUser === 'function' && isBusinessProfileUser(state.currentUser));
     }
@@ -25831,7 +25883,7 @@ function syncLikedStateToPosts() {
     function normalizeBusinessHistory(raw) {
       const out = {};
       const f = (raw && typeof raw === 'object') ? raw : {};
-      BUSINESS_HISTORY_FIELDS.forEach(k => {
+      BUSINESS_HISTORY_ALL_FIELDS.forEach(k => {
         out[k] = (Array.isArray(f[k]) ? f[k] : [])
           .filter(e => e && typeof e === 'object' && Number.isFinite(Number(e.at)))
           .map(e => {
@@ -25847,7 +25899,7 @@ function syncLikedStateToPosts() {
     function mergeBusinessHistory(fields, changes) {
       const out = normalizeBusinessHistory(fields);
       (changes || []).forEach(c => {
-        if (!c || BUSINESS_HISTORY_FIELDS.indexOf(c.field) < 0) return;
+        if (!c || BUSINESS_HISTORY_ALL_FIELDS.indexOf(c.field) < 0) return;
         const e = { from: historyClip(c.from), to: historyClip(c.to), at: Number(c.at) || Date.now(), by: String(c.by || '') };
         if (c.delegatedBy) e.delegatedBy = String(c.delegatedBy);
         out[c.field] = [e].concat(out[c.field]).sort((a, b) => b.at - a.at).slice(0, PROFILE_HISTORY_CAP);
@@ -25887,6 +25939,66 @@ function syncLikedStateToPosts() {
       return changes;
     }
     window.diffBusinessForHistory = diffBusinessForHistory;
+    // Mask a tax ID to its last 4 digits (US EIN: XX-XXX1234). The full number is never stored in history.
+    function maskTaxIdForHistory(raw) {
+      const digits = String(raw == null ? '' : raw).replace(/[^0-9A-Za-z]/g, '');
+      if (!digits) return '';
+      const last4 = digits.length >= 4 ? digits.slice(-4) : '';
+      if (!last4) return '••••';
+      return (/^\d{9}$/.test(digits) ? 'XX-XXX' : '••••') + last4;
+    }
+    window.maskTaxIdForHistory = maskTaxIdForHistory;
+    // A document as the history shows it: file name and size only, never the contents.
+    function verificationDocForHistory(file) {
+      if (!file || !file.name) return '';
+      const size = (typeof formatVerificationFileSize === 'function') ? formatVerificationFileSize(file.size) : '';
+      return String(file.name) + (size ? ' (' + size + ')' : '');
+    }
+    window.verificationDocForHistory = verificationDocForHistory;
+    // Snapshot of one submitted application, in the words the form uses (labels, not ids). Safe to store.
+    function verificationHistorySnapshot(v) {
+      v = v || {};
+      return {
+        verifLegalName: v.legal || '', verifDbaName: v.dba || '', verifEntityType: v.entityTypeLabel || '', verifCountry: v.countryLabel || '',
+        verifTaxId: maskTaxIdForHistory(v.taxId), verifRegistrationNumber: v.reg || '',
+        verifArticles: v.articlesDoc || '', verifTaxLetter: v.taxLetterDoc || '', verifAddressProof: v.addressProofDoc || '',
+        verifDomainEmail: v.domainEmail || '', verifTrademark: v.trademark || '', verifRepName: v.repName || '', verifRepTitle: v.repTitle || '',
+        verifPhotoId: v.photoIdDoc || ''
+      };
+    }
+    window.verificationHistorySnapshot = verificationHistorySnapshot;
+    // Compare a submitted application with the last logged value of each field (what the previous submit left).
+    // Documents are logged only when attached (the form is cleared after each submit, so a blank one is "not re-attached").
+    function diffVerificationForHistory(prevHist, after, actor) {
+      const at = Date.now();
+      const changes = [];
+      VERIFICATION_HISTORY_FIELDS.forEach(k => {
+        const list = (prevHist && prevHist[k]) || [];
+        const a = String(list.length ? list[0].to : '').trim();
+        const b = String((after || {})[k] == null ? '' : after[k]).trim();
+        if (VERIFICATION_DOC_FIELDS.indexOf(k) >= 0 && b === '') return;
+        const same = (k === 'verifDomainEmail') ? a.toLowerCase() === b.toLowerCase() : a === b;
+        if (!same) changes.push(Object.assign({ field: k, from: a, to: b, at }, actor || {}));
+      });
+      return changes;
+    }
+    window.diffVerificationForHistory = diffVerificationForHistory;
+    // Called by submitBusinessVerificationApplication only after the worker accepted the application.
+    async function logVerificationSubmitHistory(submitted) {
+      try {
+        const owner = contactOwnerKey();
+        if (!owner || !submitted) return false;
+        // Compare against the saved history (another device may have logged earlier submits); fall back to this device's copy.
+        try { await loadProfileHistory(); } catch (e) {}
+        if (contactOwnerKey() !== owner) return false;
+        const actor = (typeof businessHistoryActor === 'function') ? businessHistoryActor(owner) : { by: owner };
+        const changes = diffVerificationForHistory(getLocalBusinessHistory(owner), verificationHistorySnapshot(submitted), actor);
+        if (!changes.length) return false;
+        await recordBusinessHistory(owner, changes);
+        return true;
+      } catch (e) { return false; }
+    }
+    window.logVerificationSubmitHistory = logVerificationSubmitHistory;
     function setLocalBusinessHistory(u, fields) {
       window._businessHistory = { user: u, fields: normalizeBusinessHistory(fields), loaded: true };
       try { localStorage.setItem('pixly_business_history_' + u, JSON.stringify(window._businessHistory.fields)); } catch(e) {}
@@ -25935,9 +26047,12 @@ function syncLikedStateToPosts() {
       const sel = document.getElementById('ac-business-history-field');
       if (!list || !sel) return;
       const u = profileHistoryOwnerKey();
-      const field = (sel.value === 'all' || BUSINESS_HISTORY_FIELDS.indexOf(sel.value) >= 0) ? sel.value : 'all';
+      const field = (['all', 'business', 'verification'].indexOf(sel.value) >= 0 || BUSINESS_HISTORY_ALL_FIELDS.indexOf(sel.value) >= 0) ? sel.value : 'all';
       const hist = u ? getLocalBusinessHistory(u) : normalizeBusinessHistory(null);
-      const keys = field === 'all' ? BUSINESS_HISTORY_FIELDS : [field];
+      const keys = field === 'all' ? BUSINESS_HISTORY_ALL_FIELDS
+        : field === 'business' ? BUSINESS_HISTORY_FIELDS
+        : field === 'verification' ? VERIFICATION_HISTORY_FIELDS : [field];
+      const verifView = field === 'verification' || VERIFICATION_HISTORY_FIELDS.indexOf(field) >= 0;
       const entries = [];
       keys.forEach(k => (hist[k] || []).forEach(e => entries.push(Object.assign({ field: k }, e))));
       entries.sort((a, b) => b.at - a.at);
@@ -25946,7 +26061,7 @@ function syncLikedStateToPosts() {
         const empty = document.createElement('div');
         empty.id = 'ac-business-history-empty';
         empty.className = 'px-4 py-8 text-center text-xs font-semibold text-neutral-400';
-        empty.textContent = 'No business changes yet';
+        empty.textContent = verifView ? 'No verification changes yet' : 'No business changes yet';
         list.appendChild(empty);
         return;
       }
@@ -25955,9 +26070,11 @@ function syncLikedStateToPosts() {
         const row = document.createElement('div');
         row.className = 'ac-business-history-entry px-4 py-3 space-y-1';
         row.setAttribute('data-field', e.field);
+        const isVerif = VERIFICATION_HISTORY_FIELDS.indexOf(e.field) >= 0;
+        row.setAttribute('data-section', isVerif ? 'verification' : 'business');
         const label = document.createElement('div');
         label.className = 'ac-business-history-field text-[10px] font-bold uppercase tracking-wide text-neutral-500';
-        label.textContent = BUSINESS_HISTORY_LABELS[e.field] || e.field;
+        label.textContent = isVerif ? 'Verification · ' + VERIFICATION_HISTORY_LABELS[e.field] : (BUSINESS_HISTORY_LABELS[e.field] || e.field);
         const vals = document.createElement('div');
         vals.className = 'text-xs text-neutral-900 break-words';
         const from = document.createElement('span'); from.className = 'ac-business-history-from text-neutral-500 line-through decoration-neutral-300'; from.textContent = show(e.from);
