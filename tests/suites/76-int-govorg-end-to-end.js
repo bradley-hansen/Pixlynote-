@@ -527,7 +527,6 @@ module.exports = {
       name: 'Organization Submit with an official email: when the Firestore write fails, the app must not say Pending review',
       accounts: ['business'],
       covers: ['el:#btn-submit-verification-request', 'handler:submitVerificationRequest'],
-      knownBug: 'BUG-3 Gov/Org "Submit request" shows "Pending review, usually approved within 24 hours." even when the verificationRequests write fails (writeVerificationDocs swallows the error), so the request never reaches the admin list',
       async run({ page, h, a }) {
         await resetVerification(page, { plus: true });
         const w = await routeEmailWorker(page);
@@ -555,6 +554,14 @@ module.exports = {
             if (!/pending review/i.test(ui.status) && !ui.statusIsError) throw new Error('PRECONDITION (not the bug): submit ended with an unexpected message: "' + ui.status + '"');
             a.ok(!/pending review/i.test(ui.status) && ui.userStatus !== 'pending', 'Must not say Pending review or mark the account pending when nothing was saved, got "' + ui.status + '" / ' + ui.userStatus);
             a.ok(ui.statusIsError, 'A failed save shows a red error');
+            a.ok(ui.modalOpen && ui.verified, 'The form stays open and the email stays verified, so the user can retry');
+            // Retry once the connection is back: now it really is submitted.
+            await page.evaluate(() => { window.__pfs.failWrites = false; });
+            await page.click('#btn-submit-verification-request');
+            await page.waitForTimeout(500);
+            const retry = await formUi(page);
+            a.ok(/pending review/i.test(retry.status) && retry.userStatus === 'pending', 'The retry is submitted and shows Pending review, got "' + retry.status + '"');
+            a.equal((await fsWrites(page)).length >= 1, true, 'The retry writes verificationRequests');
           });
         } finally {
           await w.restore();
@@ -566,7 +573,6 @@ module.exports = {
       name: 'Gov/Org Submit when Firebase is not connected: the app must not say Pending review for a request that only exists on this device',
       accounts: ['personal'],
       covers: ['el:#btn-submit-verification-request', 'handler:submitVerificationRequest'],
-      knownBug: 'BUG-6 Gov/Org "Submit request" shows "Pending review, usually approved within 24 hours." when Firebase is not connected (writeVerificationDocs returns written:true, local:true), so the request is only saved in this browser and never reaches the admin list',
       async run({ page, h, a }) {
         await resetVerification(page, { plus: true });
         try {
@@ -579,6 +585,8 @@ module.exports = {
           const ui = await formUi(page);
           await page.evaluate((r) => { window.firebaseReady = r; }, ready);
           a.ok(!/pending review/i.test(ui.status), 'Must not say Pending review when the request could not be sent, got "' + ui.status + '"');
+          a.ok(ui.statusIsError && /isn.t connected|couldn.t send/i.test(ui.status), 'Shows an error, got "' + ui.status + '"');
+          a.ok(ui.modalOpen && ui.userStatus !== 'pending', 'The form stays open and the account is not marked pending');
         } finally {
           await cleanup(page, h);
         }

@@ -398,7 +398,6 @@ module.exports = {
       name: 'Gov/Org Submit request: when the Firestore write fails, the app must not say Pending review',
       accounts: ['personal'],
       covers: ['el:#btn-submit-verification-request', 'handler:submitVerificationRequest'],
-      knownBug: 'BUG-3 Gov/Org "Submit request" shows "Pending review, usually approved within 24 hours." even when the verificationRequests write fails (writeVerificationDocs swallows the error), so the request never reaches the admin list',
       async run({ page, a }) {
         await setPlus(page);
         await page.evaluate(installPixlyMockFirestore, {});
@@ -413,6 +412,9 @@ module.exports = {
           }));
           a.equal(r.written, 0, 'The mock rejected every write');
           a.ok(!/pending review/i.test(r.ui), 'Must not say Pending review when nothing was saved, got "' + r.ui + '"');
+          a.ok(/couldn.t send|nothing was submitted/i.test(r.ui), 'Shows an error, got "' + r.ui + '"');
+          a.ok(await page.evaluate(() => { const m = document.getElementById('modal-verification-request'); return !!m && !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none'; }), 'The form stays open');
+          a.ok(await page.evaluate(() => !state.currentUser.verificationStatus), 'The account is not marked pending');
         } finally {
           await page.evaluate(() => { if (window.__pfs) window.__pfs.failWrites = false; }).catch(() => {});
           await page.evaluate(uninstallPixlyMockFirestore).catch(() => {});

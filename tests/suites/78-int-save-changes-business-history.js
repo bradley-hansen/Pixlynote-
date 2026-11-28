@@ -83,10 +83,9 @@ module.exports = {
       }
     },
     {
-      name: 'Save Changes by tap (business): when the cloud save fails, the profile must not show the unsaved values as saved',
+      name: 'Save Changes by tap (business): when the cloud save fails, the form stays open with the edits and the profile keeps the saved values',
       accounts: ['business'],
       covers: ['el:#btn-save-edit-profile', 'listener:#edit-profile-form:submit'],
-      knownBug: 'BUG-7 Edit Profile Save Changes: when the cloud write fails, the form still closes and the profile shows the new values as if they were saved (only a toast says it failed); the cloud keeps the old values',
       async run({ page, h, a, account }) {
         const me = account.username;
         await sandbox(page, h, me, async () => {
@@ -100,7 +99,10 @@ module.exports = {
           a.equal(r.cloudDba, 'Start DBA', 'The cloud kept the old DBA');
           a.ok(!r.toasts.some((t) => /updated successfully|saved!/i.test(t)), 'Never says saved');
           a.equal(r.history.length, 0, 'Business History logs nothing');
-          a.ok(r.formOpen || r.shownDba === 'Start DBA', 'Either the form stays open with the edit for a retry, or the profile still shows the saved value; got ' + JSON.stringify({ formOpen: r.formOpen, shownDba: r.shownDba }));
+          a.ok(r.formOpen, 'The form is open for a retry');
+          a.equal(await page.inputValue('#edit-profile-dba-name'), 'Unsaved DBA', 'The form still holds the edit');
+          a.equal(r.shownDba, 'Start DBA', 'The profile does not show the unsaved DBA');
+          a.ok(r.toasts.some((t) => /couldn't save your profile changes/i.test(t)), 'An error toast is shown');
         });
       }
     },
@@ -116,9 +118,8 @@ module.exports = {
           await page.evaluate(() => { window.__pfs.failWrites = true; });
           await tapSave(page);
           await page.evaluate(() => { window.__pfs.failWrites = false; window.__ssToasts = []; });
-          await h.openEditProfile(page);
-          const val = await page.inputValue('#edit-profile-dba-name');
-          if (val !== 'Retry DBA') await page.fill('#edit-profile-dba-name', 'Retry DBA');
+          // The form is still open with the edit: just tap Save Changes again (no reopening, no retyping).
+          if ((await page.inputValue('#edit-profile-dba-name')) !== 'Retry DBA') throw new Error('The form did not keep the edit after the failed save');
           await tapSave(page);
           const r = await snapshot(page, me);
           if (r.cloudDba !== 'Retry DBA') throw new Error('PRECONDITION (not the bug): the retry did not save: ' + JSON.stringify(r));

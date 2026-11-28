@@ -145,7 +145,6 @@ module.exports = {
       name: 'Admin Verification Requests Approve and Reject: when the Firestore write fails, the admin is not told it worked and the requester is not notified',
       accounts: ['pixlynote'],
       covers: ['handler:approveVerificationRequest', 'handler:rejectVerificationRequest', 'handler:notifyVerificationDecision'],
-      knownBug: 'BUG-4 Admin Verification Requests Approve/Reject toast "Approved @user ..." / "Rejected ..." and notify the requester even when the Firestore write fails (writeVerificationDocs swallows the error)',
       async run({ page, a }) {
         await page.evaluate(installPixlyMockFirestore, {
           'verificationRequests/gov_fail': { username: 'gov_fail', type: 'government', entityName: 'City of Galloway', status: 'pending', requestedAt: Date.now() }
@@ -161,6 +160,10 @@ module.exports = {
           const n = await page.evaluate(() => window.__intNotifs.slice());
           a.equal(await page.evaluate(() => window.__pfs.docs['verificationRequests/gov_fail'].status), 'pending', 'The stored request is still pending (the write failed)');
           a.ok(!t.some((m) => /^approved|^rejected/i.test(m)), 'No Approved/Rejected toast after a failed write: ' + JSON.stringify(t));
+          a.ok(t.some((m) => /couldn.t approve/i.test(m)) && t.some((m) => /couldn.t reject/i.test(m)), 'Error toasts for both: ' + JSON.stringify(t));
+          a.ok(await page.evaluate(() => window._verificationRequests.gov_fail && window._verificationRequests.gov_fail.status === 'pending'), 'The request is still pending in the admin list data');
+          await page.evaluate(() => refreshVerificationRequests(false));
+          a.ok(await page.evaluate(() => /@gov_fail/.test((document.getElementById('drawer-verification-requests-list') || {}).textContent || '')), 'The row is still in the Verification Requests list');
           a.equal(n.length, 0, 'The requester is not notified of a decision that was not saved');
         } finally {
           await page.evaluate(() => { if (window.__pfs) window.__pfs.failWrites = false; });
@@ -175,7 +178,6 @@ module.exports = {
       name: 'Admin Verification Requests Refresh: a failed cloud load must not show a fresh Refreshed time',
       accounts: ['pixlynote'],
       covers: ['el:#btn-refresh-verification-requests', 'handler:refreshVerificationRequests', 'el:#verification-requests-refreshed'],
-      knownBug: 'BUG-5 Admin Verification Requests Refresh shows "Refreshed · <time>" even when loading verificationRequests from Firestore fails (the error is swallowed), so the admin thinks the list is current',
       async run({ page, h, a }) {
         await h.openOwnerMenu(page);
         await page.evaluate(installPixlyMockFirestore, {});

@@ -22865,11 +22865,21 @@ function syncLikedStateToPosts() {
       } catch (e) {}
       if (typeof persistState === 'function') { try { persistState(); } catch (e) {} }
     }
-    function writeVerificationDocs(username, requestData, userFields) {
+    // opts.strict: report the truth. With strict, a missing Firebase connection or a failed Firestore write
+    // resolves { written: false, error: 'offline' | 'write_failed' } and the in-memory request is put back as it was,
+    // so callers can show an error instead of claiming the request was sent. Without strict (badge lapse and restore,
+    // badge colour) the old best-effort behavior is unchanged.
+    function writeVerificationDocs(username, requestData, userFields, opts) {
+      const strict = !!(opts && opts.strict);
       const u = (typeof normalizeUsername === 'function') ? normalizeUsername(username) : String(username || '').toLowerCase().replace(/^@/, '');
-      if (!u) return Promise.resolve({ written: false });
+      if (!u) return Promise.resolve({ written: false, error: strict ? 'no_user' : undefined });
       window._verificationRequests = window._verificationRequests || {};
       window._verificationWrites = window._verificationWrites || [];
+      const hadPrev = Object.prototype.hasOwnProperty.call(window._verificationRequests, u);
+      const prevReq = hadPrev ? window._verificationRequests[u] : undefined;
+      const undoLocal = () => {
+        if (hadPrev) window._verificationRequests[u] = prevReq; else delete window._verificationRequests[u];
+      };
       if (requestData) {
         const safeReq = (typeof stripSensitiveVerificationFields === 'function') ? stripSensitiveVerificationFields(requestData) : requestData;
         window._verificationRequests[u] = Object.assign({}, window._verificationRequests[u] || {}, safeReq, { username: u });
@@ -22878,11 +22888,23 @@ function syncLikedStateToPosts() {
       if (typeof stripSensitiveVerificationFields === 'function' && record) {
         SENSITIVE_VERIFICATION_FIELDS.forEach(function (k) { if (k in record) delete record[k]; });
       }
+      const canWrite = window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc;
+      if (strict && !canWrite) { undoLocal(); return Promise.resolve({ written: false, error: 'offline' }); }
       window._verificationWrites.push({ collection: 'verificationRequests', id: u, data: record });
       if (userFields) window._verificationWrites.push({ collection: 'users', id: u, data: userFields });
-      const canWrite = window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc;
       if (!canWrite) return Promise.resolve({ written: true, local: true, record });
       const { db, doc, setDoc } = window.firebase;
+      if (strict) {
+        const sops = [];
+        try {
+          if (requestData) sops.push(Promise.resolve(setDoc(doc(db, 'verificationRequests', u), record, { merge: true })));
+          if (userFields) sops.push(Promise.resolve(setDoc(doc(db, 'users', u), userFields, { merge: true })));
+        } catch (e) { sops.push(Promise.reject(e)); }
+        return Promise.all(sops).then(() => ({ written: true, record }), (err) => {
+          undoLocal();
+          return { written: false, error: 'write_failed', detail: err };
+        });
+      }
       const ops = [];
       if (requestData) ops.push(setDoc(doc(db, 'verificationRequests', u), record, { merge: true }).catch(() => {}));
       if (userFields) ops.push(setDoc(doc(db, 'users', u), userFields, { merge: true }).catch(() => {}));
@@ -23330,8 +23352,21 @@ function syncLikedStateToPosts() {
         verificationBaseAccountType: requestData.baseAccountType,
         governmentBadgeColor: requestData.governmentBadgeColor
       };
+      // Save first. Only a request that really reached Firestore is shown as pending.
+      const submitBtn = document.getElementById('btn-submit-verification-request');
+      if (submitBtn) submitBtn.disabled = true;
+      let saved;
+      try { saved = await writeVerificationDocs(u, requestData, userFields, { strict: true }); }
+      finally { if (submitBtn) submitBtn.disabled = false; }
+      if (!saved || saved.written !== true) {
+        const msg = (saved && saved.error === 'offline')
+          ? "Couldn't send your request because Pixlynote isn't connected right now. Check your connection and tap Submit request again."
+          : "Couldn't send your request. Nothing was submitted. Check your connection and tap Submit request again.";
+        setVerificationFormStatus(msg, true);
+        if (typeof showToast === 'function') showToast(msg);
+        return false;
+      }
       persistVerificationOnUser(userFields);
-      await writeVerificationDocs(u, requestData, userFields);
       setVerificationFormStatus('Pending review, usually approved within 24 hours.', false);
       if (typeof showToast === 'function') showToast('Pending review, usually approved within 24 hours.');
       paintVerificationCategoryTabs();
@@ -23373,8 +23408,9 @@ function syncLikedStateToPosts() {
       if (manualRefresh && list) list.innerHTML = (typeof adminRefreshSyncingHtml === 'function') ? adminRefreshSyncingHtml() : '<div class="text-[10px] text-slate-600 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">Syncing...</div>';
       if (manualRefresh && typeof setAdminRefreshBusy === 'function') setAdminRefreshBusy(btn, true);
       try {
+      // Resolves true only when the list really came from Firestore.
       const loadFromCloud = async () => {
-        if (!(window.firebaseReady && window.firebase && window.firebase.getDocs && window.firebase.collection && window.firebase.db)) return;
+        if (!(window.firebaseReady && window.firebase && window.firebase.getDocs && window.firebase.collection && window.firebase.db)) return false;
         try {
           const snap = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'verificationRequests'));
           window._verificationRequests = window._verificationRequests || {};
@@ -23383,20 +23419,28 @@ function syncLikedStateToPosts() {
             const id = (docSnap.id || d.username || '').toLowerCase().replace(/^@/, '');
             if (id && id.indexOf('__') === -1) window._verificationRequests[id] = Object.assign({ username: id }, d);
           });
-        } catch (e) {}
+          return true;
+        } catch (e) { return false; }
       };
-      await loadFromCloud();
+      const cloudOk = await loadFromCloud();
+      if (manualRefresh && !cloudOk) {
+        // Honest failure: no fresh "Refreshed" time, and the list is marked as possibly out of date.
+        const stale = document.getElementById('verification-requests-refreshed');
+        if (stale) { stale.textContent = "Couldn't refresh. Showing the last list that loaded."; stale.classList.remove('hidden'); }
+        if (typeof showToast === 'function') showToast("Couldn't refresh verification requests. Showing the last list that loaded.");
+      }
       const recs = Object.values(window._verificationRequests || {}).filter((r) => r && normalizeVerificationType(r.type || r.verificationType) && String(r.status || r.verificationStatus || '').toLowerCase() === 'pending');
       recs.sort((a, b) => (b.updatedAt || b.requestedAt || 0) - (a.updatedAt || a.requestedAt || 0));
       if (countEl) countEl.textContent = String(recs.length);
-      if (manualRefresh && typeof showAdminRefreshedAt === 'function') showAdminRefreshedAt('verification-requests-refreshed', Date.now());
+      if (manualRefresh && cloudOk && typeof showAdminRefreshedAt === 'function') showAdminRefreshedAt('verification-requests-refreshed', Date.now());
       if (!list) return;
+      const staleNote = (manualRefresh && !cloudOk) ? '<div role="alert" class="text-[10px] font-semibold text-rose-700 text-center py-2 mb-1.5 bg-rose-50 rounded-xl border border-rose-100">Couldn\'t refresh. This is the last list that loaded and may be out of date. Tap Refresh to try again.</div>' : '';
       if (!recs.length) {
-        list.innerHTML = '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">No pending verification requests</div>';
+        list.innerHTML = staleNote + '<div class="text-[10px] text-neutral-500 text-center py-2 bg-white/70 rounded-xl border border-slate-100/70">' + (staleNote ? 'No pending requests loaded' : 'No pending verification requests') + '</div>';
         return;
       }
       const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s || '');
-      list.innerHTML = recs.map((r) => {
+      list.innerHTML = staleNote + recs.map((r) => {
         const u = esc(r.username || '');
         const typ = normalizeVerificationType(r.type || r.verificationType);
         const label = typ === 'organization' ? 'Organization' : 'Government';
@@ -23452,12 +23496,16 @@ function syncLikedStateToPosts() {
         verificationApprovedAt: now,
         governmentBadgeColor: rec.governmentBadgeColor === 'navy' ? 'navy' : 'slate'
       };
+      const saved = await writeVerificationDocs(u, requestData, userFields, { strict: true });
+      if (!saved || saved.written !== true) {
+        if (typeof showToast === 'function') showToast("Couldn't approve @" + u + ". Nothing was saved and they were not notified. The request is still pending. Try again.");
+        return false;
+      }
       if (state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : '') === u) {
         persistVerificationOnUser(userFields);
         if (typeof renderProfile === 'function') renderProfile();
         paintVerificationCategoryTabs();
       }
-      await writeVerificationDocs(u, requestData, userFields);
       notifyVerificationDecision(u, true, type);
       if (typeof showToast === 'function') showToast('Approved @' + u + ' as ' + (type === 'organization' ? 'Organization' : 'Government') + '.');
       await refreshVerificationRequests(false);
@@ -23471,12 +23519,16 @@ function syncLikedStateToPosts() {
       const now = Date.now();
       const requestData = Object.assign({}, rec, { username: u, type, status: 'rejected', rejectedAt: now, updatedAt: now });
       const userFields = { verificationStatus: 'rejected', verificationUpdatedAt: now, verificationType: type };
+      const saved = await writeVerificationDocs(u, requestData, userFields, { strict: true });
+      if (!saved || saved.written !== true) {
+        if (typeof showToast === 'function') showToast("Couldn't reject @" + u + ". Nothing was saved and they were not notified. The request is still pending. Try again.");
+        return false;
+      }
       if (state.currentUser && ((typeof normalizeUsername === 'function') ? normalizeUsername(state.currentUser.username) : '') === u) {
         persistVerificationOnUser(userFields);
         paintVerificationCategoryTabs();
         if (typeof renderProfile === 'function') renderProfile();
       }
-      await writeVerificationDocs(u, requestData, userFields);
       notifyVerificationDecision(u, false, type);
       if (typeof showToast === 'function') showToast('Rejected the verification request from @' + u + '.');
       await refreshVerificationRequests(false);
@@ -33990,6 +34042,30 @@ function syncLikedStateToPosts() {
               email: state.currentUser.email || '', phone: state.currentUser.phone || '',
               bio: state.currentUser.bio || '', website: state.currentUser.link || ''
             };
+            // Snapshot for an honest failure: if the cloud save is rejected, the profile goes back to these values
+            // and the form reopens with what the user typed.
+            const _failSnap = (function () {
+              const cu = state.currentUser;
+              const snap = { fields: {}, ls: {}, session: null, form: {}, editingType: window._editingAccountType };
+              ['fullName', 'username', 'email', 'phone', 'accountType', 'bio', 'link', 'dbaName', 'businessIndustry', 'businessIndustryOther',
+                'businessStreet', 'businessCity', 'businessState', 'businessPostal', 'businessAddressVisibility', 'businessHours', 'businessSupportEmail'
+              ].forEach((k) => { snap.fields[k] = { has: Object.prototype.hasOwnProperty.call(cu, k), v: cu[k] }; });
+              try {
+                const uK = String(cu.username || '').toLowerCase();
+                const keys = [getAccountStorageKey('pixly_user_phone', uK), getAccountStorageKey('pixly_user_email', uK), 'pixly_user_phone', 'pixly_user_email', 'pixly_accounts', 'pixly_account_' + uK];
+                keys.forEach((k) => { snap.ls[k] = localStorage.getItem(k); });
+                snap.uKey = uK;
+                snap.pixlyAccount = (window._pixlyAccounts && window._pixlyAccounts[uK]) || null;
+              } catch (eSnap) {}
+              try { if (typeof sessionAccountSnapshot === 'function') snap.session = sessionAccountSnapshot(cu); } catch (eSess) {}
+              try {
+                editProfileForm.querySelectorAll('input, select, textarea').forEach((el) => {
+                  if (!el.id) return;
+                  snap.form[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? { checked: el.checked } : { value: el.value };
+                });
+              } catch (eForm) {}
+              return snap;
+            })();
             if (name) state.currentUser.fullName = name;
             if (username) state.currentUser.username = username;
             state.currentUser.email = email;
@@ -34083,6 +34159,7 @@ function syncLikedStateToPosts() {
             }
             window._lastLocalProfileWriteTs = Date.now();
             let _profileWrite = null, _profileWriteTargeted = false;
+            let _profileHistChanges = [], _profileHistOwner = '';
             try {
               window._pixlyAllowBlankContactPersist = {
                 phone: !phone,
@@ -34128,7 +34205,8 @@ function syncLikedStateToPosts() {
                 name: state.currentUser.fullName || '', email: state.currentUser.email || '', phone: state.currentUser.phone || '',
                 bio: state.currentUser.bio || '', website: state.currentUser.link || ''
               });
-              if (_histChanges.length) recordProfileHistory(state.currentUser.username, _histChanges);
+              _profileHistChanges = _histChanges;
+              _profileHistOwner = state.currentUser.username;
             } catch(hErr) {}
             saveUserProfile();
             renderProfile();
@@ -34154,13 +34232,44 @@ function syncLikedStateToPosts() {
             const _bizOwner = state.currentUser.username;
             const _savedMsg = phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!';
             const _onSaved = () => {
+              try { if (_profileHistChanges.length) recordProfileHistory(_profileHistOwner, _profileHistChanges); } catch (eH) {}
               if (_bizChanges.length && _profileWriteTargeted && typeof recordBusinessHistory === 'function') recordBusinessHistory(_bizOwner, _bizChanges);
               if (!(offerPlan === 'business' || offerPlan === 'plus')) showToast(_savedMsg);
             };
             if (_profileWrite) {
               _profileWrite.then(_onSaved, (err) => {
                 console.warn('Edit profile save failed', err);
-                showToast("Couldn't save your profile changes. Check your connection and try again.");
+                // Put the profile back to what the cloud still has, and reopen the form with the edits.
+                try {
+                  const cu = state.currentUser;
+                  Object.keys(_failSnap.fields).forEach((k) => {
+                    const f = _failSnap.fields[k];
+                    if (f.has) cu[k] = f.v; else delete cu[k];
+                  });
+                  Object.keys(_failSnap.ls).forEach((k) => {
+                    if (_failSnap.ls[k] === null || _failSnap.ls[k] === undefined) localStorage.removeItem(k);
+                    else localStorage.setItem(k, _failSnap.ls[k]);
+                  });
+                  if (_failSnap.uKey) {
+                    window._pixlyAccounts = window._pixlyAccounts || {};
+                    if (_failSnap.pixlyAccount) window._pixlyAccounts[_failSnap.uKey] = _failSnap.pixlyAccount;
+                  }
+                  if (_failSnap.session && typeof registerSessionAccount === 'function') registerSessionAccount(_failSnap.session);
+                  window._lastLocalProfileWriteTs = 0;
+                  saveUserProfile();
+                  renderProfile();
+                  openEditProfileModal();
+                  window._editingAccountType = _failSnap.editingType || window._editingAccountType;
+                  if (typeof window.applyEditProfileCategoryFields === 'function' && window._editingAccountType) window.applyEditProfileCategoryFields(window._editingAccountType);
+                  if (typeof paintVerificationCategoryTabs === 'function') paintVerificationCategoryTabs();
+                  Object.keys(_failSnap.form).forEach((id) => {
+                    const el = document.getElementById(id);
+                    const v = _failSnap.form[id];
+                    if (!el) return;
+                    if ('checked' in v) el.checked = v.checked; else if (el.type !== 'file') el.value = v.value;
+                  });
+                } catch (eRoll) { console.warn('Edit profile rollback failed', eRoll); }
+                showToast("Couldn't save your profile changes. Your edits are still in the form. Check your connection and tap Save Changes again.");
               });
             } else {
               _onSaved();
@@ -34853,8 +34962,14 @@ function syncLikedStateToPosts() {
         bind('btn-story-delete', 'click', () => {
           if (!state.activeStory) return;
           const curU = normalizeUsername((state.currentUser && state.currentUser.username) || 'bradley_hansen');
+          let _storyCloudWrite = null;
+          const _storyRollback = { stories: null, notifs: null, curU, delId: '', liked: false };
           if (isOwnStoryObj(state.activeStory) && Array.isArray(state.userStories)) {
             const delId = String(state.activeStory.id);
+            _storyRollback.delId = delId;
+            _storyRollback.stories = state.userStories.slice();
+            _storyRollback.notifs = Array.isArray(state.notifications) ? state.notifications.slice() : null;
+            _storyRollback.liked = !!(state.likedStoryIds && state.likedStoryIds.has('story_' + delId));
             state.userStories = state.userStories.filter(s => String(s.id) !== delId);
             const noStoriesLeft = state.userStories.length === 0;
             const shouldDropNotif = (n) => {
@@ -34883,13 +34998,13 @@ function syncLikedStateToPosts() {
             if (window.firebaseReady && window.firebase && window.firebase.db) {
               try {
                 const { db, doc, setDoc } = window.firebase;
-                setDoc(doc(db, 'users', curU), {
+                _storyCloudWrite = Promise.resolve().then(() => setDoc(doc(db, 'users', curU), {
                   userStories: state.userStories,
                   story: state.userStories.length > 0 ? state.userStories[state.userStories.length - 1] : null,
                   notifications: compactNotificationList(Array.isArray(state.notifications) ? state.notifications : []),
                   lastUpdated: Date.now()
-                }, { merge: true }).catch(() => {});
-              } catch(e) {}
+                }, { merge: true }));
+              } catch(e) { _storyCloudWrite = Promise.reject(e); }
             }
             pruneExpiredUserStories(false);
           } else {
@@ -34898,7 +35013,25 @@ function syncLikedStateToPosts() {
           }
           if (typeof renderStories === 'function') renderStories();
           closeStoryViewer();
-          showToast('Story deleted');
+          if (!_storyCloudWrite) { showToast('Story deleted'); return; }
+          // "Story deleted" only after Firestore accepted it. If the write fails, the story comes back.
+          _storyCloudWrite.then(() => showToast('Story deleted'), (err) => {
+            console.warn('Story delete failed', err);
+            try {
+              if (_storyRollback.stories) {
+                state.userStories = _storyRollback.stories;
+                if (_storyRollback.notifs) state.notifications = _storyRollback.notifs;
+                if (_storyRollback.liked && state.likedStoryIds) state.likedStoryIds.add('story_' + _storyRollback.delId);
+                const cu2 = _storyRollback.curU;
+                localStorage.setItem('pixly_user_stories_' + cu2, JSON.stringify(state.userStories));
+                if (_storyRollback.notifs) localStorage.setItem('pixly_notifications_' + cu2, JSON.stringify(state.notifications));
+                if (cu2 === 'bradley_hansen' && state.userStories.length > 0) localStorage.setItem('pixly_user_story', JSON.stringify(state.userStories[state.userStories.length - 1]));
+              }
+              if (typeof renderStories === 'function') renderStories();
+              if (typeof renderNotifications === 'function') renderNotifications(true);
+            } catch (eRb) {}
+            showToast("Couldn't delete the story. It's still there. Check your connection and try again.");
+          });
         });
 
         // Profile subtabs

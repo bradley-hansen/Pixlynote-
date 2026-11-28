@@ -77,10 +77,9 @@ module.exports = {
       }
     },
     {
-      name: 'Story Delete by tap: when the cloud write fails, the app must not say Story deleted',
+      name: 'Story Delete by tap: when the cloud write fails, the app shows an error and keeps the story',
       accounts: ['personal'],
       covers: ['listener:#btn-story-delete:click', 'el:#btn-story-delete'],
-      knownBug: 'BUG-8 Story owner menu Delete says "Story deleted" and removes the story on this device even when the Firestore write fails (setDoc(...).catch(() => {})); the cloud keeps the story, so it can come back on another device or after a reload',
       async run({ page, h, a }) {
         await withStory(page, h, async (me, story) => {
           await page.evaluate(() => { window.__pfs.failWrites = true; });
@@ -88,6 +87,8 @@ module.exports = {
           const r = await read(page, me, story.id);
           if (!r.cloud) throw new Error('PRECONDITION (not the bug): the mock was told to fail writes but the cloud copy changed: ' + JSON.stringify(r));
           a.ok(!r.toasts.some((t) => /story deleted/i.test(t)), 'Must not say Story deleted when the cloud still has it, got ' + JSON.stringify(r.toasts));
+          a.ok(r.toasts.some((t) => /couldn.t delete the story/i.test(t)), 'Shows an error: ' + JSON.stringify(r.toasts));
+          a.ok(r.local, 'The story is still in your stories on this device');
         });
       }
     }
