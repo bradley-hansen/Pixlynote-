@@ -210,7 +210,8 @@ const TESTS = [
         a.equal(sel.historyHidden, true, 'Profile History panel hidden');
         a.equal(r.rows.length, 0, 'no rows');
         a.equal(r.empty, 'No business changes yet', 'empty state text');
-        deq(a, sel.opts, ['All business changes'].concat(BIZ_FIELDS.map((k) => LABELS[k])), 'Show list covers every business field and not Website');
+        deq(a, sel.opts.slice(0, 2 + BIZ_FIELDS.length), ['All changes', 'Business detail changes'].concat(BIZ_FIELDS.map((k) => LABELS[k])), 'Show list covers every business field and not Website');
+        a.equal(sel.opts[2 + BIZ_FIELDS.length], 'Verification changes', 'Show list has a Verification section after the business fields');
         // Every filter shows the empty state too.
         for (const k of BIZ_FIELDS) {
           await page.selectOption('#ac-business-history-field', k);
