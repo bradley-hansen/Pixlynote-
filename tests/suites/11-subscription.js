@@ -66,6 +66,7 @@ module.exports = {
             isBusinessPlus: !!(state.currentUser && state.currentUser.isBusinessPlus)
           };
           if (isBiz && typeof applyBusinessPlusVerification === 'function') {
+            state.currentUser.businessVerificationStatus = 'approved'; // the green check needs an admin-approved application
             await applyBusinessPlusVerification(state.currentUser.username, 'cs_test_businessplus1234567890');
           }
           const html = (typeof creatorStatusBadgesHtml === 'function' && state.currentUser)

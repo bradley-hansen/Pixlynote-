@@ -379,7 +379,7 @@ module.exports = {
           // Plus-only blue still used when not official
           const plusOnly = { username: 'plus_check_demo', isPlus: true, isVerified: true, isBusinessPlus: false };
           out.blueHtml = creatorStatusBadgesHtml(plusOnly);
-          const biz = { username: 'harbor_coffee', isBusinessPlus: true, isPlus: false, accountType: 'business' };
+          const biz = { username: 'harbor_coffee', isBusinessPlus: true, isPlus: false, accountType: 'business', businessVerificationStatus: 'approved' };
           out.greenHtml = creatorStatusBadgesHtml(biz);
           // Lapse hides the badge but keeps verificationType and the approval on file
           u.isPlus = false;
@@ -427,7 +427,7 @@ module.exports = {
         a.ok(hex(r.orgColor) === '#14b8a6' || /#14B8A6/i.test(r.orgHtml), 'Organization check is teal #14B8A6');
         a.ok(r.orgLabel === 'Organization', 'The approved Organization tab/label is the active type');
         a.ok(/text-sky-500/.test(r.blueHtml), 'The blue Plus check still renders for Plus accounts without official verification');
-        a.ok(/text-emerald-500/.test(r.greenHtml), 'The green Business Plus check still renders when official verification is not shown');
+        a.ok(/text-emerald-500/.test(r.greenHtml), 'The green Business Plus check still renders (approved application) when official verification is not shown');
         a.ok(r.lapsedStatus === 'lapsed' && r.lapsedType === 'organization' && r.badgeHiddenAfterLapse, 'Lapsing Plus hides the official badge and keeps the verification record as lapsed');
         a.ok(r.displayedAfterLapse === 'personal' || r.displayedAfterLapse === 'business', 'After lapse the account type stays Personal or Business');
         a.ok(r.approvalOnFile, 'The approval stays on file after lapse');
