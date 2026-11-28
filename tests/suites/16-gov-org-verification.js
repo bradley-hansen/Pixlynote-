@@ -1,6 +1,14 @@
 'use strict';
 
 const { ALL_ACCOUNT_KEYS } = require('../helpers/harness');
+const { installPixlyMockFirestore, uninstallPixlyMockFirestore } = require('../helpers/mock-firestore');
+
+// Submit, Approve and Reject only report success when Firestore accepted the write, so these tests run against
+// the in-page Firestore mock (nothing reaches production).
+async function withMockFs(page, fn) {
+  await page.evaluate(installPixlyMockFirestore, {});
+  try { return await fn(); } finally { await page.evaluate(uninstallPixlyMockFirestore).catch(() => {}); }
+}
 
 const PAYWALL = 'An active Pixlynote Plus or Business Plus subscription is required before applying for Government or Organization verification';
 const PENDING = 'Pending review, usually approved within 24 hours.';
@@ -184,7 +192,7 @@ module.exports = {
       covers: ['el:#modal-verification-request', 'el:#btn-submit-verification-request', 'el:#btn-verification-send-email-code', 'el:#btn-verification-verify-email-code'],
       async run(ctx) {
         const { page, a } = ctx;
-        const r = await page.evaluate(async () => {
+        const r = await withMockFs(page, () => page.evaluate(async () => {
           if (state.currentUser) {
             state.currentUser.isPlus = true;
             state.currentUser.isVerified = true;
@@ -232,7 +240,7 @@ module.exports = {
             accountType: state.currentUser.accountType,
             pendingPill
           };
-        });
+        }));
         a.ok(r.open && r.preselected, 'Plus opens the request modal with Government preselected');
         a.ok(/entity or agency name/i.test(r.results.empty), 'Empty form requires an entity name (or earlier type/name check)');
         a.ok(/email or a public website/i.test(r.results.noContact), 'A .gov/.mil email or website URL is required');
@@ -253,7 +261,7 @@ module.exports = {
       covers: ['el:#verification-website-url'],
       async run(ctx) {
         const { page, a } = ctx;
-        const r = await page.evaluate(async () => {
+        const r = await withMockFs(page, () => page.evaluate(async () => {
           if (state.currentUser) {
             state.currentUser.isPlus = true;
             state.currentUser.isVerified = true;
@@ -271,7 +279,7 @@ module.exports = {
           const ok = await submitVerificationRequest();
           const rec = (window._verificationRequests || {})[(state.currentUser.username || '').toLowerCase()] || null;
           return { ok, orgOn, rec, status: (document.getElementById('verification-form-status') || {}).textContent || '', type: state.currentUser.verificationType };
-        });
+        }));
         a.ok(r.orgOn, 'Organization tab preselects Organization / Non-Profit');
         a.ok(r.ok && r.rec && r.rec.needsManualReview === true && r.rec.emailVerified === false, 'Website-only requests are submitted and flagged for manual review');
         a.ok(r.status.includes(PENDING), 'Website-only submit still shows the 24-hour pending message');
@@ -306,7 +314,7 @@ module.exports = {
         if (account.username === 'pixlynote') {
           a.ok(vis.exists && !vis.hidden, 'Verification Requests card is visible only on the @pixlynote owner menu');
           a.ok(vis.metIdx >= 0 && vis.deIdx > vis.metIdx && vis.verIdx > vis.deIdx && vis.profileIdx > vis.verIdx, 'The card sits at the top next to User Base Metrics and Pending Deactivations');
-          const decision = await page.evaluate(async () => {
+          const decision = await withMockFs(page, () => page.evaluate(async () => {
             const notifs = [];
             const prev = window.addNotificationForUser;
             window.addNotificationForUser = (u, n) => { notifs.push({ u, n }); return Promise.resolve(); };
@@ -333,7 +341,7 @@ module.exports = {
               gov: window._verificationRequests.gov_applicant,
               org: window._verificationRequests.org_applicant
             };
-          });
+        }));
           a.ok((Number(decision.count) >= 2) && /gov_applicant/.test(decision.listText) && /org_applicant/.test(decision.listText), 'Pending requests are listed for review');
           a.ok(decision.hasApprove && decision.hasReject, 'Each request has Approve and Reject');
           a.ok(decision.gov && decision.gov.status === 'approved', 'Approve sets the request status to approved');
