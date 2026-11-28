@@ -3959,10 +3959,28 @@
       </div>
 
       <div id="ac-view-account-info" class="hidden flex-1 overflow-y-auto p-3.5 space-y-4">
-        <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-neutral-100">
+        <div id="ac-info-tab-row" class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-neutral-100">
           <button type="button" id="btn-ac-info-tab-details" onclick="setAccountInfoTab('details')" class="py-2 px-3 rounded-lg text-xs font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer">Details</button>
           <button type="button" id="btn-ac-info-tab-contact" onclick="setAccountInfoTab('contact')" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Contact Preferences</button>
           <button type="button" id="btn-ac-info-tab-history" onclick="setAccountInfoTab('history')" class="py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Profile History</button>
+          <button type="button" id="btn-ac-info-tab-business" onclick="setAccountInfoTab('business')" class="hidden py-2 px-3 rounded-lg text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer">Business History</button>
+        </div>
+        <div id="ac-info-panel-business" class="hidden space-y-3">
+          <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Changes you save to your business details in Edit profile are listed here, newest first. Only you can see this tab. The last 20 changes per item are kept.</p>
+          <label for="ac-business-history-field" class="block text-[11px] font-bold text-neutral-700 px-1">Show</label>
+          <select id="ac-business-history-field" onchange="renderBusinessHistoryPanel()" class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-300">
+            <option value="all">All business changes</option>
+            <option value="dbaName">DBA / Trade Name</option>
+            <option value="businessIndustry">Industry / Category</option>
+            <option value="businessStreet">Street address</option>
+            <option value="businessCity">City</option>
+            <option value="businessState">State</option>
+            <option value="businessPostal">ZIP</option>
+            <option value="businessAddressVisibility">Address visibility</option>
+            <option value="businessHours">Hours of operation</option>
+            <option value="businessSupportEmail">Support email</option>
+          </select>
+          <div id="ac-business-history-list" class="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden" aria-live="polite"></div>
         </div>
         <div id="ac-info-panel-history" class="hidden space-y-3">
           <p class="text-[11px] text-neutral-500 leading-relaxed px-1">Changes you save in Edit profile are listed here, newest first. Only you can see this tab. The last 20 changes per item are kept.</p>
@@ -25604,15 +25622,27 @@ function syncLikedStateToPosts() {
     }
     window.renderContactPrefsPanel = renderContactPrefsPanel;
     function setAccountInfoTab(tab) {
-      if (tab !== 'contact' && tab !== 'history') tab = 'details';
-      const on = 'py-2 px-2 rounded-lg text-[11px] leading-tight font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
-      const off = 'py-2 px-2 rounded-lg text-[11px] leading-tight font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
-      ['details', 'contact', 'history'].forEach(t => {
-        const b = document.getElementById('btn-ac-info-tab-' + t); if (b) { b.className = (t === tab) ? on : off; b.setAttribute('aria-selected', t === tab ? 'true' : 'false'); }
+      // Business History is only for Business accounts (and @pixlynote); anyone else lands on Details.
+      const showBiz = businessHistoryTabAllowed();
+      if (tab !== 'contact' && tab !== 'history' && !(tab === 'business' && showBiz)) tab = 'details';
+      // Four tabs on a Business account: tighter padding so the row still fits a 360px phone.
+      const pad = showBiz ? 'py-2 px-1' : 'py-2 px-2';
+      const on = pad + ' rounded-lg text-[11px] leading-tight font-bold bg-white text-neutral-900 shadow-2xs transition cursor-pointer';
+      const off = pad + ' rounded-lg text-[11px] leading-tight font-semibold text-neutral-500 hover:text-neutral-900 transition cursor-pointer';
+      const row = document.getElementById('ac-info-tab-row');
+      if (row) { row.classList.toggle('grid-cols-4', showBiz); row.classList.toggle('grid-cols-3', !showBiz); }
+      ['details', 'contact', 'history', 'business'].forEach(t => {
+        const b = document.getElementById('btn-ac-info-tab-' + t);
+        if (b) {
+          b.className = ((t === tab) ? on : off) + ((t === 'business' && !showBiz) ? ' hidden' : '');
+          b.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+          if (t === 'business') b.setAttribute('aria-hidden', showBiz ? 'false' : 'true');
+        }
         const pnl = document.getElementById('ac-info-panel-' + t); if (pnl) pnl.classList.toggle('hidden', t !== tab);
       });
       if (tab === 'contact') renderContactPrefsPanel();
       if (tab === 'history') { renderProfileHistoryPanel(); loadProfileHistory(); }
+      if (tab === 'business') { renderBusinessHistoryPanel(); loadProfileHistory(); }
     }
     window.setAccountInfoTab = setAccountInfoTab;
     function openContactPreferences() {
@@ -25688,12 +25718,12 @@ function syncLikedStateToPosts() {
           await fb.runTransaction(fb.db, async (tx) => {
             const snap = await tx.get(ref);
             const merged = mergeProfileHistory(snap.exists() ? ((snap.data() || {}).fields || {}) : {}, changes);
-            tx.set(ref, { username: u, fields: merged, updatedAt: Date.now() });
+            tx.set(ref, withBusinessHistory({ username: u, fields: merged, updatedAt: Date.now() }, snap));
           });
         } else {
           const snap = await fb.getDoc(ref);
           const merged = mergeProfileHistory(snap.exists() ? ((snap.data() || {}).fields || {}) : {}, changes);
-          await fb.setDoc(ref, { username: u, fields: merged, updatedAt: Date.now() });
+          await fb.setDoc(ref, withBusinessHistory({ username: u, fields: merged, updatedAt: Date.now() }, snap));
         }
         return true;
       } catch(e) { console.warn('Profile history write failed', e); return false; }
@@ -25714,13 +25744,18 @@ function syncLikedStateToPosts() {
           const oldFields = os.exists() ? ((os.data() || {}).fields || {}) : {};
           // A stale doc under the new name (from someone who used it before) is replaced, not merged.
           merged = mergeProfileHistory(oldFields, change);
-          await fb.setDoc(newRef, { username: newU, fields: merged, updatedAt: Date.now(), renamedFrom: oldU });
+          await fb.setDoc(newRef, withBusinessHistory({ username: newU, fields: merged, updatedAt: Date.now(), renamedFrom: oldU }, os));
           if (os.exists() && fb.deleteDoc) await fb.deleteDoc(oldRef).catch(() => {});
           void ns;
         }
       } catch(e) { console.warn('Profile history move failed', e); }
       try { localStorage.removeItem('pixly_profile_history_' + oldU); } catch(e) {}
       setLocalProfileHistory(newU, merged);
+      try {
+        const bizOld = getLocalBusinessHistory(oldU);
+        localStorage.removeItem('pixly_business_history_' + oldU);
+        setLocalBusinessHistory(newU, bizOld);
+      } catch(e) {}
     }
     window.moveProfileHistoryOnRename = moveProfileHistoryOnRename;
     async function loadProfileHistory() {
@@ -25732,7 +25767,9 @@ function syncLikedStateToPosts() {
         const snap = await fb.getDoc(fb.doc(fb.db, 'profileHistory', u));
         if (profileHistoryOwnerKey() !== u) return;
         setLocalProfileHistory(u, snap.exists() ? ((snap.data() || {}).fields || {}) : {});
+        setLocalBusinessHistory(u, snap.exists() ? ((snap.data() || {}).business || {}) : {});
         renderProfileHistoryPanel();
+        renderBusinessHistoryPanel();
       } catch(e) { console.warn('Profile history load failed', e); }
     }
     window.loadProfileHistory = loadProfileHistory;
@@ -25775,6 +25812,167 @@ function syncLikedStateToPosts() {
       });
     }
     window.renderProfileHistoryPanel = renderProfileHistoryPanel;
+
+    // ---- Business History: profileHistory/{username}.business = { dbaName:[{from,to,at,by,delegatedBy?}], ... } ----
+    // Same doc, cap and rules as Profile History (Website stays in Profile History). Entries are written only
+    // after the Edit profile save to users/{u} succeeds, so a failed save never shows up here.
+    const BUSINESS_HISTORY_FIELDS = ['dbaName', 'businessIndustry', 'businessStreet', 'businessCity', 'businessState',
+      'businessPostal', 'businessAddressVisibility', 'businessHours', 'businessSupportEmail'];
+    const BUSINESS_HISTORY_LABELS = {
+      dbaName: 'DBA / Trade Name', businessIndustry: 'Industry / Category', businessStreet: 'Street address',
+      businessCity: 'City', businessState: 'State', businessPostal: 'ZIP', businessAddressVisibility: 'Address visibility',
+      businessHours: 'Hours of operation', businessSupportEmail: 'Support email'
+    };
+    window.BUSINESS_HISTORY_FIELDS = BUSINESS_HISTORY_FIELDS;
+    function businessHistoryTabAllowed() {
+      return !!(contactOwnerKey() && typeof isBusinessProfileUser === 'function' && isBusinessProfileUser(state.currentUser));
+    }
+    window.businessHistoryTabAllowed = businessHistoryTabAllowed;
+    function normalizeBusinessHistory(raw) {
+      const out = {};
+      const f = (raw && typeof raw === 'object') ? raw : {};
+      BUSINESS_HISTORY_FIELDS.forEach(k => {
+        out[k] = (Array.isArray(f[k]) ? f[k] : [])
+          .filter(e => e && typeof e === 'object' && Number.isFinite(Number(e.at)))
+          .map(e => {
+            const o = { from: String(e.from == null ? '' : e.from), to: String(e.to == null ? '' : e.to), at: Number(e.at), by: String(e.by || '') };
+            if (e.delegatedBy) o.delegatedBy = String(e.delegatedBy);
+            return o;
+          })
+          .sort((a, b) => b.at - a.at)
+          .slice(0, PROFILE_HISTORY_CAP);
+      });
+      return out;
+    }
+    function mergeBusinessHistory(fields, changes) {
+      const out = normalizeBusinessHistory(fields);
+      (changes || []).forEach(c => {
+        if (!c || BUSINESS_HISTORY_FIELDS.indexOf(c.field) < 0) return;
+        const e = { from: historyClip(c.from), to: historyClip(c.to), at: Number(c.at) || Date.now(), by: String(c.by || '') };
+        if (c.delegatedBy) e.delegatedBy = String(c.delegatedBy);
+        out[c.field] = [e].concat(out[c.field]).sort((a, b) => b.at - a.at).slice(0, PROFILE_HISTORY_CAP);
+      });
+      return out;
+    }
+    // The business fields as the user reads them (labels, not stored ids).
+    function businessHistorySnapshot(u) {
+      u = u || {};
+      const ind = String(u.businessIndustry || '');
+      let industry = ind ? ((typeof businessIndustryLabel === 'function' && businessIndustryLabel(ind)) || ind) : '';
+      if (ind === 'other' && String(u.businessIndustryOther || '').trim()) industry += ': ' + String(u.businessIndustryOther).trim();
+      const vis = (typeof normalizeAddressVisibility === 'function') ? normalizeAddressVisibility(u.businessAddressVisibility) : String(u.businessAddressVisibility || 'city_state');
+      const visLabel = { city_state: 'City & state only', full: 'Full address', hidden: 'Hidden' }[vis] || vis;
+      return {
+        dbaName: u.dbaName || '', businessIndustry: industry, businessStreet: u.businessStreet || '',
+        businessCity: u.businessCity || '', businessState: u.businessState || '', businessPostal: u.businessPostal || '',
+        businessAddressVisibility: visLabel, businessHours: u.businessHours || '', businessSupportEmail: u.businessSupportEmail || ''
+      };
+    }
+    window.businessHistorySnapshot = businessHistorySnapshot;
+    // Who made the change: the signed-in owner, or the delegate (Privileged Access) acting for them.
+    function businessHistoryActor(owner) {
+      const stamp = (typeof privilegedDelegateStamp === 'function') ? (privilegedDelegateStamp() || {}) : {};
+      return stamp.delegatedBy ? { by: stamp.delegatedBy, delegatedBy: stamp.delegatedBy } : { by: owner };
+    }
+    window.businessHistoryActor = businessHistoryActor;
+    function diffBusinessForHistory(before, after, actor) {
+      const at = Date.now();
+      const changes = [];
+      BUSINESS_HISTORY_FIELDS.forEach(k => {
+        const a = String((before || {})[k] == null ? '' : before[k]).trim();
+        const b = String((after || {})[k] == null ? '' : after[k]).trim();
+        const same = k === 'businessSupportEmail' ? a.toLowerCase() === b.toLowerCase() : a === b;
+        if (!same) changes.push(Object.assign({ field: k, from: a, to: b, at }, actor || {}));
+      });
+      return changes;
+    }
+    window.diffBusinessForHistory = diffBusinessForHistory;
+    function setLocalBusinessHistory(u, fields) {
+      window._businessHistory = { user: u, fields: normalizeBusinessHistory(fields), loaded: true };
+      try { localStorage.setItem('pixly_business_history_' + u, JSON.stringify(window._businessHistory.fields)); } catch(e) {}
+    }
+    function getLocalBusinessHistory(u) {
+      if (window._businessHistory && window._businessHistory.user === u) return window._businessHistory.fields;
+      try { const raw = localStorage.getItem('pixly_business_history_' + u); if (raw) return normalizeBusinessHistory(JSON.parse(raw)); } catch(e) {}
+      return normalizeBusinessHistory(null);
+    }
+    window.getLocalBusinessHistory = getLocalBusinessHistory;
+    // Profile History writes replace the doc, so they carry the business entries along.
+    function withBusinessHistory(data, snap) {
+      try {
+        const d = (snap && snap.exists && snap.exists()) ? (snap.data() || {}) : {};
+        if (d.business && typeof d.business === 'object') data.business = normalizeBusinessHistory(d.business);
+      } catch(e) {}
+      return data;
+    }
+    async function recordBusinessHistory(u, changes) {
+      u = normalizeUsername(u || '');
+      if (!u || !changes || !changes.length) return false;
+      setLocalBusinessHistory(u, mergeBusinessHistory(getLocalBusinessHistory(u), changes));
+      renderBusinessHistoryPanel();
+      const fb = window.firebase;
+      if (!(window.firebaseReady && fb && fb.db && fb.doc)) return false;
+      try {
+        const ref = fb.doc(fb.db, 'profileHistory', u);
+        // merge: only business + updatedAt change (a delegate's write is limited to those keys by the rules).
+        if (fb.runTransaction) {
+          await fb.runTransaction(fb.db, async (tx) => {
+            const snap = await tx.get(ref);
+            const merged = mergeBusinessHistory(snap.exists() ? ((snap.data() || {}).business || {}) : {}, changes);
+            tx.set(ref, snap.exists() ? { business: merged, updatedAt: Date.now() } : { username: u, business: merged, updatedAt: Date.now() }, { merge: true });
+          });
+        } else {
+          const snap = await fb.getDoc(ref);
+          const merged = mergeBusinessHistory(snap.exists() ? ((snap.data() || {}).business || {}) : {}, changes);
+          await fb.setDoc(ref, snap.exists() ? { business: merged, updatedAt: Date.now() } : { username: u, business: merged, updatedAt: Date.now() }, { merge: true });
+        }
+        return true;
+      } catch(e) { console.warn('Business history write failed', e); return false; }
+    }
+    window.recordBusinessHistory = recordBusinessHistory;
+    function renderBusinessHistoryPanel() {
+      const list = document.getElementById('ac-business-history-list');
+      const sel = document.getElementById('ac-business-history-field');
+      if (!list || !sel) return;
+      const u = profileHistoryOwnerKey();
+      const field = (sel.value === 'all' || BUSINESS_HISTORY_FIELDS.indexOf(sel.value) >= 0) ? sel.value : 'all';
+      const hist = u ? getLocalBusinessHistory(u) : normalizeBusinessHistory(null);
+      const keys = field === 'all' ? BUSINESS_HISTORY_FIELDS : [field];
+      const entries = [];
+      keys.forEach(k => (hist[k] || []).forEach(e => entries.push(Object.assign({ field: k }, e))));
+      entries.sort((a, b) => b.at - a.at);
+      list.innerHTML = '';
+      if (!entries.length) {
+        const empty = document.createElement('div');
+        empty.id = 'ac-business-history-empty';
+        empty.className = 'px-4 py-8 text-center text-xs font-semibold text-neutral-400';
+        empty.textContent = 'No business changes yet';
+        list.appendChild(empty);
+        return;
+      }
+      const show = (v) => v === '' ? '(empty)' : v;
+      entries.forEach(e => {
+        const row = document.createElement('div');
+        row.className = 'ac-business-history-entry px-4 py-3 space-y-1';
+        row.setAttribute('data-field', e.field);
+        const label = document.createElement('div');
+        label.className = 'ac-business-history-field text-[10px] font-bold uppercase tracking-wide text-neutral-500';
+        label.textContent = BUSINESS_HISTORY_LABELS[e.field] || e.field;
+        const vals = document.createElement('div');
+        vals.className = 'text-xs text-neutral-900 break-words';
+        const from = document.createElement('span'); from.className = 'ac-business-history-from text-neutral-500 line-through decoration-neutral-300'; from.textContent = show(e.from);
+        const arrow = document.createElement('span'); arrow.className = 'mx-1.5 text-neutral-400'; arrow.textContent = '→';
+        const to = document.createElement('span'); to.className = 'ac-business-history-to font-semibold'; to.textContent = show(e.to);
+        vals.append(from, arrow, to);
+        const when = document.createElement('div');
+        when.className = 'ac-business-history-at text-[10px] text-neutral-400 font-medium';
+        when.setAttribute('data-at', String(e.at));
+        when.textContent = formatHistoryTime(e.at) + (e.by ? ' · by @' + e.by + (e.delegatedBy ? ' (delegate)' : '') : '');
+        row.append(label, vals, when);
+        list.appendChild(row);
+      });
+    }
+    window.renderBusinessHistoryPanel = renderBusinessHistoryPanel;
 
     function getSecurityUsernameKey() {
       const curU = (state.currentUser && state.currentUser.username) ? state.currentUser.username : 'bradley_hansen';
@@ -33641,6 +33839,7 @@ function syncLikedStateToPosts() {
               return;
             }
 
+            const _bizHistBefore = (editingBiz && bizFields && typeof businessHistorySnapshot === 'function') ? businessHistorySnapshot(state.currentUser) : null;
             const _histBefore = {
               name: state.currentUser.fullName || '', username: state.currentUser.username || '',
               email: state.currentUser.email || '', phone: state.currentUser.phone || '',
@@ -33738,6 +33937,7 @@ function syncLikedStateToPosts() {
               });
             }
             window._lastLocalProfileWriteTs = Date.now();
+            let _profileWrite = null, _profileWriteTargeted = false;
             try {
               window._pixlyAllowBlankContactPersist = {
                 phone: !phone,
@@ -33769,12 +33969,14 @@ function syncLikedStateToPosts() {
                 console.warn('Skipped Edit Profile write because it did not target the active account');
               } else {
                 if (typeof recordUserDocWrite === 'function') recordUserDocWrite(userDoc, 'edit-profile');
+                _profileWriteTargeted = true;
                 if (window.firebaseReady && window.firebase && window.firebase.db && window.firebase.doc && window.firebase.setDoc) {
                   const { db, doc, setDoc } = window.firebase;
-                  setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }).catch(() => {});
+                  _profileWrite = Promise.resolve().then(() => setDoc(doc(db, 'users', normUKey), (typeof stripSensitiveVerificationFields === 'function' ? stripSensitiveVerificationFields(userDoc) : userDoc), { merge: true }));
+                  _profileWrite.catch(() => {});
                 }
               }
-            } catch(fbErr) {}
+            } catch(fbErr) { _profileWriteTargeted = false; }
             try {
               // Username renames are recorded by renameAccountUsername (it moves the history doc too).
               const _histChanges = diffProfileForHistory(_histBefore, {
@@ -33793,10 +33995,30 @@ function syncLikedStateToPosts() {
               showToast(offerPlan === 'business'
                 ? 'Plus was canceled. Business Plus is available below.'
                 : 'Business Plus was canceled. Pixlynote Plus is available below.');
+            }
+            // Business History: logged only once the profile save went through, and the success toast waits for
+            // the cloud write so a failed save never says "saved".
+            let _bizChanges = [];
+            try {
+              if (_bizHistBefore && typeof diffBusinessForHistory === 'function') {
+                const _owner = normalizeUsername(state.currentUser.username);
+                const _actor = (typeof businessHistoryActor === 'function') ? businessHistoryActor(_owner) : { by: _owner };
+                _bizChanges = diffBusinessForHistory(_bizHistBefore, businessHistorySnapshot(state.currentUser), _actor);
+              }
+            } catch(bErr) { _bizChanges = []; }
+            const _bizOwner = state.currentUser.username;
+            const _savedMsg = phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!';
+            const _onSaved = () => {
+              if (_bizChanges.length && _profileWriteTargeted && typeof recordBusinessHistory === 'function') recordBusinessHistory(_bizOwner, _bizChanges);
+              if (!(offerPlan === 'business' || offerPlan === 'plus')) showToast(_savedMsg);
+            };
+            if (_profileWrite) {
+              _profileWrite.then(_onSaved, (err) => {
+                console.warn('Edit profile save failed', err);
+                showToast("Couldn't save your profile changes. Check your connection and try again.");
+              });
             } else {
-              showToast(
-                phone ? 'Profile and phone number saved! You can now log in via phone.' : 'Profile updated successfully!'
-              );
+              _onSaved();
             }
           });
         }

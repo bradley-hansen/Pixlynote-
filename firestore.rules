@@ -475,6 +475,15 @@ service cloud.firestore {
     match /profileHistory/{owner} {
       allow read: if canActAs(owner) || isAdmin();
       allow write: if canWriteAs(owner) || isAdmin();
+      // Business History: a delegate with the 'Edit profile' grant may add to the business entries only
+      // (the business fields are theirs to edit too). Profile History (fields) stays owner-only.
+      allow create: if delegateMay(owner, 'editProfile')
+        && request.resource.data.keys().hasOnly(['username', 'business', 'updatedAt'])
+        && request.resource.data.get('username', '') == owner
+        && request.resource.data.business is map;
+      allow update: if delegateMay(owner, 'editProfile')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['business', 'updatedAt'])
+        && request.resource.data.business is map;
     }
     match /verificationRequests/{owner} {
       allow read: if canActAs(owner) || isAdmin();
