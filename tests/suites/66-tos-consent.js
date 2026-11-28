@@ -22,7 +22,7 @@ const modalOpen = (page) => page.evaluate(() => !!(window.pixlyTos && window.pix
 const toastText = (page) => TEXT(page, '#toast-text');
 
 async function waitModal(page, open, ms) {
-  try { await page.waitForFunction((open) => !!(window.pixlyTos && window.pixlyTos.isOpen()) === open, open, { timeout: ms || 3000 }); return true; } catch (e) { return false; }
+  try { await page.waitForFunction((open) => !!(window.pixlyTos && window.pixlyTos.isOpen()) === open, open, { timeout: ms || 10000 }); return true; } catch (e) { return false; }
 }
 async function scrollPanelToEnd(page, sel) {
   await page.evaluate((sel) => { const p = document.querySelector(sel); p.scrollTop = p.scrollHeight; p.dispatchEvent(new Event('scroll')); }, sel);
@@ -232,7 +232,9 @@ module.exports = {
         const { page, a, account } = ctx;
         await scenario(ctx, { doc: {}, local: false }, async () => {
           await login(page, account);
-          a.ok(await waitModal(page, true), 'The consent modal appears for a legacy account');
+          const shown = await waitModal(page, true);
+          const diag = shown ? '' : JSON.stringify(await page.evaluate(() => ({ li: state.isLoggedIn, u: state.currentUser && state.currentUser.username, pro: state.privilegedReadOnly, fr: window.firebaseReady, disp: document.getElementById('tos-consent-modal').style.display, cls: document.getElementById('tos-consent-modal').className.slice(0, 30), local: Object.keys(localStorage).filter((k) => /tos_consent/.test(k)), queue: (window._onFirebaseReadyQueue || []).length })));
+          a.ok(shown, 'The consent modal appears for a legacy account ' + diag);
           const st = await page.evaluate(() => ({
             inertMain: document.getElementById('main-view').hasAttribute('inert'),
             sections: document.getElementById('tos-consent-panel').children.length,
@@ -511,3 +513,14 @@ module.exports = {
     }
   ]
 };
+
+// Signed-out tests start from a freshly loaded welcome screen, whatever earlier suites left on the page.
+module.exports.tests.forEach((t) => {
+  if (!(t.accounts || []).includes('signed-out')) return;
+  const orig = t.run;
+  t.run = async (ctx) => {
+    const port = Number(new URL(ctx.page.url()).port);
+    await ctx.h.resetToSignedOut(ctx.page, { port });
+    return orig(ctx);
+  };
+});

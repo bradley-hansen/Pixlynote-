@@ -548,3 +548,14 @@ module.exports = {
     }
   ]
 };
+
+// Signed-out tests start from a freshly loaded welcome screen, whatever earlier suites left on the page.
+module.exports.tests.forEach((t) => {
+  if (!(t.accounts || []).includes('signed-out')) return;
+  const orig = t.run;
+  t.run = async (ctx) => {
+    const port = Number(new URL(ctx.page.url()).port);
+    await ctx.h.resetToSignedOut(ctx.page, { port });
+    return orig(ctx);
+  };
+});
