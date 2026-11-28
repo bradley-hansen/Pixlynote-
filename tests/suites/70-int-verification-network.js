@@ -150,7 +150,6 @@ module.exports = {
       name: 'Business verification Send code: a failed send (403 email taken, 500, bad gateway, offline) never says Code sent',
       accounts: ['business'],
       covers: ['el:#btn-bizver-send-email-code', 'handler:sendBusinessVerificationEmailCode'],
-      knownBug: 'BUG-1 Business verification Send code ignores the Worker response and always shows "Code sent. Check your email." (fix in progress on bizver-send-code-nov27)',
       async run({ page, a }) {
         const seen = [];
         for (const mode of FAIL_MODES) {
@@ -190,7 +189,6 @@ module.exports = {
       name: 'Business verification Resend: a failed resend shows an error instead of leaving "Code sent" on screen',
       accounts: ['business'],
       covers: ['el:#btn-bizver-resend-email-code'],
-      knownBug: 'BUG-2 Business verification Resend gives no feedback: a failed resend leaves "Code sent. Check your email." on screen (fix in progress on bizver-send-code-nov27)',
       async run({ page, a }) {
         await openBizver(page);
         const r = await nf.routeWorker(page, '/email', { status: 200, body: { ok: true } });
