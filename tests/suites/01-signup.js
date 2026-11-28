@@ -172,6 +172,7 @@ module.exports = {
           if (typeof updateSignUpValidationState === 'function') updateSignUpValidationState();
         });
         await page.waitForTimeout(80);
+        await h.acceptSignupTos(page);
         await page.evaluate(() => {
           const btn = document.getElementById('btn-signup-direct-submit');
           if (btn && !btn.disabled) btn.click();

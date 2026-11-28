@@ -315,6 +315,8 @@ async function seedAccountsStore(page) {
       try {
         localStorage.setItem('pixly_account_' + a.username.toLowerCase(), JSON.stringify(rec));
         localStorage.setItem('pixly_user_password_' + a.username.toLowerCase(), a.password);
+        // These fixture accounts have already agreed to the Terms of Service (no consent modal after login).
+        localStorage.setItem('pixly_tos_consent_' + a.username.toLowerCase(), JSON.stringify({ tosAcceptedAt: 1764000000000, tosVersion: '2026-11-23' }));
       } catch (e) {}
     }
     try { localStorage.setItem('pixly_accounts', JSON.stringify(map)); } catch (e) {}
@@ -527,6 +529,17 @@ async function openSignupForm(page) {
   });
 }
 
+// Scroll the sign-up Terms of Service panel to its end and tick the agree box (the real user flow).
+async function acceptSignupTos(page) {
+  await page.evaluate(() => {
+    const p = document.getElementById('signup-tos-panel');
+    if (p) { p.scrollTop = p.scrollHeight; p.dispatchEvent(new Event('scroll')); }
+  });
+  await page.waitForTimeout(60);
+  const cb = await page.$('#signup-tos-checkbox');
+  if (cb && !(await cb.isDisabled())) await cb.check({ force: true });
+}
+
 async function isVisible(page, sel) {
   return page.evaluate((sel) => {
     const el = document.querySelector(sel);
@@ -699,6 +712,7 @@ module.exports = {
   seedAccountsStore,
   openLoginForm,
   openSignupForm,
+  acceptSignupTos,
   isVisible,
   closeOverlays,
   gotoMainTab,

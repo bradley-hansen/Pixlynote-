@@ -1045,6 +1045,20 @@
               </div>
             </div>
 
+            <!-- Terms of Service consent: scroll to the end, then the checkbox unlocks (required to continue or Quick sign up) -->
+            <div id="signup-tos-block" class="space-y-1.5 pt-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider">Terms of Service</span>
+                <span id="signup-tos-updated" class="text-[10px] text-neutral-400"></span>
+              </div>
+              <div id="signup-tos-panel" tabindex="0" role="region" aria-label="Terms of Service" class="max-h-40 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-[11px] leading-relaxed text-neutral-600 space-y-3 focus:outline-none focus:ring-2 focus:ring-violet-300"></div>
+              <p id="signup-tos-hint" class="text-[10px] text-neutral-400">Scroll to the end of the Terms to turn on the checkbox.</p>
+              <label for="signup-tos-checkbox" class="flex items-start space-x-2 text-xs text-neutral-700">
+                <input type="checkbox" id="signup-tos-checkbox" disabled class="mt-0.5 w-4 h-4 rounded border-neutral-300 accent-violet-600 disabled:opacity-40">
+                <span>I agree to the Terms of Service</span>
+              </label>
+            </div>
+
             <button type="button" id="btn-signup-to-step2" class="w-full mt-2 py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient hover:opacity-95 active:scale-98 transition shadow-md shadow-pink-500/25 flex items-center justify-center space-x-1.5 cursor-pointer">
               <span>Continue to Profile Setup →</span>
             </button>
@@ -6138,6 +6152,7 @@
             if (typeof window.attachMyFollowersListener === 'function') {
               window.attachMyFollowersListener(state.currentUser.username);
             }
+            try { if (window.pixlyTos) window.pixlyTos.recheck(true); } catch (eTos) {}
             if (typeof loadExploreUserDirectory === 'function' && !window._exploreUserDir) {
               window._exploreUserDirLastFail = 0;
               loadExploreUserDirectory().catch(() => {});
@@ -29690,9 +29705,12 @@ function syncLikedStateToPosts() {
           else setTimeout(runPending, 0);
         }
       } catch (e) {}
+      // Terms of Service: an account that has never agreed gets the blocking consent modal once.
+      try { if (window.pixlyTos) window.pixlyTos.checkAfterLogin(cleanUsername, loginOpts); } catch (eTos) {}
     }
 
     function performLogout() {
+      try { if (window.pixlyTos) window.pixlyTos.hide(); } catch (eTos) {}
       if (typeof clearPrivilegedReadOnlySession === 'function') clearPrivilegedReadOnlySession();
       if (window.pixlyOwnerSessions && typeof window.pixlyOwnerSessions.clearAll === 'function') {
         try { window.pixlyOwnerSessions.clearAll().catch(function () {}); } catch (e) {}
@@ -32489,6 +32507,12 @@ function syncLikedStateToPosts() {
               return;
             }
 
+            if (!(window.pixlySignupTos && window.pixlySignupTos.isAccepted())) {
+              showToast('Scroll to the end of the Terms of Service and check the box to agree');
+              if (window.pixlySignupTos) window.pixlySignupTos.focus();
+              return;
+            }
+
             if (isBiz) {
               const industry = typeof normalizeBusinessIndustry === 'function'
                 ? normalizeBusinessIndustry((document.getElementById('signup-business-industry') || {}).value)
@@ -32587,6 +32611,15 @@ function syncLikedStateToPosts() {
             return;
           }
 
+          if (!(window.pixlySignupTos && window.pixlySignupTos.isAccepted())) {
+            showToast('Scroll to the end of the Terms of Service and check the box to agree');
+            goToSignUpStep(1);
+            if (window.pixlySignupTos) window.pixlySignupTos.focus();
+            return;
+          }
+          const tosAcceptedAt = Date.now();
+          const tosVersion = String(window.PIXLY_TOS_VERSION || '');
+
           let signupIndustry = '';
           let signupIndustryOther = '';
           let signupDba = '';
@@ -32657,7 +32690,9 @@ function syncLikedStateToPosts() {
             followersCount: "0",
             followingCount: "0",
             businessIndustry: isBiz ? signupIndustry : '',
-            businessIndustryOther: isBiz ? signupIndustryOther : ''
+            businessIndustryOther: isBiz ? signupIndustryOther : '',
+            tosAcceptedAt: tosAcceptedAt,
+            tosVersion: tosVersion
           };
 
           // Save into global in-memory account directory
@@ -32741,6 +32776,8 @@ function syncLikedStateToPosts() {
                   link: newAccount.link || '',
                   businessIndustry: newAccount.businessIndustry || '',
                   businessIndustryOther: newAccount.businessIndustryOther || '',
+                  tosAcceptedAt: tosAcceptedAt,
+                  tosVersion: tosVersion,
                   createdAt: Date.now(),
                   lastUpdated: Date.now()
                 };
@@ -32757,13 +32794,18 @@ function syncLikedStateToPosts() {
                   if (em && typeof window.sendPixlynoteEmail === 'function') {
                     window.sendPixlynoteEmail('welcome', { to: em, username: u.toLowerCase() }).catch(() => {});
                   }
-                }).catch(() => {});
+                }).catch(() => {
+                  // The account doc (with its consent) did not save: forget the local proof so the next login asks again.
+                  if (window.pixlyTos) window.pixlyTos.forgetLocal(u.toLowerCase());
+                });
               } catch(e) {}
             }
 
           } catch(err) {}
 
           state.signupVerify = { email: '', emailVerified: false, phone: '', phoneVerified: false };
+          if (window.pixlyTos) window.pixlyTos.rememberLocal(u.toLowerCase(), tosAcceptedAt, tosVersion);
+          if (window.pixlySignupTos) window.pixlySignupTos.reset();
           window._lastLocalProfileWriteTs = Date.now();
           showToast(`🎉 Account created! Welcome, @${u}`);
           performLogin(u, fullName, em, null, phone, accountType);
@@ -40754,6 +40796,319 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
 
     </div>
   </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- TERMS OF SERVICE CONSENT (blocking, shown once to a signed-in account that has never agreed) -->
+  <!-- ========================================================================= -->
+  <div id="tos-consent-modal" role="dialog" aria-modal="true" aria-labelledby="tos-consent-title" style="z-index: 1000; display: none;" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="relative bg-white rounded-3xl border border-neutral-200 shadow-2xl w-full max-w-md max-h-[94vh] flex flex-col overflow-hidden">
+      <div class="p-4 border-b border-neutral-200 bg-neutral-50/90">
+        <h2 id="tos-consent-title" class="text-base font-black text-neutral-900">Terms of Service</h2>
+        <p class="text-[11px] text-neutral-500 mt-0.5">Please read and agree to continue using Pixlynote. <span id="tos-consent-updated"></span></p>
+      </div>
+      <div id="tos-consent-panel" tabindex="0" role="region" aria-label="Terms of Service" class="flex-1 min-h-0 overflow-y-auto p-4 text-[11px] leading-relaxed text-neutral-600 space-y-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-violet-300"></div>
+      <div class="p-4 border-t border-neutral-200 bg-neutral-50/90 space-y-2.5">
+        <p id="tos-consent-hint" class="text-[10px] text-neutral-400">Scroll to the end of the Terms to turn on the checkbox.</p>
+        <label for="tos-consent-checkbox" class="flex items-start space-x-2 text-xs text-neutral-800">
+          <input type="checkbox" id="tos-consent-checkbox" disabled class="mt-0.5 w-4 h-4 rounded border-neutral-300 accent-violet-600 disabled:opacity-40">
+          <span>I agree to the Terms of Service</span>
+        </label>
+        <p id="tos-consent-error" role="alert" class="hidden text-[11px] font-semibold text-rose-600"></p>
+        <div class="flex items-center space-x-2">
+          <button type="button" id="btn-tos-consent-logout" class="px-4 py-2.5 text-xs font-semibold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer">Log out</button>
+          <button type="button" id="btn-tos-consent-agree" disabled class="flex-1 py-2.5 px-4 text-white font-bold text-xs rounded-xl story-gradient transition shadow-md shadow-pink-500/25 opacity-50 cursor-not-allowed">Agree</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // Terms of Service consent. Sign-up (step 1) and the one-time modal for existing accounts share the same
+  // scroll-to-the-end-then-check flow. The text is cloned from the Terms of Service section of Terms & Policies,
+  // so it can never drift from what the app shows there.
+  // Bump PIXLY_TOS_VERSION whenever that text changes. It is recorded with each consent (tosVersion), but a
+  // consented account is NEVER prompted again: only an account with no tosAcceptedAt sees the modal.
+  (function () {
+    window.PIXLY_TOS_VERSION = '2026-11-23';
+    var LOCAL_PREFIX = 'pixly_tos_consent_';
+    var READY_WAIT_MS = 8000;
+
+    function normU(u) { return String(u || '').trim().toLowerCase().replace(/^@/, ''); }
+    function $(id) { return document.getElementById(id); }
+    function hasConsent(d) { return !!(d && typeof d === 'object' && d.tosAcceptedAt); }
+
+    function fillPanel(panel, updatedEl) {
+      var sec = $('policy-section-tos');
+      if (!sec || !panel) return false;
+      panel.textContent = '';
+      var kids = Array.prototype.slice.call(sec.children);
+      kids.slice(1).forEach(function (c) { panel.appendChild(c.cloneNode(true)); });
+      if (updatedEl) {
+        var sub = sec.querySelector('p.text-neutral-400');
+        var txt = sub ? String(sub.textContent || '').split('\u00b7')[0].trim() : '';
+        updatedEl.textContent = txt;
+      }
+      return panel.children.length > 0;
+    }
+
+    // Scroll-to-the-end gate: the checkbox stays disabled until the panel has been scrolled to the end once.
+    function attachGate(panel, cb, hint, onChange) {
+      var gate = { reached: false };
+      function check() {
+        if (gate.reached || !panel.children.length) return;
+        if (panel.clientHeight > 0 && panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 6) {
+          gate.reached = true;
+          cb.disabled = false;
+          if (hint) hint.textContent = '\u2713 You have reached the end. You can now agree.';
+          if (onChange) onChange();
+        }
+      }
+      panel.addEventListener('scroll', check);
+      if (typeof ResizeObserver === 'function') { try { new ResizeObserver(check).observe(panel); } catch (e) {} }
+      cb.addEventListener('change', function () { if (onChange) onChange(); });
+      gate.check = check;
+      gate.reset = function () {
+        gate.reached = false;
+        cb.checked = false;
+        cb.disabled = true;
+        panel.scrollTop = 0;
+        if (hint) hint.textContent = 'Scroll to the end of the Terms to turn on the checkbox.';
+        if (onChange) onChange();
+        setTimeout(check, 0);
+      };
+      return gate;
+    }
+
+    // ---- Sign-up (step 1) ----
+    var suPanel = $('signup-tos-panel'), suCb = $('signup-tos-checkbox');
+    var suGate = null;
+    if (suPanel && suCb) {
+      fillPanel(suPanel, $('signup-tos-updated'));
+      suGate = attachGate(suPanel, suCb, $('signup-tos-hint'), null);
+      window.pixlySignupTos = {
+        isAccepted: function () { return !!(suGate.reached && suCb.checked && !suCb.disabled); },
+        reset: function () { suGate.reset(); },
+        focus: function () { try { suPanel.scrollIntoView({ block: 'center' }); suPanel.focus({ preventScroll: true }); } catch (e) {} }
+      };
+    }
+
+    // ---- Local proof (only used when the cloud doc can't be read) ----
+    function readLocal(u) {
+      try { var d = JSON.parse(localStorage.getItem(LOCAL_PREFIX + normU(u)) || 'null'); return hasConsent(d) ? d : null; } catch (e) { return null; }
+    }
+    function rememberLocal(u, at, ver) {
+      try { localStorage.setItem(LOCAL_PREFIX + normU(u), JSON.stringify({ tosAcceptedAt: at, tosVersion: ver })); } catch (e) {}
+    }
+    function forgetLocal(u) { try { localStorage.removeItem(LOCAL_PREFIX + normU(u)); } catch (e) {} }
+
+    // ---- Existing accounts: one-time blocking modal ----
+    var modal = $('tos-consent-modal'), mPanel = $('tos-consent-panel'), mCb = $('tos-consent-checkbox');
+    var mAgree = $('btn-tos-consent-agree'), mLogout = $('btn-tos-consent-logout'), mErr = $('tos-consent-error');
+    var mGate = null, mUser = '', saving = false, checkGen = 0;
+
+    function syncAgree() {
+      var ok = !!(mGate && mGate.reached && mCb.checked && !saving);
+      mAgree.disabled = !ok;
+      mAgree.classList.toggle('opacity-50', !ok);
+      mAgree.classList.toggle('cursor-not-allowed', !ok);
+      mAgree.classList.toggle('cursor-pointer', ok);
+      mAgree.classList.toggle('hover:opacity-95', ok);
+    }
+    if (modal && mPanel && mCb) {
+      mGate = attachGate(mPanel, mCb, $('tos-consent-hint'), function () { if (mErr) mErr.classList.add('hidden'); syncAgree(); });
+    }
+
+    // Everything behind the modal (the app, the welcome screen, every other modal, drawers, menus) is made inert, so it can't be
+    // clicked, tabbed to, or read by a screen reader. New elements added behind it while it is open are locked too.
+    var lockedEls = [], lockObserver = null, prevBodyOverflow = '';
+    function lockNewChildren() {
+      Array.prototype.slice.call(document.body.children).forEach(function (el) {
+        if (el === modal || el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.id === 'toast' || el.hasAttribute('inert')) return;
+        el.setAttribute('inert', '');
+        lockedEls.push(el);
+      });
+    }
+    function setBackgroundInert(on) {
+      if (on) {
+        if (lockObserver) return;
+        prevBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        lockNewChildren();
+        if (typeof MutationObserver === 'function') {
+          lockObserver = new MutationObserver(lockNewChildren);
+          lockObserver.observe(document.body, { childList: true });
+        } else { lockObserver = { disconnect: function () {} }; }
+      } else {
+        if (lockObserver) { lockObserver.disconnect(); lockObserver = null; document.body.style.overflow = prevBodyOverflow; }
+        lockedEls.forEach(function (el) { el.removeAttribute('inert'); });
+        lockedEls = [];
+      }
+    }
+    // While the modal is open, keyboard shortcuts and swipe gestures never reach the app behind it (Escape does nothing).
+    function swallow(e) {
+      if (!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden'))) return;
+      if (e.type === 'keydown' && e.key === 'Escape') e.preventDefault();
+      e.stopPropagation();
+    }
+    ['keydown', 'keyup', 'keypress', 'touchstart', 'touchmove', 'touchend'].forEach(function (t) { window.addEventListener(t, swallow, true); });
+    function hide() {
+      checkGen++;
+      mUser = '';
+      saving = false;
+      if (modal) { modal.classList.add('hidden'); modal.style.display = 'none'; }
+      setBackgroundInert(false);
+    }
+    function show(u) {
+      if (!modal) return;
+      mUser = normU(u);
+      saving = false;
+      var ok = fillPanel(mPanel, $('tos-consent-updated'));
+      mErr.classList.add('hidden');
+      mErr.textContent = '';
+      mAgree.textContent = 'Agree';
+      mGate.reset();
+      if (!ok) {
+        mErr.textContent = 'The Terms of Service could not be loaded. Please refresh the page or log out.';
+        mErr.classList.remove('hidden');
+      }
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      setBackgroundInert(true);
+      setTimeout(function () { mGate.check(); try { mAgree.blur(); } catch (e) {} }, 0);
+    }
+
+    function errorMessage(e) {
+      var code = String((e && e.code) || '');
+      var msg = String((e && e.message) || '');
+      if (/permission/i.test(code + ' ' + msg)) return "Couldn't save your agreement: permission denied. Please log out, sign back in, and try again.";
+      if (/unavailable|network|offline|deadline|failed-precondition/i.test(code + ' ' + msg)) return "Couldn't save your agreement: no connection. Check your internet and try again.";
+      return "Couldn't save your agreement. Please try again.";
+    }
+
+    async function save(u, at, ver) {
+      var fb = window.firebase;
+      if (!(window.firebaseReady && fb && fb.db && fb.doc && fb.setDoc)) {
+        var err = new Error('Firebase unavailable'); err.code = 'unavailable'; throw err;
+      }
+      await fb.setDoc(fb.doc(fb.db, 'users', u), { tosAcceptedAt: at, tosVersion: ver }, { merge: true });
+    }
+
+    async function agree() {
+      if (saving || !mGate || !mGate.reached || !mCb.checked || !mUser) return;
+      var u = mUser, at = Date.now(), ver = String(window.PIXLY_TOS_VERSION || '');
+      saving = true;
+      mErr.classList.add('hidden');
+      mAgree.textContent = 'Saving\u2026';
+      syncAgree();
+      try {
+        await save(u, at, ver);
+      } catch (e) {
+        if (mUser !== u) return;
+        saving = false;
+        mAgree.textContent = 'Agree';
+        mErr.textContent = errorMessage(e);
+        mErr.classList.remove('hidden');
+        syncAgree();
+        return;
+      }
+      if (mUser !== u) return;
+      rememberLocal(u, at, ver);
+      try {
+        if (window.state && state.currentUser && normU(state.currentUser.username) === u) {
+          state.currentUser.tosAcceptedAt = at;
+          state.currentUser.tosVersion = ver;
+        }
+      } catch (e) {}
+      hide();
+      if (typeof showToast === 'function') showToast('Thanks, you have agreed to the Terms of Service \u2713');
+    }
+
+    if (mAgree) mAgree.addEventListener('click', agree);
+    if (mLogout) mLogout.addEventListener('click', function () {
+      hide();
+      if (typeof performLogout === 'function') performLogout();
+    });
+
+    function waitFirebaseReady(ms) {
+      return new Promise(function (resolve) {
+        if (window.firebaseReady && window.firebase && window.firebase.getDoc) return resolve(true);
+        var done = false;
+        function fin(v) { if (!done) { done = true; resolve(v); } }
+        (window._onFirebaseReadyQueue = window._onFirebaseReadyQueue || []).push(function () { fin(true); });
+        setTimeout(function () { fin(false); }, ms);
+      });
+    }
+
+    // true = must ask, false = leave alone. A cloud read that errors or never loads does not block anyone.
+    async function needsConsent(u) {
+      if (readLocal(u)) return false;
+      var ready = await waitFirebaseReady(READY_WAIT_MS);
+      if (!ready) return false;
+      try {
+        var fb = window.firebase;
+        var snap = await fb.getDoc(fb.doc(fb.db, 'users', u));
+        if (snap && snap.exists()) {
+          var d = snap.data() || {};
+          if (hasConsent(d)) { rememberLocal(u, d.tosAcceptedAt, d.tosVersion || ''); return false; }
+        }
+        return true;
+      } catch (e) { return false; }
+    }
+
+    function privilegedView(loginOpts) {
+      return !!((loginOpts && loginOpts.privilegedReadOnly) || (window.state && state.privilegedReadOnly));
+    }
+    // Called from performLogin, the only place a session becomes the active user (login page, Account Center login, saved-session
+    // restore on reload or reopening the browser, account switcher, owner switch-back, sign-up, password reset then sign-in).
+    function checkAfterLogin(username, loginOpts) {
+      var u = normU(username);
+      if (modal && mUser === u && window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
+      var gen = ++checkGen;
+      if (modal && mUser && mUser !== u) hide();
+      checkGen = gen;
+      if (!u) return Promise.resolve(false);
+      if (privilegedView(loginOpts)) return Promise.resolve(false);
+      return needsConsent(u).then(function (need) {
+        if (gen !== checkGen) return false;
+        if (!need) return false;
+        var cur = (window.state && state.currentUser && state.isLoggedIn) ? normU(state.currentUser.username) : '';
+        if (cur !== u || privilegedView(null)) return false;
+        show(u);
+        return true;
+      });
+    }
+
+    // Re-check for whoever is signed in right now (tab regains focus, page restored from the back/forward cache, Firebase Auth reports a user).
+    var lastRecheck = 0;
+    function recheck(force) {
+      try {
+        if (!(window.state && state.isLoggedIn && state.currentUser && state.currentUser.username)) return Promise.resolve(false);
+        if (privilegedView(null)) return Promise.resolve(false);
+        if (window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
+        var now = Date.now();
+        if (!force && now - lastRecheck < 3000) return Promise.resolve(false);
+        lastRecheck = now;
+        return checkAfterLogin(state.currentUser.username, null);
+      } catch (e) { return Promise.resolve(false); }
+    }
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') recheck(false); });
+    window.addEventListener('focus', function () { recheck(false); });
+    window.addEventListener('pageshow', function () { recheck(false); });
+
+    window.pixlyTos = {
+      version: function () { return String(window.PIXLY_TOS_VERSION || ''); },
+      checkAfterLogin: checkAfterLogin,
+      recheck: recheck,
+      show: show,
+      hide: hide,
+      isOpen: function () { return !!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')); },
+      rememberLocal: rememberLocal,
+      forgetLocal: forgetLocal,
+      readLocal: readLocal
+    };
+  })();
+  </script>
 
 
 </body>

@@ -78,6 +78,7 @@ module.exports = {
         await page.click('#btn-signup-verify-email-code');
         await page.waitForTimeout(250);
 
+        await h.acceptSignupTos(page);
         await page.click('#btn-signup-to-step2');
         await page.waitForTimeout(150);
         a.ok(await h.isVisible(page, '#signup-step-2'), 'Step 2 profile setup opens');
