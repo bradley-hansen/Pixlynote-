@@ -206,16 +206,32 @@ module.exports = {
               await nf.withWorker(page, '/cancel-subscription-at-period-end', mode, async (r) => {
                 await nf.tap(page, 'btn-stripe-cancel-membership', 150);
                 plusBefore = await page.evaluate(() => !!state.currentUser.isPlus);
+                // Record who sets the period-end flag during the tap, so a background account sync
+                // (Firestore snapshot or Stripe session recheck) is not blamed on the Cancel button.
+                await page.evaluate(() => {
+                  const cur = state.currentUser;
+                  let v = cur.stripeCancelAtPeriodEnd;
+                  window.__capSets = [];
+                  Object.defineProperty(cur, 'stripeCancelAtPeriodEnd', { configurable: true, enumerable: true,
+                    get() { return v; },
+                    set(n) { if (n === true) window.__capSets.push(String(new Error().stack || '')); v = n; } });
+                });
                 await nf.tap(page, 'btn-confirm-cancel-membership', 400);
                 a.equal(r.calls.length, 1, 'one period-end cancel request');
               });
             } finally { await legacy.restore(); }
-            const ui = await page.evaluate(() => ({ plus: !!state.currentUser.isPlus, sched: !!state.currentUser.stripeCancelAtPeriodEnd }));
+            const ui = await page.evaluate(() => {
+              const cur = state.currentUser;
+              const v = cur.stripeCancelAtPeriodEnd;
+              delete cur.stripeCancelAtPeriodEnd; cur.stripeCancelAtPeriodEnd = v;
+              const sets = window.__capSets || [];
+              return { plus: !!cur.isPlus, sched: sets.some((st) => /confirmCancelMembership|applyStripeCancelAtPeriodEnd/.test(st)), otherSets: sets.length };
+            });
             const t = await toasts.read();
             const label = typeof mode === 'string' ? mode : JSON.stringify(mode.body);
             a.ok(!t.some((m) => /future charges stopped/i.test(m)), label + ': never says Future charges stopped: ' + JSON.stringify(t));
             a.equal(legacy.calls.length, 0, label + ': never falls back to the immediate /cancel-subscription');
-            a.ok(!ui.sched, label + ': no period-end cancel is recorded');
+            a.ok(!ui.sched, label + ': the Cancel button records no period-end cancel');
             // Plus can only be judged if it was on when the tap happened (a background Stripe session check may change it).
             if (plusBefore) a.ok(ui.plus, label + ': Plus stays on after the failed cancel');
             await page.evaluate(() => { if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal(); });
