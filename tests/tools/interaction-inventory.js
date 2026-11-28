@@ -20,8 +20,8 @@ const LAST_RUN = path.join(ROOT, 'tests', 'results', 'last-run.json');
 
 // Network-backed actions and the tests that prove the UI never shows success when the call fails.
 const FAILURE_PATHS = [
-  ['Business verification Send code', 'Worker /email', '70 (xfail BUG-1)'],
-  ['Business verification Resend', 'Worker /email', '70 (xfail BUG-2)'],
+  ['Business verification Send code', 'Worker /email', '70, 64, 65 (fixed on main cb4c915)'],
+  ['Business verification Resend', 'Worker /email', '70, 64, 65 (fixed on main cb4c915)'],
   ['Business verification Verify email', 'Worker /verify-email-code', '70'],
   ['Business verification Submit', 'Worker /business-verification/submit', '70'],
   ['Business verification status refresh', 'Worker /business-verification/status', '70'],
