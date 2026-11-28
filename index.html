@@ -6769,15 +6769,8 @@
       } catch (e) {}
     }
     function maybeMarkBusinessVerificationLegacyExempt(user) {
-      if (!user) return false;
-      const isBiz = user.accountType === 'business' || String(user.username || '').toLowerCase() === 'pixlynote';
-      if (!isBiz || user.isBusinessPlus !== true) return false;
-      const status = normalizeBusinessVerificationStatus(user.businessVerificationStatus);
-      if (status !== 'not_submitted') return false;
-      if (user.businessVerificationLegacyExempt === true) return false;
-      user.businessVerificationLegacyExempt = true;
-      persistPublicUserFields(user, { businessVerificationLegacyExempt: true });
-      return true;
+      // Retired: the client may not grant itself a badge exemption. Only an admin-approved application shows the green check.
+      return false;
     }
     function syncBusinessIndustryOther(which) {
       const selectId = which === 'signup' ? 'signup-business-industry' : 'edit-profile-business-industry';
@@ -22701,15 +22694,11 @@ function syncLikedStateToPosts() {
       const status = (typeof normalizeBusinessVerificationStatus === 'function')
         ? normalizeBusinessVerificationStatus(flags.businessVerificationStatus)
         : String(flags.businessVerificationStatus || '').toLowerCase();
-      // New rule: green check only when Business Plus is active AND the application is approved.
-      // Legacy subscribers who already had Business Plus with no application keep the check and
-      // are prompted to submit. After they submit, legacyExempt keeps the check while pending /
-      // more_info; a rejection hides it. Existing tests that set isBusinessPlus without a status
-      // still see the check (status is treated as not_submitted).
-      if (status === 'approved') return true;
-      if (status === 'rejected') return false;
-      if (status === 'pending' || status === 'more_info') return flags.businessVerificationLegacyExempt === true;
-      return true;
+      // Green check only when Business Plus is active AND an admin approved the application (Business Verification,
+      // manual review). No exceptions: not for accounts that never applied (not_submitted), not while pending or
+      // more_info, not for @pixlynote. businessVerificationLegacyExempt was set by the client itself (never by an admin),
+      // so it no longer grants the check.
+      return status === 'approved';
     }
     function getAssociatedBusinessFor(creator) {
       const flags = lookupCreatorFlags(creator);

@@ -369,6 +369,57 @@ module.exports = {
       }
     },
     {
+      name: 'Loophole closed: Business Plus never shows the green check without an approved application (not_submitted, pending, more_info, rejected, self-set legacy exemption), for every account including @pixlynote',
+      accounts: ['business', 'pixlynote'],
+      covers: ['handler:isBusinessPlusShown', 'handler:maybeMarkBusinessVerificationLegacyExempt', 'handler:creatorStatusBadgesHtml'],
+      async run(ctx) {
+        const { page, a, account } = ctx;
+        await start(ctx);
+        const r = await page.evaluate(() => {
+          const out = {};
+          window.__pixlyUserDocWrites = [];
+          const base = { accountType: 'business', isPlus: false, isVerified: false };
+          const cases = {
+            notSubmitted: { isBusinessPlus: true, businessVerificationStatus: '' },
+            notSubmittedExplicit: { isBusinessPlus: true, businessVerificationStatus: 'not_submitted' },
+            notSubmittedLegacy: { isBusinessPlus: true, businessVerificationStatus: '', businessVerificationLegacyExempt: true },
+            pending: { isBusinessPlus: true, businessVerificationStatus: 'pending' },
+            pendingLegacy: { isBusinessPlus: true, businessVerificationStatus: 'pending', businessVerificationLegacyExempt: true },
+            moreInfoLegacy: { isBusinessPlus: true, businessVerificationStatus: 'more_info', businessVerificationLegacyExempt: true },
+            rejected: { isBusinessPlus: true, businessVerificationStatus: 'rejected', businessVerificationLegacyExempt: true },
+            approvedNoPlus: { isBusinessPlus: false, businessVerificationStatus: 'approved' },
+            approved: { isBusinessPlus: true, businessVerificationStatus: 'approved' }
+          };
+          for (const [k, f] of Object.entries(cases)) {
+            const u = state.currentUser;
+            delete u.verificationType; delete u.verificationStatus; delete u.businessVerificationLegacyExempt;
+            Object.assign(u, base, f);
+            const marked = maybeMarkBusinessVerificationLegacyExempt(u);
+            if (typeof renderProfile === 'function') renderProfile();
+            const b = document.getElementById('profile-verified-badge');
+            out[k] = {
+              shown: isBusinessPlusShown(u), marked, legacyAfter: u.businessVerificationLegacyExempt === true,
+              green: !!(b && !b.classList.contains('hidden') && b.classList.contains('text-emerald-500')),
+              html: /text-emerald-500/.test(creatorStatusBadgesHtml(u))
+            };
+          }
+          out.exemptWrites = (window.__pixlyUserDocWrites || []).filter((w) => w.data && w.data.businessVerificationLegacyExempt === true).length;
+          return out;
+        });
+        for (const k of ['notSubmitted', 'notSubmittedExplicit', 'notSubmittedLegacy', 'pending', 'pendingLegacy', 'moreInfoLegacy', 'rejected', 'approvedNoPlus']) {
+          a.equal(r[k].shown, false, k + ': no green check by rule (@' + account.username + '): ' + JSON.stringify(r[k]));
+          a.equal(r[k].green, false, k + ': no green check on the profile');
+          a.equal(r[k].html, false, k + ': no green check in feed/explore badges');
+          a.equal(r[k].marked, false, k + ': the app never grants itself a legacy exemption');
+        }
+        a.equal(r.notSubmitted.legacyAfter, false, 'not_submitted Business Plus is not auto-marked exempt');
+        a.equal(r.exemptWrites, 0, 'no businessVerificationLegacyExempt:true write is ever sent');
+        a.equal(r.approved.shown, true, 'approved + Business Plus shows the check');
+        a.equal(r.approved.green, true, 'approved + Business Plus paints the green check on the profile');
+        a.equal(r.approved.html, true, 'approved + Business Plus shows the green check in feed/explore badges');
+      }
+    },
+    {
       name: 'A regular account opening its menu never asks for the pending count',
       accounts: ['personal', 'business'],
       covers: ['handler:openProfileMenu'],

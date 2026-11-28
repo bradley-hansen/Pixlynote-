@@ -314,8 +314,8 @@ module.exports = {
         a.ok(r.checkout.pending && r.checkout.approved && r.checkout.more, 'Pending, approved, and more-info can check out');
         a.ok(r.checks.plusApproved, 'Approved + Business Plus shows the green check');
         a.ok(!r.checks.plusPendingNew, 'A new pending application does not show the check until approved');
-        a.ok(r.checks.plusPendingLegacy, 'Legacy Business Plus keeps the check while the new application is pending');
-        a.ok(r.checks.plusNone, 'Existing Business Plus with no application keeps the check');
+        a.ok(!r.checks.plusPendingLegacy, 'A self-set legacy exemption no longer shows the check while pending (admin approval only)');
+        a.ok(!r.checks.plusNone, 'Business Plus with no application (not_submitted) does not show the check');
         a.ok(!r.checks.plusRejected, 'A rejected application hides the check even if Plus is still on');
         a.ok(!r.checks.approvedNoPlus, 'Approval without Business Plus does not show the check');
         a.ok(r.gateOpen, 'Subscription modal shows the verification gate before checkout');
