@@ -46,11 +46,17 @@ module.exports = {
               const s = document.getElementById('business-verification-admin-refreshed'); if (s) { s.textContent = ''; s.classList.add('hidden'); }
               const c = document.getElementById('business-verification-admin-count'); if (c) c.textContent = '7';
             });
-            await nf.withWorker(page, '/business-verification/admin/list', mode, async (r) => {
-              await page.evaluate((id) => { const b = document.getElementById(id); if (b) b.disabled = false; }, btn);
-              await nf.tap(page, btn, 300);
-              a.equal(r.calls.length, 1, btn + ' ' + mode + ': one list request');
+            // Load/Refresh also asks the no-token pending-count route. That number is the honest
+            // green count (all pending apps) even when the tokened list fails; a failed list must
+            // not invent a 0 or a Refreshed time, and must not leave a stale number.
+            await nf.withWorker(page, '/business-verification/pending-count', { status: 200, body: { ok: true, pending: 4 } }, async () => {
+              await nf.withWorker(page, '/business-verification/admin/list', mode, async (r) => {
+                await page.evaluate((id) => { const b = document.getElementById(id); if (b) b.disabled = false; }, btn);
+                await nf.tap(page, btn, 300);
+                a.equal(r.calls.length, 1, btn + ' ' + mode + ': one list request');
+              });
             });
+            await page.waitForFunction(() => (document.getElementById('business-verification-admin-count') || {}).textContent === '4', null, { timeout: 3000 });
             const ui = await page.evaluate(() => ({
               list: (document.getElementById('drawer-business-verification-list').textContent || '').trim(),
               stamp: (document.getElementById('business-verification-admin-refreshed').textContent || '').trim(),
@@ -59,7 +65,7 @@ module.exports = {
             }));
             a.ok(/could not load applications/i.test(ui.list), btn + ' ' + mode + ': says Could not load applications, got "' + ui.list + '"');
             a.ok(!/refreshed/i.test(ui.stamp), btn + ' ' + mode + ': no Refreshed time after a failure');
-            a.equal(ui.count, '7', btn + ' ' + mode + ': the count is not reset by a failed load');
+            a.equal(ui.count, '4', btn + ' ' + mode + ': the green count is the pending-count result, not a leftover or a fake 0 from the failed list');
             a.ok(!ui.spinning, btn + ' ' + mode + ': the refresh icon stops spinning');
           }
         }
