@@ -6152,6 +6152,7 @@
             if (typeof window.attachMyFollowersListener === 'function') {
               window.attachMyFollowersListener(state.currentUser.username);
             }
+            try { if (window.pixlyTos) window.pixlyTos.recheck(true); } catch (eTos) {}
             if (typeof loadExploreUserDirectory === 'function' && !window._exploreUserDir) {
               window._exploreUserDirLastFail = 0;
               loadExploreUserDirectory().catch(() => {});
@@ -40785,12 +40786,39 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       mGate = attachGate(mPanel, mCb, $('tos-consent-hint'), function () { if (mErr) mErr.classList.add('hidden'); syncAgree(); });
     }
 
-    function setBackgroundInert(on) {
-      ['main-view', 'auth-view'].forEach(function (id) {
-        var el = $(id); if (!el) return;
-        if (on) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+    // Everything behind the modal (the app, the welcome screen, every other modal, drawers, menus) is made inert, so it can't be
+    // clicked, tabbed to, or read by a screen reader. New elements added behind it while it is open are locked too.
+    var lockedEls = [], lockObserver = null, prevBodyOverflow = '';
+    function lockNewChildren() {
+      Array.prototype.slice.call(document.body.children).forEach(function (el) {
+        if (el === modal || el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.id === 'toast' || el.hasAttribute('inert')) return;
+        el.setAttribute('inert', '');
+        lockedEls.push(el);
       });
     }
+    function setBackgroundInert(on) {
+      if (on) {
+        if (lockObserver) return;
+        prevBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        lockNewChildren();
+        if (typeof MutationObserver === 'function') {
+          lockObserver = new MutationObserver(lockNewChildren);
+          lockObserver.observe(document.body, { childList: true });
+        } else { lockObserver = { disconnect: function () {} }; }
+      } else {
+        if (lockObserver) { lockObserver.disconnect(); lockObserver = null; document.body.style.overflow = prevBodyOverflow; }
+        lockedEls.forEach(function (el) { el.removeAttribute('inert'); });
+        lockedEls = [];
+      }
+    }
+    // While the modal is open, keyboard shortcuts and swipe gestures never reach the app behind it (Escape does nothing).
+    function swallow(e) {
+      if (!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden'))) return;
+      if (e.type === 'keydown' && e.key === 'Escape') e.preventDefault();
+      e.stopPropagation();
+    }
+    ['keydown', 'keyup', 'keypress', 'touchstart', 'touchmove', 'touchend'].forEach(function (t) { window.addEventListener(t, swallow, true); });
     function hide() {
       checkGen++;
       mUser = '';
@@ -40895,26 +40923,50 @@ I love where your head is at! For this vibe on Pixlynote, I recommend focusing o
       } catch (e) { return false; }
     }
 
+    function privilegedView(loginOpts) {
+      return !!((loginOpts && loginOpts.privilegedReadOnly) || (window.state && state.privilegedReadOnly));
+    }
+    // Called from performLogin, the only place a session becomes the active user (login page, Account Center login, saved-session
+    // restore on reload or reopening the browser, account switcher, owner switch-back, sign-up, password reset then sign-in).
     function checkAfterLogin(username, loginOpts) {
       var u = normU(username);
+      if (modal && mUser === u && window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
       var gen = ++checkGen;
       if (modal && mUser && mUser !== u) hide();
       checkGen = gen;
       if (!u) return Promise.resolve(false);
-      if (loginOpts && (loginOpts.privilegedReadOnly || loginOpts.restorePrivileged)) return Promise.resolve(false);
+      if (privilegedView(loginOpts)) return Promise.resolve(false);
       return needsConsent(u).then(function (need) {
         if (gen !== checkGen) return false;
         if (!need) return false;
         var cur = (window.state && state.currentUser && state.isLoggedIn) ? normU(state.currentUser.username) : '';
-        if (cur !== u || (window.state && state.privilegedReadOnly)) return false;
+        if (cur !== u || privilegedView(null)) return false;
         show(u);
         return true;
       });
     }
 
+    // Re-check for whoever is signed in right now (tab regains focus, page restored from the back/forward cache, Firebase Auth reports a user).
+    var lastRecheck = 0;
+    function recheck(force) {
+      try {
+        if (!(window.state && state.isLoggedIn && state.currentUser && state.currentUser.username)) return Promise.resolve(false);
+        if (privilegedView(null)) return Promise.resolve(false);
+        if (window.pixlyTos && window.pixlyTos.isOpen()) return Promise.resolve(true);
+        var now = Date.now();
+        if (!force && now - lastRecheck < 3000) return Promise.resolve(false);
+        lastRecheck = now;
+        return checkAfterLogin(state.currentUser.username, null);
+      } catch (e) { return Promise.resolve(false); }
+    }
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') recheck(false); });
+    window.addEventListener('focus', function () { recheck(false); });
+    window.addEventListener('pageshow', function () { recheck(false); });
+
     window.pixlyTos = {
       version: function () { return String(window.PIXLY_TOS_VERSION || ''); },
       checkAfterLogin: checkAfterLogin,
+      recheck: recheck,
       show: show,
       hide: hide,
       isOpen: function () { return !!(modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')); },
