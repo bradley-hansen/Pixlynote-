@@ -240,7 +240,15 @@ const INIT_SCRIPT = `
           if (this && this.nodeType === 1 && this.id && typeof type === 'string') {
             var key = 'listener:#' + this.id + ':' + type;
             var rec = recorders.get(key);
-            if (!rec) { rec = function () { fired.add(key); }; recorders.set(key, rec); }
+            if (!rec) {
+              rec = function () {
+                if (fired.has(key)) return;
+                fired.add(key);
+                // Report to the runner too, so a test that reloads the page does not lose what it fired.
+                try { if (typeof window.__pixlyFired === 'function') window.__pixlyFired(key); } catch (e) {}
+              };
+              recorders.set(key, rec);
+            }
             origAdd.call(this, type, rec);
           }
         } catch (e) {}

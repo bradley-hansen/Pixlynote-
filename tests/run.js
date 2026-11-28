@@ -107,6 +107,10 @@ async function main() {
   const covered = new Set();
   const attempted = new Set();
 
+  // Listener fire audit (see INIT_SCRIPT in tests/helpers/harness.js).
+  const exposedPages = new WeakSet();
+  const currentFired = new Set();
+
   async function runOne(test, accountKey, page) {
     const account = accountKey === 'signed-out' ? { key: 'signed-out', username: '', fullName: '' } : h.ACCOUNTS[accountKey];
     const name = accountKey === 'signed-out' || (test.accounts || []).length <= 1
@@ -118,8 +122,18 @@ async function main() {
     if (grep && !name.includes(grep) && !(test.name && test.name.includes(grep))) {
       return;
     }
+    if (!exposedPages.has(page)) {
+      exposedPages.add(page);
+      await page.exposeFunction('__pixlyFired', (key) => { currentFired.add(String(key)); }).catch(() => {});
+    }
     await page.evaluate(() => { if (window.__firedListenersTake) window.__firedListenersTake(); }).catch(() => {});
-    const takeFired = () => page.evaluate(() => (window.__firedListenersTake ? window.__firedListenersTake() : [])).catch(() => []);
+    currentFired.clear();
+    const takeFired = async () => {
+      const inPage = await page.evaluate(() => (window.__firedListenersTake ? window.__firedListenersTake() : [])).catch(() => []);
+      const all = new Set([...currentFired, ...inPage]);
+      currentFired.clear();
+      return [...all];
+    };
     try {
       await test.run({ page, h, a: makeAssert(), account, accountKey, inventory });
       (test.covers || []).forEach((k) => covered.add(k));

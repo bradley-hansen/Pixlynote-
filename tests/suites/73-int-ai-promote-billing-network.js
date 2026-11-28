@@ -199,16 +199,25 @@ module.exports = {
             await grantPlus(page);
             await page.evaluate(() => { window.__intToasts = []; if (typeof openSubscriptionModal === 'function') openSubscriptionModal(); });
             await page.waitForTimeout(100);
-            await nf.withWorker(page, '/cancel-subscription-at-period-end', mode, async (r) => {
-              await nf.tap(page, 'btn-stripe-cancel-membership', 150);
-              await nf.tap(page, 'btn-confirm-cancel-membership', 400);
-              a.equal(r.calls.length, 1, 'one period-end cancel request');
-            });
+            // The legacy /cancel-subscription route cancels immediately; a failed period-end cancel must never fall back to it.
+            const legacy = await nf.routeWorker(page, '/cancel-subscription', { status: 200, body: { ok: true, canceled: true } });
+            let plusBefore = true;
+            try {
+              await nf.withWorker(page, '/cancel-subscription-at-period-end', mode, async (r) => {
+                await nf.tap(page, 'btn-stripe-cancel-membership', 150);
+                plusBefore = await page.evaluate(() => !!state.currentUser.isPlus);
+                await nf.tap(page, 'btn-confirm-cancel-membership', 400);
+                a.equal(r.calls.length, 1, 'one period-end cancel request');
+              });
+            } finally { await legacy.restore(); }
             const ui = await page.evaluate(() => ({ plus: !!state.currentUser.isPlus, sched: !!state.currentUser.stripeCancelAtPeriodEnd }));
             const t = await toasts.read();
             const label = typeof mode === 'string' ? mode : JSON.stringify(mode.body);
             a.ok(!t.some((m) => /future charges stopped/i.test(m)), label + ': never says Future charges stopped: ' + JSON.stringify(t));
-            a.ok(ui.plus && !ui.sched, label + ': Plus stays and no cancel is recorded');
+            a.equal(legacy.calls.length, 0, label + ': never falls back to the immediate /cancel-subscription');
+            a.ok(!ui.sched, label + ': no period-end cancel is recorded');
+            // Plus can only be judged if it was on when the tap happened (a background Stripe session check may change it).
+            if (plusBefore) a.ok(ui.plus, label + ': Plus stays on after the failed cancel');
             await page.evaluate(() => { if (typeof closeSubscriptionModal === 'function') closeSubscriptionModal(); });
           }
         } finally {

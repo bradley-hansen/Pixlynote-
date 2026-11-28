@@ -212,6 +212,13 @@ module.exports = {
           await h.openOwnerMenu(page);
           await nf.tap(page, 'btn-drawer-admin-promote-tiers', 250);
           await page.evaluate(() => { window.__pfs.failWrites = true; });
+          // Start from valid approved tiers so only the failed write can stop the save (earlier tests may leave edits behind).
+          const approved = [[5, 24, 250], [25, 72, 1500], [100, 168, 7000], [500, 720, 50000]];
+          for (let i = 0; i < approved.length; i++) {
+            await nf.setValue(page, 'admin-promote-tier-' + i + '-price', String(approved[i][0]));
+            await nf.setValue(page, 'admin-promote-tier-' + i + '-hours', String(approved[i][1]));
+            await nf.setValue(page, 'admin-promote-tier-' + i + '-views', String(approved[i][2]));
+          }
           await nf.setValue(page, 'admin-promote-tier-0-price', '6');
           await nf.tap(page, 'btn-admin-promote-tiers-save', 250);
           const t = await page.evaluate(() => ({ msg: document.getElementById('admin-promote-tiers-msg').textContent, plan: promotePlan(5) && promotePlan(5).targetImpressions, saved: !!window.__pfs.docs['promoteSettings/tiers'], btn: document.getElementById('btn-admin-promote-tiers-save').disabled }));

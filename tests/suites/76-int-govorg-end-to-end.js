@@ -539,12 +539,15 @@ module.exports = {
             await page.waitForTimeout(300);
             const pre = await formUi(page);
             if (!(pre.modalOpen && pre.verified)) throw new Error('PRECONDITION (not the bug): the form did not open or the email did not verify: ' + JSON.stringify(pre));
+            if (await page.evaluate(() => verificationApprovalOnFile(state.currentUser))) throw new Error('PRECONDITION (not the bug): an approval from an earlier test is still on file');
             await page.evaluate(() => { window.__pfs.failWrites = true; });
             await page.click('#btn-submit-verification-request');
             await page.waitForTimeout(500);
             const ui = await formUi(page);
             a.equal((await fsWrites(page)).length, 0, 'The mock rejected every write');
+            if (!/pending review/i.test(ui.status) && !ui.statusIsError) throw new Error('PRECONDITION (not the bug): submit ended with an unexpected message: "' + ui.status + '"');
             a.ok(!/pending review/i.test(ui.status) && ui.userStatus !== 'pending', 'Must not say Pending review or mark the account pending when nothing was saved, got "' + ui.status + '" / ' + ui.userStatus);
+            a.ok(ui.statusIsError, 'A failed save shows a red error');
           });
         } finally {
           await w.restore();
